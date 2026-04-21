@@ -1,0 +1,60 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+*.executed.ipynb
+
+# Local environments and secrets
+.env
+.env.*
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Local agent / workspace tooling
+.superpowers/
+.skill_staging/
+
+# Experiment caches and heavyweight artifacts
+exp/cache/
+results/
+fig/**/artifacts/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Large raw datasets kept locally
+data/*.nc
+
+# Local reference library and misc system files
+docs/ref/*.pdf
+docs/ref/.DS_Store
+docs/log/**
+
+# Lean / Lake build outputs
+.lake/
+formalization/.lake/
+*.olean
+*.ilean
+*.trace

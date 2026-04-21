@@ -1,0 +1,75 @@
+{
+  "render_params": {
+    "figure_width": 620,
+    "figure_height": 280,
+    "pairwise_width_base": 0.6,
+    "pairwise_width_scale": 2.6,
+    "hyperedge_stroke_width": 1.8,
+    "hyperedge_target_stroke_width": 2.0,
+    "arrow_marker_width": 12.0,
+    "arrow_marker_height": 9.0,
+    "arrow_marker_ref_x": 7.0,
+    "arrow_marker_ref_y": 3.0,
+    "pairwise_curvature_scale": 0.06,
+    "pairwise_start_offset": 16.0,
+    "pairwise_end_offset": 16.0,
+    "hyperedge_source_offset": 14.0,
+    "hyperedge_target_offset": 16.0,
+    "hyperedge_junction_gap": 8.0,
+    "hyperedge_junction_vertical_gap": 22.0,
+    "arrow_junction_x_frac": 0.36,
+    "arrow_junction_y_offset": 15.0
+  },
+  "main_example": {
+    "pairwise_threshold": 0.08,
+    "combined_edge_color": "#547BB4",
+    "hyperedge_threshold": 0.01,
+    "combined_hyperedge_max_target_dim": 1,
+    "hyperedge_color": "#547BB4",
+    "pairwise_weight_rows": [
+      {
+        "源节点": "x1",
+        "目标节点": "x0",
+        "Pairwise EI": 1.0
+      },
+      {
+        "源节点": "x1",
+        "目标节点": "x1",
+        "Pairwise EI": 0.3112781244591328
+      },
+      {
+        "源节点": "x2",
+        "目标节点": "x1",
+        "Pairwise EI": 0.3112781244591328
+      }
+    ],
+    "hyperedge_weight_rows": [
+      {
+        "机制": "XOR",
+        "源节点组": "x0, x1",
+        "目标节点": "x2",
+        "协同权重": 1.0
+      },
+      {
+        "机制": "AND",
+        "源节点组": "x1, x2",
+        "目标节点": "x1",
+        "协同权重": 0.18872187554086717
+      }
+    ],
+    "multi_target_hyperedge_rows": [
+      {
+        "目标维度": 2,
+        "源节点组": "x0, x1",
+        "目标节点组": "x1, x2",
+        "联合EI": 1.3112781244591327,
+        "单节点EI和": 0.6225562489182656,
+        "协同": 0.6887218755408672
+      }
+    ]
+  },
+  "files": {
+    "ground_truth": "ground_truth_mechanism.svg",
+    "combined_ei_graph": "combined_ei_graph.svg"
+  }
+}
