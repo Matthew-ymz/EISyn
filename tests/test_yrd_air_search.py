@@ -8,6 +8,7 @@ from yrd.air_search import (
     prepare_air_search_bundle,
     resolve_city_scope,
     run_or_load_air_search_predictions,
+    summarize_air_search_station_pollutant_effects,
 )
 
 
@@ -88,6 +89,29 @@ class AirSearchBundleTests(unittest.TestCase):
             predictions["joint_original_predictions"][3].shape,
             predictions["y_test_original"][3].shape,
         )
+
+
+class AirSearchSummaryTests(unittest.TestCase):
+    def test_summarize_air_search_station_pollutant_effects_returns_synergy_and_pairwise_views(self) -> None:
+        summary = summarize_air_search_station_pollutant_effects(
+            sample_summaries=[
+                {
+                    "target_station_id": "A",
+                    "station_pair_synergy_nis": {"A": 0.6, "B": 0.2},
+                    "joint_station_pair_ei_nis": {"A": 1.1, "B": 0.8},
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.3, "PM2.5": 0.5},
+                        "B": {"O3": 0.2, "PM2.5": 0.4},
+                    },
+                }
+            ],
+            station_ids=["A", "B"],
+        )
+
+        self.assertIn("conditional_synergy", summary)
+        self.assertIn("single_pollutant_pairwise", summary)
+        self.assertTrue(summary["conditional_synergy"]["conditional_synergy_edges"])
+        self.assertTrue(summary["single_pollutant_pairwise"]["pairwise_edges"])
 
 
 if __name__ == "__main__":

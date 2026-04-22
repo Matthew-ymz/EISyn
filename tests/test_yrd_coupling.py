@@ -15,6 +15,7 @@ from yrd.coupling import (
     compute_station_level_nis_summary,
     jacobian_for_target_subset,
     select_evenly_spaced_indices,
+    summarize_global_station_single_pollutant_ei,
     summarize_global_station_pollutant_synergy,
     summarize_global_station_coupling,
     summarize_coupling_summaries,
@@ -349,6 +350,48 @@ class YRDNisSummaryTests(unittest.TestCase):
             aggregated["per_target_station"]["A"]["conditional_synergy_ratio_nis"]["A"]["mean"],
             0.6,
         )
+
+    def test_summarize_global_station_single_pollutant_ei_returns_pm25_edges(self) -> None:
+        aggregated = summarize_global_station_single_pollutant_ei(
+            [
+                {
+                    "target_station_id": "A",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.2, "PM2.5": 0.4},
+                        "B": {"O3": 0.1, "PM2.5": 0.3},
+                    },
+                },
+                {
+                    "target_station_id": "A",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.4, "PM2.5": 0.6},
+                        "B": {"O3": 0.2, "PM2.5": 0.1},
+                    },
+                },
+                {
+                    "target_station_id": "B",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.5, "PM2.5": 0.7},
+                        "B": {"O3": 0.2, "PM2.5": 0.2},
+                    },
+                },
+            ],
+            station_ids=["A", "B"],
+            feature_name="PM2.5",
+        )
+
+        self.assertTrue(aggregated["pairwise_edges"])
+        self.assertIn("A", aggregated["per_target_station"])
+        self.assertIn("single_feature_ei_nis", aggregated["per_target_station"]["A"])
+        self.assertAlmostEqual(
+            aggregated["per_target_station"]["A"]["single_feature_ei_nis"]["A"]["mean"],
+            0.5,
+        )
+        a_to_a = next(
+            row for row in aggregated["pairwise_edges"]
+            if row["source_station_id"] == "A" and row["target_station_id"] == "A"
+        )
+        self.assertAlmostEqual(a_to_a["mean"], 0.5)
 
     def test_compute_group_ei_summary_supports_tm_backend(self) -> None:
         source_samples = np.array(

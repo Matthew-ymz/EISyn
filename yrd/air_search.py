@@ -11,6 +11,7 @@ import torch
 
 from .analysis import save_json
 from .config import YRDExperimentConfig
+from .coupling import summarize_global_station_pollutant_synergy, summarize_global_station_single_pollutant_ei
 from .data import build_one_step_samples, load_dataset
 from .models import PersistenceBaseline
 from .train import _compute_metrics, _predict_numpy, rebuild_joint_model_from_checkpoint, set_seed, train_joint_model_with_history
@@ -441,4 +442,23 @@ def run_or_load_air_search_predictions(
         "joint_original_predictions": joint_original_predictions,
         "metrics_payload": metrics_payload,
         "run_manifest": run_manifest,
+    }
+
+
+def summarize_air_search_station_pollutant_effects(
+    *,
+    sample_summaries: list[dict[str, object]],
+    station_ids: list[str],
+    pairwise_feature_name: str = "PM2.5",
+) -> dict[str, object]:
+    return {
+        "conditional_synergy": summarize_global_station_pollutant_synergy(
+            sample_summaries,
+            station_ids=station_ids,
+        ),
+        "single_pollutant_pairwise": summarize_global_station_single_pollutant_ei(
+            sample_summaries,
+            station_ids=station_ids,
+            feature_name=pairwise_feature_name,
+        ),
     }
