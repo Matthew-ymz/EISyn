@@ -16,11 +16,16 @@ from yrd.coupling import (
     compute_station_level_nis_summary,
     jacobian_for_target_subset,
     select_evenly_spaced_indices,
+    summarize_global_station_single_pollutant_ei,
     summarize_global_station_pollutant_synergy,
     summarize_global_station_coupling,
     summarize_coupling_summaries,
 )
-from yrd.shanghai_notebook import compute_training_input_center, sample_uniform_box_inputs
+from yrd.intervention_sampling import (
+    compute_training_input_center,
+    estimate_support_cover_box_profile,
+    sample_uniform_box_inputs,
+)
 
 
 class YRDJacobianTests(unittest.TestCase):
@@ -81,6 +86,37 @@ class YRDNisSummaryTests(unittest.TestCase):
         self.assertTrue(np.all(sample_a[..., 0] <= np.array([[2.0, 1.5]], dtype=np.float32)))
         self.assertTrue(np.all(sample_a[..., 1] >= np.array([[-3.0, -2.5]], dtype=np.float32)))
         self.assertTrue(np.all(sample_a[..., 1] <= np.array([[1.0, 1.5]], dtype=np.float32)))
+
+    def test_estimate_support_cover_box_profile_covers_train_support_and_nonnegative_bounds(self) -> None:
+        x_train = np.array(
+            [
+                [[1.0, -1.0], [3.0, 0.0]],
+                [[5.0, 1.0], [7.0, 2.0]],
+            ],
+            dtype=np.float32,
+        )
+
+        profile = estimate_support_cover_box_profile(
+            x_train=x_train,
+            input_variables=("O3", "PM2.5"),
+            gamma=1.10,
+            stats={
+                "O3": {"mean": 10.0, "std": 2.0},
+                "PM2.5": {"mean": 20.0, "std": 5.0},
+            },
+            nonnegative_variables=("O3",),
+        )
+
+        np.testing.assert_allclose(
+            profile["box_size_by_feature"],
+            np.array([[4.4, 2.2], [4.4, 2.2]], dtype=np.float32),
+        )
+        self.assertAlmostEqual(profile["cover_radius_by_variable"]["O3"], 2.0)
+        self.assertAlmostEqual(profile["cover_radius_by_variable"]["PM2.5"], 1.0)
+        np.testing.assert_array_less(profile["support_low_by_feature"] - 1e-6, profile["feature_min"])
+        np.testing.assert_array_less(profile["feature_max"], profile["support_high_by_feature"] + 1e-6)
+        np.testing.assert_allclose(profile["lower_bounds"][:, 0], np.array([-5.0, -5.0], dtype=np.float32))
+        self.assertTrue(np.isneginf(profile["lower_bounds"][:, 1]).all())
 
     def test_compute_subset_nis_summary_returns_named_metrics(self) -> None:
         jacobian = np.array([[1.0, 0.0], [0.0, 1.5]], dtype=float)
@@ -315,6 +351,48 @@ class YRDNisSummaryTests(unittest.TestCase):
             aggregated["per_target_station"]["A"]["conditional_synergy_ratio_nis"]["A"]["mean"],
             0.6,
         )
+
+    def test_summarize_global_station_single_pollutant_ei_returns_pm25_edges(self) -> None:
+        aggregated = summarize_global_station_single_pollutant_ei(
+            [
+                {
+                    "target_station_id": "A",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.2, "PM2.5": 0.4},
+                        "B": {"O3": 0.1, "PM2.5": 0.3},
+                    },
+                },
+                {
+                    "target_station_id": "A",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.4, "PM2.5": 0.6},
+                        "B": {"O3": 0.2, "PM2.5": 0.1},
+                    },
+                },
+                {
+                    "target_station_id": "B",
+                    "single_pollutant_ei_nis": {
+                        "A": {"O3": 0.5, "PM2.5": 0.7},
+                        "B": {"O3": 0.2, "PM2.5": 0.2},
+                    },
+                },
+            ],
+            station_ids=["A", "B"],
+            feature_name="PM2.5",
+        )
+
+        self.assertTrue(aggregated["pairwise_edges"])
+        self.assertIn("A", aggregated["per_target_station"])
+        self.assertIn("single_feature_ei_nis", aggregated["per_target_station"]["A"])
+        self.assertAlmostEqual(
+            aggregated["per_target_station"]["A"]["single_feature_ei_nis"]["A"]["mean"],
+            0.5,
+        )
+        a_to_a = next(
+            row for row in aggregated["pairwise_edges"]
+            if row["source_station_id"] == "A" and row["target_station_id"] == "A"
+        )
+        self.assertAlmostEqual(a_to_a["mean"], 0.5)
 
     def test_compute_group_ei_summary_supports_tm_backend(self) -> None:
         source_samples = np.array(

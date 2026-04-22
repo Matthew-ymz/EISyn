@@ -46,6 +46,18 @@ class YRDCliTests(unittest.TestCase):
         self.assertIn("train", result.stdout)
         self.assertIn("analyze", result.stdout)
 
+    def test_air_search_cli_supports_help_output(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/run_air_search.py", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("coarse", result.stdout)
+        self.assertIn("refine", result.stdout)
+        self.assertIn("report", result.stdout)
+
 
 class YRDTrainingHistoryTests(unittest.TestCase):
     def test_train_joint_model_with_history_records_losses_and_best_epoch(self) -> None:

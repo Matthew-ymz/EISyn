@@ -86,6 +86,88 @@ class YRDStationSelectionTests(unittest.TestCase):
 
 
 class YRDOneStepSampleTests(unittest.TestCase):
+    def test_build_one_step_samples_supports_multiple_requested_horizons(self) -> None:
+        time = np.array(
+            [
+                "2021-12-31T21",
+                "2021-12-31T22",
+                "2021-12-31T23",
+                "2022-01-01T00",
+                "2022-01-01T01",
+                "2023-01-01T00",
+            ],
+            dtype="datetime64[h]",
+        )
+        station = np.array(["s1"], dtype=object)
+        ds = xr.Dataset(
+            {
+                "O3": (("time", "station"), np.arange(6, dtype=float).reshape(6, 1)),
+                "PM2.5": (("time", "station"), np.arange(10, 16, dtype=float).reshape(6, 1)),
+                "t2m": (("time", "station"), np.arange(20, 26, dtype=float).reshape(6, 1)),
+            },
+            coords={"time": time, "station": station},
+        )
+        metadata = pd.DataFrame({"station_id": ["s1"], "city_en": ["shanghai"]})
+        cfg = YRDExperimentConfig(
+            sample_mode="one_step",
+            horizons=(1, 3),
+            target_variables=("O3", "PM2.5"),
+            meteorology_variables=("t2m",),
+            train_end=pd.Timestamp("2021-12-31 23:00:00"),
+            val_end=pd.Timestamp("2022-12-31 23:00:00"),
+            test_end=pd.Timestamp("2023-12-31 23:00:00"),
+        )
+
+        result = build_one_step_samples(ds, metadata, cfg)
+
+        self.assertEqual(set(result["splits"]["val"]["targets"]), {1, 3})
+        self.assertEqual(result["splits"]["val"]["X"].shape, (2, 1, 3))
+        self.assertEqual(result["splits"]["val"]["targets"][1].shape, (2, 2))
+        self.assertEqual(result["splits"]["val"]["targets"][3].shape, (2, 2))
+        self.assertEqual(result["splits"]["test"]["X"].shape, (1, 1, 3))
+        self.assertEqual(result["splits"]["test"]["targets"][1].shape, (1, 2))
+        self.assertEqual(result["splits"]["test"]["targets"][3].shape, (1, 2))
+
+    def test_build_one_step_samples_assigns_split_from_farthest_requested_horizon(self) -> None:
+        time = np.array(
+            [
+                "2021-12-31T21",
+                "2021-12-31T22",
+                "2021-12-31T23",
+                "2022-01-01T00",
+                "2022-01-01T01",
+                "2023-01-01T00",
+            ],
+            dtype="datetime64[h]",
+        )
+        station = np.array(["s1"], dtype=object)
+        ds = xr.Dataset(
+            {
+                "O3": (("time", "station"), np.arange(6, dtype=float).reshape(6, 1)),
+                "PM2.5": (("time", "station"), np.arange(10, 16, dtype=float).reshape(6, 1)),
+                "t2m": (("time", "station"), np.arange(20, 26, dtype=float).reshape(6, 1)),
+            },
+            coords={"time": time, "station": station},
+        )
+        metadata = pd.DataFrame({"station_id": ["s1"], "city_en": ["shanghai"]})
+        cfg = YRDExperimentConfig(
+            sample_mode="one_step",
+            horizons=(3,),
+            target_variables=("O3", "PM2.5"),
+            meteorology_variables=("t2m",),
+            train_end=pd.Timestamp("2021-12-31 23:00:00"),
+            val_end=pd.Timestamp("2022-12-31 23:00:00"),
+            test_end=pd.Timestamp("2023-12-31 23:00:00"),
+        )
+
+        result = build_one_step_samples(ds, metadata, cfg)
+
+        self.assertEqual(result["splits"]["train"]["X"].shape[0], 0)
+        self.assertEqual(result["splits"]["val"]["X"].shape[0], 2)
+        self.assertEqual(result["splits"]["test"]["X"].shape[0], 1)
+        self.assertEqual(result["splits"]["val"]["targets"][3].shape, (2, 2))
+        self.assertEqual(result["splits"]["test"]["targets"][3].shape, (1, 2))
+
     def test_build_one_step_samples_returns_current_hour_joint_snapshots(self) -> None:
         time = np.array(
             [

@@ -778,6 +778,68 @@ def summarize_global_station_pollutant_synergy(
     }
 
 
+def summarize_global_station_single_pollutant_ei(
+    sample_summaries: list[dict[str, object]],
+    *,
+    station_ids: list[str],
+    feature_name: str,
+) -> dict[str, object]:
+    if not sample_summaries:
+        return {
+            "pairwise_edges": [],
+            "per_target_station": {},
+            "feature_name": str(feature_name),
+        }
+
+    per_target_station: dict[str, dict[str, object]] = {}
+    edge_rows: list[dict[str, object]] = []
+
+    for target_station_id in station_ids:
+        target_rows = [row for row in sample_summaries if row.get("target_station_id") == target_station_id]
+        if not target_rows:
+            continue
+
+        feature_summary = {
+            station_id: _summary_stats(
+                [
+                    float(
+                        dict(
+                            dict(row.get("single_pollutant_ei", row.get("single_pollutant_ei_nis", {}))).get(
+                                station_id,
+                                {},
+                            )
+                        ).get(feature_name, 0.0)
+                    )
+                    for row in target_rows
+                ]
+            )
+            for station_id in station_ids
+        }
+        per_target_station[target_station_id] = {
+            "sample_count": len(target_rows),
+            "feature_name": str(feature_name),
+            "single_feature_ei_nis": feature_summary,
+        }
+        for source_station_id, stats in feature_summary.items():
+            edge_rows.append(
+                {
+                    "source_station_id": source_station_id,
+                    "target_station_id": target_station_id,
+                    "feature_name": str(feature_name),
+                    "mean": float(stats["mean"]),
+                    "std": float(stats["std"]),
+                    "median": float(stats["median"]),
+                }
+            )
+
+    edge_rows.sort(key=lambda row: (row["target_station_id"], -abs(float(row["mean"])), row["source_station_id"]))
+    return {
+        "pairwise_edges": edge_rows,
+        "per_target_station": per_target_station,
+        "feature_name": str(feature_name),
+    }
+
+
 def save_coupling_summary(summary: dict[str, object], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
