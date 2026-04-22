@@ -200,17 +200,15 @@ def build_one_step_samples(
 
     times = pd.to_datetime(ds["time"].values)
     n_time, n_stations, n_features = feature_values.shape
-    horizons = tuple(cfg.horizons)
-    if horizons != (1,):
-        raise ValueError("build_one_step_samples currently supports horizons=(1,) only.")
+    max_horizon = max(cfg.horizons)
 
     split_data: dict[str, dict[str, Any]] = {
-        split: {"X": [], "times": [], "targets": {1: []}}
+        split: {"X": [], "times": [], "targets": {h: [] for h in cfg.horizons}}
         for split in ("train", "val", "test")
     }
 
-    for current_index in range(n_time - 1):
-        future_time = pd.Timestamp(times[current_index + 1])
+    for current_index in range(n_time - max_horizon):
+        future_time = pd.Timestamp(times[current_index + max_horizon])
         split_name = _future_split_name(
             future_time,
             train_end=cfg.train_end,
@@ -225,7 +223,8 @@ def build_one_step_samples(
 
         split_data[split_name]["X"].append(feature_values[current_index])
         split_data[split_name]["times"].append(future_time.isoformat())
-        split_data[split_name]["targets"][1].append(target_values[current_index + 1].reshape(-1))
+        for horizon in cfg.horizons:
+            split_data[split_name]["targets"][horizon].append(target_values[current_index + horizon].reshape(-1))
 
     target_names = _target_names(metadata, cfg.target_variables)
     target_dim = n_stations * len(cfg.target_variables)
@@ -233,7 +232,8 @@ def build_one_step_samples(
         payload["X"] = _stack_or_empty(payload["X"], shape=(0, n_stations, n_features))
         payload["times"] = list(payload["times"])
         payload["targets"] = {
-            1: _stack_or_empty(payload["targets"][1], shape=(0, target_dim)),
+            horizon: _stack_or_empty(values, shape=(0, target_dim))
+            for horizon, values in payload["targets"].items()
         }
 
     return {
