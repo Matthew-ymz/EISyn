@@ -9,7 +9,7 @@ from itertools import combinations
 import numpy as np
 import torch
 
-from yrd.transport_map import estimate_mutual_information_transport_map
+from yrd.transport_map import clip_nonnegative_ei, estimate_mutual_information_transport_map
 
 
 def build_target_index_map(target_names: list[str]) -> dict[str, list[int]]:
@@ -181,14 +181,14 @@ def compute_group_ei_summary(
         overall_backend = "affine_triangular_transport_map"
         for group_name, indices in normalized_groups.items():
             summary = estimate_mutual_information_transport_map(source_matrix[:, indices], target_matrix)
-            group_ei[group_name] = float(summary["mi_hat"])
+            group_ei[group_name] = clip_nonnegative_ei(summary["mi_hat"])
             overall_backend = str(summary["backend"])
         all_indices = sorted({index for indices in normalized_groups.values() for index in indices})
         if not all_indices:
             overall_ei = 0.0
         else:
             overall = estimate_mutual_information_transport_map(source_matrix[:, all_indices], target_matrix)
-            overall_ei = float(overall["mi_hat"])
+            overall_ei = clip_nonnegative_ei(overall["mi_hat"])
             overall_backend = str(overall["backend"])
         return {
             "method": "tm",
@@ -275,11 +275,15 @@ def compute_subset_nis_summary(
     target_jacobian, target_sigma_eps = _prepare_target_view(jacobian, sigma_eps, target_indices)
 
     group_eis = {
-        name: _subset_ei_nis(target_jacobian, target_sigma_eps, indices, box_size=box_size, atol=atol)
+        name: clip_nonnegative_ei(
+            _subset_ei_nis(target_jacobian, target_sigma_eps, indices, box_size=box_size, atol=atol)
+        )
         for name, indices in source_groups.items()
     }
     whole_sources = sorted({index for indices in source_groups.values() for index in indices})
-    ei_full = _subset_ei_nis(target_jacobian, target_sigma_eps, whole_sources, box_size=box_size, atol=atol)
+    ei_full = clip_nonnegative_ei(
+        _subset_ei_nis(target_jacobian, target_sigma_eps, whole_sources, box_size=box_size, atol=atol)
+    )
     syn_nis = float(ei_full - sum(group_eis.values()))
     return {
         "ei_nis": float(ei_full),
@@ -383,6 +387,7 @@ def compute_station_level_nis_summary(
             box_size=box_size,
             atol=atol,
         )
+        pair_value = clip_nonnegative_ei(pair_value)
         binary_synergy[f"{left_name}|{right_name}"] = float(pair_value - pair_ei[left_name] - pair_ei[right_name])
 
     return {
@@ -472,9 +477,9 @@ def compute_station_pollutant_pair_synergy_summary(
             joint_indices = sorted(set(left_indices + right_indices))
             joint_summary = estimate_mutual_information_transport_map(source_matrix[:, joint_indices], target_matrix)
             backend = str(joint_summary["backend"])
-            left_value = float(left_summary["mi_hat"])
-            right_value = float(right_summary["mi_hat"])
-            joint_value = float(joint_summary["mi_hat"])
+            left_value = clip_nonnegative_ei(left_summary["mi_hat"])
+            right_value = clip_nonnegative_ei(right_summary["mi_hat"])
+            joint_value = clip_nonnegative_ei(joint_summary["mi_hat"])
             single_pollutant_ei[str(station_id)] = {
                 str(left_feature): left_value,
                 str(right_feature): right_value,
@@ -509,6 +514,7 @@ def compute_station_pollutant_pair_synergy_summary(
             box_size=box_size,
             atol=atol,
         )
+        left_value = clip_nonnegative_ei(left_value)
         right_value = _subset_ei_nis(
             target_jacobian,
             target_sigma_eps,
@@ -516,6 +522,7 @@ def compute_station_pollutant_pair_synergy_summary(
             box_size=box_size,
             atol=atol,
         )
+        right_value = clip_nonnegative_ei(right_value)
         joint_indices = sorted(set(left_indices + right_indices))
         joint_value = _subset_ei_nis(
             target_jacobian,
@@ -524,6 +531,7 @@ def compute_station_pollutant_pair_synergy_summary(
             box_size=box_size,
             atol=atol,
         )
+        joint_value = clip_nonnegative_ei(joint_value)
         single_pollutant_ei[str(station_id)] = {
             str(left_feature): float(left_value),
             str(right_feature): float(right_value),

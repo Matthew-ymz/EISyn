@@ -6,6 +6,12 @@ import numpy as np
 from scipy.special import digamma
 
 
+def clip_nonnegative_ei(value: float) -> float:
+    """Clamp estimated EI-style quantities to the nonnegative domain."""
+
+    return max(0.0, float(value))
+
+
 def gaussian_logdet_bias_correction(dimension: int, sample_size: int) -> float:
     """Wishart-model bias term for logdet(sample covariance).
 
@@ -162,6 +168,9 @@ def summarize_two_source_synergy_transport_map(
             target_array,
         )["mi_hat"]
     )
+    left_ei = clip_nonnegative_ei(left_ei)
+    right_ei = clip_nonnegative_ei(right_ei)
+    joint_ei = clip_nonnegative_ei(joint_ei)
     return {
         "left_ei": left_ei,
         "right_ei": right_ei,
@@ -238,8 +247,8 @@ def summarize_transport_map_group_decomposition(
     group_ei_tm: dict[str, float] = {}
     for group_name, indices in projected_groups.items():
         summary = estimate_mutual_information_transport_map(projected_source[:, indices], target_matrix)
-        group_ei_tm[group_name] = float(summary["mi_hat"])
-    ei_tm = float(overall["mi_hat"])
+        group_ei_tm[group_name] = clip_nonnegative_ei(summary["mi_hat"])
+    ei_tm = clip_nonnegative_ei(overall["mi_hat"])
     syn_tm = float(ei_tm - sum(group_ei_tm.values()))
     return {
         "backend": str(overall["backend"]),

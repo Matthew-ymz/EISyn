@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -387,6 +388,60 @@ class YRDNisSummaryTests(unittest.TestCase):
         self.assertIn("group_ei", nis_summary)
         self.assertGreater(nis_summary["syn"], 0.0)
 
+    def test_compute_group_synergy_summary_clips_negative_ei_before_syn_for_tm(self) -> None:
+        with patch(
+            "yrd.coupling.estimate_mutual_information_transport_map",
+            side_effect=[
+                {"mi_hat": -0.2, "backend": "tm"},
+                {"mi_hat": 0.3, "backend": "tm"},
+                {"mi_hat": -0.1, "backend": "tm"},
+            ],
+        ):
+            summary = compute_group_synergy_summary(
+                method="tm",
+                source_groups={"o3": [0], "pm25": [1]},
+                source_samples=np.zeros((4, 2), dtype=float),
+                target_samples=np.zeros((4, 1), dtype=float),
+            )
+
+        self.assertEqual(summary["ei"], 0.0)
+        self.assertEqual(summary["group_ei"]["o3"], 0.0)
+        self.assertEqual(summary["group_ei"]["pm25"], 0.3)
+        self.assertAlmostEqual(summary["syn"], -0.3)
+
+    def test_compute_group_synergy_summary_clips_negative_ei_before_syn_for_nis(self) -> None:
+        def fake_subset_ei(
+            _jacobian: np.ndarray,
+            _sigma_eps: np.ndarray,
+            subset: list[int],
+            *,
+            box_size: float,
+            atol: float,
+        ) -> float:
+            del box_size, atol
+            key = tuple(subset)
+            if key == (0,):
+                return -0.2
+            if key == (1,):
+                return 0.3
+            if key == (0, 1):
+                return -0.1
+            raise AssertionError(f"unexpected subset: {key}")
+
+        with patch("yrd.coupling._subset_ei_nis", side_effect=fake_subset_ei):
+            summary = compute_group_synergy_summary(
+                method="nis",
+                source_groups={"o3": [0], "pm25": [1]},
+                jacobian=np.zeros((1, 2), dtype=float),
+                sigma_eps=np.eye(1, dtype=float),
+                target_indices=[0],
+            )
+
+        self.assertEqual(summary["ei"], 0.0)
+        self.assertEqual(summary["group_ei"]["o3"], 0.0)
+        self.assertEqual(summary["group_ei"]["pm25"], 0.3)
+        self.assertAlmostEqual(summary["syn"], -0.3)
+
     def test_transport_map_source_lift_handles_one_and_two_dimensional_blocks(self) -> None:
         from yrd.transport_map import lift_transport_source_features
 
@@ -464,6 +519,30 @@ class YRDNisSummaryTests(unittest.TestCase):
         self.assertEqual(set(pollutant_summary["joint_station_pair_ei"]), {"A", "B"})
         self.assertIn("O3", pollutant_summary["single_pollutant_ei"]["A"])
         self.assertIn("PM2.5", pollutant_summary["single_pollutant_ei"]["A"])
+
+    def test_tm_pollutant_pair_synergy_clips_negative_ei_before_syn(self) -> None:
+        pollutant_groups = {
+            "A": {"O3": [0], "PM2.5": [1]},
+        }
+        with patch(
+            "yrd.coupling.estimate_mutual_information_transport_map",
+            side_effect=[
+                {"mi_hat": -0.4, "backend": "tm"},
+                {"mi_hat": 0.3, "backend": "tm"},
+                {"mi_hat": 0.2, "backend": "tm"},
+            ],
+        ):
+            summary = compute_station_pollutant_pair_synergy_summary(
+                method="tm",
+                source_samples=np.zeros((4, 2), dtype=float),
+                target_samples=np.zeros((4, 1), dtype=float),
+                station_pollutant_feature_groups=pollutant_groups,
+            )
+
+        self.assertEqual(summary["single_pollutant_ei"]["A"]["O3"], 0.0)
+        self.assertEqual(summary["single_pollutant_ei"]["A"]["PM2.5"], 0.3)
+        self.assertEqual(summary["joint_station_pair_ei"]["A"], 0.2)
+        self.assertAlmostEqual(summary["station_pair_synergy"]["A"], -0.1)
 
 
 if __name__ == "__main__":
