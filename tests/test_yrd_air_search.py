@@ -1,10 +1,15 @@
 import unittest
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 
 from yrd.air_search import (
+    build_coarse_row,
     build_air_search_artifact_paths,
     build_air_search_config,
+    build_report_manifest,
+    choose_tm_gamma,
     prepare_air_search_bundle,
     resolve_city_scope,
     run_or_load_air_search_predictions,
@@ -112,6 +117,59 @@ class AirSearchSummaryTests(unittest.TestCase):
         self.assertIn("single_pollutant_pairwise", summary)
         self.assertTrue(summary["conditional_synergy"]["conditional_synergy_edges"])
         self.assertTrue(summary["single_pollutant_pairwise"]["pairwise_edges"])
+
+
+class AirSearchCoarseTests(unittest.TestCase):
+    def test_build_coarse_row_prefers_absolute_syn_and_tracks_negative_ratio(self) -> None:
+        row = build_coarse_row(
+            city_en="nanjing",
+            horizon=6,
+            o3_rmse=8.0,
+            baseline_o3_rmse=10.0,
+            syn_mean=0.42,
+            syn_negative_ratio=0.08,
+            pm25_to_o3_mean=0.31,
+            pm25_negative_ratio=0.02,
+        )
+
+        self.assertTrue(row["passes_accuracy_gate"])
+        self.assertEqual(row["primary_syn_mean"], 0.42)
+        self.assertEqual(row["syn_negative_ratio"], 0.08)
+        self.assertEqual(row["pm25_to_o3_mean"], 0.31)
+
+
+class AirSearchRefineTests(unittest.TestCase):
+    def test_choose_tm_gamma_prefers_smallest_covering_gamma_with_stable_signs(self) -> None:
+        winner = choose_tm_gamma(
+            [
+                {"gamma": 1.00, "syn_negative_ratio": 0.35},
+                {"gamma": 1.10, "syn_negative_ratio": 0.08},
+                {"gamma": 1.20, "syn_negative_ratio": 0.07},
+            ]
+        )
+
+        self.assertEqual(winner["gamma"], 1.10)
+
+    def test_report_manifest_contains_three_required_graph_types(self) -> None:
+        manifest = build_report_manifest(
+            city_en="shanghai",
+            horizon=3,
+            selected_refine_run={
+                "gamma": 1.10,
+                "sample_count": 64,
+                "seed": 0,
+            },
+            graph_paths={
+                "o3_pairwise": "o3_pairwise.png",
+                "pm25_to_o3_pairwise": "pm25_to_o3_pairwise.png",
+                "o3_pm25_synergy": "o3_pm25_synergy.png",
+            },
+        )
+
+        self.assertEqual(
+            set(manifest["graphs"]),
+            {"o3_pairwise", "pm25_to_o3_pairwise", "o3_pm25_synergy"},
+        )
 
 
 if __name__ == "__main__":
