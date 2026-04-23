@@ -1025,6 +1025,19 @@ def _load_leaderboard_rows(path: Path) -> list[dict[str, object]]:
     return list(rows) if isinstance(rows, list) else []
 
 
+def _merge_unique_rows(
+    existing_rows: list[dict[str, object]],
+    new_rows: list[dict[str, object]],
+    *,
+    key_fields: tuple[str, ...],
+) -> list[dict[str, object]]:
+    merged: dict[tuple[object, ...], dict[str, object]] = {}
+    for row in existing_rows + new_rows:
+        key = tuple(row.get(field) for field in key_fields)
+        merged[key] = row
+    return list(merged.values())
+
+
 def _group_refine_rows_by_gamma(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     grouped: dict[float, list[dict[str, object]]] = {}
     for row in rows:
@@ -1055,6 +1068,11 @@ def run_refine_stage(
     tm_gammas: list[float] | None = None,
 ) -> dict[str, object]:
     state_paths = ensure_air_tuning_state(root_dir)
+    existing_payload = (
+        load_json(Path(state_paths["refine_results"]))
+        if Path(state_paths["refine_results"]).exists()
+        else {"rows": [], "reports": []}
+    )
     shortlist = [
         row for row in _load_leaderboard_rows(Path(state_paths["coarse_leaderboard"]))
         if row.get("city_en") in cities and int(row.get("horizon", -1)) in horizons
@@ -1161,9 +1179,20 @@ def run_refine_stage(
         save_json(Path(manifest_path), _to_jsonable(manifest))
         report_manifests.append(manifest)
 
-    payload = {"rows": refine_rows, "reports": report_manifests}
+    payload = {
+        "rows": _merge_unique_rows(
+            list(existing_payload.get("rows", [])),
+            refine_rows,
+            key_fields=("city_en", "horizon", "gamma", "sample_count", "seed", "run_tag"),
+        ),
+        "reports": _merge_unique_rows(
+            list(existing_payload.get("reports", [])),
+            report_manifests,
+            key_fields=("city_en", "horizon"),
+        ),
+    }
     save_json(Path(state_paths["refine_results"]), _to_jsonable(payload))
-    save_json(Path(state_paths["report_manifest"]), _to_jsonable({"reports": report_manifests}))
+    save_json(Path(state_paths["report_manifest"]), _to_jsonable({"reports": payload["reports"]}))
     return payload
 
 
