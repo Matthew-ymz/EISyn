@@ -164,6 +164,7 @@ def estimate_support_cover_box_profile(
         support_low_by_feature = np.maximum(support_low_by_feature, lower_bounds)
         support_high_by_feature = np.maximum(support_high_by_feature, support_low_by_feature)
     return {
+        "box_mode": "per_variable",
         "gamma": float(gamma),
         "input_variables": list(input_variables),
         "center": center,
@@ -201,4 +202,60 @@ def estimate_support_cover_box_profile(
             else {}
         ),
         "nonnegative_variables": list(nonnegative_variables),
+    }
+
+
+def collapse_support_cover_box_profile_to_global_max(
+    profile: dict[str, object],
+    *,
+    global_box_size_override: float | None = None,
+) -> dict[str, object]:
+    input_variables = list(profile.get("input_variables", []))
+    if not input_variables:
+        raise ValueError("profile must include at least one input variable.")
+
+    original_box_size_by_variable = {
+        str(name): float(value)
+        for name, value in dict(profile.get("box_size_by_variable", {})).items()
+    }
+    missing_variables = [name for name in input_variables if name not in original_box_size_by_variable]
+    if missing_variables:
+        missing_text = ", ".join(missing_variables)
+        raise ValueError(f"profile is missing box sizes for variables: {missing_text}.")
+
+    global_box_size = max(original_box_size_by_variable[name] for name in input_variables)
+    if global_box_size_override is not None:
+        global_box_size = float(global_box_size_override)
+        if global_box_size <= 0.0:
+            raise ValueError("global_box_size_override must be positive.")
+    center = np.asarray(profile["center"], dtype=np.float32)
+    box_size_by_feature = np.full(center.shape, global_box_size, dtype=np.float32)
+    lower_bounds = profile.get("lower_bounds")
+    lower_bound_array = None
+    if lower_bounds is not None:
+        lower_bound_array = np.asarray(lower_bounds, dtype=np.float32).copy()
+
+    support_low_by_feature = center - box_size_by_feature / 2.0
+    support_high_by_feature = center + box_size_by_feature / 2.0
+    if lower_bound_array is not None:
+        support_low_by_feature = np.maximum(support_low_by_feature, lower_bound_array)
+        support_high_by_feature = np.maximum(support_high_by_feature, support_low_by_feature)
+
+    scalar_box_size_by_variable = {
+        variable_name: float(global_box_size)
+        for variable_name in input_variables
+    }
+    return {
+        **profile,
+        "box_mode": "global_max",
+        "global_box_size": float(global_box_size),
+        "global_box_size_override": (
+            None if global_box_size_override is None else float(global_box_size_override)
+        ),
+        "original_box_size_by_variable": original_box_size_by_variable,
+        "box_size_by_variable": scalar_box_size_by_variable,
+        "box_size_by_feature": box_size_by_feature,
+        "support_low_by_feature": support_low_by_feature.astype(np.float32),
+        "support_high_by_feature": support_high_by_feature.astype(np.float32),
+        "lower_bounds": lower_bound_array,
     }

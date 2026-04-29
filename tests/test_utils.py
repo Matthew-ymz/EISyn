@@ -594,7 +594,7 @@ exec(compile(code, 'experiment6_notebook_preamble', 'exec'), {{}}, {{}})
 
     def test_transport_map_notebook_import_preamble_works_from_exp_directory(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
-        notebook_path = project_root / "exp" / "tm_vs_nis.ipynb"
+        notebook_path = project_root / "exp" / "tm_nonlinear.ipynb"
 
         snippet = f"""
 import json
@@ -619,7 +619,7 @@ exec(compile(code, 'transport_map_notebook_preamble', 'exec'), {{}}, {{}})
     def test_transport_map_notebook_has_compact_shape_and_reuses_module_helpers(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         notebook = json.loads(
-            (project_root / "exp" / "tm_vs_nis.ipynb").read_text()
+            (project_root / "exp" / "tm_nonlinear.ipynb").read_text()
         )
         code_text = "\n".join(
             "".join(cell.get("source", []))
@@ -629,15 +629,17 @@ exec(compile(code, 'transport_map_notebook_preamble', 'exec'), {{}}, {{}})
 
         self.assertLessEqual(len(notebook["cells"]), 8)
         self.assertIn("summarize_two_source_synergy_transport_map", code_text)
-        self.assertIn("jacobian_uniform_box_total_synergy_for_dynamics", code_text)
+        self.assertIn("run_alpha_sweep_tm", code_text)
+        self.assertIn("draw_alpha_case_factor_graph", code_text)
         self.assertNotIn("class AffineTransportMapDensityEstimator", code_text)
         self.assertNotIn("def estimate_mutual_information_transport_map", code_text)
         self.assertNotIn("def simulate_synergistic_collider", code_text)
+        self.assertNotIn("jacobian_uniform_box_total_synergy_for_dynamics", code_text)
 
     def test_transport_map_notebook_contains_chinese_method_and_result_sections(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         notebook = json.loads(
-            (project_root / "exp" / "tm_vs_nis.ipynb").read_text()
+            (project_root / "exp" / "tm_nonlinear.ipynb").read_text()
         )
 
         markdown_text = "\n".join(
@@ -653,24 +655,27 @@ exec(compile(code, 'transport_map_notebook_preamble', 'exec'), {{}}, {{}})
 
         for phrase in [
             "transport map",
-            "Strong synergy",
-            "Moderate synergy",
-            "Zero synergy",
+            "已知动力学",
+            "alpha",
+            "alpha = 0",
             "Syn / EI",
+            "单源",
+            "因子图",
         ]:
             self.assertIn(phrase, markdown_text)
 
         for symbol in [
-            "simulate_uniform_case_intervention",
-            "compare_uniform_intervention_nis_vs_transport",
-            "plot_uniform_intervention_nis_vs_transport",
+            "simulate_alpha_case_intervention",
+            "run_alpha_sweep_tm",
+            "plot_alpha_sweep_tm",
+            "joint input required",
         ]:
             self.assertIn(symbol, code_text)
 
     def test_transport_map_notebook_excludes_removed_density_and_collider_sections(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         notebook = json.loads(
-            (project_root / "exp" / "tm_vs_nis.ipynb").read_text()
+            (project_root / "exp" / "tm_nonlinear.ipynb").read_text()
         )
 
         markdown_text = "\n".join(
@@ -703,6 +708,9 @@ exec(compile(code, 'transport_map_notebook_preamble', 'exec'), {{}}, {{}})
             "simulate_synergistic_collider",
             "plot_synergistic_collider_overview",
             "plot_synergistic_information_bars",
+            "estimate_nis_target_metrics",
+            "compare_uniform_intervention_nis_vs_transport",
+            "plot_uniform_intervention_nis_vs_transport",
         ]:
             self.assertNotIn(symbol, code_text)
 

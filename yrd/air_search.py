@@ -26,6 +26,7 @@ from .coupling import (
 )
 from .data import build_one_step_samples, load_dataset
 from .intervention_sampling import (
+    collapse_support_cover_box_profile_to_global_max,
     compute_training_input_center,
     estimate_support_cover_box_profile,
     sample_uniform_box_inputs,
@@ -791,6 +792,8 @@ def compute_air_search_tm_summary(
     gamma: float,
     target_variable: str = "O3",
     nonnegative_variables: tuple[str, ...] = DEFAULT_TM_NONNEGATIVE_VARIABLES,
+    box_mode: str = "per_variable",
+    global_box_size_override: float | None = None,
 ) -> dict[str, object]:
     cfg = bundle["cfg"]
     station_ids = bundle["station_ids"]
@@ -804,6 +807,13 @@ def compute_air_search_tm_summary(
         stats=bundle["stats"],
         nonnegative_variables=tuple(nonnegative_variables),
     )
+    if box_mode == "global_max":
+        profile = collapse_support_cover_box_profile_to_global_max(
+            profile,
+            global_box_size_override=global_box_size_override,
+        )
+    elif box_mode != "per_variable":
+        raise ValueError(f"Unsupported box_mode={box_mode!r}.")
     synthetic_inputs = sample_uniform_box_inputs(
         center=np.asarray(profile["center"], dtype=np.float32),
         box_size=np.asarray(profile["box_size_by_feature"], dtype=np.float32),
@@ -844,6 +854,7 @@ def compute_air_search_tm_summary(
         "gamma": float(gamma),
         "sample_count": int(sample_count),
         "sampling_seed": int(sampling_seed),
+        "box_mode": str(profile.get("box_mode", box_mode)),
         "profile": profile,
         "sample_summaries": sample_summaries,
         "o3_pairwise": summarize_global_station_coupling(sample_summaries, station_ids=station_ids),

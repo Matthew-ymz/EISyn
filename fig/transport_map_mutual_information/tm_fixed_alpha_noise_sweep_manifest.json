@@ -1,0 +1,28 @@
+{
+  "notebook": "exp/tm_nonlinear.ipynb",
+  "alpha_values": [
+    0.0,
+    0.5,
+    1.0
+  ],
+  "noise_std_values": [
+    0.0,
+    0.02,
+    0.05,
+    0.1,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    1.0
+  ],
+  "runs_csv": "tm_fixed_alpha_noise_sweep_runs.csv",
+  "summary_csv": "tm_fixed_alpha_noise_sweep_summary.csv",
+  "figures": [
+    "tm_fixed_alpha_noise_sweep_decomposition.png",
+    "tm_fixed_alpha_noise_sweep_decomposition.pdf",
+    "tm_fixed_alpha_noise_sweep_share_ratio.png",
+    "tm_fixed_alpha_noise_sweep_share_ratio.pdf"
+  ],
+  "notes": "tm_fixed_alpha_noise_sweep_notes.md"
+}

@@ -1,0 +1,26 @@
+{
+  "notebook": "exp/tm_nonlinear.ipynb",
+  "l_values": [
+    1.0,
+    2.0,
+    4.0,
+    6.0,
+    8.0,
+    10.0,
+    12.0
+  ],
+  "alpha_values": [
+    0.0,
+    0.5,
+    1.0
+  ],
+  "runs_csv": "tm_l_sweep_runs.csv",
+  "summary_csv": "tm_l_sweep_summary.csv",
+  "figures": [
+    "tm_l_sensitivity_heatmap.png",
+    "tm_l_sensitivity_heatmap.pdf",
+    "tm_l_sensitivity_lines.png",
+    "tm_l_sensitivity_lines.pdf"
+  ],
+  "notes": "tm_l_sensitivity_notes.md"
+}

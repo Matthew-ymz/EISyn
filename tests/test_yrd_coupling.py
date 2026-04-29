@@ -22,6 +22,7 @@ from yrd.coupling import (
     summarize_coupling_summaries,
 )
 from yrd.intervention_sampling import (
+    collapse_support_cover_box_profile_to_global_max,
     compute_training_input_center,
     estimate_support_cover_box_profile,
     sample_uniform_box_inputs,
@@ -117,6 +118,53 @@ class YRDNisSummaryTests(unittest.TestCase):
         np.testing.assert_array_less(profile["feature_max"], profile["support_high_by_feature"] + 1e-6)
         np.testing.assert_allclose(profile["lower_bounds"][:, 0], np.array([-5.0, -5.0], dtype=np.float32))
         self.assertTrue(np.isneginf(profile["lower_bounds"][:, 1]).all())
+
+    def test_collapse_support_cover_box_profile_to_global_max_uses_single_l(self) -> None:
+        profile = estimate_support_cover_box_profile(
+            x_train=np.array(
+                [
+                    [[1.0, -1.0], [3.0, 0.0]],
+                    [[5.0, 1.0], [7.0, 2.0]],
+                ],
+                dtype=np.float32,
+            ),
+            input_variables=("O3", "PM2.5"),
+            gamma=1.10,
+            stats={
+                "O3": {"mean": 10.0, "std": 2.0},
+                "PM2.5": {"mean": 20.0, "std": 5.0},
+            },
+            nonnegative_variables=("O3",),
+        )
+
+        scalar_profile = collapse_support_cover_box_profile_to_global_max(profile)
+
+        self.assertEqual(scalar_profile["box_mode"], "global_max")
+        self.assertAlmostEqual(scalar_profile["global_box_size"], 4.4, places=6)
+        self.assertAlmostEqual(
+            scalar_profile["original_box_size_by_variable"]["O3"],
+            4.4,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            scalar_profile["original_box_size_by_variable"]["PM2.5"],
+            2.2,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            scalar_profile["box_size_by_variable"]["O3"],
+            4.4,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            scalar_profile["box_size_by_variable"]["PM2.5"],
+            4.4,
+            places=6,
+        )
+        np.testing.assert_allclose(
+            scalar_profile["box_size_by_feature"],
+            np.array([[4.4, 4.4], [4.4, 4.4]], dtype=np.float32),
+        )
 
     def test_compute_subset_nis_summary_returns_named_metrics(self) -> None:
         jacobian = np.array([[1.0, 0.0], [0.0, 1.5]], dtype=float)

@@ -24,10 +24,26 @@ from .shanghai_notebook import (
 )
 
 
-def build_tm_run_tag(*, gamma: float, sample_count: int, seed: int, use_smoke: bool) -> str:
+def build_tm_run_tag(
+    *,
+    gamma: float,
+    sample_count: int,
+    seed: int,
+    use_smoke: bool,
+    box_mode: str = "per_variable",
+    global_box_size_override: float | None = None,
+) -> str:
     gamma_label = str(f"{float(gamma):.2f}").replace(".", "p")
     prefix = "refine_smoke" if use_smoke else "refine"
-    return f"{prefix}_tm_g{gamma_label}_m{int(sample_count)}_seed{int(seed)}"
+    run_tag = f"{prefix}_tm_g{gamma_label}_m{int(sample_count)}_seed{int(seed)}"
+    if box_mode == "per_variable":
+        return run_tag
+    if box_mode == "global_max":
+        if global_box_size_override is None:
+            return f"{run_tag}_lmax"
+        override_label = f"{float(global_box_size_override):.4f}".replace(".", "p")
+        return f"{run_tag}_l{override_label}"
+    raise ValueError(f"Unsupported box_mode={box_mode!r}.")
 
 
 def _to_jsonable(value: object) -> object:
@@ -258,6 +274,8 @@ def run_air_tm_notebook_case(
     force_retrain: bool,
     force_recompute_tm: bool,
     use_smoke: bool,
+    box_mode: str = "per_variable",
+    global_box_size_override: float | None = None,
 ) -> dict[str, object]:
     resolved_root = find_project_root(Path(root_dir))
     cfg = build_air_search_config(
@@ -271,6 +289,8 @@ def run_air_tm_notebook_case(
         sample_count=int(tm_sample_count),
         seed=int(sampling_seed),
         use_smoke=use_smoke,
+        box_mode=box_mode,
+        global_box_size_override=global_box_size_override,
     )
     bundle = prepare_air_search_bundle(
         cfg=cfg,
@@ -290,6 +310,8 @@ def run_air_tm_notebook_case(
             sample_count=int(tm_sample_count),
             sampling_seed=int(sampling_seed),
             gamma=float(gamma),
+            box_mode=box_mode,
+            global_box_size_override=global_box_size_override,
         )
         _save_json(refine_summary_path, tm_summary)
     bundle["tm_summary"] = tm_summary
@@ -348,8 +370,17 @@ def run_air_tm_notebook_case(
         synergy_display_df=synergy_display_df,
         graph_paths=graph_paths,
     )
+    profile = tm_summary["profile"]
+    if box_mode == "global_max":
+        global_box_size = float(profile["global_box_size"])
+        global_box_size_override_value = profile.get("global_box_size_override")
+        box_description = f"scalar L=max_v L_v={global_box_size:.4f}"
+    else:
+        global_box_size = None
+        global_box_size_override_value = None
+        box_description = "support-cover L_v"
     final_conclusion_text = (
-        f"{city_en.title()} {int(horizon)}h uses support-cover L_v with gamma={float(gamma):.2f}. "
+        f"{city_en.title()} {int(horizon)}h uses {box_description} with gamma={float(gamma):.2f}. "
         f"The notebook defaults to cached TM results, exposes O3 -> O3, PM2.5 -> O3, and "
         f"O3 + PM2.5 -> O3 synergy graphs, and lets you compare top-{int(top_k_edges)} edges "
         f"under different sample_count/seed settings."
@@ -361,6 +392,13 @@ def run_air_tm_notebook_case(
             "tm_sample_count": int(tm_sample_count),
             "sampling_seed": int(sampling_seed),
             "gamma": float(gamma),
+            "box_mode": str(profile.get("box_mode", box_mode)),
+            **({"global_box_size": global_box_size} if global_box_size is not None else {}),
+            **(
+                {"global_box_size_override": float(global_box_size_override_value)}
+                if global_box_size_override_value is not None
+                else {}
+            ),
             "run_tag": run_tag,
             "used_cached_results": bool(used_cached_results),
             "results_dir": str(graph_paths["results_dir"]),

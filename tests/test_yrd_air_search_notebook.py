@@ -105,6 +105,63 @@ class AirSearchNotebookHelperTests(unittest.TestCase):
         self.assertIn("pm25_to_o3_pairwise", results["graph_paths"])
         self.assertIn("o3_pm25_synergy", results["graph_paths"])
 
+    def test_run_air_tm_notebook_case_global_max_box_mode_uses_scalar_l(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+
+        results = run_air_tm_notebook_case(
+            root_dir=project_root,
+            city_en="hangzhou",
+            horizon=3,
+            tm_sample_count=32,
+            sampling_seed=0,
+            gamma=1.0,
+            top_k_edges=8,
+            min_abs_strength=0.0,
+            show_negative_synergy_edges=True,
+            force_retrain=False,
+            force_recompute_tm=True,
+            use_smoke=True,
+            box_mode="global_max",
+        )
+
+        self.assertEqual(results["run_context"]["box_mode"], "global_max")
+        self.assertIn("global_box_size", results["run_context"])
+        self.assertEqual(results["run_context"]["run_tag"].endswith("_lmax"), True)
+        self.assertEqual(
+            set(results["profile"]["box_size_by_variable"].values()),
+            {results["run_context"]["global_box_size"]},
+        )
+        self.assertEqual(
+            max(results["profile"]["original_box_size_by_variable"].values()),
+            results["run_context"]["global_box_size"],
+        )
+
+    def test_run_air_tm_notebook_case_global_max_override_uses_manual_l(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+
+        results = run_air_tm_notebook_case(
+            root_dir=project_root,
+            city_en="hangzhou",
+            horizon=3,
+            tm_sample_count=32,
+            sampling_seed=0,
+            gamma=1.0,
+            top_k_edges=8,
+            min_abs_strength=0.0,
+            show_negative_synergy_edges=True,
+            force_retrain=False,
+            force_recompute_tm=True,
+            use_smoke=True,
+            box_mode="global_max",
+            global_box_size_override=9.5,
+        )
+
+        self.assertEqual(results["run_context"]["box_mode"], "global_max")
+        self.assertEqual(results["run_context"]["global_box_size"], 9.5)
+        self.assertEqual(results["run_context"]["run_tag"].endswith("_l9p5000"), True)
+        self.assertEqual(set(results["profile"]["box_size_by_variable"].values()), {9.5})
+        self.assertEqual(results["profile"]["global_box_size"], 9.5)
+
 
 class AirSearchNotebookTests(unittest.TestCase):
     def test_hangzhou_tm_notebook_keeps_code_cells_short(self) -> None:
@@ -153,16 +210,29 @@ class AirSearchNotebookTests(unittest.TestCase):
         self.assertIn("synergy_display_df", namespace)
         self.assertIn("graph_paths", namespace)
         self.assertIn("final_conclusion_text", namespace)
+        self.assertIn("GLOBAL_MAX_EXPERIMENT_CONFIG", namespace)
+        self.assertIn("global_max_results", namespace)
+        self.assertIn("global_max_profile_variable_df", namespace)
+        self.assertIn("global_max_graph_paths", namespace)
+        self.assertIn("global_max_final_conclusion_text", namespace)
+        self.assertIn("global_max_l", namespace)
 
         self.assertEqual(namespace["EXPERIMENT_CONFIG"]["city_en"], "hangzhou")
         self.assertTrue(namespace["EXPERIMENT_CONFIG"]["use_cached_results"])
         self.assertIn("support-cover", namespace["final_conclusion_text"])
         self.assertIn("PM2.5 -> O3", namespace["final_conclusion_text"])
+        self.assertEqual(namespace["GLOBAL_MAX_EXPERIMENT_CONFIG"]["box_mode"], "global_max")
+        self.assertIn("global_box_size_override", namespace["GLOBAL_MAX_EXPERIMENT_CONFIG"])
+        self.assertIn("scalar L=max_v L_v", namespace["global_max_final_conclusion_text"])
 
         graph_paths = namespace["graph_paths"]
         self.assertTrue(Path(graph_paths["o3_pairwise"]).exists())
         self.assertTrue(Path(graph_paths["pm25_to_o3_pairwise"]).exists())
         self.assertTrue(Path(graph_paths["o3_pm25_synergy"]).exists())
+        global_max_graph_paths = namespace["global_max_graph_paths"]
+        self.assertTrue(Path(global_max_graph_paths["o3_pairwise"]).exists())
+        self.assertTrue(Path(global_max_graph_paths["pm25_to_o3_pairwise"]).exists())
+        self.assertTrue(Path(global_max_graph_paths["o3_pm25_synergy"]).exists())
 
 
 if __name__ == "__main__":
