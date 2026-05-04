@@ -5,6 +5,10 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import matplotlib
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
 from .air_search import (
     build_air_search_artifact_paths,
@@ -21,6 +25,7 @@ from .shanghai_notebook import (
     draw_station_causal_graph,
     find_project_root,
     metric_rows_for_scope,
+    style_pairwise_edge,
 )
 
 
@@ -204,7 +209,105 @@ def _build_notebook_graph_paths(
         "o3_pairwise": results_dir / "o3_pairwise_graph.png",
         "pm25_to_o3_pairwise": results_dir / "pm25_to_o3_pairwise_graph.png",
         "o3_pm25_synergy": results_dir / "o3_pm25_synergy_graph.png",
+        "combined_panel": results_dir / "combined_tm_graph_panel_labeled.png",
     }
+
+
+def _draw_combined_panel_edges(
+    ax: plt.Axes,
+    *,
+    position_map: dict[str, tuple[float, float]],
+    edges: pd.DataFrame,
+    color: str,
+    negative_color: str | None = None,
+    strength_col: str = "mean",
+) -> None:
+    if edges.empty:
+        return
+    render_edges = edges.copy()
+    if strength_col in render_edges.columns:
+        render_edges = render_edges[render_edges[strength_col] > 0].copy()
+    if render_edges.empty:
+        return
+    max_edge = max(float(render_edges[strength_col].max()), 1e-6)
+    for _, row in render_edges.iterrows():
+        x0, y0 = position_map[row["source_station_id"]]
+        x1, y1 = position_map[row["target_station_id"]]
+        edge_color = color if negative_color is None or float(row["mean"]) >= 0 else negative_color
+        width, alpha = style_pairwise_edge(float(row[strength_col]) / max_edge, alpha_min=0.08, alpha_max=0.82)
+        ax.annotate(
+            "",
+            xy=(x1, y1),
+            xytext=(x0, y0),
+            arrowprops={
+                "arrowstyle": "-|>",
+                "color": edge_color,
+                "linewidth": width,
+                "alpha": alpha,
+                "connectionstyle": f"arc3,rad={0.12 if x0 <= x1 else -0.12}",
+                "shrinkA": 10,
+                "shrinkB": 8,
+                "mutation_scale": 16,
+            },
+            zorder=2,
+        )
+
+
+def save_combined_tm_graph_panel(
+    results: dict[str, object],
+    out_path: Path | str | None = None,
+    *,
+    panel_labels: tuple[str, str, str] | list[str] = ("(a)", "(b)", "(c)"),
+    panel_label_fontsize: float = 15.0,
+    panel_label_x: float = 0.5,
+    panel_label_y: float = -0.17,
+    panel_label_fontweight: str = "bold",
+) -> Path:
+    station_positions = results["station_positions_df"]
+    station_ids = list(results["station_ids"])
+    graph_paths = {key: Path(value) for key, value in results["graph_paths"].items()}
+    output_path = Path(out_path) if out_path is not None else graph_paths["combined_panel"]
+    position_map = {row["station_id"]: (float(row["lon"]), float(row["lat"])) for _, row in station_positions.iterrows()}
+
+    panels = [
+        ("O3 -> O3", results["o3_pairwise_display_df"], results["o3_pairwise_df"], "mean", "#345995", None),
+        ("PM2.5 -> O3", results["pm25_to_o3_display_df"], results["pm25_to_o3_df"], "mean", "#345995", None),
+        ("O3+PM2.5 -> O3", results["synergy_display_df"], results["synergy_df"], "abs_mean", "#2F7D63", "#B04A5A"),
+    ]
+    node_strengths = [build_self_loop_node_strengths(frame, station_ids=station_ids) for _, _, frame, _, _, _ in panels]
+    node_values = np.asarray([float(strengths.get(station_id, 0.0)) for strengths in node_strengths for station_id in station_ids])
+    max_abs_node = max(float(np.max(np.abs(node_values))) if len(node_values) else 0.0, 1e-9)
+    norm = mcolors.TwoSlopeNorm(vmin=-max_abs_node, vcenter=0.0, vmax=max_abs_node)
+
+    fig, axes = plt.subplots(1, 3, figsize=(17.2, 5.6), sharex=True, sharey=True, constrained_layout=True)
+    panel_tags = list(panel_labels)
+    for ax, tag, (label, edges, _, strength_col, color, negative_color), strengths in zip(axes, panel_tags, panels, node_strengths):
+        node_colors = matplotlib.colormaps["RdBu_r"]([norm(float(strengths.get(station_id, 0.0))) for station_id in station_ids])
+        ax.scatter(station_positions["lon"], station_positions["lat"], color=node_colors, s=74, edgecolors="#4C566A", linewidths=0.6, zorder=5)
+        for _, row in station_positions.iterrows():
+            ax.text(row["lon"] + 0.003, row["lat"] + 0.002, row["station_id"], fontsize=6.7, color="#233142", zorder=6)
+        _draw_combined_panel_edges(ax, position_map=position_map, edges=edges, color=color, negative_color=negative_color, strength_col=strength_col)
+        ax.text(
+            float(panel_label_x),
+            float(panel_label_y),
+            tag,
+            transform=ax.transAxes,
+            fontsize=float(panel_label_fontsize),
+            fontweight=panel_label_fontweight,
+            va="top",
+            ha="center",
+            clip_on=False,
+        )
+        ax.set_title(label, fontsize=10.5)
+        ax.set_xlabel("Longitude")
+        ax.grid(True, alpha=0.16, linewidth=0.6)
+    axes[0].set_ylabel("Latitude")
+    colorbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap="RdBu_r"), ax=axes, fraction=0.025, pad=0.015)
+    colorbar.set_label("Self-loop strength")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
 def _render_graphs(
@@ -231,6 +334,8 @@ def _render_graphs(
         title=f"{bundle['run_context']['city_en'].title()} O3 -> O3 pairwise graph ({horizon_label})",
         strength_col="mean",
         node_self_strengths=build_self_loop_node_strengths(o3_pairwise_df, station_ids=station_ids),
+        show_title=False,
+        show_edge_legend=False,
     )
     draw_station_causal_graph(
         station_positions=station_positions,
@@ -241,6 +346,8 @@ def _render_graphs(
         strength_col="mean",
         node_self_strengths=build_self_loop_node_strengths(pm25_pairwise_df, station_ids=station_ids),
         legend_label="PM2.5 -> O3 edge",
+        show_title=False,
+        show_edge_legend=False,
     )
     synergy_render_df = synergy_display_df.copy()
     if not synergy_render_df.empty:
@@ -257,6 +364,8 @@ def _render_graphs(
         legend_label="Synergy edge",
         node_self_strengths=build_self_loop_node_strengths(synergy_df, station_ids=station_ids),
         node_colorbar_label="Self Syn",
+        show_title=False,
+        show_edge_legend=False,
     )
 
 
@@ -415,6 +524,8 @@ def run_air_tm_notebook_case(
         "pm25_to_o3_ranked_df": pm25_to_o3_ranked_df,
         "synergy_ranked_df": synergy_ranked_df,
         "graph_paths": {key: str(value) for key, value in graph_paths.items() if key != "results_dir"},
+        "station_positions_df": bundle["city_metadata"][["station_id", "lon", "lat"]].copy(),
+        "station_ids": list(bundle["station_ids"]),
         "profile": tm_summary["profile"],
         "tm_summary": tm_summary,
         "final_conclusion_text": final_conclusion_text,

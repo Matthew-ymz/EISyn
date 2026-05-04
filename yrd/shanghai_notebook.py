@@ -462,6 +462,8 @@ def draw_station_causal_graph(
     arrow_shrink_target: float = 8.0,
     node_self_strengths: dict[str, float] | None = None,
     node_colorbar_label: str | None = None,
+    show_title: bool = True,
+    show_edge_legend: bool = True,
 ) -> None:
     position_map = {
         row["station_id"]: (float(row["lon"]), float(row["lat"]))
@@ -531,8 +533,9 @@ def draw_station_causal_graph(
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
     ax.grid(True, alpha=0.18, linewidth=0.6)
-    base_title = title or f"Shanghai O3 station-level causal graph ({horizon_label})"
-    ax.set_title(_format_graph_title(base_title, box_size=box_size), fontsize=13)
+    if show_title:
+        base_title = title or f"Shanghai O3 station-level causal graph ({horizon_label})"
+        ax.set_title(_format_graph_title(base_title, box_size=box_size), fontsize=13)
     has_negative_display = negative_color is not None and not render_edges.empty and bool((render_edges["mean"] < 0).any())
     if negative_color is None or not has_negative_display:
         legend_handles = [
@@ -561,7 +564,8 @@ def draw_station_causal_graph(
                 label=f"{legend_label or 'Synergy edge'} (-)",
             ),
         ]
-    ax.legend(handles=legend_handles, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    if show_edge_legend:
+        ax.legend(handles=legend_handles, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
     if node_norm is not None:
         colorbar = fig.colorbar(
             cm.ScalarMappable(norm=node_norm, cmap="RdBu_r"),

@@ -1,0 +1,76 @@
+{
+  "notebook": "exp/tm_ei_l_baseline.ipynb",
+  "config": {
+    "l_values": [
+      0.5,
+      1.0,
+      2.0,
+      4.0,
+      8.0,
+      12.0,
+      16.0
+    ],
+    "dynamics_specs": [
+      {
+        "dynamics": "identity",
+        "source_dim": 1,
+        "target_dim": 1,
+        "label": "identity"
+      },
+      {
+        "dynamics": "linear_gain",
+        "source_dim": 1,
+        "target_dim": 1,
+        "gain": 0.5,
+        "label": "gain=0.5"
+      },
+      {
+        "dynamics": "linear_gain",
+        "source_dim": 1,
+        "target_dim": 1,
+        "gain": 2.0,
+        "label": "gain=2.0"
+      },
+      {
+        "dynamics": "product",
+        "source_dim": 2,
+        "target_dim": 1,
+        "label": "product"
+      },
+      {
+        "dynamics": "tanh",
+        "source_dim": 1,
+        "target_dim": 1,
+        "beta": 1.0,
+        "label": "tanh"
+      }
+    ],
+    "baselines": [
+      "null",
+      "identity",
+      "gain_matched",
+      "variance_matched",
+      "shuffled_target",
+      "analytic_volume"
+    ],
+    "n_samples": 4096,
+    "sample_count_mode": "fixed_density",
+    "reference_l": 4.0,
+    "min_n_samples": 512,
+    "max_n_samples": null,
+    "repeats": 10,
+    "base_noise_std": 0.05,
+    "noise_modes": [
+      "fixed",
+      "scaled_with_l"
+    ],
+    "seed": 20260429,
+    "test_mode": false
+  },
+  "artifacts": {
+    "runs_csv": "tm_ei_l_baseline_runs.csv",
+    "baselines_csv": "tm_ei_l_baseline_baselines.csv",
+    "corrected_csv": "tm_ei_l_baseline_corrected.csv",
+    "summary_csv": "tm_ei_l_baseline_summary.csv"
+  }
+}
