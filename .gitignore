@@ -47,6 +47,7 @@ fig/**/artifacts/
 
 # Large raw datasets kept locally
 data/*.nc
+data/*.csv
 
 # Local reference library and misc system files
 docs/ref/*.pdf

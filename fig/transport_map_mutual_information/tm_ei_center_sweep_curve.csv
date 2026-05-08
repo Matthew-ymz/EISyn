@@ -1,0 +1,205 @@
+label,center,series,series_kind,baseline,ei_mean,n_repeats
+x,-8.0,identity,baseline,identity,3.1423801770880133,10
+x,-7.0,identity,baseline,identity,3.1439659983692074,10
+x,-6.0,identity,baseline,identity,3.144622736310401,10
+x,-5.0,identity,baseline,identity,3.1404624149616227,10
+x,-4.0,identity,baseline,identity,3.141445935107241,10
+x,-3.0,identity,baseline,identity,3.14306971433485,10
+x,-2.0,identity,baseline,identity,3.1477639400388604,10
+x,-1.0,identity,baseline,identity,3.133644019132647,10
+x,0.0,identity,baseline,identity,3.1395426100198427,10
+x,1.0,identity,baseline,identity,3.140971541491937,10
+x,2.0,identity,baseline,identity,3.146167350526677,10
+x,3.0,identity,baseline,identity,3.138571239776283,10
+x,4.0,identity,baseline,identity,3.1414092149342094,10
+x,5.0,identity,baseline,identity,3.137990536691855,10
+x,6.0,identity,baseline,identity,3.140656128255907,10
+x,7.0,identity,baseline,identity,3.1350675569632225,10
+x,8.0,identity,baseline,identity,3.13432987464247,10
+x,-8.0,variance_matched,baseline,variance_matched,3.1359631667924246,10
+x,-7.0,variance_matched,baseline,variance_matched,3.140949149497832,10
+x,-6.0,variance_matched,baseline,variance_matched,3.1438106440194153,10
+x,-5.0,variance_matched,baseline,variance_matched,3.1493749288702566,10
+x,-4.0,variance_matched,baseline,variance_matched,3.1401257819915864,10
+x,-3.0,variance_matched,baseline,variance_matched,3.141580113018817,10
+x,-2.0,variance_matched,baseline,variance_matched,3.1423448209494156,10
+x,-1.0,variance_matched,baseline,variance_matched,3.141373271954998,10
+x,0.0,variance_matched,baseline,variance_matched,3.138536384769183,10
+x,1.0,variance_matched,baseline,variance_matched,3.1456207632062494,10
+x,2.0,variance_matched,baseline,variance_matched,3.1470605481062193,10
+x,3.0,variance_matched,baseline,variance_matched,3.141071846397082,10
+x,4.0,variance_matched,baseline,variance_matched,3.145215543441,10
+x,5.0,variance_matched,baseline,variance_matched,3.1320764213092778,10
+x,6.0,variance_matched,baseline,variance_matched,3.144687479259237,10
+x,7.0,variance_matched,baseline,variance_matched,3.1388237163959247,10
+x,8.0,variance_matched,baseline,variance_matched,3.1407138673162485,10
+x,-8.0,raw EI,raw,,3.1375569250857533,10
+x,-7.0,raw EI,raw,,3.1425616888490433,10
+x,-6.0,raw EI,raw,,3.1375138741785014,10
+x,-5.0,raw EI,raw,,3.140313324435939,10
+x,-4.0,raw EI,raw,,3.1391224397826627,10
+x,-3.0,raw EI,raw,,3.1412587573074466,10
+x,-2.0,raw EI,raw,,3.143473317866758,10
+x,-1.0,raw EI,raw,,3.143258144553282,10
+x,0.0,raw EI,raw,,3.140444056468635,10
+x,1.0,raw EI,raw,,3.1402695869665074,10
+x,2.0,raw EI,raw,,3.144444810660922,10
+x,3.0,raw EI,raw,,3.1461465021659385,10
+x,4.0,raw EI,raw,,3.137738636320079,10
+x,5.0,raw EI,raw,,3.1437075257405516,10
+x,6.0,raw EI,raw,,3.138926573270493,10
+x,7.0,raw EI,raw,,3.1393602385380075,10
+x,8.0,raw EI,raw,,3.141733769312471,10
+x^2,-8.0,identity,baseline,identity,3.1393713089634945,10
+x^2,-7.0,identity,baseline,identity,3.139190031269128,10
+x^2,-6.0,identity,baseline,identity,3.138606718684146,10
+x^2,-5.0,identity,baseline,identity,3.140621941872058,10
+x^2,-4.0,identity,baseline,identity,3.13919831813923,10
+x^2,-3.0,identity,baseline,identity,3.1442966818859817,10
+x^2,-2.0,identity,baseline,identity,3.137318521510518,10
+x^2,-1.0,identity,baseline,identity,3.139739193171155,10
+x^2,0.0,identity,baseline,identity,3.139653972228484,10
+x^2,1.0,identity,baseline,identity,3.136555584333303,10
+x^2,2.0,identity,baseline,identity,3.142678774980004,10
+x^2,3.0,identity,baseline,identity,3.1378320931959385,10
+x^2,4.0,identity,baseline,identity,3.1454725814798503,10
+x^2,5.0,identity,baseline,identity,3.143992231782388,10
+x^2,6.0,identity,baseline,identity,3.145698933451071,10
+x^2,7.0,identity,baseline,identity,3.1370795874344695,10
+x^2,8.0,identity,baseline,identity,3.136011881520469,10
+x^2,-8.0,variance_matched,baseline,variance_matched,5.912544605484228,10
+x^2,-7.0,variance_matched,baseline,variance_matched,5.7760174370714354,10
+x^2,-6.0,variance_matched,baseline,variance_matched,5.628718520122866,10
+x^2,-5.0,variance_matched,baseline,variance_matched,5.448405181693847,10
+x^2,-4.0,variance_matched,baseline,variance_matched,5.226572082789298,10
+x^2,-3.0,variance_matched,baseline,variance_matched,4.941857361127776,10
+x^2,-2.0,variance_matched,baseline,variance_matched,4.559311041539643,10
+x^2,-1.0,variance_matched,baseline,variance_matched,3.9441504335697415,10
+x^2,0.0,variance_matched,baseline,variance_matched,3.169565082040883,10
+x^2,1.0,variance_matched,baseline,variance_matched,3.949531362961102,10
+x^2,2.0,variance_matched,baseline,variance_matched,4.566467171950747,10
+x^2,3.0,variance_matched,baseline,variance_matched,4.940975171358688,10
+x^2,4.0,variance_matched,baseline,variance_matched,5.229618884789352,10
+x^2,5.0,variance_matched,baseline,variance_matched,5.445205981711228,10
+x^2,6.0,variance_matched,baseline,variance_matched,5.633607850144247,10
+x^2,7.0,variance_matched,baseline,variance_matched,5.779358140598391,10
+x^2,8.0,variance_matched,baseline,variance_matched,5.91545994535643,10
+x^2,-8.0,raw EI,raw,,5.91286856562164,10
+x^2,-7.0,raw EI,raw,,5.77709007079975,10
+x^2,-6.0,raw EI,raw,,5.628333847448657,10
+x^2,-5.0,raw EI,raw,,5.4380080588134865,10
+x^2,-4.0,raw EI,raw,,5.226395860754046,10
+x^2,-3.0,raw EI,raw,,4.944244530660571,10
+x^2,-2.0,raw EI,raw,,4.5635355623381155,10
+x^2,-1.0,raw EI,raw,,3.9480781780770093,10
+x^2,0.0,raw EI,raw,,3.1730288315316075,10
+x^2,1.0,raw EI,raw,,3.9483718124726295,10
+x^2,2.0,raw EI,raw,,4.560196472428497,10
+x^2,3.0,raw EI,raw,,4.950753704522759,10
+x^2,4.0,raw EI,raw,,5.229478097727528,10
+x^2,5.0,raw EI,raw,,5.4497243458532765,10
+x^2,6.0,raw EI,raw,,5.634727095640117,10
+x^2,7.0,raw EI,raw,,5.782977534214281,10
+x^2,8.0,raw EI,raw,,5.918147300193257,10
+sin(x),-8.0,identity,baseline,identity,3.140999736024825,10
+sin(x),-7.0,identity,baseline,identity,3.148683252915103,10
+sin(x),-6.0,identity,baseline,identity,3.14252442482703,10
+sin(x),-5.0,identity,baseline,identity,3.1408450101483556,10
+sin(x),-4.0,identity,baseline,identity,3.1436969972696107,10
+sin(x),-3.0,identity,baseline,identity,3.1389615052715802,10
+sin(x),-2.0,identity,baseline,identity,3.1377676486344033,10
+sin(x),-1.0,identity,baseline,identity,3.1458155092835294,10
+sin(x),0.0,identity,baseline,identity,3.1464970230585445,10
+sin(x),1.0,identity,baseline,identity,3.140371358443947,10
+sin(x),2.0,identity,baseline,identity,3.139466425067299,10
+sin(x),3.0,identity,baseline,identity,3.137910036509789,10
+sin(x),4.0,identity,baseline,identity,3.141940451227641,10
+sin(x),5.0,identity,baseline,identity,3.144962017425847,10
+sin(x),6.0,identity,baseline,identity,3.140713636875856,10
+sin(x),7.0,identity,baseline,identity,3.141296499347507,10
+sin(x),8.0,identity,baseline,identity,3.1465505880950877,10
+sin(x),-8.0,variance_matched,baseline,variance_matched,2.2228833183010783,10
+sin(x),-7.0,variance_matched,baseline,variance_matched,2.5662146123819385,10
+sin(x),-6.0,variance_matched,baseline,variance_matched,2.709166849264309,10
+sin(x),-5.0,variance_matched,baseline,variance_matched,2.26777176515382,10
+sin(x),-4.0,variance_matched,baseline,variance_matched,2.499063418153668,10
+sin(x),-3.0,variance_matched,baseline,variance_matched,2.733860765302012,10
+sin(x),-2.0,variance_matched,baseline,variance_matched,2.3418539330741943,10
+sin(x),-1.0,variance_matched,baseline,variance_matched,2.4161877432351737,10
+sin(x),0.0,variance_matched,baseline,variance_matched,2.7356963645007406,10
+sin(x),1.0,variance_matched,baseline,variance_matched,2.4197785670946668,10
+sin(x),2.0,variance_matched,baseline,variance_matched,2.3374804691568682,10
+sin(x),3.0,variance_matched,baseline,variance_matched,2.7295798817547405,10
+sin(x),4.0,variance_matched,baseline,variance_matched,2.500952941950252,10
+sin(x),5.0,variance_matched,baseline,variance_matched,2.2680400140696615,10
+sin(x),6.0,variance_matched,baseline,variance_matched,2.7050866472229647,10
+sin(x),7.0,variance_matched,baseline,variance_matched,2.562135232341816,10
+sin(x),8.0,variance_matched,baseline,variance_matched,2.2150959833084074,10
+sin(x),-8.0,raw EI,raw,,1.94710588111703,10
+sin(x),-7.0,raw EI,raw,,2.4216276824372427,10
+sin(x),-6.0,raw EI,raw,,2.668323428794668,10
+sin(x),-5.0,raw EI,raw,,2.0169005716183337,10
+sin(x),-4.0,raw EI,raw,,2.3180718186339244,10
+sin(x),-3.0,raw EI,raw,,2.710795406274473,10
+sin(x),-2.0,raw EI,raw,,2.1042017859559072,10
+sin(x),-1.0,raw EI,raw,,2.2130361409637826,10
+sin(x),0.0,raw EI,raw,,2.7185113846377758,10
+sin(x),1.0,raw EI,raw,,2.21313110051721,10
+sin(x),2.0,raw EI,raw,,2.1065851775102042,10
+sin(x),3.0,raw EI,raw,,2.708423250301635,10
+sin(x),4.0,raw EI,raw,,2.3228929699816776,10
+sin(x),5.0,raw EI,raw,,2.01193304000554,10
+sin(x),6.0,raw EI,raw,,2.674890982543266,10
+sin(x),7.0,raw EI,raw,,2.427027224388925,10
+sin(x),8.0,raw EI,raw,,1.9478584919318085,10
+exp(x),-8.0,identity,baseline,identity,3.138588019766461,10
+exp(x),-7.0,identity,baseline,identity,3.1450393208540124,10
+exp(x),-6.0,identity,baseline,identity,3.138684297477372,10
+exp(x),-5.0,identity,baseline,identity,3.1380735301655394,10
+exp(x),-4.0,identity,baseline,identity,3.1362156342908767,10
+exp(x),-3.0,identity,baseline,identity,3.1427631741791,10
+exp(x),-2.0,identity,baseline,identity,3.142878680581583,10
+exp(x),-1.0,identity,baseline,identity,3.1375677276985146,10
+exp(x),0.0,identity,baseline,identity,3.136037198254365,10
+exp(x),1.0,identity,baseline,identity,3.132136541515301,10
+exp(x),2.0,identity,baseline,identity,3.1371061801539866,10
+exp(x),3.0,identity,baseline,identity,3.138681137162737,10
+exp(x),4.0,identity,baseline,identity,3.1428476725814707,10
+exp(x),5.0,identity,baseline,identity,3.1421366210600055,10
+exp(x),6.0,identity,baseline,identity,3.13326440053586,10
+exp(x),7.0,identity,baseline,identity,3.1396885537856343,10
+exp(x),8.0,identity,baseline,identity,3.1390323316584916,10
+exp(x),-8.0,variance_matched,baseline,variance_matched,-5.341789413879452e-06,10
+exp(x),-7.0,variance_matched,baseline,variance_matched,0.0008531269571649137,10
+exp(x),-6.0,variance_matched,baseline,variance_matched,0.004418242177376705,10
+exp(x),-5.0,variance_matched,baseline,variance_matched,0.03187850068204863,10
+exp(x),-4.0,variance_matched,baseline,variance_matched,0.19191102587673692,10
+exp(x),-3.0,variance_matched,baseline,variance_matched,0.75284789314683,10
+exp(x),-2.0,variance_matched,baseline,variance_matched,1.641493264353396,10
+exp(x),-1.0,variance_matched,baseline,variance_matched,2.6297061478785837,10
+exp(x),0.0,variance_matched,baseline,variance_matched,3.62420488234901,10
+exp(x),1.0,variance_matched,baseline,variance_matched,4.622198036380591,10
+exp(x),2.0,variance_matched,baseline,variance_matched,5.625697143233056,10
+exp(x),3.0,variance_matched,baseline,variance_matched,6.594683910827172,10
+exp(x),4.0,variance_matched,baseline,variance_matched,7.286989331637679,10
+exp(x),5.0,variance_matched,baseline,variance_matched,7.511966242224965,10
+exp(x),6.0,variance_matched,baseline,variance_matched,7.541706964818289,10
+exp(x),7.0,variance_matched,baseline,variance_matched,7.549718319097425,10
+exp(x),8.0,variance_matched,baseline,variance_matched,7.5495965552411,10
+exp(x),-8.0,raw EI,raw,,-1.3552643971110029e-05,10
+exp(x),-7.0,raw EI,raw,,0.0005906134813308795,10
+exp(x),-6.0,raw EI,raw,,0.004276907274233211,10
+exp(x),-5.0,raw EI,raw,,0.029003695156345342,10
+exp(x),-4.0,raw EI,raw,,0.19047731124205644,10
+exp(x),-3.0,raw EI,raw,,0.7555458628793869,10
+exp(x),-2.0,raw EI,raw,,1.6309669386052945,10
+exp(x),-1.0,raw EI,raw,,2.5353975083991616,10
+exp(x),0.0,raw EI,raw,,3.1607749918040775,10
+exp(x),1.0,raw EI,raw,,3.3666898186486995,10
+exp(x),2.0,raw EI,raw,,3.403148252587953,10
+exp(x),3.0,raw EI,raw,,3.4161394596830568,10
+exp(x),4.0,raw EI,raw,,3.4060359263059716,10
+exp(x),5.0,raw EI,raw,,3.412512961939446,10
+exp(x),6.0,raw EI,raw,,3.409417086971529,10
+exp(x),7.0,raw EI,raw,,3.4025055117751153,10
+exp(x),8.0,raw EI,raw,,3.4010415608198192,10

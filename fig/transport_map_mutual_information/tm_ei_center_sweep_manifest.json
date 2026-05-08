@@ -1,15 +1,26 @@
 {
   "notebook": "exp/tm_ei_l_baseline.ipynb",
   "config": {
-    "l_values": [
-      0.5,
+    "center_values": [
+      -8.0,
+      -7.0,
+      -6.0,
+      -5.0,
+      -4.0,
+      -3.0,
+      -2.0,
+      -1.0,
+      0.0,
       1.0,
       2.0,
+      3.0,
       4.0,
-      8.0,
-      12.0,
-      16.0
+      5.0,
+      6.0,
+      7.0,
+      8.0
     ],
+    "l_value": 4.0,
     "dynamics_specs": [
       {
         "dynamics": "identity",
@@ -37,31 +48,18 @@
       }
     ],
     "baselines": [
-      "null",
-      "identity",
-      "gain_matched",
       "variance_matched",
-      "shuffled_target",
-      "analytic_volume"
+      "identity"
     ],
     "n_samples": 4096,
-    "sample_count_mode": "fixed_density",
-    "reference_l": 4.0,
-    "min_n_samples": 512,
-    "max_n_samples": null,
     "repeats": 10,
     "base_noise_std": 0.05,
-    "noise_modes": [
-      "fixed",
-      "scaled_with_l"
-    ],
-    "seed": 20260429,
+    "seed": 20760429,
     "test_mode": false
   },
   "artifacts": {
-    "runs_csv": "tm_ei_l_baseline_runs.csv",
-    "baselines_csv": "tm_ei_l_baseline_baselines.csv",
-    "corrected_csv": "tm_ei_l_baseline_corrected.csv",
-    "summary_csv": "tm_ei_l_baseline_summary.csv"
+    "runs_csv": "tm_ei_center_sweep_runs.csv",
+    "baselines_csv": "tm_ei_center_sweep_baselines.csv",
+    "curve_csv": "tm_ei_center_sweep_curve.csv"
   }
 }
