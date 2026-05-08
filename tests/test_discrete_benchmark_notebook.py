@@ -1,19 +1,12 @@
 import json
-import sys
 import unittest
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-EXP_DIR = ROOT / "exp"
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(EXP_DIR) not in sys.path:
-    sys.path.insert(0, str(EXP_DIR))
 
-from discrete_benchmark_helpers import BENCHMARK_NETWORKS
-from utils import render_topology_mechanism_svg
+from utils import BENCHMARK_NETWORKS, render_topology_mechanism_svg
 
 
 def load_notebook_namespace_until(notebook_path: Path, stop_when: str) -> dict[str, object]:
@@ -142,7 +135,7 @@ class DiscreteBenchmarkNotebookTests(unittest.TestCase):
         )
 
         self.assertLessEqual(len(notebook["cells"]), 8)
-        self.assertIn("from discrete_benchmark_helpers import", code_text)
+        self.assertIn("from utils import", code_text)
         self.assertIn("render_benchmark_topology_overview_svg", code_text)
         self.assertIn("render_metric_bar_chart_svg", code_text)
         self.assertNotIn("极小网络补充实验", markdown_text)

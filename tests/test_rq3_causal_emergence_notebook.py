@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from exp import rq3_boolean_causal_emergence_support as support
+import utils as support
 
 
 def execute_notebook(notebook_path: Path) -> dict[str, object]:

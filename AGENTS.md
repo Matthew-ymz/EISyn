@@ -25,6 +25,11 @@
 - Prefer storing both per-run detailed outputs and a compact summary file; examples include `json`, `csv`, `npz`, or notebook-adjacent cache files under `exp/cache/`, `results/`, or another task-appropriate experiment directory.
 - If an experiment is executed from a notebook, make sure the notebook either writes these cache artifacts itself or clearly reuses an existing cache on subsequent runs.
 
+## PEID theory literature
+
+- For tasks involving PEID-related theory, first use the Zotero plugin to search the local Zotero library for PEID papers and read the relevant literature before doing derivations, research-framework writing, method design, or implementation decisions.
+- If Zotero is unavailable or no relevant PEID paper can be found, state that blocker clearly and continue only with the best available repository context.
+
 ## AI Research Skills on-demand installation
 
 - For requests in this repository that may benefit from research or AI workflow skills, first check whether a matching skill exists in `https://github.com/Orchestra-Research/AI-Research-SKILLs`.
