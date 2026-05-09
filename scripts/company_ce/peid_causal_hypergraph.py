@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 
-DEFAULT_VARIABLES = ("at", "revt", "emp", "dltt", "lt", "ch")
+DEFAULT_VARIABLES = ("inf_at", "inf_revt", "emp", "inf_lt", "inf_ch", "inf_ni", "inf_cogs")
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = DEFAULT_PROJECT_ROOT / "data" / "inf_compustat_anual_US_filter_feas.csv"
 DEFAULT_CSV_DIR = DEFAULT_PROJECT_ROOT / "results" / "company_ce" / "csv" / "peid"
@@ -39,6 +39,38 @@ class PeidConfig:
     year_end: int | None = None
     winsor_lower: float = 0.01
     winsor_upper: float = 0.99
+
+
+CACHE_CONFIG_KEYS = (
+    "input_path",
+    "variables",
+    "bins",
+    "max_source_order",
+    "alpha",
+    "min_source_count",
+    "min_total_count",
+    "null_reps",
+    "top_k",
+    "random_seed",
+    "year_start",
+    "year_end",
+    "winsor_lower",
+    "winsor_upper",
+)
+
+REQUIRED_CACHE_FILES = (
+    "peid_variable_audit.csv",
+    "peid_discretization_edges.csv",
+    "peid_discrete_transition_states.csv",
+    "peid_pairwise_edges.csv",
+    "peid_synergy_hyperedges.csv",
+    "peid_pairwise_null_samples.csv",
+    "peid_synergy_null_samples.csv",
+    "peid_period_stability.csv",
+    "peid_native_edges_for_review.csv",
+    "peid_top_edges_for_figures.csv",
+    "peid_run_config.json",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,11 +98,57 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def normalize_config_value(key: str, value: object) -> object:
+    if key == "input_path":
+        return str(Path(str(value)).expanduser().resolve())
+    if key == "variables":
+        return tuple(value) if isinstance(value, (list, tuple)) else value
+    return value
+
+
+def cache_mismatch_reason(config: PeidConfig, output_dir: Path) -> str | None:
+    missing_files = [name for name in REQUIRED_CACHE_FILES if not (output_dir / name).exists()]
+    if missing_files:
+        return "missing_cache_files:" + ",".join(missing_files)
+
+    config_path = output_dir / "peid_run_config.json"
+    try:
+        cached_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return "invalid_cache_config_json"
+
+    current_config = asdict(config)
+    for key in CACHE_CONFIG_KEYS:
+        current_value = normalize_config_value(key, current_config.get(key))
+        cached_value = normalize_config_value(key, cached_config.get(key))
+        if current_value != cached_value:
+            return f"config_mismatch:{key}"
+    return None
+
+
 def entropy_bits(probabilities: np.ndarray) -> float:
     probs = probabilities[probabilities > 0]
     if probs.size == 0:
         return 0.0
     return float(-(probs * np.log2(probs)).sum())
+
+
+def conditional_total_correlation_bits(
+    posterior: np.ndarray,
+    source_keys: list[tuple[int, ...]],
+) -> float:
+    if posterior.size == 0:
+        return 0.0
+    source_array = np.asarray(source_keys)
+    if source_array.ndim != 2 or source_array.shape[1] < 2:
+        return 0.0
+    joint_entropy = entropy_bits(posterior)
+    marginal_entropy_sum = 0.0
+    for col_idx in range(source_array.shape[1]):
+        values = source_array[:, col_idx]
+        marginal_probs = np.array([posterior[values == value].sum() for value in np.unique(values)])
+        marginal_entropy_sum += entropy_bits(marginal_probs)
+    return float(marginal_entropy_sum - joint_entropy)
 
 
 def variable_transform(series: pd.Series) -> str:
@@ -229,7 +307,54 @@ def effective_information(
     target_probs = probs.mean(axis=0)
     ei = entropy_bits(target_probs) - float(np.apply_along_axis(entropy_bits, 1, probs).mean())
     return {
-        "ei": max(0.0, float(ei)),
+        "ei": float(ei),
+        "source_support": int(len(source_keys)),
+        "total_count": int(row_counts["row_total"].sum()),
+        "row_sum_error": row_sum_error,
+    }
+
+
+def source_synergy(
+    states: pd.DataFrame,
+    source_cols: list[str],
+    target_col: str,
+    target_bins: int,
+    alpha: float,
+    min_source_count: int,
+) -> dict[str, float]:
+    grouped = states.groupby(source_cols + [target_col], observed=True).size().rename("count").reset_index()
+    row_counts = grouped.groupby(source_cols, observed=True)["count"].sum().rename("row_total").reset_index()
+    row_counts = row_counts[row_counts["row_total"] >= min_source_count]
+    if len(row_counts) < 2:
+        return {
+            "synergy": 0.0,
+            "source_support": int(len(row_counts)),
+            "total_count": int(row_counts["row_total"].sum()) if len(row_counts) else 0,
+            "row_sum_error": 0.0,
+        }
+
+    filtered = grouped.merge(row_counts[source_cols], on=source_cols, how="inner")
+    source_keys = [tuple(row[col] for col in source_cols) for _, row in row_counts.iterrows()]
+    key_to_idx = {key: idx for idx, key in enumerate(source_keys)}
+    counts = np.zeros((len(source_keys), target_bins), dtype=float)
+    for row in filtered.itertuples(index=False):
+        source_key = tuple(getattr(row, col) for col in source_cols)
+        target_state = int(getattr(row, target_col))
+        counts[key_to_idx[source_key], target_state - 1] += float(getattr(row, "count"))
+
+    smoothed = counts + alpha
+    probs = smoothed / smoothed.sum(axis=1, keepdims=True)
+    row_sum_error = float(np.abs(probs.sum(axis=1) - 1.0).max())
+    target_probs = probs.mean(axis=0)
+    synergy = 0.0
+    for target_idx, target_prob in enumerate(target_probs):
+        if target_prob <= 0:
+            continue
+        posterior = probs[:, target_idx] / probs[:, target_idx].sum()
+        synergy += float(target_prob) * conditional_total_correlation_bits(posterior, source_keys)
+
+    return {
+        "synergy": float(synergy),
         "source_support": int(len(source_keys)),
         "total_count": int(row_counts["row_total"].sum()),
         "row_sum_error": row_sum_error,
@@ -261,36 +386,26 @@ def compute_synergy_hyperedges(
 ) -> pd.DataFrame:
     variables = tuple(variables)
     rows: list[dict[str, object]] = []
-    single_cache: dict[tuple[str, str], float] = {}
-    for source, target in itertools.product(variables, variables):
-        single_cache[(source, target)] = effective_information(
-            states,
-            [f"{source}_src"],
-            f"{target}_tgt",
-            bins,
-            alpha,
-            min_source_count,
-        )["ei"]
 
     for order in range(2, max_source_order + 1):
         for source_set in itertools.combinations(variables, order):
             source_cols = [f"{source}_src" for source in source_set]
             for target in variables:
                 joint = effective_information(states, source_cols, f"{target}_tgt", bins, alpha, min_source_count)
-                single_sum = float(sum(single_cache[(source, target)] for source in source_set))
-                synergy_raw = float(joint["ei"] - single_sum)
+                synergy_result = source_synergy(states, source_cols, f"{target}_tgt", bins, alpha, min_source_count)
+                synergy_raw = float(synergy_result["synergy"])
                 rows.append(
                     {
                         "sources": "+".join(source_set),
                         "target": target,
                         "source_order": order,
                         "joint_ei": joint["ei"],
-                        "single_ei_sum": single_sum,
+                        "single_ei_sum": joint["ei"] - synergy_raw,
                         "synergy_raw": synergy_raw,
-                        "synergy": max(0.0, synergy_raw),
-                        "source_support": joint["source_support"],
-                        "total_count": joint["total_count"],
-                        "row_sum_error": joint["row_sum_error"],
+                        "synergy": synergy_raw,
+                        "source_support": synergy_result["source_support"],
+                        "total_count": synergy_result["total_count"],
+                        "row_sum_error": synergy_result["row_sum_error"],
                     }
                 )
     return pd.DataFrame(rows).sort_values("synergy", ascending=False).reset_index(drop=True)
@@ -393,6 +508,71 @@ def attach_null_stats(
     return pd.DataFrame(rows)
 
 
+def build_native_edges_for_review(pairwise: pd.DataFrame, synergy: pd.DataFrame) -> pd.DataFrame:
+    """Build a full edge table for first-pass review without Top-K truncation."""
+
+    review_frames: list[pd.DataFrame] = []
+    if not pairwise.empty:
+        pair_cols = ["source", "target", "ei", "p_value", "null_mean", "source_support", "total_count"]
+        pair = pairwise.reindex(columns=pair_cols).copy()
+        pair["edge_type"] = "pairwise"
+        pair["source_set"] = pair["source"]
+        pair["source_order"] = 1
+        pair["label"] = pair["source"].astype(str) + " -> " + pair["target"].astype(str)
+        pair["value_col"] = "ei"
+        pair["value"] = pair["ei"]
+        review_frames.append(pair)
+
+    if not synergy.empty:
+        syn_cols = [
+            "sources",
+            "target",
+            "source_order",
+            "synergy_raw",
+            "synergy",
+            "p_value",
+            "null_mean",
+            "source_support",
+            "total_count",
+        ]
+        syn = synergy.reindex(columns=syn_cols).copy()
+        syn["edge_type"] = "synergy"
+        syn["source_set"] = syn["sources"]
+        syn["source"] = syn["sources"]
+        syn["label"] = "{" + syn["sources"].astype(str).str.replace("+", ", ", regex=False) + "} -> " + syn["target"].astype(str)
+        syn["value_col"] = "synergy_raw"
+        syn["value"] = syn["synergy_raw"]
+        review_frames.append(syn)
+
+    if not review_frames:
+        return pd.DataFrame()
+
+    review = pd.concat(review_frames, ignore_index=True, sort=False)
+    review["value_abs"] = review["value"].abs()
+    review = review.sort_values(["edge_type", "p_value", "value_abs"], ascending=[True, True, False], na_position="last")
+    review["rank"] = review.groupby("edge_type", sort=False).cumcount() + 1
+    columns = [
+        "edge_type",
+        "rank",
+        "label",
+        "source",
+        "source_set",
+        "target",
+        "source_order",
+        "value_col",
+        "value",
+        "value_abs",
+        "p_value",
+        "null_mean",
+        "source_support",
+        "total_count",
+        "ei",
+        "synergy_raw",
+        "synergy",
+    ]
+    return review.reindex(columns=columns).reset_index(drop=True)
+
+
 def compute_period_stability(
     states: pd.DataFrame,
     variables: Iterable[str],
@@ -465,11 +645,20 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
     def variable_label(variable: str) -> str:
         labels = {
             "at": "at\n总资产",
+            "inf_at": "inf_at\n通胀调整总资产",
             "revt": "revt\n营业收入",
+            "inf_revt": "inf_revt\n通胀调整收入",
             "emp": "emp\n员工数",
             "dltt": "dltt\n长期债务",
+            "inf_dltt": "inf_dltt\n通胀调整长期债务",
             "lt": "lt\n总负债",
+            "inf_lt": "inf_lt\n通胀调整总负债",
             "ch": "ch\n现金",
+            "inf_ch": "inf_ch\n通胀调整现金",
+            "ni": "ni\n净利润",
+            "inf_ni": "inf_ni\n通胀调整净利润",
+            "cogs": "cogs\n营业成本",
+            "inf_cogs": "inf_cogs\n通胀调整营业成本",
         }
         return labels.get(variable, variable)
 
@@ -532,8 +721,8 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
     matrix = pairwise.pivot(index="source", columns="target", values="ei").reindex(index=variables, columns=variables)
     fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
     image = ax.imshow(matrix.to_numpy(), cmap="viridis")
-    ax.set_xticks(range(len(variables)), variables, rotation=45, ha="right")
-    ax.set_yticks(range(len(variables)), variables)
+    ax.set_xticks(range(len(variables)), [variable_label(variable) for variable in variables], rotation=45, ha="right")
+    ax.set_yticks(range(len(variables)), [variable_label(variable) for variable in variables])
     ax.set_xlabel("Target variable at t+1")
     ax.set_ylabel("Source variable at t")
     fig.colorbar(image, ax=ax, label="Pairwise EI (bits)")
@@ -567,7 +756,7 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
                 rad *= 1.45
             elif idx % 3 == 2:
                 rad *= 0.65
-            width = 0.8 + 4.0 * float(row.ei) / max_weight
+            width = 0.8 + 4.0 * float(row.ei) / max_weight if max_weight > 0 else 1.0
             draw_arrow(
                 ax,
                 (left_x + box_w, y0),
@@ -613,7 +802,7 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
             y0 = source_y[source_node]
             y1 = target_y[row.target]
             rad = 0.06 * np.sign(y1 - y0) if y1 != y0 else 0.0
-            width = 0.8 + 4.5 * float(row.synergy) / max_weight
+            width = 0.8 + 4.5 * float(row.synergy) / max_weight if max_weight > 0 else 1.0
             draw_arrow(
                 ax,
                 (left_x + box_w, y0),
@@ -625,7 +814,7 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
             )
         ax.text(left_x + box_w / 2, len(source_nodes) - 0.12, "联合来源集合 t", ha="center", va="bottom", fontsize=10, fontweight="bold", fontproperties=font_prop)
         ax.text(right_x + target_w / 2, len(source_nodes) - 0.12, "目标变量 t+1", ha="center", va="bottom", fontsize=10, fontweight="bold", fontproperties=font_prop)
-        ax.text(0.50, -0.78, "线宽表示截断正协同强度；协同衡量联合来源超过单变量 EI 加总的额外信息；具体数值见证据汇总图。", ha="center", va="top", fontsize=7, color="#4b5563", fontproperties=font_prop)
+        ax.text(0.50, -0.78, "线宽表示源侧协同强度；协同按条件总相关口径估计；具体数值见证据汇总图。", ha="center", va="top", fontsize=7, color="#4b5563", fontproperties=font_prop)
         ax.set_xlim(0, 1)
         ax.set_ylim(-1.0, len(source_nodes) - 0.02)
     else:
@@ -633,6 +822,30 @@ def plot_outputs(output_dir: Path, figure_dir: Path, top_k: int) -> None:
     ax.set_axis_off()
     save_figure(fig, "peid_top_synergy_hypergraph")
     plt.close(fig)
+
+    if not synergy.empty and "synergy_raw" in synergy.columns:
+        raw_matrix = synergy.pivot(index="sources", columns="target", values="synergy_raw")
+        fig, ax = plt.subplots(figsize=(9.8, max(5.6, 0.28 * len(raw_matrix) + 1.8)), constrained_layout=True)
+        values = raw_matrix.to_numpy(dtype=float)
+        image = ax.imshow(values, cmap="viridis", aspect="auto")
+        ax.set_xticks(range(len(raw_matrix.columns)), [variable_label(str(variable)) for variable in raw_matrix.columns], rotation=45, ha="right")
+        ax.set_yticks(range(len(raw_matrix.index)), ["{" + str(sources).replace("+", ", ") + "}" for sources in raw_matrix.index], fontsize=6.5)
+        ax.set_xlabel("Target variable at t+1")
+        ax.set_ylabel("Joint source set at t")
+        fig.colorbar(image, ax=ax, label="Synergy_raw (bits)")
+        save_figure(fig, "peid_synergy_raw_heatmap", dpi=260)
+        plt.close(fig)
+
+        ranked_synergy = synergy.assign(
+            label="{" + synergy["sources"].str.replace("+", ", ", regex=False) + "} -> " + synergy["target"]
+        ).sort_values("synergy_raw", ascending=True)
+        fig, ax = plt.subplots(figsize=(10, max(5.4, 0.22 * len(ranked_synergy) + 2)), constrained_layout=True)
+        y = np.arange(len(ranked_synergy))
+        ax.barh(y, ranked_synergy["synergy_raw"], color="#D95F02", alpha=0.86)
+        ax.set_yticks(y, ranked_synergy["label"], fontsize=6)
+        ax.set_xlabel("Synergy_raw (bits)")
+        save_figure(fig, "peid_synergy_raw_ranked", dpi=260)
+        plt.close(fig)
 
     all_combined = pd.concat(
         [
@@ -707,11 +920,23 @@ def run_peid_analysis(config: PeidConfig, skip_figures: bool = False, reuse_cach
     output_dir.mkdir(parents=True, exist_ok=True)
     figure_dir.mkdir(parents=True, exist_ok=True)
 
-    expected = output_dir / "peid_pairwise_edges.csv"
-    if reuse_cache and expected.exists():
+    cache_reason = "cache_disabled"
+    if reuse_cache:
+        mismatch_reason = cache_mismatch_reason(config, output_dir)
+        if mismatch_reason is None:
+            cache_reason = "config_match"
+        else:
+            cache_reason = mismatch_reason
+
+    if reuse_cache and cache_reason == "config_match":
         if not skip_figures:
             plot_outputs(output_dir, figure_dir, config.top_k)
-        return {"output_dir": str(output_dir), "figure_dir": str(figure_dir), "reused_cache": "true"}
+        return {
+            "output_dir": str(output_dir),
+            "figure_dir": str(figure_dir),
+            "reused_cache": "true",
+            "cache_reason": cache_reason,
+        }
 
     pairs, audit = build_growth_panel(
         Path(config.input_path),
@@ -761,6 +986,8 @@ def run_peid_analysis(config: PeidConfig, skip_figures: bool = False, reuse_cach
     null_pairwise.to_csv(output_dir / "peid_pairwise_null_samples.csv", index=False)
     null_synergy.to_csv(output_dir / "peid_synergy_null_samples.csv", index=False)
     stability.to_csv(output_dir / "peid_period_stability.csv", index=False)
+    native_review = build_native_edges_for_review(pairwise, synergy)
+    native_review.to_csv(output_dir / "peid_native_edges_for_review.csv", index=False)
 
     top_edges = pd.concat(
         [
@@ -779,7 +1006,12 @@ def run_peid_analysis(config: PeidConfig, skip_figures: bool = False, reuse_cach
 
     if not skip_figures:
         plot_outputs(output_dir, figure_dir, config.top_k)
-    return {"output_dir": str(output_dir), "figure_dir": str(figure_dir), "reused_cache": "false"}
+    return {
+        "output_dir": str(output_dir),
+        "figure_dir": str(figure_dir),
+        "reused_cache": "false",
+        "cache_reason": cache_reason,
+    }
 
 
 def main() -> None:

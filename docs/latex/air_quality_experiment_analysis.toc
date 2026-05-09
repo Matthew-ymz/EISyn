@@ -1,0 +1,22 @@
+\contentsline {section}{\numberline {1}实验概述}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}研究对象}{2}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}时间尺度}{2}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}模型与训练设定}{2}{subsection.1.3}%
+\contentsline {section}{\numberline {2}模型拟合质量}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}联合模型相关系数}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}对因果解释的影响}{2}{subsection.2.2}%
+\contentsline {section}{\numberline {3}杭州站点的 O3 因果结构}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}O3 到 O3 的稳定枢纽}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}受体类站点：市府大楼并非纯被动节点}{3}{subsection.3.2}%
+\contentsline {section}{\numberline {4}PM2.5 对 O3 的跨尺度作用}{3}{section.4}%
+\contentsline {subsection}{\numberline {4.1}从“快速走廊”到“城市背景”}{3}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}协同图随尺度衰减}{4}{subsection.4.2}%
+\contentsline {section}{\numberline {5}案例：1228A 到 3557A 的强单边、弱协同}{5}{section.5}%
+\contentsline {subsection}{\numberline {5.1}现象}{5}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}协同项的数学含义}{5}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}物理与统计解释}{5}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}结论}{5}{subsection.5.4}%
+\contentsline {section}{\numberline {6}上海子集中的并行证据}{5}{section.6}%
+\contentsline {section}{\numberline {7}与杭州现实的吻合度评估}{6}{section.7}%
+\contentsline {section}{\numberline {8}对后续实验的建议}{6}{section.8}%
+\contentsline {section}{\numberline {9}结论}{6}{section.9}%
