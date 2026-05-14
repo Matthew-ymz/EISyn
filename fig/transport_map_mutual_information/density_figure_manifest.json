@@ -1,20 +1,10 @@
 {
-  "notebook": "exp/tm_vs_nis.ipynb",
+  "notebook": "exp/density_estimation_benchmark.ipynb",
   "benchmark": "density_benchmark",
-  "figures": [
-    "density_accuracy_summary.png",
-    "density_dimension_robustness.png",
-    "density_sample_size_robustness.png",
-    "density_timing_summary.png"
+  "figure": [
+    "density_benchmark_composite.png",
+    "density_benchmark_composite.pdf"
   ],
-  "cache_dir": "exp/cache/density_benchmark",
-  "cache_files": [
-    "accuracy_raw.parquet",
-    "accuracy_summary.csv",
-    "dimension_raw.parquet",
-    "dimension_summary.csv",
-    "sample_size_raw.parquet",
-    "sample_size_summary.csv",
-    "timing_summary.csv"
-  ]
+  "claim": "Accuracy is assessed by log-density RMSE, convergence by repeated-run uncertainty and sample-size scans, and cost by total fit plus score time.",
+  "interval": "mean +/- s.e.m."
 }

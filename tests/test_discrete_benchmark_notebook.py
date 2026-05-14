@@ -157,7 +157,6 @@ class DiscreteBenchmarkNotebookTests(unittest.TestCase):
             self.assertIn(f">{letter}</text>", topology_svg)
             self.assertIn(f">{letter}</text>", ei_svg)
             self.assertIn(f">{letter}</text>", phi_svg)
-            self.assertIn(f">{letter}</text>", summary_svg)
         self.assertNotIn(">A</text>", topology_svg)
         self.assertNotIn("<table", ei_svg)
         self.assertNotIn("<table", phi_svg)
@@ -165,10 +164,22 @@ class DiscreteBenchmarkNotebookTests(unittest.TestCase):
         self.assertIn(">EID</tspan>", phi_svg)
         self.assertIn(">Φ</tspan>", phi_svg)
         self.assertIn("baseline-shift='super'", phi_svg)
-        self.assertIn(">Total EI</text>", summary_svg)
-        self.assertIn(">EID</tspan>", summary_svg)
-        self.assertIn(">Φ</tspan>", summary_svg)
-        self.assertIn("baseline-shift='super'", summary_svg)
+        self.assertIn("Total effective information", summary_svg)
+        self.assertIn("System-level synergy", summary_svg)
+        self.assertIn("Phi", summary_svg)
+        self.assertNotIn("Highest-order synergy", summary_svg)
+        self.assertNotIn(">a</text>", summary_svg)
+        self.assertNotIn(">b</text>", summary_svg)
+        self.assertIn("a  fully connected", summary_svg)
+        self.assertIn("f  parity-only cycle", summary_svg)
+
+    def test_docs_reference_compact_lollipop_summary(self) -> None:
+        doc_path = Path(__file__).resolve().parents[1] / "docs" / "研究框架.md"
+        doc_text = doc_path.read_text()
+
+        self.assertIn("../fig/mediano_discrete_benchmark/ei_phi_summary.png", doc_text)
+        self.assertNotIn("../fig/mediano_discrete_benchmark/joint_state_ei.svg", doc_text)
+        self.assertNotIn("../fig/mediano_discrete_benchmark/highest_order_total_synergy.svg", doc_text)
 
     def test_topology_label_style_is_exposed_in_notebook(self) -> None:
         notebook_path = Path(__file__).resolve().parents[1] / "exp" / "discrete_benchmark.ipynb"
@@ -177,13 +188,16 @@ class DiscreteBenchmarkNotebookTests(unittest.TestCase):
         label_style = namespace["topology_label_style"]
         topology_svg = namespace["topology_overview_svg"]
 
-        self.assertEqual(label_style["font_size"], 25)
-        self.assertEqual(label_style["dx"], 1)
-        self.assertEqual(label_style["dy"], -1)
+        self.assertEqual(label_style["font_size"], 30)
+        self.assertEqual(label_style["dx"], 8)
+        self.assertEqual(label_style["dy"], 32)
         self.assertTrue(label_style["show"])
-        self.assertIn("font-size='25'", topology_svg)
-        self.assertIn("x='21'", topology_svg)
-        self.assertIn("y='19'", topology_svg)
+        self.assertIn("font-size='30'", topology_svg)
+        self.assertIn("font-weight='800'", topology_svg)
+        self.assertIn("x='26'", topology_svg)
+        self.assertIn("y='66'", topology_svg)
+        self.assertIn("font-size='12.5'", topology_svg)
+        self.assertIn("font-weight='700' text-anchor='middle'", topology_svg)
 
     def test_topology_layout_and_legend_are_exposed_in_notebook(self) -> None:
         notebook_path = Path(__file__).resolve().parents[1] / "exp" / "discrete_benchmark.ipynb"
@@ -195,17 +209,19 @@ class DiscreteBenchmarkNotebookTests(unittest.TestCase):
         connection_filter_style = namespace["topology_connection_filter_style"]
         topology_svg = namespace["topology_overview_svg"]
 
-        self.assertEqual(layout_style["panel_width"], 260)
-        self.assertEqual(layout_style["panel_height"], 260)
-        self.assertEqual(layout_style["horizontal_gap"], 18)
-        self.assertEqual(layout_style["vertical_gap"], 22)
-        self.assertEqual(legend_style["x"], 850)
-        self.assertEqual(legend_style["y"], 20)
+        self.assertEqual(layout_style["panel_width"], 250)
+        self.assertEqual(layout_style["panel_height"], 250)
+        self.assertEqual(layout_style["horizontal_gap"], 14)
+        self.assertEqual(layout_style["vertical_gap"], 16)
+        self.assertEqual(legend_style["x"], 350)
+        self.assertEqual(legend_style["y"], 5)
+        self.assertEqual(legend_style["orientation"], "horizontal")
         self.assertIn("copy", connection_style)
         self.assertIn("cooperation", connection_style)
         self.assertIn("parity", connection_style)
         self.assertTrue(connection_filter_style["drop_shared_parity_sources"])
-        self.assertIn("Mechanism legend", topology_svg)
+        self.assertIn("width='814' height='584'", topology_svg)
+        self.assertNotIn("Mechanism legend", topology_svg)
         self.assertIn("copy", topology_svg)
         self.assertIn("cooperation", topology_svg)
         self.assertIn("parity", topology_svg)

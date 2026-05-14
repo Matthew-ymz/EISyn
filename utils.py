@@ -3704,6 +3704,9 @@ def render_topology_mechanism_svg(
     uniform_node_fill: str | None = None,
     uniform_node_stroke: str | None = None,
     uniform_node_stroke_width: float | None = None,
+    node_radius: float = 13.0,
+    node_label_font_size: float = 11.0,
+    node_label_font_weight: str = "400",
     connection_style: Mapping[str, Mapping[str, Any]] | None = None,
     connection_filter_style: Mapping[str, Any] | None = None,
 ) -> str:
@@ -4018,10 +4021,11 @@ def render_topology_mechanism_svg(
             else 1.4 + 1.8 * min(max(beta, 0.0), 1.2) / 1.2
         )
         pieces.append(
-            f"<circle cx='{x:.1f}' cy='{y:.1f}' r='13' fill='{fill}' stroke='{stroke}' stroke-width='{stroke_width:.2f}'/>"
+            f"<circle cx='{x:.1f}' cy='{y:.1f}' r='{node_radius:.1f}' fill='{fill}' stroke='{stroke}' stroke-width='{stroke_width:.2f}'/>"
         )
         pieces.append(
-            f"<text x='{x:.1f}' y='{y + 4:.1f}' font-size='11' text-anchor='middle' fill='#111'>{idx}</text>"
+            f"<text x='{x:.1f}' y='{y + 4:.1f}' font-size='{node_label_font_size:.1f}' "
+            f"font-weight='{html.escape(node_label_font_weight)}' text-anchor='middle' fill='#111'>{idx}</text>"
         )
 
     if show_summary_box:
@@ -7932,11 +7936,16 @@ def render_benchmark_topology_overview_svg(
     mechanism_legend_title_font_size: float = 11.0,
     mechanism_legend_item_font_size: float = 9.5,
     mechanism_legend_item_spacing: float = 15.0,
+    mechanism_legend_orientation: str = "vertical",
+    mechanism_legend_item_font_weight: str = "400",
     arrow_marker_width: float = 8.0,
     arrow_marker_height: float = 6.0,
     arrow_marker_ref_x: float = 7.0,
     arrow_marker_ref_y: float = 3.0,
     arrow_marker_fill: str = "#7d8a97",
+    node_radius: float = 13.0,
+    node_label_font_size: float = 11.0,
+    node_label_font_weight: str = "400",
     connection_style: dict[str, dict[str, Any]] | None = None,
     connection_filter_style: dict[str, Any] | None = None,
 ) -> str:
@@ -7980,12 +7989,6 @@ def render_benchmark_topology_overview_svg(
             else ""
         )
         has_legend_title = bool(legend_title)
-        item_baseline_start = mechanism_legend_y + (30.0 if has_legend_title else 26.0)
-        legend_item_y = {
-            "copy": item_baseline_start,
-            "cooperation": item_baseline_start + mechanism_legend_item_spacing,
-            "parity": item_baseline_start + 2.0 * mechanism_legend_item_spacing,
-        }
         pieces.append(
             f"<rect x='{legend_x:.1f}' y='{mechanism_legend_y:.1f}' width='{mechanism_legend_width:.1f}' height='{mechanism_legend_height:.1f}' fill='white' stroke='#d4dbe3' rx='8' ry='8'/>"
         )
@@ -7993,31 +7996,76 @@ def render_benchmark_topology_overview_svg(
             pieces.append(
                 f"<text x='{legend_x + 12:.1f}' y='{mechanism_legend_y + 16:.1f}' font-size='{mechanism_legend_title_font_size:.1f}' font-weight='700' fill='#223'>{html.escape(legend_title)}</text>"
             )
-        pieces.append(
-            f"<line x1='{legend_x + 12:.1f}' y1='{legend_item_y['copy'] - 3.0:.1f}' x2='{legend_x + 56:.1f}' y2='{legend_item_y['copy'] - 3.0:.1f}' "
-            f"stroke='{html.escape(str(copy_style['stroke']))}' stroke-width='{float(copy_style['stroke_width_base']) + float(copy_style['stroke_width_scale']):.2f}' "
-            f"opacity='{float(copy_style['opacity']):.2f}' marker-end='url(#copy_arrowhead)'/>"
-        )
-        pieces.append(
-            f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['copy']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' fill='#223'>copy</text>"
-        )
-        pieces.append(
-            f"<path d='M {legend_x + 12:.1f},{legend_item_y['cooperation'] - 3.0:.1f} Q {legend_x + 34:.1f},{legend_item_y['cooperation'] - 12.0:.1f} {legend_x + 56:.1f},{legend_item_y['cooperation'] - 3.0:.1f}' "
-            f"fill='none' stroke='{html.escape(str(cooperation_style['stroke']))}' stroke-width='{float(cooperation_style['stroke_width']):.2f}' "
-            f"stroke-dasharray='{html.escape(str(cooperation_style['dash']))}' marker-end='url(#cooperation_arrowhead)' opacity='{float(cooperation_style['opacity']):.2f}'/>"
-        )
-        pieces.append(
-            f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['cooperation']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' fill='#223'>cooperation</text>"
-        )
-        pieces.append(
-            f"<path d='M {legend_x + 12:.1f},{legend_item_y['parity'] - 3.0:.1f} Q {legend_x + 34:.1f},{legend_item_y['parity'] + 6.0:.1f} {legend_x + 56:.1f},{legend_item_y['parity'] - 3.0:.1f}' "
-            f"fill='none' stroke='{html.escape(str(parity_style['stroke']))}' stroke-width='{float(parity_style['stroke_width']):.2f}' "
-            f"stroke-dasharray='{html.escape(str(parity_style['dash']))}' stroke-linecap='{html.escape(str(parity_style.get('linecap', 'round')))}' "
-            f"marker-end='url(#parity_arrowhead)' opacity='{float(parity_style['opacity']):.2f}'/>"
-        )
-        pieces.append(
-            f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['parity']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' fill='#223'>parity</text>"
-        )
+        if mechanism_legend_orientation == "horizontal":
+            baseline = mechanism_legend_y + (20.0 if not has_legend_title else 34.0)
+            legend_item_x = {
+                "copy": legend_x + 12.0,
+                "cooperation": legend_x + 12.0 + mechanism_legend_item_spacing,
+                "parity": legend_x + 12.0 + 2.0 * mechanism_legend_item_spacing,
+            }
+            for key, label, style, marker_id in (
+                ("copy", "copy", copy_style, "copy_arrowhead"),
+                ("cooperation", "cooperation", cooperation_style, "cooperation_arrowhead"),
+                ("parity", "parity", parity_style, "parity_arrowhead"),
+            ):
+                item_x = legend_item_x[key]
+                if key == "copy":
+                    pieces.append(
+                        f"<line x1='{item_x:.1f}' y1='{baseline - 3.0:.1f}' x2='{item_x + 34.0:.1f}' y2='{baseline - 3.0:.1f}' "
+                        f"stroke='{html.escape(str(style['stroke']))}' stroke-width='{float(style['stroke_width_base']) + float(style['stroke_width_scale']):.2f}' "
+                        f"opacity='{float(style['opacity']):.2f}' marker-end='url(#{marker_id})'/>"
+                    )
+                else:
+                    linecap_attr = (
+                        f" stroke-linecap='{html.escape(str(style.get('linecap', 'round')))}'"
+                        if key == "parity"
+                        else ""
+                    )
+                    curve = -8.0 if key == "cooperation" else 6.0
+                    pieces.append(
+                        f"<path d='M {item_x:.1f},{baseline - 3.0:.1f} Q {item_x + 17.0:.1f},{baseline + curve:.1f} {item_x + 34.0:.1f},{baseline - 3.0:.1f}' "
+                        f"fill='none' stroke='{html.escape(str(style['stroke']))}' stroke-width='{float(style['stroke_width']):.2f}' "
+                        f"stroke-dasharray='{html.escape(str(style['dash']))}'{linecap_attr} marker-end='url(#{marker_id})' opacity='{float(style['opacity']):.2f}'/>"
+                    )
+                pieces.append(
+                    f"<text x='{item_x + 44.0:.1f}' y='{baseline:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' "
+                    f"font-weight='{html.escape(mechanism_legend_item_font_weight)}' fill='#223'>{label}</text>"
+                )
+        else:
+            item_baseline_start = mechanism_legend_y + (30.0 if has_legend_title else 26.0)
+            legend_item_y = {
+                "copy": item_baseline_start,
+                "cooperation": item_baseline_start + mechanism_legend_item_spacing,
+                "parity": item_baseline_start + 2.0 * mechanism_legend_item_spacing,
+            }
+            pieces.append(
+                f"<line x1='{legend_x + 12:.1f}' y1='{legend_item_y['copy'] - 3.0:.1f}' x2='{legend_x + 56:.1f}' y2='{legend_item_y['copy'] - 3.0:.1f}' "
+                f"stroke='{html.escape(str(copy_style['stroke']))}' stroke-width='{float(copy_style['stroke_width_base']) + float(copy_style['stroke_width_scale']):.2f}' "
+                f"opacity='{float(copy_style['opacity']):.2f}' marker-end='url(#copy_arrowhead)'/>"
+            )
+            pieces.append(
+                f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['copy']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' "
+                f"font-weight='{html.escape(mechanism_legend_item_font_weight)}' fill='#223'>copy</text>"
+            )
+            pieces.append(
+                f"<path d='M {legend_x + 12:.1f},{legend_item_y['cooperation'] - 3.0:.1f} Q {legend_x + 34:.1f},{legend_item_y['cooperation'] - 12.0:.1f} {legend_x + 56:.1f},{legend_item_y['cooperation'] - 3.0:.1f}' "
+                f"fill='none' stroke='{html.escape(str(cooperation_style['stroke']))}' stroke-width='{float(cooperation_style['stroke_width']):.2f}' "
+                f"stroke-dasharray='{html.escape(str(cooperation_style['dash']))}' marker-end='url(#cooperation_arrowhead)' opacity='{float(cooperation_style['opacity']):.2f}'/>"
+            )
+            pieces.append(
+                f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['cooperation']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' "
+                f"font-weight='{html.escape(mechanism_legend_item_font_weight)}' fill='#223'>cooperation</text>"
+            )
+            pieces.append(
+                f"<path d='M {legend_x + 12:.1f},{legend_item_y['parity'] - 3.0:.1f} Q {legend_x + 34:.1f},{legend_item_y['parity'] + 6.0:.1f} {legend_x + 56:.1f},{legend_item_y['parity'] - 3.0:.1f}' "
+                f"fill='none' stroke='{html.escape(str(parity_style['stroke']))}' stroke-width='{float(parity_style['stroke_width']):.2f}' "
+                f"stroke-dasharray='{html.escape(str(parity_style['dash']))}' stroke-linecap='{html.escape(str(parity_style.get('linecap', 'round')))}' "
+                f"marker-end='url(#parity_arrowhead)' opacity='{float(parity_style['opacity']):.2f}'/>"
+            )
+            pieces.append(
+                f"<text x='{legend_x + 66:.1f}' y='{legend_item_y['parity']:.1f}' font-size='{mechanism_legend_item_font_size:.1f}' "
+                f"font-weight='{html.escape(mechanism_legend_item_font_weight)}' fill='#223'>parity</text>"
+            )
     for name in PANEL_ORDER:
         index = PANEL_ORDER.index(name)
         row = index // 3
@@ -8043,16 +8091,19 @@ def render_benchmark_topology_overview_svg(
             uniform_node_fill="#ecd8cf",
             uniform_node_stroke="#2f3e4e",
             uniform_node_stroke_width=1.7,
+            node_radius=node_radius,
+            node_label_font_size=node_label_font_size,
+            node_label_font_weight=node_label_font_weight,
             connection_style=connection_style,
             connection_filter_style=connection_filter_style,
         )
+        pieces.append(f"<g transform='translate({x},{y})'>{_strip_svg_wrapper(panel_svg)}</g>")
         if show_panel_letters:
             pieces.append(
                 f"<text x='{x + panel_letter_dx:.0f}' y='{y + panel_letter_dy:.0f}' "
                 f"font-size='{panel_letter_font_size}' font-weight='{html.escape(panel_letter_font_weight)}' "
                 f"fill='{html.escape(panel_letter_fill)}'>{PANEL_LOWERCASE[name]}</text>"
             )
-        pieces.append(f"<g transform='translate({x},{y})'>{_strip_svg_wrapper(panel_svg)}</g>")
     pieces.append("</svg>")
     return "".join(pieces)
 
@@ -8103,23 +8154,137 @@ def render_metric_bar_chart_svg(
 def render_benchmark_ei_phi_summary_svg(
     results: dict[str, dict[str, float | str]] | None = None,
 ) -> str:
+    fig = render_benchmark_ei_phi_lollipop_figure(results)
+    buffer = io.StringIO()
+    fig.savefig(buffer, format="svg", bbox_inches="tight")
+    plt.close(fig)
+    return clean_svg_text(buffer.getvalue())
+
+
+def benchmark_ei_phi_publication_rows(
+    results: dict[str, dict[str, float | str]] | None = None,
+) -> list[dict[str, float | str]]:
     benchmark_results = results or compute_benchmark_results()
-    ei_svg = render_metric_bar_chart_svg("ei", "Total EI", benchmark_results, color="#1F77B4")
-    phi_svg = render_metric_bar_chart_svg("phi_eid", "Φ^EID", benchmark_results, color="#E15759")
-    width = 1240
-    height = 280
-    pieces = [
-        f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>",
-        f"<rect x='0' y='0' width='{width}' height='{height}' fill='white'/>",
-        "<g transform='translate(0,20)'>",
-        _strip_svg_wrapper(ei_svg),
-        "</g>",
-        "<g transform='translate(620,20)'>",
-        _strip_svg_wrapper(phi_svg),
-        "</g>",
-        "</svg>",
-    ]
-    return "".join(pieces)
+    rows: list[dict[str, float | str]] = []
+    for network_key in PANEL_ORDER:
+        result = benchmark_results[network_key]
+        total_ei = float(result["ei"])
+        phi_eid = float(result["phi_eid"])
+        rows.append(
+            {
+                "network_key": network_key,
+                "panel": PANEL_LOWERCASE[network_key],
+                "label": str(result["label"]),
+                "total_ei": total_ei,
+                "phi_eid": phi_eid,
+                "phi_fraction": phi_eid / total_ei if total_ei else float("nan"),
+            }
+        )
+    return rows
+
+
+def render_benchmark_ei_phi_lollipop_figure(
+    results: dict[str, dict[str, float | str]] | None = None,
+    *,
+    right_title: str = r"System-level synergy, $\Phi^{\mathrm{EID}}$",
+) -> plt.Figure:
+    rows = benchmark_ei_phi_publication_rows(results)
+    palette = {
+        "ei": "#0F4D92",
+        "phi": "#B64342",
+        "axis": "#272727",
+        "grid": "#D9DDE2",
+        "band": "#F4F6F8",
+    }
+    network_labels = [f"{row['panel']}  {row['label']}" for row in rows]
+    y_positions = np.arange(len(rows))[::-1]
+
+    def draw_metric_panel(
+        ax,
+        metric_key: str,
+        color: str,
+        title: str,
+    ) -> None:
+        values = np.array([float(row[metric_key]) for row in rows], dtype=float)
+        max_value = float(values.max())
+        x_pad = max_value * 0.026
+        for row_index, y in enumerate(y_positions):
+            if row_index % 2 == 1:
+                ax.axhspan(y - 0.45, y + 0.45, color=palette["band"], zorder=0)
+        for y, value in zip(y_positions, values, strict=True):
+            ax.hlines(y, 0, value, color=color, linewidth=1.7, alpha=0.55, zorder=2)
+            ax.scatter(
+                value,
+                y,
+                s=34,
+                color=color,
+                edgecolor="white",
+                linewidth=0.7,
+                zorder=3,
+            )
+            ax.text(
+                value + x_pad,
+                y,
+                f"{value:.3f}",
+                va="center",
+                ha="left",
+                fontsize=6.4,
+                color=palette["axis"],
+            )
+        ax.set_xlim(0, max_value * 1.22)
+        ax.set_ylim(-0.7, len(rows) - 0.3)
+        ax.set_xlabel("bits", labelpad=3)
+        ax.set_title(title, loc="left", fontsize=7.5, fontweight="bold", pad=7)
+        ax.grid(axis="x", color=palette["grid"], linewidth=0.45, alpha=0.8)
+        ax.tick_params(axis="both", labelsize=6.5, width=0.55, length=2.6, color=palette["axis"])
+        ax.spines["left"].set_color(palette["axis"])
+        ax.spines["bottom"].set_color(palette["axis"])
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    with plt.rc_context(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "DejaVu Sans", "Liberation Sans"],
+            "svg.fonttype": "none",
+            "pdf.fonttype": 42,
+            "font.size": 7,
+            "axes.linewidth": 0.65,
+            "legend.frameon": False,
+        }
+    ):
+        fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.15), sharey=True, constrained_layout=True)
+        draw_metric_panel(axes[0], "total_ei", palette["ei"], "Total effective information")
+        draw_metric_panel(axes[1], "phi_eid", palette["phi"], right_title)
+        axes[0].set_yticks(y_positions)
+        axes[0].set_yticklabels(network_labels)
+        axes[1].tick_params(axis="y", left=False, labelleft=False)
+    return fig
+
+
+def export_benchmark_ei_phi_lollipop_artifacts(
+    fig_dir: Path,
+    results: dict[str, dict[str, float | str]] | None = None,
+    *,
+    stem: str = "ei_phi_summary",
+    write_source_data: bool = False,
+    source_data_stem: str = "source_data_discrete_benchmark_publication",
+) -> None:
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    benchmark_results = results or compute_benchmark_results()
+    fig = render_benchmark_ei_phi_lollipop_figure(benchmark_results)
+    fig.savefig(fig_dir / f"{stem}.svg", bbox_inches="tight")
+    fig.savefig(fig_dir / f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(fig_dir / f"{stem}.png", dpi=600, bbox_inches="tight")
+    plt.close(fig)
+
+    if write_source_data:
+        rows = benchmark_ei_phi_publication_rows(benchmark_results)
+        source_data_path = fig_dir / f"{source_data_stem}.csv"
+        with source_data_path.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
 
 
 def export_benchmark_artifacts(
@@ -8137,6 +8302,21 @@ def export_benchmark_artifacts(
     ei_path = fig_dir / "joint_state_ei.svg"
     phi_path = fig_dir / "highest_order_total_synergy.svg"
     legacy_summary_path = fig_dir / "ei_phi_summary.svg"
+    resolved_fig_dir = fig_dir.resolve()
+    repo_root = next(
+        (
+            candidate
+            for candidate in [resolved_fig_dir, *resolved_fig_dir.parents]
+            if (candidate / "utils.py").exists()
+        ),
+        None,
+    )
+
+    def _manifest_file(path: Path) -> str:
+        resolved_path = path.resolve()
+        if repo_root is None:
+            return str(path)
+        return str(resolved_path.relative_to(repo_root))
 
     topology_path.write_text(render_benchmark_topology_overview_svg(networks, **topology_kwargs))
     ei_path.write_text(
@@ -8145,24 +8325,28 @@ def export_benchmark_artifacts(
     phi_path.write_text(
         render_metric_bar_chart_svg("phi_eid", "Φ^EID", benchmark_results, color="#E15759")
     )
-    legacy_summary_path.write_text(render_benchmark_ei_phi_summary_svg(benchmark_results))
+    export_benchmark_ei_phi_lollipop_artifacts(fig_dir, benchmark_results, stem=legacy_summary_path.stem)
 
     manifest = [
         {
             "index": 0,
             "label": "Six benchmark topologies",
-            "file": str(topology_path),
+            "file": _manifest_file(topology_path),
         },
         {
             "index": 1,
             "label": "Benchmark total EI",
-            "file": str(ei_path),
+            "file": _manifest_file(ei_path),
         },
         {
             "index": 2,
             "label": "Benchmark Phi^EID",
-            "file": str(phi_path),
+            "file": _manifest_file(phi_path),
+        },
+        {
+            "index": 3,
+            "label": "Benchmark EI and Phi^EID lollipop summary",
+            "file": _manifest_file(legacy_summary_path.with_suffix(".png")),
         },
     ]
     (fig_dir / "figure_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
-

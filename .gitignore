@@ -53,6 +53,7 @@ data/*.csv
 docs/ref/*.pdf
 docs/ref/.DS_Store
 docs/log/**
+docs/latex/**
 
 # Lean / Lake build outputs
 .lake/

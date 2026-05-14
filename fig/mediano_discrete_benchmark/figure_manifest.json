@@ -13,5 +13,10 @@
     "index": 2,
     "label": "Benchmark Phi^EID",
     "file": "fig/mediano_discrete_benchmark/highest_order_total_synergy.svg"
+  },
+  {
+    "index": 3,
+    "label": "Benchmark EI and Phi^EID lollipop summary",
+    "file": "fig/mediano_discrete_benchmark/ei_phi_summary.png"
   }
 ]
