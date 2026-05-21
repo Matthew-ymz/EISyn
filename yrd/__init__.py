@@ -6149,6 +6149,13 @@ def run_air_tm_notebook_case(
 
 import sys as _yrd_sys
 
+from transport_map_density import (
+    AffineTransportMapDensityEstimator,
+    fit_affine_transport_map_density,
+    multivariate_gaussian_logpdf,
+    standard_gaussian_logpdf,
+)
+
 _yrd_module = _yrd_sys.modules[__name__]
 
 _YRD_SUBMODULE_ALIASES = ('config', 'transport_map', 'analysis', 'intervention_sampling', 'groups', 'data', 'models', 'coupling', 'train', 'plotting', 'shanghai_notebook', 'air_search', 'air_search_notebook')
