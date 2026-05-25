@@ -9,9 +9,11 @@ from scripts.validate_o3_h1_peid import (
     H1Config,
     assign_station_groups,
     build_peak_o3_feature_table,
+    build_station_mean_feature_table,
     select_stations,
     build_sillman_reference_surface,
     build_mlp_regressor,
+    build_nox_voc_poly_regressor,
     compute_relative_humidity,
     metrics_for_splits,
     source_synergy_bits,
@@ -197,6 +199,32 @@ def test_all_station_feature_table_expands_nox_voc_support_and_groups_by_quantil
     assert set(frame["station_group"]) == {"nox_low_voc_low", "nox_high_voc_high"}
 
 
+def test_station_mean_feature_table_aggregates_one_row_per_station() -> None:
+    frame = pd.DataFrame(
+        {
+            "station_id": ["s1", "s1", "s2", "s2"],
+            "station": ["s1", "s1", "s2", "s2"],
+            "station_name": ["A", "A", "B", "B"],
+            "city_en": ["beijing", "beijing", "tianjin", "tianjin"],
+            "station_group": ["nox_low_voc_low", "nox_low_voc_low", "nox_high_voc_high", "nox_high_voc_high"],
+            "nox_group": ["low", "low", "high", "high"],
+            "voc_group": ["low", "low", "high", "high"],
+            "O3_peak": [100.0, 120.0, 140.0, 160.0],
+        }
+    )
+    for idx, column in enumerate(FEATURE_COLUMNS):
+        frame[column] = np.array([1.0, 3.0, 10.0, 14.0]) + idx
+
+    station_mean = build_station_mean_feature_table(frame, H1Config(random_state=0))
+
+    assert len(station_mean) == 2
+    assert station_mean["station_id"].is_unique
+    assert float(station_mean.loc[station_mean["station_id"] == "s1", "O3_peak"].iloc[0]) == 110.0
+    assert float(station_mean.loc[station_mean["station_id"] == "s2", "meic_NOx"].iloc[0]) == 12.0
+    assert set(station_mean["surface_scope"]) == {"station_mean"}
+    assert set(station_mean["split"]) == {"train"}
+
+
 def test_feature_columns_use_lagged_pollution_without_same_day_o3_leakage() -> None:
     assert "O3" not in FEATURE_COLUMNS
     assert "O3_peak" not in FEATURE_COLUMNS
@@ -223,3 +251,19 @@ def test_mlp_pipeline_fits_and_metrics_include_model_rows() -> None:
 
     metrics = metrics_for_splits(frame, {"mlp": mlp}, H1Config())
     assert {"mlp", "train_mean"} == set(metrics["model"])
+
+
+def test_nox_voc_poly_regressor_fits_feature_table_and_predicts_finite_values() -> None:
+    frame = pd.DataFrame({"O3_peak": np.linspace(80.0, 140.0, 16)})
+    for idx, column in enumerate(FEATURE_COLUMNS):
+        if column == "meic_NOx":
+            frame[column] = np.geomspace(0.1, 10.0, 16)
+        elif column == "meic_VOC":
+            frame[column] = np.geomspace(0.2, 20.0, 16)
+        else:
+            frame[column] = np.linspace(0.0, 1.0, 16) + idx
+
+    model = build_nox_voc_poly_regressor()
+    model.fit(frame[list(FEATURE_COLUMNS)], frame["O3_peak"])
+
+    assert np.isfinite(model.predict(frame[list(FEATURE_COLUMNS)])).all()

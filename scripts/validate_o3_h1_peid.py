@@ -487,6 +487,49 @@ def build_feature_table(config: H1Config) -> pd.DataFrame:
         return build_peak_o3_feature_table(ds, stations, config)
 
 
+def build_station_mean_feature_table(frame: pd.DataFrame, config: H1Config) -> pd.DataFrame:
+    metadata_cols = ["station_id", "station", "station_name", "city_en", "station_group", "nox_group", "voc_group"]
+    rows = []
+    for station_id, group in frame.groupby("station_id", sort=True):
+        payload: dict[str, object] = {
+            "station_id": station_id,
+            "n_station_days": int(len(group)),
+            "O3_peak": float(group["O3_peak"].mean()),
+            "surface_scope": "station_mean",
+        }
+        for col in metadata_cols:
+            if col in group.columns:
+                payload[col] = group[col].iloc[0]
+        for col in FEATURE_COLUMNS:
+            payload[col] = float(group[col].mean())
+        rows.append(payload)
+    result = pd.DataFrame(rows).replace([np.inf, -np.inf], np.nan)
+    result = result.dropna(subset=["O3_peak", *FEATURE_COLUMNS, "station_group"]).reset_index(drop=True)
+    if result.empty:
+        raise ValueError("No station-mean rows can be built from the station-day feature table.")
+
+    station_ids = result["station_id"].astype(str).drop_duplicates().to_numpy()
+    rng = np.random.default_rng(config.random_state)
+    shuffled = station_ids.copy()
+    rng.shuffle(shuffled)
+    if len(shuffled) < 3:
+        split_by_station = {station_id: "train" for station_id in shuffled}
+    else:
+        train_end = max(1, int(0.70 * len(shuffled)))
+        val_end = max(train_end + 1, int(0.85 * len(shuffled)))
+        val_end = min(val_end, len(shuffled))
+        split_by_station = {}
+        for idx, station_id in enumerate(shuffled):
+            if idx < train_end:
+                split_by_station[station_id] = "train"
+            elif idx < val_end:
+                split_by_station[station_id] = "val"
+            else:
+                split_by_station[station_id] = "test"
+    result["split"] = result["station_id"].astype(str).map(split_by_station)
+    return result.sort_values(["split", "station_id"]).reset_index(drop=True)
+
+
 def fit_random_forest(frame: pd.DataFrame, config: H1Config):
     from sklearn.ensemble import RandomForestRegressor
 
@@ -520,6 +563,23 @@ def build_mlp_regressor(config: H1Config):
     )
 
 
+def build_nox_voc_poly_regressor():
+    from sklearn.compose import ColumnTransformer
+    from sklearn.linear_model import Ridge
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+
+    return make_pipeline(
+        ColumnTransformer(
+            [("nox_voc", "passthrough", ["meic_NOx", "meic_VOC"])],
+            remainder="drop",
+        ),
+        StandardScaler(),
+        PolynomialFeatures(degree=3, include_bias=False),
+        Ridge(alpha=0.1),
+    )
+
+
 def fit_models(frame: pd.DataFrame, config: H1Config) -> dict[str, object]:
     train = frame[frame["split"] == "train"]
     models = {
@@ -527,6 +587,24 @@ def fit_models(frame: pd.DataFrame, config: H1Config) -> dict[str, object]:
         "mlp": build_mlp_regressor(config),
     }
     models["mlp"].fit(train[list(FEATURE_COLUMNS)], train["O3_peak"])
+    return models
+
+
+def fit_station_mean_models(frame: pd.DataFrame, config: H1Config) -> dict[str, object]:
+    from sklearn.ensemble import RandomForestRegressor
+
+    train = frame[frame["split"] == "train"]
+    rf = RandomForestRegressor(
+        n_estimators=config.n_estimators,
+        min_samples_leaf=4,
+        random_state=config.random_state,
+        n_jobs=-1,
+    )
+    mlp = build_mlp_regressor(config)
+    poly = build_nox_voc_poly_regressor()
+    models = {"rf": rf, "mlp": mlp, "poly_nox_voc": poly}
+    for model in models.values():
+        model.fit(train[list(FEATURE_COLUMNS)], train["O3_peak"])
     return models
 
 
@@ -947,9 +1025,13 @@ def run(config: H1Config) -> dict[str, str]:
 
     frame = build_feature_table(config)
     frame.to_csv(CACHE_DIR / "peak_o3_feature_sample.csv", index=False)
+    station_mean_frame = build_station_mean_feature_table(frame, config)
+    station_mean_frame.to_csv(CACHE_DIR / "station_mean_peak_o3_feature_table.csv", index=False)
 
     models = fit_models(frame, config)
     metrics = metrics_for_splits(frame, models, config)
+    station_mean_models = fit_station_mean_models(station_mean_frame, config)
+    station_mean_metrics = metrics_for_splits(station_mean_frame, station_mean_models, config)
 
     surface_frames = []
     diagnostic_frames = []
@@ -1014,16 +1096,41 @@ def run(config: H1Config) -> dict[str, str]:
         pairwise_frames.append(pairwise)
         synergy_frames.append(synergy)
 
+    station_mean_surface_frames = []
+    station_mean_diagnostic_frames = []
+    station_mean_shape_by_model: dict[str, bool] = {}
+    for model_name, model in station_mean_models.items():
+        surface, diagnostics = response_surface(model, station_mean_frame, config, model_name=model_name)
+        global_surface = surface[surface["surface_scope"] == "all_stations"].copy()
+        global_surface.to_csv(RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.csv", index=False)
+        plot_response_surface(
+            global_surface,
+            RESULTS_DIR,
+            output_stem=f"station_mean_peak_o3_response_surface_{model_name}",
+        )
+        station_mean_surface_frames.append(surface)
+        station_mean_diagnostic_frames.append(diagnostics)
+        station_mean_shape_by_model[model_name] = bool(
+            diagnostics.loc[
+                diagnostics["surface_scope"] == "all_stations", "passes_sillman_shape_check"
+            ].fillna(False).any()
+        )
+
     surface = pd.concat(surface_frames, ignore_index=True)
     diagnostics = pd.concat(diagnostic_frames, ignore_index=True)
     pairwise = pd.concat(pairwise_frames, ignore_index=True)
     synergy = pd.concat(synergy_frames, ignore_index=True)
+    station_mean_surface = pd.concat(station_mean_surface_frames, ignore_index=True)
+    station_mean_diagnostics = pd.concat(station_mean_diagnostic_frames, ignore_index=True)
 
     metrics.to_csv(RESULTS_DIR / "model_metrics.csv", index=False)
+    station_mean_metrics.to_csv(RESULTS_DIR / "station_mean_model_metrics.csv", index=False)
     pairwise.to_csv(RESULTS_DIR / "peid_pairwise_edges.csv", index=False)
     synergy.to_csv(RESULTS_DIR / "peid_synergy_hyperedges.csv", index=False)
     surface.to_csv(RESULTS_DIR / "beijing_peak_o3_response_surface.csv", index=False)
     diagnostics.to_csv(RESULTS_DIR / "response_surface_diagnostics.csv", index=False)
+    station_mean_surface.to_csv(RESULTS_DIR / "station_mean_peak_o3_response_surface.csv", index=False)
+    station_mean_diagnostics.to_csv(RESULTS_DIR / "station_mean_response_surface_diagnostics.csv", index=False)
 
     write_notes(
         RESULTS_DIR,
@@ -1048,11 +1155,13 @@ def run(config: H1Config) -> dict[str, str]:
         },
         "artifacts": {
             "feature_sample": str(CACHE_DIR / "peak_o3_feature_sample.csv"),
+            "station_mean_feature_table": str(CACHE_DIR / "station_mean_peak_o3_feature_table.csv"),
             "sillman_reference_surface_csv": str(RESULTS_DIR / "sillman_reference_surface.csv"),
             "sillman_reference_ridge_csv": str(RESULTS_DIR / "sillman_reference_ridge.csv"),
             "sillman_reference_surface_png": str(RESULTS_DIR / "sillman_reference_surface.png"),
             "sillman_reference_surface_pdf": str(RESULTS_DIR / "sillman_reference_surface.pdf"),
             "model_metrics": str(RESULTS_DIR / "model_metrics.csv"),
+            "station_mean_model_metrics": str(RESULTS_DIR / "station_mean_model_metrics.csv"),
             "peid_pairwise_edges": str(RESULTS_DIR / "peid_pairwise_edges.csv"),
             "peid_synergy_hyperedges": str(RESULTS_DIR / "peid_synergy_hyperedges.csv"),
             "response_surface_grid": str(RESULTS_DIR / "beijing_peak_o3_response_surface.csv"),
@@ -1065,6 +1174,19 @@ def run(config: H1Config) -> dict[str, str]:
                 RESULTS_DIR / "all_stations_peak_o3_response_surface_mlp.csv"
             ),
             "response_surface_diagnostics": str(RESULTS_DIR / "response_surface_diagnostics.csv"),
+            "station_mean_response_surface_diagnostics": str(
+                RESULTS_DIR / "station_mean_response_surface_diagnostics.csv"
+            ),
+            "station_mean_response_surface_grid": str(RESULTS_DIR / "station_mean_peak_o3_response_surface.csv"),
+            "station_mean_response_surface_grid_rf": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.csv"
+            ),
+            "station_mean_response_surface_grid_mlp": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.csv"
+            ),
+            "station_mean_response_surface_grid_poly_nox_voc": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.csv"
+            ),
             "response_surface_png_rf": str(RESULTS_DIR / "beijing_peak_o3_response_surface_rf.png"),
             "response_surface_pdf_rf": str(RESULTS_DIR / "beijing_peak_o3_response_surface_rf.pdf"),
             "response_surface_png_mlp": str(RESULTS_DIR / "beijing_peak_o3_response_surface_mlp.png"),
@@ -1081,6 +1203,24 @@ def run(config: H1Config) -> dict[str, str]:
             "all_stations_response_surface_pdf_mlp": str(
                 RESULTS_DIR / "all_stations_peak_o3_response_surface_mlp.pdf"
             ),
+            "station_mean_response_surface_png_rf": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.png"
+            ),
+            "station_mean_response_surface_pdf_rf": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.pdf"
+            ),
+            "station_mean_response_surface_png_mlp": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.png"
+            ),
+            "station_mean_response_surface_pdf_mlp": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.pdf"
+            ),
+            "station_mean_response_surface_png_poly_nox_voc": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.png"
+            ),
+            "station_mean_response_surface_pdf_poly_nox_voc": str(
+                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.pdf"
+            ),
             "peid_graph_png_rf": str(RESULTS_DIR / "peid_o3_h1_causal_graph_rf.png"),
             "peid_graph_pdf_rf": str(RESULTS_DIR / "peid_o3_h1_causal_graph_rf.pdf"),
             "peid_graph_png_mlp": str(RESULTS_DIR / "peid_o3_h1_causal_graph_mlp.png"),
@@ -1089,6 +1229,7 @@ def run(config: H1Config) -> dict[str, str]:
         },
         "reference_surface_diagnostics": reference_diagnostics,
         "empirical_surface_passes_sillman_shape_check": peid_enabled_by_model,
+        "station_mean_surface_passes_sillman_shape_check": station_mean_shape_by_model,
     }
     (RESULTS_DIR / "figure_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return manifest["artifacts"]
