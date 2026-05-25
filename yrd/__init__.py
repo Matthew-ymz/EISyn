@@ -6149,7 +6149,7 @@ def run_air_tm_notebook_case(
 
 import sys as _yrd_sys
 
-from transport_map_density import (
+from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
     fit_affine_transport_map_density,
     multivariate_gaussian_logpdf,

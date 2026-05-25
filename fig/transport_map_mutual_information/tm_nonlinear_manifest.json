@@ -1,6 +1,14 @@
 {
-  "notebook": "exp/tm_nonlinear.ipynb",
+  "notebook": "exp/TM/tm_nonlinear.ipynb",
   "alpha_values": [
+    0.0,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    1.0
+  ],
+  "beta_values": [
     0.0,
     0.2,
     0.4,
@@ -34,6 +42,11 @@
     "tm_alpha_shap_runs.csv",
     "tm_alpha_shap_summary.csv",
     "tm_alpha_shap_peid_comparison.csv",
+    "tm_beta_runs.csv",
+    "tm_beta_summary.csv",
+    "tm_beta_shap_runs.csv",
+    "tm_beta_shap_summary.csv",
+    "tm_beta_shap_peid_comparison.csv",
     "tm_alpha_high_noise_runs.csv",
     "tm_alpha_high_noise_summary.csv",
     "tm_l_sweep_runs.csv",
@@ -45,6 +58,9 @@
     "tm_alpha_ei_decomposition.png",
     "tm_alpha_share_ratio.png",
     "tm_alpha_shap_peid_comparison.png",
+    "tm_beta_ei_decomposition.png",
+    "tm_beta_share_ratio.png",
+    "tm_beta_shap_peid_comparison.png",
     "tm_alpha_high_noise_ei_decomposition.png",
     "tm_l_sensitivity_heatmap.png",
     "tm_l_sensitivity_lines.png",

@@ -7,7 +7,9 @@ import math
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
+import pandas as pd
 
 
 N = 82
@@ -15,6 +17,7 @@ SEED = 42
 X_PAPER = 0.87
 X_CIRCUIT = 0.90
 Z_THRESHOLD = 0.87
+A_EXPERIMENT = 1
 CMAP_RB = mcolors.ListedColormap(["#FF0000", "#0000FF"])
 CMAP_RASTER = mcolors.ListedColormap(["#F3F4F4", "#24313F"])
 DC_PROFILE_CSV = "boolean_brain_dynamics_literature_ic_dc_profile.csv"
@@ -638,4 +641,253 @@ def plot_dc_profile(profile_rows: list[dict[str, object]]):
     ax.spines["bottom"].set_linewidth(0.7)
     ax.tick_params(axis="both", width=0.7, length=3)
     ax.margins(x=0.02)
+    return fig, ax
+
+
+def _directed_graph_from_adjacency(A: np.ndarray, W: np.ndarray | None = None) -> nx.DiGraph:
+    weights = A.astype(float) if W is None else np.asarray(W, dtype=float)
+    graph = nx.DiGraph()
+    n_nodes = int(A.shape[0])
+    graph.add_nodes_from(range(n_nodes))
+    for target in range(n_nodes):
+        for source in np.where(A[target] > 0)[0].tolist():
+            graph.add_edge(int(source), int(target), weight=float(weights[target, source]))
+    return graph
+
+
+def build_node_dc_topology_table(
+    A: np.ndarray,
+    W: np.ndarray | None,
+    dc_values: np.ndarray | list[float],
+    *,
+    node_labels: list[str] | None = None,
+    node_coords: list[list[float]] | None = None,
+) -> pd.DataFrame:
+    """Return one row per node using the BN convention A[target, source]."""
+    A_arr = np.asarray(A)
+    W_arr = A_arr.astype(float) if W is None else np.asarray(W, dtype=float)
+    dc_arr = np.asarray(dc_values, dtype=float)
+    n_nodes = int(A_arr.shape[0])
+    if A_arr.shape != (n_nodes, n_nodes):
+        raise ValueError(f"Expected square adjacency matrix, got {A_arr.shape}")
+    if W_arr.shape != A_arr.shape:
+        raise ValueError(f"Expected W shape {A_arr.shape}, got {W_arr.shape}")
+    if dc_arr.shape[0] != n_nodes:
+        raise ValueError(f"Expected {n_nodes} DC values, got {dc_arr.shape[0]}")
+
+    graph = _directed_graph_from_adjacency(A_arr, W_arr)
+    graph_no_self = graph.copy()
+    graph_no_self.remove_edges_from(nx.selfloop_edges(graph_no_self))
+    undirected = graph_no_self.to_undirected()
+    betweenness = nx.betweenness_centrality(graph_no_self, weight=None, normalized=True)
+    closeness = nx.closeness_centrality(graph_no_self)
+    pagerank = (
+        nx.pagerank(graph_no_self, weight="weight")
+        if graph_no_self.number_of_edges()
+        else {node: 0.0 for node in graph_no_self.nodes}
+    )
+    clustering = nx.clustering(undirected)
+    core_number = nx.core_number(undirected) if graph_no_self.number_of_edges() else {node: 0 for node in graph_no_self.nodes}
+
+    rows = []
+    for node in range(n_nodes):
+        coord = node_coords[node] if node_coords is not None and node < len(node_coords) else [np.nan, np.nan, np.nan]
+        label = node_labels[node] if node_labels is not None and node < len(node_labels) else str(node + 1)
+        in_degree = int(A_arr[node].sum())
+        out_degree = int(A_arr[:, node].sum())
+        weighted_in = float(W_arr[node][A_arr[node] > 0].sum())
+        weighted_out = float(W_arr[:, node][A_arr[:, node] > 0].sum())
+        rows.append(
+            {
+                "node": node + 1,
+                "node_index": node,
+                "label": label,
+                "x": float(coord[0]) if len(coord) > 0 else np.nan,
+                "y": float(coord[1]) if len(coord) > 1 else np.nan,
+                "z": float(coord[2]) if len(coord) > 2 else np.nan,
+                "dc": float(dc_arr[node]),
+                "in_degree": in_degree,
+                "out_degree": out_degree,
+                "total_degree": in_degree + out_degree,
+                "weighted_in_strength": weighted_in,
+                "weighted_out_strength": weighted_out,
+                "weighted_total_strength": weighted_in + weighted_out,
+                "betweenness": float(betweenness[node]),
+                "closeness": float(closeness[node]),
+                "pagerank": float(pagerank[node]),
+                "clustering": float(clustering[node]),
+                "core_number": int(core_number[node]),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def compute_node_dc_values_for_b(
+    A_main: np.ndarray,
+    s0: np.ndarray,
+    *,
+    a_fixed: int,
+    b_val: int,
+    initial_conditions: list[tuple[np.ndarray, str, str]] | None = None,
+    T: int = 800,
+    mu_start: int = 300,
+    period_warmup: int = 400,
+) -> tuple[np.ndarray, list[dict[str, object]]]:
+    if initial_conditions is None:
+        initial_conditions = phase_initial_conditions(s0)
+
+    dc_by_ic = []
+    records: list[dict[str, object]] = []
+    for s0_ic, ic_name, ic_desc in initial_conditions:
+        phase_summary = summarize_trajectory_phase(
+            A_main,
+            s0_ic,
+            a_fixed=a_fixed,
+            b_val=b_val,
+            T=T,
+            mu_start=mu_start,
+            period_warmup=period_warmup,
+        )
+        dc_values = np.asarray(
+            [
+                float(local_dc_node_vectorized(A_main, node_j, a_fixed, b_val, phase_summary["mu_global"], A_main.shape[0])["dc"])
+                for node_j in range(A_main.shape[0])
+            ],
+            dtype=float,
+        )
+        dc_by_ic.append(dc_values)
+        records.append(
+            {
+                "name": ic_name,
+                "description": ic_desc,
+                "phase": phase_summary["phase"],
+                "period": phase_summary["period"],
+                "mean_dc": float(dc_values.mean()),
+                "final_active": phase_summary["final_active"],
+                "tail_mean_active": phase_summary["tail_mean_active"],
+            }
+        )
+    return np.vstack(dc_by_ic).mean(axis=0), records
+
+
+def compute_node_dc_topology_table(
+    A_main: np.ndarray,
+    W: np.ndarray,
+    s0: np.ndarray,
+    *,
+    a_fixed: int,
+    b_val: int,
+    node_labels: list[str] | None = None,
+    node_coords: list[list[float]] | None = None,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    dc_values, records = compute_node_dc_values_for_b(A_main, s0, a_fixed=a_fixed, b_val=b_val)
+    table = build_node_dc_topology_table(A_main, W, dc_values, node_labels=node_labels, node_coords=node_coords)
+    table.insert(1, "b", int(b_val))
+    return table, records
+
+
+def compute_dc_topology_correlations(
+    node_table: pd.DataFrame,
+    *,
+    dc_col: str = "dc",
+    metric_cols: list[str] | None = None,
+) -> pd.DataFrame:
+    if metric_cols is None:
+        metric_cols = [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "weighted_in_strength",
+            "weighted_out_strength",
+            "weighted_total_strength",
+            "betweenness",
+            "closeness",
+            "pagerank",
+            "clustering",
+            "core_number",
+        ]
+
+    rows = []
+    dc = pd.to_numeric(node_table[dc_col], errors="coerce")
+    for order, metric in enumerate(metric_cols):
+        if metric not in node_table.columns:
+            continue
+        values = pd.to_numeric(node_table[metric], errors="coerce")
+        valid = dc.notna() & values.notna()
+        if int(valid.sum()) < 3 or float(values[valid].std()) == 0.0 or float(dc[valid].std()) == 0.0:
+            continue
+        spearman_r = float(dc[valid].rank(method="average").corr(values[valid].rank(method="average")))
+        if np.isclose(spearman_r, 1.0):
+            spearman_r = 1.0
+        elif np.isclose(spearman_r, -1.0):
+            spearman_r = -1.0
+        rows.append(
+            {
+                "metric": metric,
+                "spearman_r": spearman_r,
+                "abs_spearman_r": abs(spearman_r),
+                "n": int(valid.sum()),
+                "metric_order": order,
+            }
+        )
+    corr = pd.DataFrame(rows)
+    if corr.empty:
+        return pd.DataFrame(columns=["metric", "spearman_r", "abs_spearman_r", "n"])
+    corr = corr.sort_values(["abs_spearman_r", "metric_order"], ascending=[False, True], kind="mergesort")
+    return corr.drop(columns=["metric_order"]).reset_index(drop=True)
+
+
+def plot_node_dc_network(
+    A: np.ndarray,
+    node_table: pd.DataFrame,
+    *,
+    colorbar_label: str = "Node DC_j (bits)",
+    node_size_col: str = "total_degree",
+):
+    graph = _directed_graph_from_adjacency(A)
+    graph.remove_edges_from(nx.selfloop_edges(graph))
+    if {"x", "y"}.issubset(node_table.columns) and np.isfinite(node_table[["x", "y"]].to_numpy(dtype=float)).all():
+        pos = {
+            int(row["node_index"]): (float(row["x"]), float(row["y"]))
+            for _, row in node_table.iterrows()
+        }
+    else:
+        pos = nx.spring_layout(graph, seed=SEED)
+
+    colors = node_table.sort_values("node_index")["dc"].to_numpy(dtype=float)
+    if node_size_col in node_table.columns:
+        raw_sizes = node_table.sort_values("node_index")[node_size_col].to_numpy(dtype=float)
+        if float(raw_sizes.max() - raw_sizes.min()) > 1e-12:
+            sizes = 70.0 + 180.0 * (raw_sizes - raw_sizes.min()) / (raw_sizes.max() - raw_sizes.min())
+        else:
+            sizes = np.full_like(raw_sizes, 120.0, dtype=float)
+    else:
+        sizes = np.full(len(colors), 120.0, dtype=float)
+
+    fig, ax = plt.subplots(figsize=(6.4, 5.2), constrained_layout=True)
+    nx.draw_networkx_edges(
+        graph,
+        pos=pos,
+        ax=ax,
+        arrows=True,
+        arrowstyle="-|>",
+        arrowsize=6,
+        width=0.45,
+        alpha=0.18,
+        edge_color="#6F7782",
+        connectionstyle="arc3,rad=0.035",
+    )
+    nodes = nx.draw_networkx_nodes(
+        graph,
+        pos=pos,
+        ax=ax,
+        node_color=colors,
+        node_size=sizes,
+        cmap="viridis",
+        linewidths=0.35,
+        edgecolors="#2E3338",
+    )
+    cbar = fig.colorbar(nodes, ax=ax, fraction=0.046, pad=0.02)
+    cbar.set_label(colorbar_label)
+    ax.set_axis_off()
     return fig, ax

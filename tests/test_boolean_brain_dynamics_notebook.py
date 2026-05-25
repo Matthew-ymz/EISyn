@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from exp.brain import boolean_brain_dynamics_support as brain_bn
@@ -44,7 +45,8 @@ def test_boolean_brain_notebook_exposes_paper_aligned_reproduction():
     assert "phase_counts" in notebook_text
     assert "typical phase" in notebook_text
     assert "boolean_brain_dynamics_literature_ic_dc_profile.csv" in notebook_text
-    assert "A_EXPERIMENT = 1" in notebook_text
+    assert "A_EXPERIMENT = brain_bn.A_EXPERIMENT" in notebook_text
+    assert "A_EXPERIMENT = 0" not in notebook_text
     assert "a_fixed=A_EXPERIMENT" in notebook_text
     assert "Phi^EID" not in notebook_text
     assert "phi_eid" not in notebook_text
@@ -72,6 +74,7 @@ def test_boolean_brain_notebook_runs_paper_parameters_without_extra_processing()
 
     assert namespace["X_MAIN"] == 0.87
     assert namespace["X_CIRCUIT"] == 0.90
+    assert namespace["A_EXPERIMENT"] == brain_bn.A_EXPERIMENT
     assert namespace["A_MAIN_LABEL"] == "paper raw x=0.87"
     assert namespace["A_CIRCUIT_LABEL"] == "paper raw x=0.90"
     assert phase[(1, 4)]["paper_period"] == 48
@@ -91,6 +94,20 @@ def test_boolean_brain_notebook_computes_dc_profile():
     assert np.isfinite(profile["mean_dc"].to_numpy(dtype=float)).all()
     assert "phase_counts" in profile.columns
     assert "loaded_from_cache" in namespace["dc_cache_info"]
+    assert namespace["dc_profile_details"]["a_fixed"] == brain_bn.A_EXPERIMENT
+
+
+def test_boolean_brain_notebook_adds_node_dc_topology_analysis():
+    notebook_path = Path(__file__).resolve().parents[1] / "exp" / "brain" / "boolean_brain_dynamics.ipynb"
+    notebook = json.loads(notebook_path.read_text())
+    notebook_text = json.dumps(notebook, ensure_ascii=False)
+
+    assert "node_dc_topology_df" in notebook_text
+    assert "dc_topology_corr_df" in notebook_text
+    assert "plot_node_dc_network" in notebook_text
+    assert "boolean_brain_node_dc_topology_b6.csv" in notebook_text
+    assert "boolean_brain_node_dc_network_b6.png" in notebook_text
+    assert "Spearman" in notebook_text
 
 
 def test_boolean_brain_support_defines_literature_initial_conditions():
@@ -150,6 +167,94 @@ def test_boolean_brain_dc_profile_plot_is_neutral_and_title_free():
     assert len(bar_colors) == 1
     assert ax.get_xlabel() == "Upper threshold b"
     assert ax.get_ylabel() == "Mean DC_j (bits)"
+
+
+def test_boolean_brain_node_topology_table_uses_adjacency_direction():
+    A = np.array(
+        [
+            [0, 0, 0, 0],
+            [1, 0, 1, 0],
+            [1, 0, 0, 0],
+            [0, 0, 1, 0],
+        ],
+        dtype=int,
+    )
+    W = A.astype(float)
+    dc_values = np.array([0.4, 0.1, 0.3, 0.2])
+
+    table = brain_bn.build_node_dc_topology_table(
+        A,
+        W,
+        dc_values,
+        node_labels=["n1", "n2", "n3", "n4"],
+        node_coords=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
+    )
+
+    node1 = table.loc[table["node"] == 1].iloc[0]
+    node2 = table.loc[table["node"] == 2].iloc[0]
+    node3 = table.loc[table["node"] == 3].iloc[0]
+
+    assert list(table["node"]) == [1, 2, 3, 4]
+    assert node1["label"] == "n1"
+    assert node1["dc"] == 0.4
+    assert node1["in_degree"] == 0
+    assert node1["out_degree"] == 2
+    assert node2["in_degree"] == 2
+    assert node2["out_degree"] == 0
+    assert node3["in_degree"] == 1
+    assert node3["out_degree"] == 2
+    assert {"betweenness", "pagerank", "clustering", "weighted_in_strength"}.issubset(table.columns)
+
+
+def test_boolean_brain_dc_topology_correlations_are_spearman_ranked():
+    table = pd.DataFrame(
+        {
+            "node": [1, 2, 3, 4, 5],
+            "dc": [0.1, 0.2, 0.4, 0.8, 1.6],
+            "in_degree": [1, 2, 3, 4, 5],
+            "out_degree": [5, 4, 3, 2, 1],
+            "constant": [1, 1, 1, 1, 1],
+        }
+    )
+
+    corr = brain_bn.compute_dc_topology_correlations(table, metric_cols=["in_degree", "out_degree", "constant"])
+
+    assert list(corr["metric"])[:2] == ["in_degree", "out_degree"]
+    assert corr.loc[corr["metric"] == "in_degree", "spearman_r"].iloc[0] == 1.0
+    assert corr.loc[corr["metric"] == "out_degree", "spearman_r"].iloc[0] == -1.0
+    assert "constant" not in set(corr["metric"])
+    assert (corr["n"] == 5).all()
+
+
+def test_boolean_brain_node_dc_network_plot_has_external_colorbar_and_no_title():
+    A = np.array(
+        [
+            [0, 0, 0, 0],
+            [1, 0, 1, 0],
+            [1, 0, 0, 0],
+            [0, 0, 1, 0],
+        ],
+        dtype=int,
+    )
+    table = brain_bn.build_node_dc_topology_table(A, A.astype(float), np.array([0.4, 0.1, 0.3, 0.2]))
+
+    fig, ax = brain_bn.plot_node_dc_network(A, table, colorbar_label="DC_j")
+
+    assert fig._suptitle is None
+    assert ax.get_title() == ""
+    assert not ax.axison
+    assert len(fig.axes) == 2
+    assert fig.axes[1].get_ylabel() == "DC_j"
+
+
+def test_boolean_brain_node_topology_table_allows_self_loops():
+    A = np.array([[1, 0], [1, 0]], dtype=int)
+
+    table = brain_bn.build_node_dc_topology_table(A, A.astype(float), np.array([0.2, 0.3]))
+
+    assert list(table["in_degree"]) == [1, 1]
+    assert list(table["out_degree"]) == [2, 0]
+    assert np.isfinite(table[["betweenness", "pagerank", "clustering", "core_number"]].to_numpy(dtype=float)).all()
 
 
 def test_boolean_brain_initial_condition_scan_plot_is_compact_and_neutral():

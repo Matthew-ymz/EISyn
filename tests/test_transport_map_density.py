@@ -4,10 +4,11 @@ from pathlib import Path
 
 import numpy as np
 
-from transport_map_density import (
+from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
     fit_affine_transport_map_density,
     fit_quadratic_triangular_transport_map_density,
+    pairwise_effective_information_for_dynamics,
     multivariate_gaussian_logpdf,
     standard_gaussian_logpdf,
 )
@@ -72,6 +73,69 @@ class TransportMapDensityTests(unittest.TestCase):
 
         self.assertLess(rmse, 0.10)
         self.assertEqual(estimator.backend, "quadratic_triangular_transport_map")
+
+    def test_pairwise_effective_information_for_dynamics_returns_indexed_matrix(self) -> None:
+        def dynamics(inputs: np.ndarray) -> np.ndarray:
+            return np.column_stack(
+                [
+                    inputs[:, 0] + 0.05 * inputs[:, 1],
+                    inputs[:, 2],
+                ]
+            )
+
+        summary = pairwise_effective_information_for_dynamics(
+            dynamics,
+            input_indices=[0, 1, 2],
+            output_indices=[0, 1],
+            input_dim=3,
+            box_size=4.0,
+            sample_count=3500,
+            seed=19,
+        )
+
+        pairwise = summary["pairwise_ei"]
+
+        self.assertEqual(pairwise.shape, (3, 2))
+        self.assertEqual(summary["input_indices"], [0, 1, 2])
+        self.assertEqual(summary["output_indices"], [0, 1])
+        self.assertGreater(float(pairwise[0, 0]), float(pairwise[1, 0]))
+        self.assertGreater(float(pairwise[2, 1]), 1.0)
+        self.assertLess(float(pairwise[0, 1]), 0.05)
+
+    def test_pairwise_effective_information_for_dynamics_supports_scalar_output(self) -> None:
+        def dynamics(inputs: np.ndarray) -> np.ndarray:
+            return 2.0 * inputs[:, 1]
+
+        summary = pairwise_effective_information_for_dynamics(
+            dynamics,
+            input_indices=[0, 1],
+            output_indices=[0],
+            input_dim=2,
+            sample_count=2500,
+            seed=23,
+        )
+
+        pairwise = summary["pairwise_ei"]
+
+        self.assertEqual(pairwise.shape, (2, 1))
+        self.assertLess(float(pairwise[0, 0]), 0.05)
+        self.assertGreater(float(pairwise[1, 0]), 1.0)
+
+    def test_pairwise_effective_information_for_dynamics_accepts_scalar_indices(self) -> None:
+        def dynamics(inputs: np.ndarray) -> np.ndarray:
+            return inputs[:, 0]
+
+        summary = pairwise_effective_information_for_dynamics(
+            dynamics,
+            input_indices=0,
+            output_indices=0,
+            sample_count=1500,
+            seed=29,
+        )
+
+        self.assertEqual(summary["pairwise_ei"].shape, (1, 1))
+        self.assertEqual(summary["input_indices"], [0])
+        self.assertEqual(summary["output_indices"], [0])
 
     def test_demo_notebook_imports_tm_algorithm_only_from_standalone_module(self) -> None:
         notebook_path = Path(__file__).resolve().parents[1] / "exp" / "transport_map_density_demo.ipynb"

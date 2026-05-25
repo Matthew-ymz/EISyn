@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 import numpy as np
+from scipy.special import digamma
 
 
 __all__ = [
     "AffineTransportMapDensityEstimator",
     "QuadraticTriangularTransportMapDensityEstimator",
+    "estimate_mutual_information_transport_map",
     "fit_affine_transport_map_density",
     "fit_quadratic_triangular_transport_map_density",
     "multivariate_gaussian_logpdf",
+    "pairwise_effective_information_for_dynamics",
     "standard_gaussian_logpdf",
 ]
 
@@ -159,6 +162,128 @@ def fit_quadratic_triangular_transport_map_density(
     )
 
 
+def estimate_mutual_information_transport_map(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    jitter: float = 1e-6,
+) -> dict[str, object]:
+    """Estimate mutual information with an affine transport-map density model."""
+
+    x_array = _coerce_samples(x)
+    y_array = _coerce_samples(y)
+    if x_array.shape[0] != y_array.shape[0]:
+        raise ValueError("x and y must have matching sample counts.")
+
+    sample_size = int(x_array.shape[0])
+    joint = np.concatenate([x_array, y_array], axis=1)
+    joint_model = fit_affine_transport_map_density(joint, jitter=jitter)
+    x_model = joint_model.marginal(list(range(x_array.shape[1])))
+    y_model = joint_model.marginal(list(range(x_array.shape[1], joint.shape[1])))
+
+    log_pxy = joint_model.log_prob(joint)
+    log_px = x_model.log_prob(x_array)
+    log_py = y_model.log_prob(y_array)
+    pointwise_mi_raw = log_pxy - log_px - log_py
+    bias_correction = 0.5 * (
+        _gaussian_logdet_bias_correction(x_array.shape[1], sample_size)
+        + _gaussian_logdet_bias_correction(y_array.shape[1], sample_size)
+        - _gaussian_logdet_bias_correction(joint.shape[1], sample_size)
+    )
+    pointwise_mi = pointwise_mi_raw - bias_correction
+    return {
+        "backend": joint_model.backend,
+        "mi_hat": float(pointwise_mi.mean()),
+        "bias_correction": float(bias_correction),
+        "pointwise_mi": pointwise_mi,
+        "log_pxy": log_pxy,
+        "log_px": log_px,
+        "log_py": log_py,
+    }
+
+
+def pairwise_effective_information_for_dynamics(
+    dynamics: Callable[[np.ndarray], np.ndarray],
+    *,
+    input_indices: Sequence[int] | int,
+    output_indices: Sequence[int] | int,
+    input_dim: int | None = None,
+    center: np.ndarray | Sequence[float] | float | None = None,
+    box_size: np.ndarray | Sequence[float] | float = 1.0,
+    sample_count: int = 4096,
+    seed: int = 0,
+    jitter: float = 1e-6,
+    clip_negative: bool = True,
+) -> dict[str, object]:
+    """Estimate pairwise EI for selected dynamics input-output coordinates.
+
+    ``dynamics`` receives a sample matrix with shape ``[sample_count, input_dim]``.
+    The returned ``pairwise_ei`` matrix has rows aligned with ``input_indices`` and
+    columns aligned with ``output_indices``.
+    """
+
+    source_indices = _coerce_index_sequence(input_indices, name="input_indices")
+    target_indices = _coerce_index_sequence(output_indices, name="output_indices")
+    resolved_input_dim = _resolve_input_dim(
+        input_dim=input_dim,
+        center=center,
+        input_indices=source_indices,
+    )
+    if sample_count < 2:
+        raise ValueError("sample_count must be at least 2.")
+
+    center_array = _coerce_vector_parameter(
+        0.0 if center is None else center,
+        dimension=resolved_input_dim,
+        name="center",
+    )
+    box_size_array = _coerce_vector_parameter(
+        box_size,
+        dimension=resolved_input_dim,
+        name="box_size",
+    )
+    if bool(np.any(box_size_array <= 0.0)):
+        raise ValueError("box_size must be positive in every input dimension.")
+
+    rng = np.random.default_rng(seed)
+    half_width = box_size_array / 2.0
+    source_samples = rng.uniform(
+        low=center_array - half_width,
+        high=center_array + half_width,
+        size=(int(sample_count), resolved_input_dim),
+    )
+    target_samples = _coerce_samples(dynamics(source_samples))
+    if target_samples.shape[0] != source_samples.shape[0]:
+        raise ValueError("dynamics output must preserve the input sample axis.")
+    if max(target_indices) >= target_samples.shape[1]:
+        raise ValueError("output_indices contain a dimension outside the dynamics output.")
+
+    pairwise_ei = np.empty((len(source_indices), len(target_indices)), dtype=float)
+    details: dict[tuple[int, int], dict[str, object]] = {}
+    for row, source_index in enumerate(source_indices):
+        if source_index >= resolved_input_dim:
+            raise ValueError("input_indices contain a dimension outside the sampled input.")
+        source_block = source_samples[:, [source_index]]
+        for col, target_index in enumerate(target_indices):
+            target_block = target_samples[:, [target_index]]
+            summary = estimate_mutual_information_transport_map(source_block, target_block, jitter=jitter)
+            value = float(summary["mi_hat"])
+            if clip_negative:
+                value = max(0.0, value)
+            pairwise_ei[row, col] = value
+            details[(source_index, target_index)] = summary
+
+    return {
+        "backend": "affine_triangular_transport_map",
+        "input_indices": source_indices,
+        "output_indices": target_indices,
+        "pairwise_ei": pairwise_ei,
+        "source_samples": source_samples,
+        "target_samples": target_samples,
+        "details": details,
+    }
+
+
 def standard_gaussian_logpdf(samples: np.ndarray) -> np.ndarray:
     array = _coerce_samples(samples)
     return -0.5 * (array.shape[1] * np.log(2.0 * np.pi) + np.sum(array**2, axis=1))
@@ -195,3 +320,60 @@ def _coerce_samples(samples: np.ndarray, *, expected_dim: int | None = None) -> 
     if expected_dim is not None and array.shape[1] != expected_dim:
         raise ValueError(f"samples must have {expected_dim} columns.")
     return array
+
+
+def _gaussian_logdet_bias_correction(dimension: int, sample_size: int) -> float:
+    if sample_size <= dimension:
+        return 0.0
+    nu = sample_size - 1
+    return float(
+        sum(digamma((nu + 1 - index) / 2.0) for index in range(1, dimension + 1))
+        + dimension * np.log(2.0)
+        - dimension * np.log(nu)
+    )
+
+
+def _coerce_index_sequence(indices: Sequence[int] | int, *, name: str) -> list[int]:
+    if isinstance(indices, (int, np.integer)):
+        result = [int(indices)]
+    else:
+        result = [int(index) for index in indices]
+    if not result:
+        raise ValueError(f"{name} must contain at least one index.")
+    if min(result) < 0:
+        raise ValueError(f"{name} must contain nonnegative indices.")
+    return result
+
+
+def _resolve_input_dim(
+    *,
+    input_dim: int | None,
+    center: np.ndarray | Sequence[float] | float | None,
+    input_indices: Sequence[int],
+) -> int:
+    if input_dim is not None:
+        resolved = int(input_dim)
+    elif center is not None and np.asarray(center, dtype=float).ndim > 0:
+        resolved = int(np.asarray(center, dtype=float).reshape(-1).shape[0])
+    else:
+        resolved = max(input_indices) + 1
+    if resolved <= 0:
+        raise ValueError("input_dim must be positive.")
+    if max(input_indices) >= resolved:
+        raise ValueError("input_indices contain a dimension outside the sampled input.")
+    return resolved
+
+
+def _coerce_vector_parameter(
+    value: np.ndarray | Sequence[float] | float,
+    *,
+    dimension: int,
+    name: str,
+) -> np.ndarray:
+    array = np.asarray(value, dtype=float)
+    if array.ndim == 0:
+        return np.full(dimension, float(array.item()), dtype=float)
+    vector = array.reshape(-1)
+    if vector.shape != (dimension,):
+        raise ValueError(f"{name} must be scalar or have length input_dim.")
+    return vector

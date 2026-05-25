@@ -16,7 +16,7 @@ Path(os.environ["MPLCONFIGDIR"]).mkdir(parents=True, exist_ok=True)
 import numpy as np
 import pandas as pd
 from scipy.special import gammaln, logsumexp
-from transport_map_density import fit_affine_transport_map_density
+from exp.TM.transport_map_density import fit_affine_transport_map_density
 
 DENSITY_BENCHMARK_VERSION = "2026-05-13-balanced-repeats"
 

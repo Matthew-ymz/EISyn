@@ -20,6 +20,7 @@ from yrd.transport_map import summarize_two_source_synergy_transport_map
 
 DEFAULT_FIG_DIR = Path("fig/transport_map_mutual_information")
 DEFAULT_ALPHA_VALUES = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+DEFAULT_BETA_VALUES = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
 DEFAULT_L_VALUES = (1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0)
 DEFAULT_L_SWEEP_ALPHA_VALUES = (0.0, 0.5, 1.0)
 DEFAULT_NOISE_SWEEP_ALPHA_VALUES = (0.0, 0.5, 1.0)
@@ -68,6 +69,31 @@ def simulate_alpha_case_intervention(
     return pd.DataFrame({"alpha": float(alpha), "q2_t": q2_t, "q3_t": q3_t, "q1_next": q1_next})
 
 
+def signed_real_power(values: np.ndarray, exponent: float) -> np.ndarray:
+    """Real-valued power for symmetric intervention samples."""
+
+    if np.isclose(float(exponent), 0.0):
+        return np.ones_like(values, dtype=float)
+    return np.sign(values) * np.power(np.abs(values), float(exponent))
+
+
+def simulate_beta_case_intervention(
+    *,
+    beta: float,
+    n_samples: int,
+    L: float,
+    q1_noise_std: float,
+    seed: int,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    half = float(L) / 2.0
+    q2_t = rng.uniform(-half, half, size=n_samples)
+    q3_t = rng.uniform(-half, half, size=n_samples)
+    interaction = signed_real_power(q2_t, float(beta)) * signed_real_power(q3_t, 1.0 - float(beta))
+    q1_next = np.sin(interaction) + float(q1_noise_std) * rng.normal(size=n_samples)
+    return pd.DataFrame({"beta": float(beta), "q2_t": q2_t, "q3_t": q3_t, "q1_next": q1_next})
+
+
 def estimate_tm_alpha_metrics(df: pd.DataFrame) -> dict[str, float]:
     summary = summarize_two_source_synergy_transport_map(
         df[["q2_t"]].to_numpy(),
@@ -105,6 +131,38 @@ def run_alpha_sweep_tm(
             rows.append(
                 {
                     "alpha": float(alpha),
+                    "repeat": int(repeat),
+                    "L": float(L),
+                    "q1_noise_std": float(q1_noise_std),
+                    **estimate_tm_alpha_metrics(df),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def run_beta_sweep_tm(
+    *,
+    beta_values: tuple[float, ...] = DEFAULT_BETA_VALUES,
+    n_samples: int,
+    repeats: int,
+    L: float,
+    q1_noise_std: float,
+    seed: int,
+) -> pd.DataFrame:
+    rows: list[dict[str, float | int]] = []
+    for beta_index, beta in enumerate(beta_values):
+        for repeat in range(repeats):
+            run_seed = seed + 150000 + 1000 * beta_index + repeat
+            df = simulate_beta_case_intervention(
+                beta=float(beta),
+                n_samples=n_samples,
+                L=L,
+                q1_noise_std=q1_noise_std,
+                seed=run_seed,
+            )
+            rows.append(
+                {
+                    "beta": float(beta),
                     "repeat": int(repeat),
                     "L": float(L),
                     "q1_noise_std": float(q1_noise_std),
@@ -287,6 +345,53 @@ def plot_alpha_high_noise_decomposition(summary_df: pd.DataFrame, *, output_dir:
     return fig
 
 
+def plot_beta_sweep_tm(summary_df: pd.DataFrame, *, output_dir: Path) -> tuple[Any, Any]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    component_specs = _component_specs()
+    line_width = 2.4
+    marker_size = 5.8
+
+    decomp_fig, decomp_ax = plt.subplots(figsize=(9.8, 5.2), constrained_layout=True)
+    for mean_col, _, label, color, linestyle in component_specs:
+        decomp_ax.plot(
+            summary_df["beta"],
+            summary_df[mean_col],
+            marker="o",
+            markersize=marker_size,
+            linewidth=line_width,
+            linestyle=linestyle,
+            color=color,
+            label=label,
+        )
+    decomp_ax.set_xlabel("beta")
+    decomp_ax.set_ylabel("nats")
+    decomp_ax.set_xticks(summary_df["beta"])
+    decomp_ax.grid(alpha=0.25)
+    decomp_ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    share_fig, share_ax = plt.subplots(figsize=(9.8, 5.2), constrained_layout=True)
+    ratio_specs = [
+        ("tm_syn_ratio", "Syn / EI", "#d97706"),
+        ("tm_single_q2_ratio", r"$EI(Q_2 \to Q_1) / EI$", "#15803d"),
+        ("tm_single_q3_ratio", r"$EI(Q_3 \to Q_1) / EI$", "#b91c1c"),
+    ]
+    for ratio_col, label, color in ratio_specs:
+        share_ax.plot(summary_df["beta"], summary_df[ratio_col], marker="o", markersize=marker_size, linewidth=line_width, color=color, label=label)
+    share_ax.set_xlabel("beta")
+    share_ax.set_ylabel("share")
+    share_ax.set_xticks(summary_df["beta"])
+    ratio_values = summary_df[[ratio_col for ratio_col, _, _ in ratio_specs]].to_numpy(dtype=float)
+    share_ax.set_ylim(_padded_unit_ylim(ratio_values))
+    share_ax.grid(alpha=0.25)
+    share_ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    decomp_fig.savefig(output_dir / "tm_beta_ei_decomposition.png", dpi=220, bbox_inches="tight")
+    decomp_fig.savefig(output_dir / "tm_beta_ei_decomposition.pdf", bbox_inches="tight")
+    share_fig.savefig(output_dir / "tm_beta_share_ratio.png", dpi=220, bbox_inches="tight")
+    share_fig.savefig(output_dir / "tm_beta_share_ratio.pdf", bbox_inches="tight")
+    return decomp_fig, share_fig
+
+
 def plot_l_sweep_tm(summary_df: pd.DataFrame, *, output_dir: Path) -> tuple[Any, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     alpha_values = list(summary_df["alpha"].drop_duplicates())
@@ -463,9 +568,65 @@ def compute_shap_alpha_comparison(
     return pd.DataFrame(rows)
 
 
-def summarize_shap_runs(runs: pd.DataFrame) -> pd.DataFrame:
+def compute_shap_beta_comparison(
+    *,
+    beta_values: tuple[float, ...] = DEFAULT_BETA_VALUES,
+    config: TmNonlinearConfig,
+    shap_config: ShapConfig = ShapConfig(),
+) -> pd.DataFrame:
+    shap = _require_shap()
+    rows: list[dict[str, float | int]] = []
+    for beta_index, beta in enumerate(beta_values):
+        for repeat in range(shap_config.repeats):
+            run_seed = config.seed + 180000 + 1000 * beta_index + repeat
+            df = simulate_beta_case_intervention(
+                beta=float(beta),
+                n_samples=shap_config.n_samples,
+                L=config.input_box_width,
+                q1_noise_std=config.q1_noise_std,
+                seed=run_seed,
+            )
+            x = df[["q2_t", "q3_t"]].to_numpy(dtype=float)
+            y = df["q1_next"].to_numpy(dtype=float)
+            x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=shap_config.test_size, random_state=run_seed)
+            model = RandomForestRegressor(
+                n_estimators=shap_config.n_estimators,
+                min_samples_leaf=shap_config.min_samples_leaf,
+                random_state=run_seed,
+                n_jobs=1,
+            )
+            model.fit(x_train, y_train)
+            sample_count = min(int(shap_config.shap_sample_size), x_test.shape[0])
+            sample = x_test[:sample_count]
+            explainer = shap.TreeExplainer(model)
+            shap_values = np.asarray(explainer.shap_values(sample), dtype=float)
+            interactions = np.asarray(explainer.shap_interaction_values(sample), dtype=float)
+            mean_abs_q2 = float(np.mean(np.abs(shap_values[:, 0])))
+            mean_abs_q3 = float(np.mean(np.abs(shap_values[:, 1])))
+            pair_interaction = float(np.mean(np.abs(interactions[:, 0, 1])))
+            additive_total = mean_abs_q2 + mean_abs_q3
+            rows.append(
+                {
+                    "beta": float(beta),
+                    "repeat": int(repeat),
+                    "L": float(config.input_box_width),
+                    "q1_noise_std": float(config.q1_noise_std),
+                    "shap_mean_abs_q2": mean_abs_q2,
+                    "shap_mean_abs_q3": mean_abs_q3,
+                    "shap_pair_interaction": pair_interaction,
+                    "shap_q2_share": mean_abs_q2 / additive_total if additive_total > 1e-12 else np.nan,
+                    "shap_q3_share": mean_abs_q3 / additive_total if additive_total > 1e-12 else np.nan,
+                    "shap_interaction_share": pair_interaction / (additive_total + pair_interaction) if additive_total + pair_interaction > 1e-12 else np.nan,
+                    "model_r2": float(r2_score(y_test, model.predict(x_test))),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def summarize_shap_runs(runs: pd.DataFrame, *, group_columns: list[str] | None = None) -> pd.DataFrame:
+    resolved_group_columns = ["alpha", "L", "q1_noise_std"] if group_columns is None else group_columns
     return (
-        runs.groupby(["alpha", "L", "q1_noise_std"], as_index=False)
+        runs.groupby(resolved_group_columns, as_index=False)
         .agg(
             shap_mean_abs_q2_mean=("shap_mean_abs_q2", "mean"),
             shap_mean_abs_q2_std=("shap_mean_abs_q2", "std"),
@@ -478,18 +639,48 @@ def summarize_shap_runs(runs: pd.DataFrame) -> pd.DataFrame:
             model_r2_mean=("model_r2", "mean"),
             model_r2_std=("model_r2", "std"),
         )
-        .sort_values("alpha")
+        .sort_values(resolved_group_columns)
         .reset_index(drop=True)
     )
 
 
-def build_shap_peid_comparison(tm_summary: pd.DataFrame, shap_summary: pd.DataFrame) -> pd.DataFrame:
-    cols = ["alpha", "L", "q1_noise_std", "tm_ei_mean", "tm_syn_mean", "tm_syn_ratio", "tm_single_q2_ratio", "tm_single_q3_ratio"]
-    comparison = tm_summary[cols].merge(shap_summary, on=["alpha", "L", "q1_noise_std"], how="inner")
-    return comparison.sort_values("alpha").reset_index(drop=True)
+def build_shap_peid_comparison(tm_summary: pd.DataFrame, shap_summary: pd.DataFrame, *, sweep_column: str = "alpha") -> pd.DataFrame:
+    cols = [sweep_column, "L", "q1_noise_std", "tm_ei_mean", "tm_syn_mean", "tm_syn_ratio", "tm_single_q2_ratio", "tm_single_q3_ratio"]
+    comparison = tm_summary[cols].merge(shap_summary, on=[sweep_column, "L", "q1_noise_std"], how="inner")
+    return comparison.sort_values(sweep_column).reset_index(drop=True)
 
 
 def plot_shap_peid_comparison(comparison: pd.DataFrame, *, output_dir: Path) -> Any:
+    return _plot_shap_peid_comparison(
+        comparison,
+        output_dir=output_dir,
+        sweep_column="alpha",
+        x_label=r"$\alpha$",
+        output_prefix="tm_alpha_shap_peid_comparison",
+        save_extra_formats=True,
+    )
+
+
+def plot_beta_shap_peid_comparison(comparison: pd.DataFrame, *, output_dir: Path) -> Any:
+    return _plot_shap_peid_comparison(
+        comparison,
+        output_dir=output_dir,
+        sweep_column="beta",
+        x_label=r"$\beta$",
+        output_prefix="tm_beta_shap_peid_comparison",
+        save_extra_formats=False,
+    )
+
+
+def _plot_shap_peid_comparison(
+    comparison: pd.DataFrame,
+    *,
+    output_dir: Path,
+    sweep_column: str,
+    x_label: str,
+    output_prefix: str,
+    save_extra_formats: bool,
+) -> Any:
     output_dir.mkdir(parents=True, exist_ok=True)
     plt.rcParams.update(
         {
@@ -506,7 +697,7 @@ def plot_shap_peid_comparison(comparison: pd.DataFrame, *, output_dir: Path) -> 
 
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.05), constrained_layout=True)
     fig.set_constrained_layout_pads(w_pad=0.04, h_pad=0.04, wspace=0.08, hspace=0.04)
-    alpha = comparison["alpha"].to_numpy(dtype=float)
+    sweep_values = comparison[sweep_column].to_numpy(dtype=float)
     styles = {
         "peid_signal": {"color": "#d9822b", "marker": "o", "linewidth": 1.6, "markersize": 3.2, "linestyle": "-"},
         "shap_signal": {"color": "#3b6fb6", "marker": "o", "linewidth": 1.6, "markersize": 3.2, "linestyle": "--"},
@@ -518,32 +709,44 @@ def plot_shap_peid_comparison(comparison: pd.DataFrame, *, output_dir: Path) -> 
 
     handles = []
     handles.append(
-        axes[0].plot(alpha, comparison["tm_syn_ratio"], label="PEID synergy / EI", **styles["peid_signal"])[0]
+        axes[0].plot(sweep_values, comparison["tm_syn_ratio"], label="PEID synergy / EI", **styles["peid_signal"])[0]
     )
     handles.append(
-        axes[0].plot(alpha, comparison["shap_interaction_share_mean"], label="SHAP interaction share", **styles["shap_signal"])[0]
+        axes[0].plot(sweep_values, comparison["shap_interaction_share_mean"], label="SHAP interaction share", **styles["shap_signal"])[0]
     )
     axes[0].set_ylabel("interaction share")
+    axes[0].set_ylim(_padded_unit_ylim(comparison[["tm_syn_ratio", "shap_interaction_share_mean"]].to_numpy(dtype=float)))
 
     handles.append(
-        axes[1].plot(alpha, comparison["tm_single_q2_ratio"], label="PEID Q2 source share", **styles["q2_peid"])[0]
+        axes[1].plot(sweep_values, comparison["tm_single_q2_ratio"], label="PEID Q2 source share", **styles["q2_peid"])[0]
     )
     handles.append(
-        axes[1].plot(alpha, comparison["tm_single_q3_ratio"], label="PEID Q3 source share", **styles["q3_peid"])[0]
+        axes[1].plot(sweep_values, comparison["tm_single_q3_ratio"], label="PEID Q3 source share", **styles["q3_peid"])[0]
     )
     handles.append(
-        axes[1].plot(alpha, comparison["shap_mean_abs_q2_mean"], label="SHAP mean |Q2|", **styles["q2_shap"])[0]
+        axes[1].plot(sweep_values, comparison["shap_mean_abs_q2_mean"], label="SHAP mean |Q2|", **styles["q2_shap"])[0]
     )
     handles.append(
-        axes[1].plot(alpha, comparison["shap_mean_abs_q3_mean"], label="SHAP mean |Q3|", **styles["q3_shap"])[0]
+        axes[1].plot(sweep_values, comparison["shap_mean_abs_q3_mean"], label="SHAP mean |Q3|", **styles["q3_shap"])[0]
     )
     axes[1].set_ylabel("source attribution")
+    axes[1].set_ylim(
+        _padded_unit_ylim(
+            comparison[
+                [
+                    "tm_single_q2_ratio",
+                    "tm_single_q3_ratio",
+                    "shap_mean_abs_q2_mean",
+                    "shap_mean_abs_q3_mean",
+                ]
+            ].to_numpy(dtype=float)
+        )
+    )
 
     for panel_label, ax in zip(("a", "b"), axes):
         ax.text(-0.16, 1.04, panel_label, transform=ax.transAxes, fontsize=8, fontweight="bold", va="bottom")
-        ax.set_xlabel(r"$\alpha$")
+        ax.set_xlabel(x_label)
         ax.set_xlim(-0.03, 1.03)
-        ax.set_ylim(-0.04, 1.04)
         ax.set_xticks(np.linspace(0.0, 1.0, 6))
         ax.set_yticks(np.linspace(0.0, 1.0, 6))
         ax.grid(color="#d9dee7", alpha=0.45, linewidth=0.45)
@@ -567,11 +770,22 @@ def plot_shap_peid_comparison(comparison: pd.DataFrame, *, output_dir: Path) -> 
         borderaxespad=0.0,
     )
 
-    fig.savefig(output_dir / "tm_alpha_shap_peid_comparison.png", dpi=600, bbox_inches="tight")
-    fig.savefig(output_dir / "tm_alpha_shap_peid_comparison.pdf", bbox_inches="tight")
-    fig.savefig(output_dir / "tm_alpha_shap_peid_comparison.svg", bbox_inches="tight")
-    fig.savefig(output_dir / "tm_alpha_shap_peid_comparison.tiff", dpi=600, bbox_inches="tight")
+    fig.savefig(output_dir / f"{output_prefix}.png", dpi=600, bbox_inches="tight")
+    fig.savefig(output_dir / f"{output_prefix}.pdf", bbox_inches="tight")
+    if save_extra_formats:
+        fig.savefig(output_dir / f"{output_prefix}.svg", bbox_inches="tight")
+        fig.savefig(output_dir / f"{output_prefix}.tiff", dpi=600, bbox_inches="tight")
     return fig
+
+
+def _padded_unit_ylim(values: np.ndarray) -> tuple[float, float]:
+    finite = np.asarray(values, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0:
+        return (-0.05, 1.05)
+    lower = min(-0.05, float(np.min(finite)) - 0.05)
+    upper = max(1.05, float(np.max(finite)) + 0.05)
+    return lower, upper
 
 
 def write_manifest(output_dir: Path, *, name: str, payload: dict[str, Any]) -> Path:
