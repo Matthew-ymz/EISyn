@@ -11,11 +11,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
 
+from .dynamics import get_model
+from .effective_information import (
+    _estimate_scalar_to_multivariate_gaussian_mi,
+    estimate_state_space_node_ei,
+    sample_uniform_state_space,
+)
 from .microbiome import (
     MicrobiomeParameters,
     RESULT_SUBDIR as MICROBIOME_RESULT_SUBDIR,
     solve_ecological_steady_state,
 )
+from .simulate import _rk4_step
 
 try:
     from exp.TM.transport_map_density import estimate_mutual_information_transport_map
@@ -25,6 +32,7 @@ except ModuleNotFoundError:
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_microbiome_ei"
+DEFAULT_STATE_SPACE_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_microbiome_state_space_ei"
 DEFAULT_MICROBIOME_RESULTS_DIR = REPO_ROOT / MICROBIOME_RESULT_SUBDIR
 
 
@@ -50,6 +58,74 @@ class MicrobiomeEIConfig:
             object.__setattr__(self, "node_indices", tuple(int(index) for index in self.node_indices))
 
 
+@dataclass(frozen=True)
+class MicrobiomeStateSpaceEIConfig:
+    sample_count: int = 10000
+    state_low: float = 0.0
+    state_high: float = 10.0
+    tau: float = 20.0
+    dt: float = 0.05
+    seed: int = 42
+    batch_size: int = 512
+    target_noise_fraction: float = 0.01
+    show_progress: bool = True
+    output_dir: Path = field(default_factory=lambda: DEFAULT_STATE_SPACE_OUTPUT_DIR)
+    params: MicrobiomeParameters = field(default_factory=MicrobiomeParameters)
+
+    def __post_init__(self) -> None:
+        if self.sample_count < 2:
+            raise ValueError("sample_count must be at least 2.")
+        if self.state_high <= self.state_low:
+            raise ValueError("state_high must be greater than state_low.")
+        if self.tau < 0.0:
+            raise ValueError("tau must be nonnegative.")
+        if self.dt <= 0.0:
+            raise ValueError("dt must be positive.")
+        if self.batch_size < 1:
+            raise ValueError("batch_size must be positive.")
+        if self.target_noise_fraction < 0.0:
+            raise ValueError("target_noise_fraction must be nonnegative.")
+        object.__setattr__(self, "output_dir", Path(self.output_dir))
+
+
+@dataclass(frozen=True)
+class MicrobiomePhiEIDSweepConfig:
+    sample_counts: tuple[int, ...] = (5000, 10000, 20000, 50000)
+    tau_values: tuple[float, ...] = (0.1, 1.0, 5.0, 10.0, 20.0, 40.0)
+    state_low: float = 0.0
+    state_high: float = 10.0
+    dt: float = 0.05
+    seed: int = 42
+    batch_size: int = 512
+    target_noise_fraction: float = 0.01
+    show_progress: bool = True
+    output_dir: Path = field(default_factory=lambda: REPO_ROOT / "results" / "network_revival_microbiome_phi_eid_sweep")
+    params: MicrobiomeParameters = field(default_factory=MicrobiomeParameters)
+
+    def __post_init__(self) -> None:
+        sample_counts = tuple(int(value) for value in self.sample_counts)
+        tau_values = tuple(float(value) for value in self.tau_values)
+        if not sample_counts:
+            raise ValueError("sample_counts must contain at least one value.")
+        if not tau_values:
+            raise ValueError("tau_values must contain at least one value.")
+        if min(sample_counts) < 2:
+            raise ValueError("sample_counts must all be at least 2.")
+        if min(tau_values) < 0.0:
+            raise ValueError("tau_values must be nonnegative.")
+        if self.state_high <= self.state_low:
+            raise ValueError("state_high must be greater than state_low.")
+        if self.dt <= 0.0:
+            raise ValueError("dt must be positive.")
+        if self.batch_size < 1:
+            raise ValueError("batch_size must be positive.")
+        if self.target_noise_fraction < 0.0:
+            raise ValueError("target_noise_fraction must be nonnegative.")
+        object.__setattr__(self, "sample_counts", sample_counts)
+        object.__setattr__(self, "tau_values", tau_values)
+        object.__setattr__(self, "output_dir", Path(self.output_dir))
+
+
 def load_microbiome_ei_inputs(
     results_dir: str | Path = DEFAULT_MICROBIOME_RESULTS_DIR,
 ) -> dict[str, object]:
@@ -63,6 +139,319 @@ def load_microbiome_ei_inputs(
         "active_indices": active["active_indices"],
         "recovery_ranked": ranked,
         "source_dir": root,
+    }
+
+
+def simulate_microbiome_state_space_final_states(
+    adjacency: np.ndarray,
+    params: MicrobiomeParameters,
+    *,
+    initial_states: np.ndarray,
+    tau: float,
+    dt: float,
+    batch_size: int = 512,
+) -> np.ndarray:
+    """Simulate free ecological dynamics from full-state samples to final states."""
+
+    states = np.asarray(initial_states, dtype=float)
+    if states.ndim != 2:
+        raise ValueError("initial_states must have shape [sample, node].")
+    if states.shape[0] < 1 or states.shape[1] < 1:
+        raise ValueError("initial_states must be nonempty.")
+    if float(tau) < 0.0:
+        raise ValueError("tau must be nonnegative.")
+    if float(dt) <= 0.0:
+        raise ValueError("dt must be positive.")
+    if int(batch_size) < 1:
+        raise ValueError("batch_size must be positive.")
+
+    adjacency_op = np.asarray(adjacency, dtype=float)
+    if adjacency_op.shape[0] != states.shape[1] or adjacency_op.shape[1] != states.shape[1]:
+        raise ValueError("adjacency and initial_states disagree on node count.")
+
+    model = get_model("Eco", F=params.eco_f, B=params.eco_b, C=params.eco_c, K=params.eco_k)
+    final_states = np.empty_like(states, dtype=float)
+
+    def rhs_batch(_, x_batch: np.ndarray) -> np.ndarray:
+        interaction = model["M2"](x_batch) @ adjacency_op.T
+        return model["M0"](x_batch) + model["M1"](x_batch) * interaction
+
+    for start in range(0, states.shape[0], int(batch_size)):
+        stop = min(start + int(batch_size), states.shape[0])
+        x = states[start:stop].copy()
+        t = 0.0
+        while t < float(tau) - 1e-12:
+            dt_use = min(float(dt), float(tau) - t)
+            x = _rk4_step(rhs_batch, t, x, dt_use)
+            x = np.maximum(x, 0.0)
+            t += dt_use
+        final_states[start:stop] = x
+
+    return final_states
+
+
+def run_microbiome_state_space_node_ei(
+    config: MicrobiomeStateSpaceEIConfig,
+    *,
+    adjacency: np.ndarray | None = None,
+    active_indices: np.ndarray | None = None,
+    recovery_ranked: pd.DataFrame | None = None,
+    force_recompute: bool = False,
+) -> dict[str, object]:
+    """Run or load microbiome state-space EI: I(X_i(0); X(tau))."""
+
+    output_dir = Path(config.output_dir)
+    cache_paths = _state_space_cache_paths(output_dir)
+    if not force_recompute and _state_space_cache_matches_config(cache_paths, config):
+        return _load_cached_state_space_result(cache_paths)
+
+    if adjacency is None or active_indices is None or recovery_ranked is None:
+        loaded = load_microbiome_ei_inputs()
+        adjacency = np.asarray(loaded["adjacency"], dtype=float)
+        active_indices = np.asarray(loaded["active_indices"], dtype=int)
+        recovery_ranked = loaded["recovery_ranked"]
+    else:
+        adjacency = np.asarray(adjacency, dtype=float)
+        active_indices = np.asarray(active_indices, dtype=int)
+        recovery_ranked = recovery_ranked.copy()
+
+    node_count = int(adjacency.shape[0])
+    initial_states = sample_uniform_state_space(
+        node_count=node_count,
+        sample_count=int(config.sample_count),
+        state_low=float(config.state_low),
+        state_high=float(config.state_high),
+        seed=int(config.seed),
+    )
+    if config.show_progress:
+        print(
+            f"Microbiome state-space EI simulation samples 1-{config.sample_count}/{config.sample_count} "
+            f"(n={node_count}, tau={config.tau:.1f}, batch_size={config.batch_size})",
+            flush=True,
+        )
+    final_states = simulate_microbiome_state_space_final_states(
+        adjacency,
+        config.params,
+        initial_states=initial_states,
+        tau=float(config.tau),
+        dt=float(config.dt),
+        batch_size=int(config.batch_size),
+    )
+    ei_summary = estimate_state_space_node_ei(
+        initial_states,
+        final_states,
+        target_noise_fraction=float(config.target_noise_fraction),
+        seed=int(config.seed) + 1009,
+    )
+    node_ei = np.asarray(ei_summary["node_ei"], dtype=float)
+    summary_df = _build_state_space_summary_df(active_indices, node_ei, ei_summary)
+    comparison_df, metrics = compare_ei_to_recovery(
+        summary_df.rename(columns={"ei_final_state": "ei_mean_response"}),
+        recovery_ranked,
+    )
+    manifest = _build_state_space_manifest(config, adjacency, ei_summary["backend"], metrics)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        cache_paths["samples_npz"],
+        initial_states=initial_states,
+        final_states=final_states,
+        final_mean_activity=final_states.mean(axis=1),
+        active_indices=active_indices,
+        node_ei=node_ei,
+        target_noise_sigma=np.asarray(ei_summary["target_noise_sigma"], dtype=float),
+        bias_correction=np.asarray(ei_summary["bias_correction"], dtype=float),
+    )
+    summary_df.to_csv(cache_paths["summary_csv"], index=False)
+    comparison_df.to_csv(cache_paths["comparison_csv"], index=False)
+    cache_paths["manifest_json"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    return {
+        "initial_states": initial_states,
+        "final_states": final_states,
+        "final_mean_activity": final_states.mean(axis=1),
+        "node_ei": node_ei,
+        "summary": summary_df,
+        "comparison": comparison_df,
+        "metrics": metrics,
+        "cache_paths": cache_paths,
+        "manifest": manifest,
+    }
+
+
+def estimate_microbiome_whole_system_phi_eid(
+    initial_states: np.ndarray,
+    final_states: np.ndarray,
+    *,
+    target_noise_fraction: float = 0.01,
+    seed: int = 0,
+    clip_negative_ei: bool = True,
+) -> dict[str, object]:
+    """Estimate whole-system Phi^EID from full state samples.
+
+    Phi^EID follows the benchmark joint-minus-singleton definition:
+    I(X(0); X(tau)) - sum_i I(X_i(0); X(tau)).
+    """
+
+    source = np.asarray(initial_states, dtype=float)
+    target = np.asarray(final_states, dtype=float)
+    if source.ndim != 2:
+        raise ValueError("initial_states must have shape [sample, node].")
+    if target.ndim != 2:
+        raise ValueError("final_states must have shape [sample, node].")
+    if source.shape != target.shape:
+        raise ValueError("initial_states and final_states must have matching shape.")
+    if source.shape[0] < 2 or source.shape[1] < 1:
+        raise ValueError("state samples must include at least two samples and one node.")
+    if float(target_noise_fraction) < 0.0:
+        raise ValueError("target_noise_fraction must be nonnegative.")
+
+    rng = np.random.default_rng(int(seed))
+    sigma = np.maximum(1e-6, float(target_noise_fraction) * np.std(target, axis=0, ddof=1))
+    noisy_target = target + sigma * rng.normal(size=target.shape)
+
+    whole_summary = estimate_mutual_information_transport_map(source, noisy_target)
+    whole_ei = float(whole_summary["mi_hat"])
+    if clip_negative_ei:
+        whole_ei = max(0.0, whole_ei)
+
+    singleton_ei, singleton_bias = _estimate_scalar_to_multivariate_gaussian_mi(
+        source,
+        noisy_target,
+        clip_negative=clip_negative_ei,
+    )
+    singleton_ei = np.asarray(singleton_ei, dtype=float)
+    singleton_ei_sum = float(np.sum(singleton_ei))
+    phi_eid = float(whole_ei - singleton_ei_sum)
+    phi_ratio = float(phi_eid / whole_ei) if abs(whole_ei) > 1e-12 else 0.0
+
+    return {
+        "whole_ei": float(whole_ei),
+        "singleton_ei": singleton_ei,
+        "singleton_ei_sum": singleton_ei_sum,
+        "phi_eid": phi_eid,
+        "phi_ratio": phi_ratio,
+        "target_noise_sigma": sigma,
+        "whole_bias_correction": float(whole_summary["bias_correction"]),
+        "singleton_bias_correction": np.asarray(singleton_bias, dtype=float),
+        "backend": str(whole_summary["backend"]),
+    }
+
+
+def run_microbiome_phi_eid_sweep(
+    config: MicrobiomePhiEIDSweepConfig,
+    *,
+    adjacency: np.ndarray | None = None,
+    active_indices: np.ndarray | None = None,
+    force_recompute: bool = False,
+) -> dict[str, object]:
+    """Run or load a cache-first whole-system microbiome Phi^EID grid sweep."""
+
+    output_dir = Path(config.output_dir)
+    cache_paths = _phi_eid_sweep_cache_paths(output_dir)
+    if not force_recompute and _phi_eid_sweep_cache_matches_config(cache_paths, config):
+        return _load_cached_phi_eid_sweep_result(cache_paths)
+
+    if adjacency is None or active_indices is None:
+        loaded = load_microbiome_ei_inputs()
+        adjacency = np.asarray(loaded["adjacency"], dtype=float)
+        active_indices = np.asarray(loaded["active_indices"], dtype=int)
+    else:
+        adjacency = np.asarray(adjacency, dtype=float)
+        active_indices = np.asarray(active_indices, dtype=int)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    node_count = int(adjacency.shape[0])
+    rows: list[dict[str, object]] = []
+    total_jobs = len(config.sample_counts) * len(config.tau_values)
+    job_index = 0
+
+    for sample_count in config.sample_counts:
+        for tau in config.tau_values:
+            job_index += 1
+            point_seed = int(config.seed) + 100000 * int(sample_count) + int(round(float(tau) * 1000.0))
+            if config.show_progress:
+                print(
+                    f"Microbiome Phi^EID sweep {job_index}/{total_jobs}: "
+                    f"sample_count={sample_count}, tau={tau:g}",
+                    flush=True,
+                )
+            point_dir = _phi_eid_grid_point_dir(output_dir, sample_count=int(sample_count), tau=float(tau))
+            point_dir.mkdir(parents=True, exist_ok=True)
+            point_npz = point_dir / "microbiome_phi_eid_samples.npz"
+
+            initial_states = sample_uniform_state_space(
+                node_count=node_count,
+                sample_count=int(sample_count),
+                state_low=float(config.state_low),
+                state_high=float(config.state_high),
+                seed=point_seed,
+            )
+            final_states = simulate_microbiome_state_space_final_states(
+                adjacency,
+                config.params,
+                initial_states=initial_states,
+                tau=float(tau),
+                dt=float(config.dt),
+                batch_size=int(config.batch_size),
+            )
+            phi_summary = estimate_microbiome_whole_system_phi_eid(
+                initial_states,
+                final_states,
+                target_noise_fraction=float(config.target_noise_fraction),
+                seed=point_seed + 1009,
+            )
+            row = {
+                "sample_count": int(sample_count),
+                "tau": float(tau),
+                "seed": int(point_seed),
+                "node_count": node_count,
+                "whole_ei": float(phi_summary["whole_ei"]),
+                "singleton_ei_sum": float(phi_summary["singleton_ei_sum"]),
+                "phi_eid": float(phi_summary["phi_eid"]),
+                "phi_ratio": float(phi_summary["phi_ratio"]),
+                "whole_bias_correction": float(phi_summary["whole_bias_correction"]),
+                "backend": str(phi_summary["backend"]),
+                "cache_npz": str(point_npz),
+            }
+            rows.append(row)
+
+            np.savez_compressed(
+                point_npz,
+                initial_states=initial_states,
+                final_states=final_states,
+                active_indices=active_indices,
+                singleton_ei=np.asarray(phi_summary["singleton_ei"], dtype=float),
+                target_noise_sigma=np.asarray(phi_summary["target_noise_sigma"], dtype=float),
+                singleton_bias_correction=np.asarray(phi_summary["singleton_bias_correction"], dtype=float),
+                row=np.asarray(
+                    [
+                        float(row["whole_ei"]),
+                        float(row["singleton_ei_sum"]),
+                        float(row["phi_eid"]),
+                        float(row["phi_ratio"]),
+                    ],
+                    dtype=float,
+                ),
+            )
+
+    grid = _rank_phi_eid_grid(pd.DataFrame(rows))
+    top_conditions = grid.sort_values(
+        ["phi_eid", "whole_ei", "sample_count", "tau"],
+        ascending=[False, False, False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    top_conditions["rank_phi_eid"] = np.arange(1, len(top_conditions) + 1)
+    manifest = _build_phi_eid_sweep_manifest(config, adjacency, grid)
+    grid.to_csv(cache_paths["grid_csv"], index=False)
+    top_conditions.to_csv(cache_paths["top_conditions_csv"], index=False)
+    cache_paths["manifest_json"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    figure_paths = plot_microbiome_phi_eid_summary(grid, output_dir)
+    return {
+        "grid": grid,
+        "top_conditions": top_conditions,
+        "cache_paths": {**cache_paths, **figure_paths},
+        "manifest": manifest,
     }
 
 
@@ -148,7 +537,7 @@ def run_microbiome_single_node_ei(
 
     output_dir = Path(config.output_dir)
     cache_paths = _cache_paths(output_dir)
-    if not force_recompute and _all_cache_paths_exist(cache_paths):
+    if not force_recompute and _cache_matches_config(cache_paths, config):
         return _load_cached_result(cache_paths)
 
     if adjacency is None or active_indices is None or recovery_ranked is None:
@@ -255,14 +644,119 @@ def plot_microbiome_ei_comparison(
 ) -> dict[str, Path]:
     """Write the main notebook figures and return their paths."""
 
+    return _plot_microbiome_ei_comparison(
+        comparison,
+        metrics,
+        output_dir,
+        k_values=k_values,
+        file_prefix="microbiome",
+        ei_ylabel=r"$I(\Delta_i; \bar{x}_{final})$",
+    )
+
+
+def plot_microbiome_state_space_ei_comparison(
+    comparison: pd.DataFrame,
+    metrics: dict[str, float],
+    output_dir: str | Path,
+    *,
+    k_values: Sequence[int] = (10, 20, 50),
+) -> dict[str, Path]:
+    """Write microbiome state-space EI comparison figures and return their paths."""
+
+    return _plot_microbiome_ei_comparison(
+        comparison,
+        metrics,
+        output_dir,
+        k_values=k_values,
+        file_prefix="microbiome_state_space",
+        ei_ylabel=r"$I(X_i(0); \mathbf{x}_{final})$",
+    )
+
+
+def plot_microbiome_phi_eid_summary(
+    grid: pd.DataFrame,
+    output_dir: str | Path,
+) -> dict[str, Path]:
+    """Write Phi^EID and Phi-ratio heatmaps for the microbiome sweep."""
+
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = {
-        "ei_ranking_curve": out_dir / "microbiome_ei_ranking_curve.png",
-        "ei_vs_recovery": out_dir / "microbiome_ei_vs_recovery.png",
-        "success_enrichment": out_dir / "microbiome_success_enrichment.png",
-        "success_prediction": out_dir / "microbiome_success_prediction_metrics.png",
-        "ei_specific_residual": out_dir / "microbiome_ei_specific_residual.png",
+        "phi_heatmap": out_dir / "microbiome_phi_eid_heatmap.png",
+        "phi_ratio_heatmap": out_dir / "microbiome_phi_eid_ratio_heatmap.png",
+    }
+    frame = grid.copy()
+    if frame.empty:
+        raise ValueError("grid must contain at least one row.")
+
+    sample_counts = sorted(int(value) for value in frame["sample_count"].unique())
+    tau_values = sorted(float(value) for value in frame["tau"].unique())
+
+    def _pivot(metric: str) -> pd.DataFrame:
+        return (
+            frame.pivot(index="tau", columns="sample_count", values=metric)
+            .reindex(index=tau_values, columns=sample_counts)
+        )
+
+    phi_grid = _pivot("phi_eid")
+    ratio_grid = _pivot("phi_ratio")
+    fig, axes = plt.subplots(1, 2, figsize=(9.8, 4.0), constrained_layout=True)
+    for ax, values, label, cmap in [
+        (axes[0], phi_grid, r"$\Phi^{EID}$", "magma"),
+        (axes[1], ratio_grid, r"$\Phi^{EID} / EI$", "viridis"),
+    ]:
+        image = ax.imshow(values.to_numpy(dtype=float), aspect="auto", origin="lower", cmap=cmap)
+        ax.set_xlabel("sample count")
+        ax.set_ylabel("tau")
+        ax.set_xticks(np.arange(len(sample_counts)), [str(value) for value in sample_counts], rotation=30, ha="right")
+        ax.set_yticks(np.arange(len(tau_values)), [f"{value:g}" for value in tau_values])
+        for row_index, tau in enumerate(tau_values):
+            for col_index, sample_count in enumerate(sample_counts):
+                value = values.loc[tau, sample_count]
+                text = "nan" if not np.isfinite(value) else f"{float(value):.3g}"
+                ax.text(col_index, row_index, text, ha="center", va="center", color="white", fontsize=7)
+        fig.colorbar(image, ax=ax, shrink=0.86, label=label)
+    fig.savefig(paths["phi_heatmap"], dpi=220, bbox_inches="tight")
+    fig.savefig(out_dir / "microbiome_phi_eid_heatmap.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(5.6, 4.0), constrained_layout=True)
+    image = ax.imshow(ratio_grid.to_numpy(dtype=float), aspect="auto", origin="lower", cmap="viridis")
+    ax.set_xlabel("sample count")
+    ax.set_ylabel("tau")
+    ax.set_xticks(np.arange(len(sample_counts)), [str(value) for value in sample_counts], rotation=30, ha="right")
+    ax.set_yticks(np.arange(len(tau_values)), [f"{value:g}" for value in tau_values])
+    for row_index, tau in enumerate(tau_values):
+        for col_index, sample_count in enumerate(sample_counts):
+            value = ratio_grid.loc[tau, sample_count]
+            text = "nan" if not np.isfinite(value) else f"{float(value):.3g}"
+            ax.text(col_index, row_index, text, ha="center", va="center", color="white", fontsize=7)
+    fig.colorbar(image, ax=ax, shrink=0.86, label=r"$\Phi^{EID} / EI$")
+    fig.savefig(paths["phi_ratio_heatmap"], dpi=220, bbox_inches="tight")
+    fig.savefig(out_dir / "microbiome_phi_eid_ratio_heatmap.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return paths
+
+
+def _plot_microbiome_ei_comparison(
+    comparison: pd.DataFrame,
+    metrics: dict[str, float],
+    output_dir: str | Path,
+    *,
+    k_values: Sequence[int],
+    file_prefix: str,
+    ei_ylabel: str,
+) -> dict[str, Path]:
+    """Write microbiome EI comparison figures and return their paths."""
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "ei_ranking_curve": out_dir / f"{file_prefix}_ei_ranking_curve.png",
+        "ei_vs_recovery": out_dir / f"{file_prefix}_ei_vs_recovery.png",
+        "success_enrichment": out_dir / f"{file_prefix}_success_enrichment.png",
+        "success_prediction": out_dir / f"{file_prefix}_success_prediction_metrics.png",
+        "ei_specific_residual": out_dir / f"{file_prefix}_ei_specific_residual.png",
     }
 
     frame = comparison.copy()
@@ -281,7 +775,7 @@ def plot_microbiome_ei_comparison(
         zorder=3,
     )
     ax.set_xlabel("EI rank")
-    ax.set_ylabel(r"$I(\Delta_i; \bar{x}_{final})$")
+    ax.set_ylabel(ei_ylabel)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
     ax.grid(color="0.9", linewidth=0.8)
     fig.savefig(paths["ei_ranking_curve"], dpi=220, bbox_inches="tight")
@@ -290,11 +784,11 @@ def plot_microbiome_ei_comparison(
     fig, axes = plt.subplots(1, 2, figsize=(8.4, 3.5), constrained_layout=True)
     axes[0].scatter(frame["tree_size"], frame["ei_mean_response"], c=success_colors, s=18, edgecolors="none")
     axes[0].set_xlabel("Paper tree size")
-    axes[0].set_ylabel(r"$I(\Delta_i; \bar{x}_{final})$")
+    axes[0].set_ylabel(ei_ylabel)
     axes[0].grid(color="0.9", linewidth=0.8)
     axes[1].scatter(frame["state"], frame["ei_mean_response"], c=success_colors, s=18, edgecolors="none")
     axes[1].set_xlabel("Final mean state")
-    axes[1].set_ylabel(r"$I(\Delta_i; \bar{x}_{final})$")
+    axes[1].set_ylabel(ei_ylabel)
     axes[1].grid(color="0.9", linewidth=0.8)
     fig.savefig(paths["ei_vs_recovery"], dpi=220, bbox_inches="tight")
     plt.close(fig)
@@ -473,14 +967,21 @@ def _logistic_comparison_metrics(frame: pd.DataFrame) -> dict[str, float]:
     metrics: dict[str, float] = {}
     for name, cols in specs.items():
         values = frame[cols].to_numpy(dtype=float)
-        if len(np.unique(labels)) < 2 or np.any(np.nanstd(values, axis=0) == 0.0):
+        finite = np.isfinite(values).all(axis=1)
+        values = values[finite]
+        fit_labels = labels[finite]
+        if (
+            len(values) < 2
+            or len(np.unique(fit_labels)) < 2
+            or np.any(np.std(values, axis=0) == 0.0)
+        ):
             metrics[f"logistic_{name}_auc"] = float("nan")
             continue
         values = (values - values.mean(axis=0)) / values.std(axis=0)
         model = LogisticRegression(solver="lbfgs", class_weight="balanced", random_state=0)
-        model.fit(values, labels.astype(int))
+        model.fit(values, fit_labels.astype(int))
         prob = model.predict_proba(values)[:, 1]
-        metrics[f"logistic_{name}_auc"] = _binary_auroc(prob, labels)
+        metrics[f"logistic_{name}_auc"] = _binary_auroc(prob, fit_labels)
     return metrics
 
 
@@ -493,8 +994,213 @@ def _cache_paths(output_dir: Path) -> dict[str, Path]:
     }
 
 
+def _state_space_cache_paths(output_dir: Path) -> dict[str, Path]:
+    return {
+        "samples_npz": output_dir / "microbiome_state_space_ei_samples.npz",
+        "summary_csv": output_dir / "microbiome_state_space_node_ei_summary.csv",
+        "comparison_csv": output_dir / "microbiome_state_space_ei_vs_recovery_comparison.csv",
+        "manifest_json": output_dir / "manifest.json",
+    }
+
+
+def _phi_eid_sweep_cache_paths(output_dir: Path) -> dict[str, Path]:
+    return {
+        "grid_csv": output_dir / "microbiome_phi_eid_grid.csv",
+        "top_conditions_csv": output_dir / "microbiome_phi_eid_top_conditions.csv",
+        "manifest_json": output_dir / "manifest.json",
+    }
+
+
+def _phi_eid_grid_point_dir(output_dir: Path, *, sample_count: int, tau: float) -> Path:
+    tau_label = f"{float(tau):g}".replace("-", "m").replace(".", "p")
+    return output_dir / f"sample{int(sample_count)}_tau{tau_label}"
+
+
 def _all_cache_paths_exist(cache_paths: dict[str, Path]) -> bool:
     return all(path.exists() for path in cache_paths.values())
+
+
+def _state_space_cache_matches_config(
+    cache_paths: dict[str, Path],
+    config: MicrobiomeStateSpaceEIConfig,
+) -> bool:
+    if not _all_cache_paths_exist(cache_paths):
+        return False
+    try:
+        manifest = json.loads(cache_paths["manifest_json"].read_text(encoding="utf-8"))
+        arrays = np.load(cache_paths["samples_npz"], allow_pickle=False)
+        keys = set(arrays.files)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+
+    required_array_keys = {
+        "initial_states",
+        "final_states",
+        "final_mean_activity",
+        "active_indices",
+        "node_ei",
+        "target_noise_sigma",
+        "bias_correction",
+    }
+    if not required_array_keys.issubset(keys):
+        return False
+
+    expected = {
+        "experiment": "network_revival_microbiome_state_space_node_ei",
+        "source_variable": "initial_node_state_x_i_0",
+        "target_variable": "whole_system_state_at_tau",
+        "sampling_mode": "independent_uniform_state_space",
+        "sample_count": int(config.sample_count),
+        "state_low": float(config.state_low),
+        "state_high": float(config.state_high),
+        "tau": float(config.tau),
+        "dt": float(config.dt),
+        "seed": int(config.seed),
+        "batch_size": int(config.batch_size),
+        "target_noise_fraction": float(config.target_noise_fraction),
+        "show_progress": bool(config.show_progress),
+        "microbiome_parameters": asdict(config.params),
+    }
+    for key, expected_value in expected.items():
+        if key not in manifest:
+            return False
+        actual_value = manifest[key]
+        if isinstance(expected_value, float):
+            if not np.isclose(float(actual_value), expected_value, rtol=0.0, atol=1e-12):
+                return False
+        elif actual_value != expected_value:
+            return False
+    return True
+
+
+def _phi_eid_sweep_cache_matches_config(
+    cache_paths: dict[str, Path],
+    config: MicrobiomePhiEIDSweepConfig,
+) -> bool:
+    if not _all_cache_paths_exist(cache_paths):
+        return False
+    try:
+        manifest = json.loads(cache_paths["manifest_json"].read_text(encoding="utf-8"))
+        grid = pd.read_csv(cache_paths["grid_csv"])
+        top = pd.read_csv(cache_paths["top_conditions_csv"])
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+
+    expected = {
+        "experiment": "network_revival_microbiome_phi_eid_sweep",
+        "source_variable": "whole_initial_state_x_0",
+        "target_variable": "whole_system_state_at_tau",
+        "sampling_mode": "independent_uniform_state_space",
+        "sample_counts": list(config.sample_counts),
+        "tau_values": list(config.tau_values),
+        "state_low": float(config.state_low),
+        "state_high": float(config.state_high),
+        "dt": float(config.dt),
+        "seed": int(config.seed),
+        "batch_size": int(config.batch_size),
+        "target_noise_fraction": float(config.target_noise_fraction),
+        "show_progress": bool(config.show_progress),
+        "microbiome_parameters": asdict(config.params),
+    }
+    for key, expected_value in expected.items():
+        if key not in manifest:
+            return False
+        actual_value = manifest[key]
+        if isinstance(expected_value, float):
+            if not np.isclose(float(actual_value), expected_value, rtol=0.0, atol=1e-12):
+                return False
+        elif actual_value != expected_value:
+            return False
+
+    expected_rows = len(config.sample_counts) * len(config.tau_values)
+    if len(grid) != expected_rows or len(top) != expected_rows:
+        return False
+    for _, row in grid.iterrows():
+        point_npz = Path(str(row.get("cache_npz", "")))
+        if not point_npz.exists():
+            return False
+    return True
+
+
+def _cache_matches_config(cache_paths: dict[str, Path], config: MicrobiomeEIConfig) -> bool:
+    if not _all_cache_paths_exist(cache_paths):
+        return False
+    try:
+        manifest = json.loads(cache_paths["manifest_json"].read_text(encoding="utf-8"))
+        arrays = np.load(cache_paths["samples_npz"], allow_pickle=False)
+        keys = set(arrays.files)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+
+    required_array_keys = {
+        "deltas",
+        "node_indices",
+        "active_indices",
+        "mean_response_samples",
+        "node_ei",
+        "target_noise_sigma",
+        "bias_correction",
+    }
+    if not required_array_keys.issubset(keys):
+        return False
+
+    expected = {
+        "experiment": "network_revival_microbiome_single_node_ei",
+        "source_variable": "point_ignition_strength_delta_i",
+        "target_variable": "whole_system_final_mean_activation",
+        "release_after_forcing": False,
+        "delta_max": float(config.delta_max),
+        "n_delta": int(config.n_delta),
+        "seed": int(config.seed),
+        "target_noise_fraction": float(config.target_noise_fraction),
+        "microbiome_parameters": asdict(config.params),
+    }
+    for key, expected_value in expected.items():
+        if key not in manifest:
+            return False
+        actual_value = manifest[key]
+        if isinstance(expected_value, float):
+            if not np.isclose(float(actual_value), expected_value, rtol=0.0, atol=1e-12):
+                return False
+        elif actual_value != expected_value:
+            return False
+
+    cached_nodes = tuple(int(index) for index in arrays["node_indices"])
+    if config.node_indices is not None and cached_nodes != tuple(config.node_indices):
+        return False
+    if int(manifest.get("evaluated_node_count", -1)) != len(cached_nodes):
+        return False
+    return True
+
+
+def _load_cached_state_space_result(cache_paths: dict[str, Path]) -> dict[str, object]:
+    arrays = np.load(cache_paths["samples_npz"], allow_pickle=False)
+    summary = pd.read_csv(cache_paths["summary_csv"])
+    comparison = pd.read_csv(cache_paths["comparison_csv"])
+    manifest = json.loads(cache_paths["manifest_json"].read_text(encoding="utf-8"))
+    return {
+        "initial_states": arrays["initial_states"],
+        "final_states": arrays["final_states"],
+        "final_mean_activity": arrays["final_mean_activity"],
+        "node_ei": arrays["node_ei"],
+        "summary": summary,
+        "comparison": comparison,
+        "metrics": dict(manifest.get("comparison_metrics", {})),
+        "cache_paths": cache_paths,
+        "manifest": manifest,
+    }
+
+
+def _load_cached_phi_eid_sweep_result(cache_paths: dict[str, Path]) -> dict[str, object]:
+    grid = pd.read_csv(cache_paths["grid_csv"])
+    top_conditions = pd.read_csv(cache_paths["top_conditions_csv"])
+    manifest = json.loads(cache_paths["manifest_json"].read_text(encoding="utf-8"))
+    return {
+        "grid": grid,
+        "top_conditions": top_conditions,
+        "cache_paths": cache_paths,
+        "manifest": manifest,
+    }
 
 
 def _load_cached_result(cache_paths: dict[str, Path]) -> dict[str, object]:
@@ -512,6 +1218,119 @@ def _load_cached_result(cache_paths: dict[str, Path]) -> dict[str, object]:
         "metrics": dict(manifest.get("comparison_metrics", {})),
         "cache_paths": cache_paths,
         "manifest": manifest,
+    }
+
+
+def _build_state_space_summary_df(
+    active_indices: np.ndarray,
+    node_ei: np.ndarray,
+    ei_summary: dict[str, object],
+) -> pd.DataFrame:
+    target_noise_sigma = np.asarray(ei_summary["target_noise_sigma"], dtype=float)
+    bias_correction = np.asarray(ei_summary["bias_correction"], dtype=float)
+    rows = []
+    for active_node, species_index in enumerate(np.asarray(active_indices, dtype=int)):
+        rows.append(
+            {
+                "active_node": int(active_node),
+                "species_index": int(species_index),
+                "ei_final_state": float(node_ei[active_node]),
+                "target_noise_sigma": float(target_noise_sigma[active_node]),
+                "bias_correction": float(bias_correction[active_node]),
+            }
+        )
+    summary = pd.DataFrame(rows).sort_values("ei_final_state", ascending=False).reset_index(drop=True)
+    summary["rank_ei_final_state"] = np.arange(1, len(summary) + 1)
+    return summary
+
+
+def _build_state_space_manifest(
+    config: MicrobiomeStateSpaceEIConfig,
+    adjacency: np.ndarray,
+    backend: str,
+    metrics: dict[str, float],
+) -> dict[str, object]:
+    return {
+        "experiment": "network_revival_microbiome_state_space_node_ei",
+        "source_variable": "initial_node_state_x_i_0",
+        "target_variable": "whole_system_state_at_tau",
+        "sampling_mode": "independent_uniform_state_space",
+        "transport_backend": str(backend),
+        "sample_count": int(config.sample_count),
+        "state_low": float(config.state_low),
+        "state_high": float(config.state_high),
+        "tau": float(config.tau),
+        "dt": float(config.dt),
+        "seed": int(config.seed),
+        "batch_size": int(config.batch_size),
+        "target_noise_fraction": float(config.target_noise_fraction),
+        "show_progress": bool(config.show_progress),
+        "microbiome_parameters": asdict(config.params),
+        "node_count": int(adjacency.shape[0]),
+        "comparison_metrics": {key: float(value) for key, value in metrics.items()},
+    }
+
+
+def _rank_phi_eid_grid(grid: pd.DataFrame) -> pd.DataFrame:
+    frame = grid.copy()
+    if frame.empty:
+        return frame
+    frame = frame.sort_values(
+        ["sample_count", "tau"],
+        ascending=[True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    ranked_order = frame.sort_values(
+        ["phi_eid", "whole_ei", "sample_count", "tau"],
+        ascending=[False, False, False, True],
+        kind="mergesort",
+    ).index
+    ranks = pd.Series(np.arange(1, len(frame) + 1), index=ranked_order)
+    frame["rank_phi_eid"] = ranks.sort_index().to_numpy(dtype=int)
+    return frame
+
+
+def _build_phi_eid_sweep_manifest(
+    config: MicrobiomePhiEIDSweepConfig,
+    adjacency: np.ndarray,
+    grid: pd.DataFrame,
+) -> dict[str, object]:
+    finite = grid[np.isfinite(grid["phi_eid"].to_numpy(dtype=float))]
+    if finite.empty:
+        best_condition: dict[str, object] = {}
+    else:
+        best = finite.sort_values(
+            ["phi_eid", "whole_ei", "sample_count", "tau"],
+            ascending=[False, False, False, True],
+            kind="mergesort",
+        ).iloc[0]
+        best_condition = {
+            "sample_count": int(best["sample_count"]),
+            "tau": float(best["tau"]),
+            "whole_ei": float(best["whole_ei"]),
+            "singleton_ei_sum": float(best["singleton_ei_sum"]),
+            "phi_eid": float(best["phi_eid"]),
+            "phi_ratio": float(best["phi_ratio"]),
+        }
+    return {
+        "experiment": "network_revival_microbiome_phi_eid_sweep",
+        "source_variable": "whole_initial_state_x_0",
+        "target_variable": "whole_system_state_at_tau",
+        "sampling_mode": "independent_uniform_state_space",
+        "metric": "Phi^EID = I(X(0); X(tau)) - sum_i I(X_i(0); X(tau))",
+        "sample_counts": [int(value) for value in config.sample_counts],
+        "tau_values": [float(value) for value in config.tau_values],
+        "state_low": float(config.state_low),
+        "state_high": float(config.state_high),
+        "dt": float(config.dt),
+        "seed": int(config.seed),
+        "batch_size": int(config.batch_size),
+        "target_noise_fraction": float(config.target_noise_fraction),
+        "show_progress": bool(config.show_progress),
+        "microbiome_parameters": asdict(config.params),
+        "node_count": int(adjacency.shape[0]),
+        "grid_point_count": int(len(grid)),
+        "best_condition": best_condition,
     }
 
 
