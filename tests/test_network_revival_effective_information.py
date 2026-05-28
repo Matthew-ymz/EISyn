@@ -84,7 +84,7 @@ def test_batched_runner_writes_cache_with_expected_shapes_and_manifest():
         assert manifest["wout"] == 5.0
         assert manifest["delta_max"] == 2.0
         assert manifest["tau_grid"] == [0.0, 0.2]
-        assert manifest["noise_policy"] == "gaussian_target_noise_fraction"
+        assert manifest["noise_policy"] == "none"
         assert manifest["transport_backend"] == "affine_triangular_transport_map"
 
 
@@ -273,7 +273,7 @@ def test_state_space_runner_recomputes_when_cache_manifest_differs(monkeypatch):
                     "source_variable": "initial_node_state_x_i_0",
                     "target_variable": "whole_system_state_at_tau",
                     "sampling_mode": "independent_uniform_state_space",
-                    "noise_policy": "gaussian_target_noise_fraction",
+                    "noise_policy": "none",
                     "transport_backend": "affine_triangular_transport_map",
                     "sample_count": 2,
                     "state_low": 0.0,
@@ -355,6 +355,46 @@ def test_state_space_node_ei_is_higher_for_dependent_node_than_shuffled_target()
     )
 
     assert dependent_summary["node_ei"][0] > shuffled_summary["node_ei"][0]
+
+
+def test_zero_target_noise_fraction_adds_no_artificial_ei_noise():
+    rng = np.random.default_rng(29)
+    initial_states = rng.uniform(0.0, 1.0, size=(80, 3))
+    final_states = np.column_stack([initial_states[:, 0], initial_states[:, 1] ** 2])
+    mean_activity = final_states[:, [0]].T[:, :, None]
+
+    node_a = estimate_state_space_node_ei(
+        initial_states,
+        final_states,
+        target_noise_fraction=0.0,
+        seed=5,
+    )
+    node_b = estimate_state_space_node_ei(
+        initial_states,
+        final_states,
+        target_noise_fraction=0.0,
+        seed=17,
+    )
+    pair = estimate_state_space_pair_synergy(
+        initial_states,
+        final_states,
+        pairs=[(0, 1)],
+        target_noise_fraction=0.0,
+        seed=23,
+    )
+    mean_ei = estimate_node_mean_activity_ei(
+        initial_states[:, 0],
+        mean_activity,
+        tau_grid=(1.0,),
+        target_noise_fraction=0.0,
+        seed=31,
+    )
+
+    np.testing.assert_allclose(node_a["target_noise_sigma"], 0.0)
+    np.testing.assert_allclose(node_b["target_noise_sigma"], 0.0)
+    np.testing.assert_allclose(node_a["node_ei"], node_b["node_ei"])
+    np.testing.assert_allclose(pair["target_noise_sigma"], 0.0)
+    np.testing.assert_allclose(mean_ei["target_noise_sigma"], 0.0)
 
 
 def test_random_node_pair_sampler_is_seeded_unique_unordered_and_self_free():
@@ -744,3 +784,130 @@ def test_notebook_contains_state_space_ei_section_and_external_legend():
     assert "bbox_to_anchor=(1.02, 0.5)" in report_module
     assert "state_space_pair_synergy" in report_module
     assert "pair_ignition_cost" in report_module
+
+
+def test_three_node_synergy_notebook_contains_sensitivity_workflow():
+    notebook_path = Path(__file__).resolve().parents[1] / "exp" / "network_revival" / "notebook_three_node_synergy.ipynb"
+    module_path = Path(__file__).resolve().parents[1] / "exp" / "network_revival" / "sin_synergy_ignition.py"
+    notebook_text = notebook_path.read_text(encoding="utf-8")
+    module_text = module_path.read_text(encoding="utf-8")
+
+    assert "network_revival_three_node_synergy" in notebook_text
+    assert "ei_sample_count" in module_text
+    assert "t_force" in module_text
+    assert "bbox_to_anchor=(1.02, 0.5)" in notebook_text
+    assert "Eco" not in notebook_text
+    assert "Neural" not in notebook_text
+    assert '"MM"' not in notebook_text
+    assert "make_sin_synergy_ignition_model" in notebook_text
+    assert "evaluate_sin_synergy_ignition" in notebook_text
+    assert "sin_synergy_ignition_response.csv" in notebook_text
+    assert "estimate_sin_synergy_ei_decomposition" in notebook_text
+    assert "sin_synergy_ei_decomposition.csv" in notebook_text
+    assert "sin_synergy_pair_duration_surface.csv" in notebook_text
+    assert "sin_synergy_ei_time_curve.csv" in notebook_text
+    assert "build_sin_synergy_pair_duration_surface" in notebook_text
+    assert "estimate_sin_synergy_ei_time_curve" in notebook_text
+    assert "SIN_GAIN = 1.0" in notebook_text
+    assert "SIN_SOURCE_DECAY = 1.0" in notebook_text
+    assert "SIN_TARGET_DECAY = 1.0" in notebook_text
+    assert "SIN_SOURCE_WEIGHT = 1.0" in notebook_text
+    assert "SIN_SECONDARY_SOURCE_WEIGHT = 0.01" in notebook_text
+    assert "SIN_ALPHA_LOW = 0.05" in notebook_text
+    assert "SIN_ALPHA_HIGH = 0.9" in notebook_text
+    assert "SIN_EI_COST_LOW = 0.0" in notebook_text
+    assert "SIN_EI_COST_HIGH = 2.0" in notebook_text
+    assert "SIN_EI_TARGET_NOISE_FRACTION = 0.1" in notebook_text
+    assert "monotone_synergy_nonlinearity" in notebook_text
+    assert "np.log1p(np.maximum" in module_text
+    assert "log1p_product" in notebook_text
+    assert "sin_synergy_alpha_sweep.csv" in notebook_text
+    assert "build_sin_synergy_alpha_sweep" in notebook_text
+    assert "pair_gain_ratio" in notebook_text
+    assert "SynRatio < 0.1" in notebook_text
+    assert "SynRatio > 0.6" in notebook_text
+    assert "ei_target_noise_fraction=SIN_EI_TARGET_NOISE_FRACTION" in notebook_text
+    assert "单源 EI" in notebook_text
+    assert "协同分解" in notebook_text
+    assert "estimate_state_space_pair_synergy" in module_text
+    assert "多节点关键节点对联合点火" in notebook_text
+    assert "MultiNodeSynergyIgnitionConfig" in notebook_text
+    assert "estimate_multi_node_pair_synergy" in notebook_text
+    assert "build_multi_node_pair_ignition_table" in notebook_text
+    assert "multi_node_pair_synergy.csv" in notebook_text
+    assert "multi_node_pair_ignition_response.csv" in notebook_text
+    assert "multi_node_pair_summary.csv" in notebook_text
+    assert "multi_node_synergy_manifest.json" in notebook_text
+    assert "multi_node_synergy_vs_pair_response" in notebook_text
+    assert "multi_node_network_topology" in notebook_text
+    assert "multi_node_network_topology" in module_text
+    assert "Control pair" not in module_text
+    assert "Embedded pair" not in module_text
+    assert "feedback loop" in notebook_text
+
+
+def test_multi_node_synergy_experiment_scores_embedded_pairs_and_writes_cache():
+    from exp.network_revival.sin_synergy_ignition import (
+        MultiNodeSynergyIgnitionConfig,
+        build_multi_node_pair_ignition_table,
+        estimate_multi_node_pair_synergy,
+        load_or_run_multi_node_synergy_experiment,
+        multi_node_output_paths,
+        simulate_multi_node_fixed_sources,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        config = MultiNodeSynergyIgnitionConfig(
+            output_dir=Path(tmpdir),
+            cost_grid=np.linspace(0.0, 4.0, 9),
+            ei_sample_count=450,
+        )
+
+        paths = multi_node_output_paths(config)
+        result = load_or_run_multi_node_synergy_experiment(config, force=True)
+        pair_synergy = result["pair_synergy"]
+        ignition = result["pair_ignition_response"]
+        summary = result["pair_summary"]
+        model = result["model"]
+
+        assert len(config.source_nodes) == 5
+        assert config.target_node == 5
+        assert model["adjacency"].shape == (6, 6)
+        assert np.all(model["adjacency"].sum(axis=1) > 0.0)
+        assert model["feedback_loop_edges"] == [(0, 1), (1, 2), (2, 0)]
+        assert len(pair_synergy) == 10
+        assert len(summary) == 10
+        assert set(paths) >= {
+            "pair_synergy_csv",
+            "pair_ignition_csv",
+            "pair_summary_csv",
+            "manifest_json",
+        }
+        assert all(path.exists() for path in paths.values())
+
+        simulated = simulate_multi_node_fixed_sources(
+            fixed_values={0: 2.0, 1: 2.0},
+            model=result["model"],
+            t_force=config.t_force,
+            dt=config.dt,
+        )
+        assert simulated["final_state"].shape == (6,)
+        assert simulated["final_state"][2] > 0.0
+        assert simulated["final_state"][3] > 0.0
+        assert simulated["final_state"][4] > 0.0
+        assert simulated["target_end"] > 0.0
+
+        strong = summary.loc[(summary["pair_i"].eq(0)) & (summary["pair_j"].eq(1))].iloc[0]
+        control = summary.loc[(summary["pair_i"].eq(0)) & (summary["pair_j"].eq(2))].iloc[0]
+        assert strong["is_embedded_synergy_pair"] is True
+        assert control["is_embedded_synergy_pair"] is False
+        assert strong["synergy"] > control["synergy"]
+        assert strong["pair_surplus_at_max_cost"] > control["pair_surplus_at_max_cost"]
+        assert strong["pair_response_at_max_cost"] > control["pair_response_at_max_cost"]
+        assert summary["spearman_synergy_pair_response"].notna().all()
+        assert set(ignition["ignition"].unique()) >= {"none", "single_i", "single_j", "pair"}
+
+        cached_synergy = estimate_multi_node_pair_synergy(config, force=False)
+        cached_ignition = build_multi_node_pair_ignition_table(config, force=False)
+        assert len(cached_synergy) == 10
+        assert len(cached_ignition) == len(ignition)
