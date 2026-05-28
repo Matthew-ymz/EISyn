@@ -58,7 +58,7 @@ class DynamicEIConfig:
     dt: float = 0.08
     seed: int = 42
     chunk_size: int = 32
-    target_noise_fraction: float = 0.01
+    target_noise_fraction: float = 0.0
     show_progress: bool = True
     win: float = 20.0
     wout: float = 5.0
@@ -101,7 +101,7 @@ class StateSpaceEIConfig:
     dt: float = 0.08
     seed: int = 42
     batch_size: int = 512
-    target_noise_fraction: float = 0.01
+    target_noise_fraction: float = 0.0
     show_progress: bool = True
     win: float = 20.0
     wout: float = 5.0
@@ -162,7 +162,7 @@ class StateSpacePairSynergyConfig:
     state_space_run_id: str = "fig5l_state_wout5p0_win20p0_tau20p0_n10000_seed42"
     pair_count: int = 200
     pair_seed: int = 42
-    target_noise_fraction: float = 0.01
+    target_noise_fraction: float = 0.0
     seed: int = 42
     win: float = 20.0
     wout: float = 5.0
@@ -389,7 +389,7 @@ def estimate_state_space_node_ei(
     initial_states: np.ndarray,
     final_states: np.ndarray,
     *,
-    target_noise_fraction: float = 0.01,
+    target_noise_fraction: float = 0.0,
     seed: int = 0,
     clip_negative: bool = True,
 ) -> dict[str, object]:
@@ -406,9 +406,14 @@ def estimate_state_space_node_ei(
     if float(target_noise_fraction) < 0.0:
         raise ValueError("target_noise_fraction must be nonnegative.")
 
-    rng = np.random.default_rng(seed)
-    sigma = np.maximum(1e-6, float(target_noise_fraction) * np.std(target, axis=0, ddof=1))
-    noisy_target = target + sigma * rng.normal(size=target.shape)
+    noise_fraction = float(target_noise_fraction)
+    if noise_fraction == 0.0:
+        sigma = np.zeros(target.shape[1], dtype=float)
+        noisy_target = target
+    else:
+        rng = np.random.default_rng(seed)
+        sigma = np.maximum(1e-6, noise_fraction * np.std(target, axis=0, ddof=1))
+        noisy_target = target + sigma * rng.normal(size=target.shape)
 
     node_ei, bias_correction = _estimate_scalar_to_multivariate_gaussian_mi(
         states,
@@ -463,7 +468,7 @@ def estimate_state_space_pair_synergy(
     final_states: np.ndarray,
     *,
     pairs: Sequence[tuple[int, int]],
-    target_noise_fraction: float = 0.01,
+    target_noise_fraction: float = 0.0,
     seed: int = 0,
     clip_negative_ei: bool = True,
 ) -> dict[str, object]:
@@ -490,9 +495,14 @@ def estimate_state_space_pair_synergy(
         if left == right:
             raise ValueError("pairs must not contain self-pairs.")
 
-    rng = np.random.default_rng(seed)
-    sigma = np.maximum(1e-6, float(target_noise_fraction) * np.std(target, axis=0, ddof=1))
-    noisy_target = target + sigma * rng.normal(size=target.shape)
+    noise_fraction = float(target_noise_fraction)
+    if noise_fraction == 0.0:
+        sigma = np.zeros(target.shape[1], dtype=float)
+        noisy_target = target
+    else:
+        rng = np.random.default_rng(seed)
+        sigma = np.maximum(1e-6, noise_fraction * np.std(target, axis=0, ddof=1))
+        noisy_target = target + sigma * rng.normal(size=target.shape)
 
     singleton_cache: dict[int, tuple[float, float]] = {}
     pair_rows: list[dict[str, object]] = []
@@ -1322,7 +1332,7 @@ def estimate_node_mean_activity_ei(
     mean_activity_samples: np.ndarray,
     *,
     tau_grid: Sequence[float],
-    target_noise_fraction: float = 0.01,
+    target_noise_fraction: float = 0.0,
     seed: int = 0,
     clip_negative: bool = True,
 ) -> dict[str, object]:
@@ -1338,17 +1348,22 @@ def estimate_node_mean_activity_ei(
     if samples.shape[2] != len(tau):
         raise ValueError("tau_grid length must match the sample tau axis.")
 
-    rng = np.random.default_rng(seed)
     node_ei = np.empty((samples.shape[0], samples.shape[2]), dtype=float)
     target_noise_sigma = np.empty_like(node_ei)
     backend = "affine_triangular_transport_map"
     bias_correction = np.empty_like(node_ei)
+    noise_fraction = float(target_noise_fraction)
+    rng = np.random.default_rng(seed) if noise_fraction > 0.0 else None
 
     for node_index in range(samples.shape[0]):
         for tau_index in range(samples.shape[2]):
             target = samples[node_index, :, tau_index].reshape(-1, 1)
-            sigma = max(1e-6, float(target_noise_fraction) * float(np.std(target, ddof=1)))
-            noisy_target = target + sigma * rng.normal(size=target.shape)
+            if noise_fraction == 0.0:
+                sigma = 0.0
+                noisy_target = target
+            else:
+                sigma = max(1e-6, noise_fraction * float(np.std(target, ddof=1)))
+                noisy_target = target + sigma * rng.normal(size=target.shape)
             summary = estimate_mutual_information_transport_map(delta_array, noisy_target)
             value = float(summary["mi_hat"])
             if clip_negative:
@@ -1792,6 +1807,10 @@ def _build_state_space_node_summary(
     return rows
 
 
+def _target_noise_policy(target_noise_fraction: float) -> str:
+    return "none" if float(target_noise_fraction) == 0.0 else "gaussian_target_noise_fraction"
+
+
 def _build_manifest(
     config: DynamicEIConfig,
     brain: dict[str, object],
@@ -1804,7 +1823,7 @@ def _build_manifest(
         "source_variable": "point_ignition_strength_delta_i",
         "target_variable": "whole_system_mean_activity_after_release",
         "tau_reference": "post_release",
-        "noise_policy": "gaussian_target_noise_fraction",
+        "noise_policy": _target_noise_policy(config.target_noise_fraction),
         "transport_backend": str(backend),
         "delta_max": float(config.delta_max),
         "n_delta": int(config.n_delta),
@@ -1834,7 +1853,7 @@ def _build_state_space_manifest(
         "source_variable": "initial_node_state_x_i_0",
         "target_variable": "whole_system_state_at_tau",
         "sampling_mode": "independent_uniform_state_space",
-        "noise_policy": "gaussian_target_noise_fraction",
+        "noise_policy": _target_noise_policy(config.target_noise_fraction),
         "transport_backend": str(backend),
         "sample_count": int(config.sample_count),
         "state_low": float(config.state_low),
@@ -1897,7 +1916,7 @@ def _build_pair_synergy_manifest(
         "synergy_definition": "joint_ei_minus_singleton_ei_sum",
         "source_lift": "single:x,x2,x3;pair:x_i,x_j,x_i*x_j,x_i2,x_j2",
         "state_space_samples_npz": str(state_space_npz),
-        "noise_policy": "gaussian_target_noise_fraction",
+        "noise_policy": _target_noise_policy(config.target_noise_fraction),
         "transport_backend": str(backend),
         "pair_count": int(config.pair_count),
         "pair_seed": int(config.pair_seed),
