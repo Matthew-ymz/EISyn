@@ -37,6 +37,9 @@ ENV/
 .worktrees/
 
 # Experiment caches and heavyweight artifacts
+tmp/
+exp/tmp/
+exp/**/tmp/
 exp/cache/
 results/
 fig/**/artifacts/
@@ -46,6 +49,7 @@ fig/**/artifacts/
 *.onnx
 
 # Large raw datasets kept locally
+data/
 data/*.nc
 data/*.csv
 

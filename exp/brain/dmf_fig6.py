@@ -4,6 +4,7 @@ import argparse
 import csv
 import gzip
 import io
+import json
 import pickle
 import sys
 import zipfile
@@ -25,8 +26,10 @@ REPO_DIR = SCRIPT_DIR.parents[1]
 DEFAULT_LAUSANNE_ATLAS_PATH = (
     REPO_DIR / "data" / "Lausanne2008-33.zip"
 )
+DEFAULT_HCP83_CONNECTIVITY_STEM = REPO_DIR / "data" / "external" / "hcp_lausanne83_connectivity"
 DEFAULT_RESULT_DIR = SCRIPT_DIR / "result"
 DEFAULT_LAUSANNE_CONNECTIVITY_SCALE = 0.2
+PHIID_SOURCE_URL = "https://github.com/Imperial-MIND-lab/integrated-info-decomp"
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,22 @@ class StabilizationParameters:
     window: float = 0.05
     tolerance_hz: float = 0.05
     confirm_windows: int = 3
+
+
+@dataclass(frozen=True)
+class BalloonWindkesselParameters:
+    """Hemodynamic parameters for a Friston-style Balloon-Windkessel transform."""
+
+    tau_s: float = 1.54
+    tau_f: float = 2.46
+    tau_0: float = 0.98
+    alpha: float = 0.32
+    e0: float = 0.34
+    v0: float = 0.02
+    k1: float = 7.0 * 0.34
+    k2: float = 2.0
+    k3: float = 2.0 * 0.34 - 0.2
+    neural_gain: float = 0.01
 
 
 @dataclass(frozen=True)
@@ -723,6 +742,553 @@ def load_connectivity_matrix(
     return matrix
 
 
+def _resolve_default_hcp83_path(stem: Path = DEFAULT_HCP83_CONNECTIVITY_STEM) -> Path:
+    candidates = [
+        stem.with_suffix(suffix)
+        for suffix in (".npy", ".npz", ".csv", ".txt", ".mat")
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "Missing HCP Lausanne-83 structural connectivity matrix. Expected one of "
+        + ", ".join(str(candidate) for candidate in candidates)
+        + ". Do not use local approximation files such as sc90, DTI_fiber_consensus_HCP.csv, "
+        "or Lausanne2008-33 count matrices for the paper PhiR reproduction."
+    )
+
+
+def _load_mat_hcp83_matrix(path: Path) -> np.ndarray:
+    if loadmat is None:
+        raise ImportError(
+            "Loading a MATLAB HCP Lausanne-83 matrix requires scipy. "
+            "Install scipy or pass .npy/.npz/.csv instead."
+        )
+    raw = loadmat(path)
+    preferred = ("connectivity", "C", "SC", "sc", "hcp_lausanne83_connectivity")
+    for key in preferred:
+        value = raw.get(key)
+        if isinstance(value, np.ndarray) and value.shape == (83, 83):
+            return np.asarray(value, dtype=float)
+    for key, value in raw.items():
+        if key.startswith("__"):
+            continue
+        if isinstance(value, np.ndarray) and value.shape == (83, 83):
+            return np.asarray(value, dtype=float)
+    raise ValueError(f"MAT file does not contain an 83x83 HCP Lausanne-83 matrix: {path}")
+
+
+def load_paper_hcp83_connectivity(path: str | Path | None = None) -> np.ndarray:
+    """Load the exact HCP Lausanne-83 matrix required for the paper PhiR path."""
+
+    resolved = _resolve_default_hcp83_path() if path is None else resolve_input_path(path)
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"Missing HCP Lausanne-83 structural connectivity matrix: {resolved}. "
+            "Place the paper-preprocessed 83x83 matrix at "
+            f"{DEFAULT_HCP83_CONNECTIVITY_STEM}.[npy|npz|csv|txt|mat]. "
+            "Do not fall back to sc90, DTI_fiber_consensus_HCP.csv, or Lausanne2008-33 count matrices."
+        )
+
+    if resolved.suffix.lower() == ".mat":
+        matrix = _load_mat_hcp83_matrix(resolved)
+    else:
+        matrix, _ = load_numeric_array(resolved)
+    matrix = validate_connectivity_matrix(matrix, expected_regions=83, max_regions=83)
+    return 0.5 * (matrix + matrix.T)
+
+
+def _entropy_gaussian_from_cov(covariance: np.ndarray, *, atol: float = 1.0e-10) -> float:
+    covariance = np.asarray(covariance, dtype=float)
+    dim = covariance.shape[0]
+    logdet = _safe_logdet(covariance, atol=atol)
+    return 0.5 * (dim * (1.0 + np.log(2.0 * np.pi)) + logdet)
+
+
+def _official_phiid_mmi_fallback(
+    src: np.ndarray,
+    trg: np.ndarray,
+    *,
+    tau: int,
+    atol: float = 1.0e-10,
+) -> dict[str, np.ndarray]:
+    """Small Gaussian-MMI PhiID-compatible fallback matching the official atom keys."""
+
+    src_past, src_future = src[:-tau], src[tau:]
+    trg_past, trg_future = trg[:-tau], trg[tau:]
+    four = np.column_stack([src_past, trg_past, src_future, trg_future])
+    std = four.std(axis=0, ddof=1)
+    if np.any(std <= atol) or not np.isfinite(std).all():
+        raise ValueError("PhiID input contains a near-constant source or target series.")
+    four = four / std
+    covariance = np.cov(four, rowvar=False, bias=False)
+
+    def mi(left: Sequence[int], right: Sequence[int]) -> float:
+        left = list(left)
+        right = list(right)
+        joint = left + right
+        value = (
+            _entropy_gaussian_from_cov(covariance[np.ix_(left, left)], atol=atol)
+            + _entropy_gaussian_from_cov(covariance[np.ix_(right, right)], atol=atol)
+            - _entropy_gaussian_from_cov(covariance[np.ix_(joint, joint)], atol=atol)
+        )
+        return max(0.0, float(value))
+
+    i_xta = mi([0], [2])
+    i_xtb = mi([0], [3])
+    i_yta = mi([1], [2])
+    i_ytb = mi([1], [3])
+    i_xytab = mi([0, 1], [2, 3])
+    phi_wms = i_xytab - i_xta - i_ytb
+    rtr = min(i_xta, i_xtb, i_yta, i_ytb)
+
+    atoms = {key: np.asarray([0.0], dtype=float) for key in (
+        "rtr", "rtx", "rty", "rts",
+        "xtr", "xtx", "xty", "xts",
+        "ytr", "ytx", "yty", "yts",
+        "str", "stx", "sty", "sts",
+    )}
+    atoms["rtr"] = np.asarray([rtr], dtype=float)
+    atoms["_phi_wms"] = np.asarray([phi_wms], dtype=float)
+    return atoms
+
+
+def calc_official_phiid_atoms(
+    src: np.ndarray,
+    trg: np.ndarray,
+    *,
+    tau: int = 1,
+    redundancy: str = "MMI",
+) -> tuple[dict[str, np.ndarray], str]:
+    """Call official phyid when installed, otherwise use the vendored-compatible MMI fallback."""
+
+    if redundancy != "MMI":
+        raise ValueError("The paper PhiR reproduction path uses Gaussian MMI PhiID only.")
+    src = np.asarray(src, dtype=float)
+    trg = np.asarray(trg, dtype=float)
+    if src.ndim != 1 or trg.ndim != 1 or src.shape != trg.shape:
+        raise ValueError("PhiID source and target must be same-length 1D arrays.")
+    if tau <= 0 or src.size <= tau + 2:
+        raise ValueError("PhiID source and target are too short for the requested lag.")
+
+    try:
+        from phyid.calculate import calc_PhiID  # type: ignore[import-not-found]
+
+        atoms = calc_PhiID(src, trg, tau=tau, kind="gaussian", redundancy=redundancy)
+        source = "phyid"
+    except ImportError:
+        atoms = _official_phiid_mmi_fallback(src, trg, tau=tau)
+        source = "internal_gaussian_mmi_compatible_with_phyid"
+    return {key: np.asarray(value, dtype=float) for key, value in atoms.items()}, source
+
+
+def transform_rates_to_bold(
+    rates_hz: np.ndarray,
+    *,
+    dt: float,
+    hemodynamic_parameters: BalloonWindkesselParameters = BalloonWindkesselParameters(),
+) -> np.ndarray:
+    """Transform regional firing rates into BOLD-like signals with a Balloon model."""
+
+    rates = np.asarray(rates_hz, dtype=float)
+    if rates.ndim != 2 or rates.shape[0] < 3:
+        raise ValueError("rates_hz must have shape (time, regions) with at least 3 samples.")
+    if dt <= 0.0:
+        raise ValueError(f"dt must be positive, got {dt}.")
+
+    hp = hemodynamic_parameters
+    centered = rates - rates.mean(axis=0, keepdims=True)
+    neural = hp.neural_gain * centered
+    n_steps, n_regions = neural.shape
+    signal = np.zeros(n_regions, dtype=float)
+    flow = np.ones(n_regions, dtype=float)
+    volume = np.ones(n_regions, dtype=float)
+    deoxy = np.ones(n_regions, dtype=float)
+    bold = np.empty((n_steps, n_regions), dtype=float)
+
+    for step in range(n_steps):
+        signal += dt * (neural[step] - signal / hp.tau_s - (flow - 1.0) / hp.tau_f)
+        flow = np.clip(flow + dt * signal, 1.0e-6, None)
+        extraction = (1.0 - np.power(1.0 - hp.e0, 1.0 / flow)) / hp.e0
+        volume += dt * (flow - np.power(volume, 1.0 / hp.alpha)) / hp.tau_0
+        volume = np.clip(volume, 1.0e-6, None)
+        deoxy += dt * (flow * extraction - deoxy * np.power(volume, 1.0 / hp.alpha - 1.0)) / hp.tau_0
+        deoxy = np.clip(deoxy, 1.0e-6, None)
+        bold[step] = hp.v0 * (
+            hp.k1 * (1.0 - deoxy)
+            + hp.k2 * (1.0 - deoxy / volume)
+            + hp.k3 * (1.0 - volume)
+        )
+
+    return bold
+
+
+def compute_paper_phi_r_metrics(
+    bold_timeseries: np.ndarray,
+    *,
+    tau: int = 1,
+    redundancy: str = "MMI",
+    max_pairs: int | None = None,
+) -> dict[str, np.ndarray | float | int | str | list[str]]:
+    """Compute paper-style pairwise Gaussian-MMI PhiR on BOLD-like time series."""
+
+    bold = np.asarray(bold_timeseries, dtype=float)
+    if bold.ndim != 2 or bold.shape[0] <= tau + 2 or bold.shape[1] < 2:
+        raise ValueError("bold_timeseries must have shape (time, regions) with enough lagged samples.")
+
+    phi_r_values: list[float] = []
+    phi_wms_values: list[float] = []
+    rtr_values: list[float] = []
+    pair_indices: list[tuple[int, int]] = []
+    phiid_source = ""
+
+    pair_counter = 0
+    for left in range(bold.shape[1] - 1):
+        for right in range(left + 1, bold.shape[1]):
+            if max_pairs is not None and pair_counter >= max_pairs:
+                break
+            src = bold[:, left]
+            trg = bold[:, right]
+            try:
+                atoms, phiid_source = calc_official_phiid_atoms(src, trg, tau=tau, redundancy=redundancy)
+            except ValueError:
+                continue
+            rtr = float(np.ravel(atoms["rtr"])[0])
+            if "_phi_wms" in atoms:
+                phi_wms = float(np.ravel(atoms["_phi_wms"])[0])
+            else:
+                covariance = np.cov(
+                    np.column_stack([src[:-tau], trg[:-tau], src[tau:], trg[tau:]]),
+                    rowvar=False,
+                    bias=False,
+                )
+                phi_wms = (
+                    gaussian_mutual_information(covariance, sources=[0, 1], targets=[2, 3])
+                    - gaussian_mutual_information(covariance, sources=[0], targets=[2])
+                    - gaussian_mutual_information(covariance, sources=[1], targets=[3])
+                )
+            phi_r = max(0.0, phi_wms + rtr)
+            phi_wms_values.append(phi_wms)
+            rtr_values.append(rtr)
+            phi_r_values.append(phi_r)
+            pair_indices.append((left, right))
+            pair_counter += 1
+        if max_pairs is not None and pair_counter >= max_pairs:
+            break
+
+    if not phi_r_values:
+        raise ValueError("No valid BOLD region pairs were available for PhiR computation.")
+
+    phi_r_pairwise = np.asarray(phi_r_values, dtype=float)
+    phi_wms_pairwise = np.asarray(phi_wms_values, dtype=float)
+    rtr_pairwise = np.asarray(rtr_values, dtype=float)
+    return {
+        "pair_count": int(phi_r_pairwise.size),
+        "pair_indices": np.asarray(pair_indices, dtype=int),
+        "phi_r_pairwise": phi_r_pairwise,
+        "phi_wms_pairwise": phi_wms_pairwise,
+        "rtr_pairwise": rtr_pairwise,
+        "phi_r_mean": float(np.mean(phi_r_pairwise)),
+        "phi_wms_mean": float(np.mean(phi_wms_pairwise)),
+        "rtr_mean": float(np.mean(rtr_pairwise)),
+        "phiid_source": phiid_source,
+        "phiid_source_url": PHIID_SOURCE_URL,
+        "phiid_redundancy": redundancy,
+        "atom_keys": [
+            "rtr", "rtx", "rty", "rts",
+            "xtr", "xtx", "xty", "xts",
+            "ytr", "ytx", "yty", "yts",
+            "str", "stx", "sty", "sts",
+        ],
+    }
+
+
+def _regularized_covariance(
+    covariance: np.ndarray,
+    *,
+    ridge: float,
+) -> tuple[np.ndarray, float, float]:
+    matrix = np.asarray(covariance, dtype=float)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("covariance must be square.")
+    sym = 0.5 * (matrix + matrix.T)
+    scale = max(float(np.nanmean(np.diag(sym))), 1.0e-12)
+    applied_ridge = max(float(ridge), 0.0) * scale
+    regularized = sym + applied_ridge * np.eye(sym.shape[0])
+    condition_number = float(np.linalg.cond(regularized))
+    return regularized, applied_ridge, condition_number
+
+
+def compute_whole_system_phi_eid_from_gaussian_transition(
+    transition_matrix: np.ndarray,
+    noise_covariance: np.ndarray,
+    *,
+    source_covariance: np.ndarray | None = None,
+    ridge: float = 0.0,
+    log_base: float = np.e,
+) -> dict[str, np.ndarray | float]:
+    """Compute whole-system Phi^EID for a linear Gaussian transition.
+
+    The source-side intervention is represented by `source_covariance`; by
+    default it is the independent standardized maximum-entropy proxy I.
+    """
+
+    transition = np.asarray(transition_matrix, dtype=float)
+    if transition.ndim != 2:
+        raise ValueError("transition_matrix must be 2D.")
+    target_dim, source_dim = transition.shape
+    if target_dim < 1 or source_dim < 1:
+        raise ValueError("transition_matrix must have at least one source and target dimension.")
+
+    if source_covariance is None:
+        source_covariance = np.eye(source_dim, dtype=float)
+    source_covariance = np.asarray(source_covariance, dtype=float)
+    if source_covariance.shape != (source_dim, source_dim):
+        raise ValueError(
+            f"source_covariance must have shape ({source_dim}, {source_dim}), got {source_covariance.shape}."
+        )
+    if np.asarray(noise_covariance).shape != (target_dim, target_dim):
+        raise ValueError(
+            f"noise_covariance must have shape ({target_dim}, {target_dim}), got {np.asarray(noise_covariance).shape}."
+        )
+
+    source_cov, source_ridge, source_condition = _regularized_covariance(source_covariance, ridge=ridge)
+    noise_cov, noise_ridge, noise_condition = _regularized_covariance(noise_covariance, ridge=ridge)
+    target_cov = transition @ source_cov @ transition.T + noise_cov
+    target_cov, target_ridge, target_condition = _regularized_covariance(target_cov, ridge=ridge)
+
+    whole_ei = 0.5 * (_safe_logdet(target_cov) - _safe_logdet(noise_cov)) / np.log(log_base)
+    whole_ei = max(0.0, float(whole_ei))
+
+    cov_source_target = source_cov @ transition.T
+    target_precision = np.linalg.pinv(target_cov)
+    conditional_source_cov = source_cov - cov_source_target @ target_precision @ cov_source_target.T
+    conditional_source_cov, _, conditional_condition = _regularized_covariance(
+        conditional_source_cov,
+        ridge=ridge,
+    )
+
+    singleton_ei = np.empty(source_dim, dtype=float)
+    conditional_variances = np.empty(source_dim, dtype=float)
+    for index in range(source_dim):
+        var_i = float(source_cov[index, index])
+        cov_target_i = transition[:, [index]] * var_i
+        conditional_target_cov = target_cov - (cov_target_i @ cov_target_i.T) / max(var_i, 1.0e-12)
+        conditional_target_cov, _, _ = _regularized_covariance(conditional_target_cov, ridge=ridge)
+        singleton_value = 0.5 * (
+            _safe_logdet(target_cov) - _safe_logdet(conditional_target_cov)
+        ) / np.log(log_base)
+        singleton_ei[index] = max(0.0, float(singleton_value))
+        conditional_variances[index] = max(float(conditional_source_cov[index, index]), 1.0e-12)
+
+    raw_phi_eid = float(whole_ei - np.sum(singleton_ei))
+    phi_eid = max(0.0, raw_phi_eid)
+    conditional_total_correlation = 0.5 * (
+        float(np.log(conditional_variances).sum()) - _safe_logdet(conditional_source_cov)
+    ) / np.log(log_base)
+    conditional_total_correlation = max(0.0, float(conditional_total_correlation))
+
+    return {
+        "whole_ei": float(whole_ei),
+        "singleton_ei": singleton_ei,
+        "singleton_ei_sum": float(np.sum(singleton_ei)),
+        "phi_eid": float(phi_eid),
+        "raw_phi_eid": raw_phi_eid,
+        "conditional_total_correlation": float(conditional_total_correlation),
+        "source_ridge": float(source_ridge),
+        "noise_ridge": float(noise_ridge),
+        "target_ridge": float(target_ridge),
+        "source_condition_number": float(source_condition),
+        "noise_condition_number": float(noise_condition),
+        "target_condition_number": float(target_condition),
+        "conditional_source_condition_number": float(conditional_condition),
+    }
+
+
+def estimate_whole_system_phi_eid_from_lagged_samples(
+    source_samples: np.ndarray,
+    target_samples: np.ndarray,
+    *,
+    ridge: float = 1.0e-6,
+    log_base: float = np.e,
+) -> dict[str, np.ndarray | float]:
+    """Fit a standardized linear Gaussian transition and compute whole-system Phi^EID."""
+
+    source = np.asarray(source_samples, dtype=float)
+    target = np.asarray(target_samples, dtype=float)
+    if source.ndim != 2 or target.ndim != 2 or source.shape != target.shape:
+        raise ValueError("source_samples and target_samples must be same-shape 2D arrays.")
+    if source.shape[0] <= source.shape[1] + 2:
+        raise ValueError("Not enough lagged samples to fit a whole-system transition.")
+
+    source_mean = source.mean(axis=0, keepdims=True)
+    source_std = np.maximum(source.std(axis=0, ddof=1, keepdims=True), 1.0e-12)
+    target_mean = target.mean(axis=0, keepdims=True)
+    target_std = np.maximum(target.std(axis=0, ddof=1, keepdims=True), 1.0e-12)
+    source_z = (source - source_mean) / source_std
+    target_z = (target - target_mean) / target_std
+
+    coefficient, *_ = np.linalg.lstsq(source_z, target_z, rcond=None)
+    transition = coefficient.T
+    residual = target_z - source_z @ coefficient
+    noise_covariance = np.cov(residual, rowvar=False, bias=False)
+    metrics = compute_whole_system_phi_eid_from_gaussian_transition(
+        transition,
+        noise_covariance,
+        source_covariance=np.eye(source.shape[1], dtype=float),
+        ridge=ridge,
+        log_base=log_base,
+    )
+    metrics.update(
+        {
+            "transition_matrix": transition,
+            "noise_covariance": noise_covariance,
+            "source_dimension": float(source.shape[1]),
+            "sample_count": float(source.shape[0]),
+        }
+    )
+    return metrics
+
+
+def compute_pairwise_phi_metrics_from_lagged_samples(
+    source_samples: np.ndarray,
+    target_samples: np.ndarray,
+    *,
+    atol: float = 1.0e-10,
+    max_pairs: int | None = None,
+) -> dict[str, float | int]:
+    """Compute pairwise Phi^WMS and Phi^R from explicit lagged source/target samples."""
+
+    source = np.asarray(source_samples, dtype=float)
+    target = np.asarray(target_samples, dtype=float)
+    if source.ndim != 2 or target.ndim != 2 or source.shape != target.shape:
+        raise ValueError("source_samples and target_samples must be same-shape 2D arrays.")
+    if source.shape[0] < 3 or source.shape[1] < 2:
+        raise ValueError("Lagged samples need at least 3 rows and 2 regions.")
+
+    phi_wms_values: list[float] = []
+    phi_r_values: list[float] = []
+    pair_counter = 0
+    for left in range(source.shape[1] - 1):
+        for right in range(left + 1, source.shape[1]):
+            if max_pairs is not None and pair_counter >= max_pairs:
+                break
+            lagged = np.column_stack(
+                [
+                    source[:, left],
+                    source[:, right],
+                    target[:, left],
+                    target[:, right],
+                ]
+            )
+            covariance = np.cov(lagged, rowvar=False, bias=False)
+            covariance = 0.5 * (covariance + covariance.T)
+
+            tdmi = gaussian_mutual_information(covariance, sources=[0, 1], targets=[2, 3], atol=atol)
+            self_left = gaussian_mutual_information(covariance, sources=[0], targets=[2], atol=atol)
+            self_right = gaussian_mutual_information(covariance, sources=[1], targets=[3], atol=atol)
+            phi_wms = tdmi - self_left - self_right
+            double_redundancy = min(
+                gaussian_mutual_information(covariance, sources=[source_index], targets=[target_index], atol=atol)
+                for source_index in (0, 1)
+                for target_index in (2, 3)
+            )
+            phi_wms_values.append(float(phi_wms))
+            phi_r_values.append(float(max(0.0, phi_wms + double_redundancy)))
+            pair_counter += 1
+        if max_pairs is not None and pair_counter >= max_pairs:
+            break
+
+    return {
+        "pair_count": len(phi_wms_values),
+        "phi_wms_mean": float(np.mean(phi_wms_values)),
+        "phi_r_mean": float(np.mean(phi_r_values)),
+        "phi_wms_std": float(np.std(phi_wms_values)),
+        "phi_r_std": float(np.std(phi_r_values)),
+    }
+
+
+def bootstrap_pairwise_phi_r(
+    source_samples: np.ndarray,
+    target_samples: np.ndarray,
+    *,
+    n_bootstrap: int = 32,
+    sample_fraction: float = 0.65,
+    seed: int = 0,
+    max_pairs: int | None = None,
+) -> np.ndarray:
+    """Bootstrap pairwise PhiR over lagged rows to expose empirical sampling sensitivity."""
+
+    source = np.asarray(source_samples, dtype=float)
+    target = np.asarray(target_samples, dtype=float)
+    if source.ndim != 2 or target.ndim != 2 or source.shape != target.shape:
+        raise ValueError("source_samples and target_samples must be same-shape 2D arrays.")
+    if n_bootstrap < 1:
+        raise ValueError("n_bootstrap must be positive.")
+    if not 0.0 < sample_fraction <= 1.0:
+        raise ValueError("sample_fraction must be in (0, 1].")
+
+    rng = np.random.default_rng(seed)
+    sample_count = max(3, int(round(source.shape[0] * sample_fraction)))
+    values = np.empty(n_bootstrap, dtype=float)
+    for index in range(n_bootstrap):
+        row_indices = rng.integers(0, source.shape[0], size=sample_count)
+        metrics = compute_pairwise_phi_metrics_from_lagged_samples(
+            source[row_indices],
+            target[row_indices],
+            max_pairs=max_pairs,
+        )
+        values[index] = float(metrics["phi_r_mean"])
+    return values
+
+
+def compute_average_pairwise_phi_eid_from_lagged_samples(
+    source_samples: np.ndarray,
+    target_samples: np.ndarray,
+    *,
+    ridge: float = 1.0e-6,
+    max_pairs: int | None = None,
+) -> dict[str, float | int]:
+    """Fallback PEID score: average two-region whole-system Phi^EID across pairs."""
+
+    source = np.asarray(source_samples, dtype=float)
+    target = np.asarray(target_samples, dtype=float)
+    if source.ndim != 2 or target.ndim != 2 or source.shape != target.shape:
+        raise ValueError("source_samples and target_samples must be same-shape 2D arrays.")
+    if source.shape[1] < 2:
+        raise ValueError("At least two regions are required for pairwise Phi^EID.")
+
+    values: list[float] = []
+    pair_counter = 0
+    for left in range(source.shape[1] - 1):
+        for right in range(left + 1, source.shape[1]):
+            if max_pairs is not None and pair_counter >= max_pairs:
+                break
+            pair = [left, right]
+            try:
+                metrics = estimate_whole_system_phi_eid_from_lagged_samples(
+                    source[:, pair],
+                    target[:, pair],
+                    ridge=ridge,
+                )
+            except ValueError:
+                continue
+            values.append(float(metrics["phi_eid"]))
+            pair_counter += 1
+        if max_pairs is not None and pair_counter >= max_pairs:
+            break
+    if not values:
+        raise ValueError("No valid region pairs were available for pairwise Phi^EID.")
+    array = np.asarray(values, dtype=float)
+    return {
+        "pair_count": int(array.size),
+        "phi_eid_mean": float(np.mean(array)),
+        "phi_eid_std": float(np.std(array)),
+        "phi_eid_min": float(np.min(array)),
+        "phi_eid_max": float(np.max(array)),
+    }
+
+
 def load_j_fic_schedule(path: str | Path, *, expected_regions: int | None = None) -> JFICSchedule:
     """Load precomputed J_FIC values for one or more coupling values."""
 
@@ -1271,6 +1837,214 @@ def plot_fig6b_like(
     return figure
 
 
+def plot_paper_phi_r_like(
+    sweep_result: dict[str, np.ndarray],
+    output_path: str | Path | None = None,
+) -> plt.Figure:
+    """Plot the paper-focused Fig. 6B reproduction with mean rate and PhiR only."""
+
+    g_values = np.asarray(sweep_result["G"], dtype=float)
+    mean_rate_hz = np.asarray(sweep_result["mean_rate_hz"], dtype=float)
+    phi_r = np.asarray(sweep_result["phi_r_mean"], dtype=float)
+
+    figure, axes = plt.subplots(
+        2,
+        1,
+        figsize=(6.2, 5.8),
+        constrained_layout=True,
+        sharex=True,
+    )
+    rate_axis, phi_axis = axes
+    rate_axis.plot(g_values, mean_rate_hz, color="0.25", lw=1.3, zorder=1)
+    rate_axis.scatter(g_values, mean_rate_hz, color="black", s=15, zorder=2)
+    rate_axis.set_ylabel("Mean firing rate (Hz)")
+    rate_axis.set_ylim(0.0, max(20.0, float(np.nanmax(mean_rate_hz)) * 1.08))
+    rate_axis.grid(True, color="0.85", lw=0.8)
+
+    phi_axis.plot(g_values, phi_r, color="#df2b2b", lw=1.2, label=r"$\Phi^R$")
+    phi_axis.scatter(g_values, phi_r, color="#df2b2b", s=15)
+    phi_axis.set_ylabel(r"$\Phi^R$")
+    phi_axis.set_xlabel("Global coupling $G$")
+    phi_axis.set_ylim(bottom=0.0)
+    phi_axis.grid(True, color="0.85", lw=0.8)
+    phi_axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    if output_path is not None:
+        output_path = resolve_output_path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_path, dpi=220, bbox_inches="tight")
+    return figure
+
+
+def reproduce_fig6b_paper_phi_r(
+    *,
+    connectivity: np.ndarray | None = None,
+    connectivity_path: str | Path | None = None,
+    g_values: Iterable[float] | None = None,
+    seed: int = 0,
+    continuation: bool = True,
+    parameters: DMFParameters = DMFParameters(),
+    fic_parameters: FICParameters = FICParameters(),
+    stabilization_parameters: StabilizationParameters = StabilizationParameters(),
+    hemodynamic_parameters: BalloonWindkesselParameters = BalloonWindkesselParameters(),
+    expected_regions: int | None = 83,
+    max_regions: int | None = 83,
+    phi_tau: int = 1,
+    max_phi_pairs: int | None = None,
+    results_path: str | Path | None = None,
+    figure_path: str | Path | None = None,
+) -> dict[str, np.ndarray]:
+    """Reproduce the paper Fig. 6B PhiR curve using HCP83, BOLD, and Gaussian MMI PhiID."""
+
+    if connectivity is not None and connectivity_path is not None:
+        raise ValueError("Pass either `connectivity` or `connectivity_path`, not both.")
+    if connectivity is None:
+        connectivity = load_paper_hcp83_connectivity(connectivity_path)
+    else:
+        connectivity = validate_connectivity_matrix(
+            connectivity,
+            expected_regions=expected_regions,
+            max_regions=max_regions,
+        )
+        connectivity = 0.5 * (connectivity + connectivity.T)
+
+    if g_values is None:
+        g_values = np.linspace(1.0, 3.0, 41)
+    g_values = np.asarray(list(g_values), dtype=float)
+    if g_values.ndim != 1 or g_values.size == 0:
+        raise ValueError("g_values must be a non-empty 1D iterable.")
+
+    n_regions = connectivity.shape[0]
+    mean_rates = np.empty(g_values.shape, dtype=float)
+    phi_r_mean = np.empty(g_values.shape, dtype=float)
+    phi_wms_mean = np.empty(g_values.shape, dtype=float)
+    rtr_mean = np.empty(g_values.shape, dtype=float)
+    pair_count = np.empty(g_values.shape, dtype=int)
+    mean_region_rates = np.empty((g_values.size, n_regions), dtype=float)
+    j_fic_values = np.empty((g_values.size, n_regions), dtype=float)
+    calibration_errors = np.empty(g_values.shape, dtype=float)
+    calibration_iterations = np.empty(g_values.shape, dtype=int)
+    calibration_converged = np.empty(g_values.shape, dtype=bool)
+
+    bold_series: list[np.ndarray] = []
+    phi_r_pairwise: list[np.ndarray] = []
+    phi_wms_pairwise: list[np.ndarray] = []
+    phi_pair_indices: np.ndarray | None = None
+    phiid_source = ""
+
+    initial_j_fic = None
+    initial_se = None
+    initial_si = None
+    for index, coupling_g in enumerate(g_values):
+        calibration = calibrate_j_fic(
+            connectivity=connectivity,
+            coupling_g=float(coupling_g),
+            parameters=parameters,
+            fic_parameters=fic_parameters,
+            stabilization_parameters=stabilization_parameters,
+            seed=seed + index,
+            initial_j_fic=initial_j_fic,
+            initial_se=initial_se if continuation else None,
+            initial_si=initial_si if continuation else None,
+        )
+        j_fic = np.asarray(calibration["j_fic"], dtype=float)
+        simulation = simulate_dmf(
+            connectivity=connectivity,
+            coupling_g=float(coupling_g),
+            j_fic=j_fic,
+            parameters=parameters,
+            stabilization_parameters=stabilization_parameters,
+            seed=seed + index,
+            initial_se=np.asarray(calibration["final_se"], dtype=float) if continuation else None,
+            initial_si=np.asarray(calibration["final_si"], dtype=float) if continuation else None,
+            record_rate_trace=True,
+        )
+        stats_start_step = int(float(simulation["stabilization_start_step"]))
+        rates = np.asarray(simulation["region_rate_trace_hz"], dtype=float)[stats_start_step:]
+        bold = transform_rates_to_bold(
+            rates,
+            dt=parameters.dt,
+            hemodynamic_parameters=hemodynamic_parameters,
+        )
+        phi_metrics = compute_paper_phi_r_metrics(
+            bold,
+            tau=phi_tau,
+            max_pairs=max_phi_pairs,
+        )
+
+        mean_rates[index] = float(simulation["mean_rate_hz"])
+        mean_region_rates[index] = np.asarray(simulation["mean_region_rate_hz"], dtype=float)
+        phi_r_mean[index] = float(phi_metrics["phi_r_mean"])
+        phi_wms_mean[index] = float(phi_metrics["phi_wms_mean"])
+        rtr_mean[index] = float(phi_metrics["rtr_mean"])
+        pair_count[index] = int(phi_metrics["pair_count"])
+        j_fic_values[index] = j_fic
+        calibration_errors[index] = float(calibration["max_abs_rate_error_hz"])
+        calibration_iterations[index] = int(float(calibration["iterations"]))
+        calibration_converged[index] = bool(calibration["converged"])
+        bold_series.append(bold)
+        phi_r_pairwise.append(np.asarray(phi_metrics["phi_r_pairwise"], dtype=float))
+        phi_wms_pairwise.append(np.asarray(phi_metrics["phi_wms_pairwise"], dtype=float))
+        if phi_pair_indices is None:
+            phi_pair_indices = np.asarray(phi_metrics["pair_indices"], dtype=int)
+        phiid_source = str(phi_metrics["phiid_source"])
+
+        if continuation:
+            initial_j_fic = j_fic
+            initial_se = np.asarray(simulation["final_se"], dtype=float)
+            initial_si = np.asarray(simulation["final_si"], dtype=float)
+
+    derivative = np.gradient(mean_rates, g_values)
+    critical_index = int(np.argmax(derivative))
+    metadata = {
+        "pipeline": "paper_phi_r_hcp83_bold_gaussian_mmi",
+        "phiid_source": phiid_source,
+        "phiid_source_url": PHIID_SOURCE_URL,
+        "phiid_redundancy": "MMI",
+        "phi_tau": int(phi_tau),
+        "max_phi_pairs": None if max_phi_pairs is None else int(max_phi_pairs),
+        "connectivity_required": "HCP 900 preprocessed Lausanne-83; no local approximation fallback",
+    }
+    max_pair_count = max(values.size for values in phi_r_pairwise)
+    phi_r_pairwise_matrix = np.full((len(phi_r_pairwise), max_pair_count), np.nan, dtype=float)
+    phi_wms_pairwise_matrix = np.full((len(phi_wms_pairwise), max_pair_count), np.nan, dtype=float)
+    for row, values in enumerate(phi_r_pairwise):
+        phi_r_pairwise_matrix[row, : values.size] = values
+    for row, values in enumerate(phi_wms_pairwise):
+        phi_wms_pairwise_matrix[row, : values.size] = values
+    result = {
+        "G": g_values,
+        "mean_rate_hz": mean_rates,
+        "mean_region_rate_hz": mean_region_rates,
+        "phi_r_mean": phi_r_mean,
+        "phi_wms_mean": phi_wms_mean,
+        "rtr_mean": rtr_mean,
+        "phi_r_pairwise": phi_r_pairwise_matrix,
+        "phi_wms_pairwise": phi_wms_pairwise_matrix,
+        "phi_pair_indices": np.empty((0, 2), dtype=int) if phi_pair_indices is None else phi_pair_indices,
+        "pair_count": pair_count,
+        "bold_timeseries": np.stack(bold_series, axis=0),
+        "j_fic": j_fic_values,
+        "j_fic_calibration_converged": calibration_converged,
+        "j_fic_calibration_max_abs_error_hz": calibration_errors,
+        "j_fic_calibration_iterations": calibration_iterations,
+        "d_rate_dG": derivative,
+        "critical_G": np.asarray([g_values[critical_index]], dtype=float),
+        "connectivity": connectivity,
+        "node_strength": connectivity.sum(axis=1),
+        "metadata": np.asarray(json.dumps(metadata, ensure_ascii=True)),
+    }
+
+    if results_path is not None:
+        results_path = resolve_output_path(results_path)
+        results_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(results_path, **result)
+    if figure_path is not None:
+        figure = plot_paper_phi_r_like(result, output_path=figure_path)
+        plt.close(figure)
+    return result
+
+
 def plot_region_rate_traces(
     simulation_result: dict[str, np.ndarray | float],
     *,
@@ -1624,6 +2398,23 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--paper-phi-r",
+        action="store_true",
+        help=(
+            "Run the paper-focused HCP Lausanne-83 + BOLD + Gaussian MMI PhiID PhiR "
+            "reproduction path instead of the existing Lausanne count/proxy path."
+        ),
+    )
+    parser.add_argument(
+        "--paper-connectivity",
+        type=Path,
+        default=None,
+        help=(
+            "Optional exact HCP Lausanne-83 83x83 connectivity matrix for --paper-phi-r. "
+            "If omitted, the script looks for data/external/hcp_lausanne83_connectivity.*."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=DEFAULT_RESULT_DIR,
@@ -1753,6 +2544,18 @@ def parse_args() -> argparse.Namespace:
         help="Number of coupling values to evaluate.",
     )
     parser.add_argument(
+        "--phi-tau",
+        type=int,
+        default=1,
+        help="Lag, in BOLD samples, used for Gaussian MMI PhiID in --paper-phi-r mode.",
+    )
+    parser.add_argument(
+        "--max-phi-pairs",
+        type=int,
+        default=None,
+        help="Optional limit on region pairs for quick --paper-phi-r pilot runs.",
+    )
+    parser.add_argument(
         "--trace-g",
         type=float,
         default=None,
@@ -1843,8 +2646,38 @@ def main() -> None:
         tolerance_hz=args.stabilization_tolerance,
         confirm_windows=args.stabilization_confirm_windows,
     )
-    g_values = np.linspace(args.g_min, args.g_max, args.g_count)
+    g_count = 41 if args.paper_phi_r and args.g_count == 21 else args.g_count
+    g_values = np.linspace(args.g_min, args.g_max, g_count)
     connectivity_path = resolve_input_path(args.connectivity)
+
+    if args.paper_phi_r:
+        sweep_result = reproduce_fig6b_paper_phi_r(
+            connectivity_path=args.paper_connectivity,
+            g_values=g_values,
+            seed=args.seed,
+            continuation=not args.independent_restarts,
+            parameters=parameters,
+            fic_parameters=fic_parameters,
+            stabilization_parameters=stabilization_parameters,
+            expected_regions=83,
+            max_regions=83,
+            phi_tau=args.phi_tau,
+            max_phi_pairs=args.max_phi_pairs,
+            figure_path=args.figure,
+            results_path=args.results,
+        )
+        print(f"Saved paper PhiR figure to: {args.figure}")
+        print(f"Saved paper PhiR numerical results to: {args.results}")
+        print(f"Connectivity regions: {sweep_result['connectivity'].shape[0]}")
+        print(f"Estimated transition point: G ~ {float(sweep_result['critical_G'][0]):.3f}")
+        print(
+            "Mean PhiR values: "
+            + ", ".join(
+                f"G={g:.2f}:{value:.4g}"
+                for g, value in zip(sweep_result["G"], sweep_result["phi_r_mean"])
+            )
+        )
+        return
 
     if is_lausanne_archive_path(connectivity_path):
         batch_result = run_lausanne_count_batch(

@@ -22,6 +22,9 @@ class BrodmannConnectome:
     labels: list[str]
 
 
+Connectome = BrodmannConnectome
+
+
 @dataclass(frozen=True)
 class DMFParameters:
     w_e: float = 1.0
@@ -98,6 +101,42 @@ def load_brodmann_connectome(path: str | Path = DEFAULT_CONNECTOME) -> BrodmannC
     matrix = 0.5 * (matrix + matrix.T)
     np.fill_diagonal(matrix, 0.0)
     return BrodmannConnectome(matrix=matrix, labels=load_brodmann_labels(n_regions=matrix.shape[0]))
+
+
+def load_connectome(path: str | Path, *, normalize: str | None = None) -> Connectome:
+    """Load a generic square connectome matrix for compatibility with older tests."""
+
+    resolved = _resolve_path(path)
+    suffix = resolved.suffix.lower()
+    if suffix == ".npy":
+        matrix = np.load(resolved)
+    elif suffix == ".npz":
+        archive = np.load(resolved)
+        key = "connectivity" if "connectivity" in archive.files else archive.files[0]
+        matrix = archive[key]
+    elif suffix == ".csv":
+        matrix = np.loadtxt(resolved, delimiter=",")
+    else:
+        matrix = np.loadtxt(resolved)
+    matrix = np.asarray(matrix, dtype=float)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Connectome must be square, got {matrix.shape}.")
+    if not np.isfinite(matrix).all():
+        raise ValueError("Connectome contains non-finite values.")
+    if np.any(matrix < 0.0):
+        raise ValueError("Connectome must be nonnegative.")
+
+    matrix = 0.5 * (matrix + matrix.T)
+    np.fill_diagonal(matrix, 0.0)
+    if normalize == "max":
+        scale = float(np.max(matrix))
+        if scale <= 0.0:
+            raise ValueError("Cannot max-normalize a zero connectome.")
+        matrix = matrix / scale
+    elif normalize not in (None, "none"):
+        raise ValueError(f"Unsupported normalization mode: {normalize}")
+    labels = [str(index + 1) for index in range(matrix.shape[0])]
+    return Connectome(matrix=matrix, labels=labels)
 
 
 def transfer_function(current: np.ndarray, gain: float, threshold: float, shape: float) -> np.ndarray:
