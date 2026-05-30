@@ -14,16 +14,16 @@
 
 ## Figure formats for research documents
 
-- When exporting experiment figures that will be cited from Markdown research documents under `doc/`, prefer `png` or `pdf` as the final inserted asset format.
-- Do not use `svg` as the final cited figure format in `doc/研究框架.md`-style documents unless the user explicitly asks for it or the export toolchain is known to support it end-to-end.
-- If a notebook or plotting pipeline produces `svg` by default, also export a companion `png` or `pdf`, and reference that compatible asset from the Markdown document.
+- For experiment results, default to producing the primary visualization figure first, preferably a `png` that can be viewed directly in Markdown, notebooks, and chat summaries.
+- Do not export companion `pdf`, `svg`, or `tiff` files unless the user explicitly asks for publication/vector assets or the current document build requires that format.
+- When updating Markdown research documents under `doc/`, reference the directly viewable visualization asset first. Use `pdf` only for final paper export or a proven LaTeX/Pandoc path.
 
 ## Long-running experiments
 
-- When running a long or expensive experiment, always persist the computed results to disk in a reusable machine-readable form before finishing.
-- Save enough information so later visualization, summary, or document updates can reuse prior results without recomputing the full experiment.
-- Prefer storing both per-run detailed outputs and a compact summary file; examples include `json`, `csv`, `npz`, or notebook-adjacent cache files under `exp/cache/`, `results/`, or another task-appropriate experiment directory.
-- If an experiment is executed from a notebook, make sure the notebook either writes these cache artifacts itself or clearly reuses an existing cache on subsequent runs.
+- For long or expensive experiments, persist reusable computed results only when recomputation would be costly or the user asks for reusable data.
+- Prefer lightweight cache formats that match the code path, such as `json`, `jsonl`, `npz`, or notebook-adjacent cache files. Do not create `csv` summaries by default.
+- Treat machine-readable caches as internal support artifacts; the user-facing deliverable should prioritize the visualization figure and concise interpretation.
+- If an experiment is executed from a notebook, make sure it can reuse existing cache artifacts on subsequent runs when such artifacts are needed.
 
 ## PEID theory literature
 

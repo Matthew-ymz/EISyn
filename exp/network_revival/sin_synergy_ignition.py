@@ -1256,6 +1256,18 @@ def _multi_node_topology_positions(config: MultiNodeSynergyIgnitionConfig) -> di
     }
 
 
+def _multi_node_effective_topology_edges(config: MultiNodeSynergyIgnitionConfig) -> list[tuple[int, int]]:
+    edges: set[tuple[int, int]] = {
+        (int(src), int(dst))
+        for src, dst, _ in config.network_edges
+    }
+    target_node = int(config.target_node)
+    for left, right, _ in config.embedded_pair_weights:
+        for src in (int(left), int(right)):
+            edges.add((src, target_node))
+    return sorted(edges)
+
+
 def plot_sin_synergy_figures(
     results: dict[str, pd.DataFrame | dict[str, Path]],
     config: SinSynergyIgnitionConfig,
@@ -1460,7 +1472,7 @@ def plot_multi_node_synergy_figures(
     positions = _multi_node_topology_positions(config)
     fig, ax = plt.subplots(figsize=(6.8, 3.8), constrained_layout=True)
     feedback_edges = {tuple(edge) for edge in config.feedback_loop_edges}
-    for src, dst, weight in config.network_edges:
+    for src, dst in _multi_node_effective_topology_edges(config):
         start = positions[int(src)]
         end = positions[int(dst)]
         rad = 0.12 if (int(src), int(dst)) in feedback_edges else 0.02
@@ -1469,7 +1481,7 @@ def plot_multi_node_synergy_figures(
             end,
             arrowstyle="-|>",
             mutation_scale=11,
-            linewidth=0.8 + 5.0 * float(weight),
+            linewidth=1.4,
             color="0.35",
             alpha=0.82,
             shrinkA=18,
@@ -1612,7 +1624,7 @@ def write_sin_synergy_figure_manifest(
 - `sin_synergy_ei_time_curve`: EI components as the target evolution time changes.
 - `sin_synergy_alpha_sweep_summary`: alpha sweep linking the synergy ratio and the pair ignition gain ratio.
 - `multi_node_pair_synergy_heatmap`: pair Syn and SynRatio over all ten source-node pairs in the controlled six-node experiment.
-- `multi_node_network_topology`: directed weighted topology used by the controlled six-node experiment.
+- `multi_node_network_topology`: directed effective topology used by the controlled six-node experiment, including both direct network edges and pair-readout source-to-target effects.
 - `multi_node_synergy_vs_pair_response`: relationship between pair Syn and direct pair ignition response at the maximum total cost.
 - `multi_node_pair_response_curves`: pair ignition response curves for representative high-, weak-, and low-Syn pairs.
 - `multi_node_pair_summary_rankings`: pair Syn ranking compared with direct pair ignition response.

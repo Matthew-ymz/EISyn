@@ -8,6 +8,7 @@ from scripts.validate_o3_h1_peid import (
     FEATURE_COLUMNS,
     H1Config,
     assign_station_groups,
+    build_o3_h1_artifact_manifest,
     build_peak_o3_feature_table,
     build_station_mean_feature_table,
     select_stations,
@@ -267,3 +268,22 @@ def test_nox_voc_poly_regressor_fits_feature_table_and_predicts_finite_values() 
     model.fit(frame[list(FEATURE_COLUMNS)], frame["O3_peak"])
 
     assert np.isfinite(model.predict(frame[list(FEATURE_COLUMNS)])).all()
+
+
+def test_artifact_manifest_excludes_failed_display_outputs_but_keeps_diagnostics() -> None:
+    artifacts = build_o3_h1_artifact_manifest(
+        peid_enabled_by_model={"rf": False, "mlp": False},
+        station_mean_shape_by_model={"rf": False, "mlp": False, "poly_nox_voc": True},
+    )
+
+    assert "response_surface_diagnostics" in artifacts
+    assert "response_surface_grid_rf" not in artifacts
+    assert "response_surface_grid_mlp" not in artifacts
+    assert "all_stations_response_surface_grid_rf" not in artifacts
+    assert "all_stations_response_surface_grid_mlp" not in artifacts
+    assert "station_mean_response_surface_grid_rf" not in artifacts
+    assert "station_mean_response_surface_grid_mlp" not in artifacts
+    assert "peid_graph_png_rf" not in artifacts
+    assert "station_mean_response_surface_png_rf" not in artifacts
+    assert "station_mean_response_surface_png_poly_nox_voc" in artifacts
+    assert "station_mean_response_surface_grid_poly_nox_voc" in artifacts

@@ -1009,6 +1009,65 @@ def write_notes(
     (out_dir / "figure_notes.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def build_o3_h1_artifact_manifest(
+    *,
+    peid_enabled_by_model: dict[str, bool],
+    station_mean_shape_by_model: dict[str, bool],
+) -> dict[str, str]:
+    artifacts = {
+        "feature_sample": str(CACHE_DIR / "peak_o3_feature_sample.csv"),
+        "station_mean_feature_table": str(CACHE_DIR / "station_mean_peak_o3_feature_table.csv"),
+        "sillman_reference_surface_csv": str(RESULTS_DIR / "sillman_reference_surface.csv"),
+        "sillman_reference_ridge_csv": str(RESULTS_DIR / "sillman_reference_ridge.csv"),
+        "sillman_reference_surface_png": str(RESULTS_DIR / "sillman_reference_surface.png"),
+        "sillman_reference_surface_pdf": str(RESULTS_DIR / "sillman_reference_surface.pdf"),
+        "model_metrics": str(RESULTS_DIR / "model_metrics.csv"),
+        "station_mean_model_metrics": str(RESULTS_DIR / "station_mean_model_metrics.csv"),
+        "response_surface_diagnostics": str(RESULTS_DIR / "response_surface_diagnostics.csv"),
+        "station_mean_response_surface_diagnostics": str(RESULTS_DIR / "station_mean_response_surface_diagnostics.csv"),
+        "figure_notes": str(RESULTS_DIR / "figure_notes.md"),
+    }
+    for model_name, enabled in peid_enabled_by_model.items():
+        if not enabled:
+            continue
+        artifacts[f"response_surface_grid_{model_name}"] = str(
+            RESULTS_DIR / f"beijing_peak_o3_response_surface_{model_name}.csv"
+        )
+        artifacts[f"all_stations_response_surface_grid_{model_name}"] = str(
+            RESULTS_DIR / f"all_stations_peak_o3_response_surface_{model_name}.csv"
+        )
+        artifacts["peid_pairwise_edges"] = str(RESULTS_DIR / "peid_pairwise_edges.csv")
+        artifacts["peid_synergy_hyperedges"] = str(RESULTS_DIR / "peid_synergy_hyperedges.csv")
+        artifacts[f"response_surface_png_{model_name}"] = str(
+            RESULTS_DIR / f"beijing_peak_o3_response_surface_{model_name}.png"
+        )
+        artifacts[f"response_surface_pdf_{model_name}"] = str(
+            RESULTS_DIR / f"beijing_peak_o3_response_surface_{model_name}.pdf"
+        )
+        artifacts[f"all_stations_response_surface_png_{model_name}"] = str(
+            RESULTS_DIR / f"all_stations_peak_o3_response_surface_{model_name}.png"
+        )
+        artifacts[f"all_stations_response_surface_pdf_{model_name}"] = str(
+            RESULTS_DIR / f"all_stations_peak_o3_response_surface_{model_name}.pdf"
+        )
+        artifacts[f"peid_graph_png_{model_name}"] = str(RESULTS_DIR / f"peid_o3_h1_causal_graph_{model_name}.png")
+        artifacts[f"peid_graph_pdf_{model_name}"] = str(RESULTS_DIR / f"peid_o3_h1_causal_graph_{model_name}.pdf")
+
+    for model_name, passed in station_mean_shape_by_model.items():
+        if not passed:
+            continue
+        artifacts[f"station_mean_response_surface_grid_{model_name}"] = str(
+            RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.csv"
+        )
+        artifacts[f"station_mean_response_surface_png_{model_name}"] = str(
+            RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.png"
+        )
+        artifacts[f"station_mean_response_surface_pdf_{model_name}"] = str(
+            RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.pdf"
+        )
+    return artifacts
+
+
 def run(config: H1Config) -> dict[str, str]:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1045,27 +1104,28 @@ def run(config: H1Config) -> dict[str, str]:
         surface, diagnostics = response_surface(model, model_frame, config, model_name=model_name)
         global_surface = surface[surface["surface_scope"] == "all_stations"].copy()
         grouped_surface = surface[surface["surface_scope"] == "station_group"].copy()
-        global_surface.to_csv(RESULTS_DIR / f"all_stations_peak_o3_response_surface_{model_name}.csv", index=False)
-        grouped_surface.to_csv(RESULTS_DIR / f"beijing_peak_o3_response_surface_{model_name}.csv", index=False)
-        plot_response_surface(
-            global_surface,
-            RESULTS_DIR,
-            output_stem=f"all_stations_peak_o3_response_surface_{model_name}",
-        )
-        if not grouped_surface.empty:
-            plot_response_surface(
-                grouped_surface,
-                RESULTS_DIR,
-                output_stem=f"beijing_peak_o3_response_surface_{model_name}",
-            )
 
         global_diagnostics = diagnostics[diagnostics["surface_scope"] == "all_stations"]
         peid_enabled = bool(global_diagnostics["passes_sillman_shape_check"].fillna(False).any())
         peid_enabled_by_model[model_name] = peid_enabled
         if peid_enabled:
+            global_surface.to_csv(RESULTS_DIR / f"all_stations_peak_o3_response_surface_{model_name}.csv", index=False)
+            grouped_surface.to_csv(RESULTS_DIR / f"beijing_peak_o3_response_surface_{model_name}.csv", index=False)
+            plot_response_surface(
+                global_surface,
+                RESULTS_DIR,
+                output_stem=f"all_stations_peak_o3_response_surface_{model_name}",
+            )
+            if not grouped_surface.empty:
+                plot_response_surface(
+                    grouped_surface,
+                    RESULTS_DIR,
+                    output_stem=f"beijing_peak_o3_response_surface_{model_name}",
+                )
             pairwise, synergy = compute_peid_tables(eval_frame, config)
             pairwise.insert(0, "model", model_name)
             synergy.insert(0, "model", model_name)
+            plot_peid_graph(pairwise, synergy, RESULTS_DIR, model_name=model_name)
         else:
             pairwise = pd.DataFrame(columns=["model", "source", "target", "ei", "source_support", "total_count"])
             synergy = pd.DataFrame(
@@ -1080,17 +1140,6 @@ def run(config: H1Config) -> dict[str, str]:
                     "skipped_reason",
                 ]
             )
-            synergy.loc[0] = {
-                "model": model_name,
-                "sources": "NOx+VOC",
-                "target": "O3hat",
-                "source_order": 2,
-                "synergy_raw": np.nan,
-                "source_support": 0,
-                "total_count": 0,
-                "skipped_reason": "empirical_surface_failed_sillman_shape_check",
-            }
-        plot_peid_graph(pairwise, synergy, RESULTS_DIR, model_name=model_name)
         surface_frames.append(surface)
         diagnostic_frames.append(diagnostics)
         pairwise_frames.append(pairwise)
@@ -1102,12 +1151,6 @@ def run(config: H1Config) -> dict[str, str]:
     for model_name, model in station_mean_models.items():
         surface, diagnostics = response_surface(model, station_mean_frame, config, model_name=model_name)
         global_surface = surface[surface["surface_scope"] == "all_stations"].copy()
-        global_surface.to_csv(RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.csv", index=False)
-        plot_response_surface(
-            global_surface,
-            RESULTS_DIR,
-            output_stem=f"station_mean_peak_o3_response_surface_{model_name}",
-        )
         station_mean_surface_frames.append(surface)
         station_mean_diagnostic_frames.append(diagnostics)
         station_mean_shape_by_model[model_name] = bool(
@@ -1115,6 +1158,13 @@ def run(config: H1Config) -> dict[str, str]:
                 diagnostics["surface_scope"] == "all_stations", "passes_sillman_shape_check"
             ].fillna(False).any()
         )
+        if station_mean_shape_by_model[model_name]:
+            global_surface.to_csv(RESULTS_DIR / f"station_mean_peak_o3_response_surface_{model_name}.csv", index=False)
+            plot_response_surface(
+                global_surface,
+                RESULTS_DIR,
+                output_stem=f"station_mean_peak_o3_response_surface_{model_name}",
+            )
 
     surface = pd.concat(surface_frames, ignore_index=True)
     diagnostics = pd.concat(diagnostic_frames, ignore_index=True)
@@ -1125,12 +1175,12 @@ def run(config: H1Config) -> dict[str, str]:
 
     metrics.to_csv(RESULTS_DIR / "model_metrics.csv", index=False)
     station_mean_metrics.to_csv(RESULTS_DIR / "station_mean_model_metrics.csv", index=False)
-    pairwise.to_csv(RESULTS_DIR / "peid_pairwise_edges.csv", index=False)
-    synergy.to_csv(RESULTS_DIR / "peid_synergy_hyperedges.csv", index=False)
-    surface.to_csv(RESULTS_DIR / "beijing_peak_o3_response_surface.csv", index=False)
     diagnostics.to_csv(RESULTS_DIR / "response_surface_diagnostics.csv", index=False)
-    station_mean_surface.to_csv(RESULTS_DIR / "station_mean_peak_o3_response_surface.csv", index=False)
     station_mean_diagnostics.to_csv(RESULTS_DIR / "station_mean_response_surface_diagnostics.csv", index=False)
+    if not pairwise.empty:
+        pairwise.to_csv(RESULTS_DIR / "peid_pairwise_edges.csv", index=False)
+    if not synergy.empty:
+        synergy.to_csv(RESULTS_DIR / "peid_synergy_hyperedges.csv", index=False)
 
     write_notes(
         RESULTS_DIR,
@@ -1153,79 +1203,32 @@ def run(config: H1Config) -> dict[str, str]:
             "station_groups": sorted(frame["station_group"].dropna().unique().tolist()),
             "source_proxy_note": "meic_NOx and meic_VOC are emissions proxies, not ground precursor concentrations.",
         },
-        "artifacts": {
-            "feature_sample": str(CACHE_DIR / "peak_o3_feature_sample.csv"),
-            "station_mean_feature_table": str(CACHE_DIR / "station_mean_peak_o3_feature_table.csv"),
-            "sillman_reference_surface_csv": str(RESULTS_DIR / "sillman_reference_surface.csv"),
-            "sillman_reference_ridge_csv": str(RESULTS_DIR / "sillman_reference_ridge.csv"),
-            "sillman_reference_surface_png": str(RESULTS_DIR / "sillman_reference_surface.png"),
-            "sillman_reference_surface_pdf": str(RESULTS_DIR / "sillman_reference_surface.pdf"),
-            "model_metrics": str(RESULTS_DIR / "model_metrics.csv"),
-            "station_mean_model_metrics": str(RESULTS_DIR / "station_mean_model_metrics.csv"),
-            "peid_pairwise_edges": str(RESULTS_DIR / "peid_pairwise_edges.csv"),
-            "peid_synergy_hyperedges": str(RESULTS_DIR / "peid_synergy_hyperedges.csv"),
-            "response_surface_grid": str(RESULTS_DIR / "beijing_peak_o3_response_surface.csv"),
-            "response_surface_grid_rf": str(RESULTS_DIR / "beijing_peak_o3_response_surface_rf.csv"),
-            "response_surface_grid_mlp": str(RESULTS_DIR / "beijing_peak_o3_response_surface_mlp.csv"),
-            "all_stations_response_surface_grid_rf": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_rf.csv"
-            ),
-            "all_stations_response_surface_grid_mlp": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_mlp.csv"
-            ),
-            "response_surface_diagnostics": str(RESULTS_DIR / "response_surface_diagnostics.csv"),
-            "station_mean_response_surface_diagnostics": str(
-                RESULTS_DIR / "station_mean_response_surface_diagnostics.csv"
-            ),
-            "station_mean_response_surface_grid": str(RESULTS_DIR / "station_mean_peak_o3_response_surface.csv"),
-            "station_mean_response_surface_grid_rf": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.csv"
-            ),
-            "station_mean_response_surface_grid_mlp": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.csv"
-            ),
-            "station_mean_response_surface_grid_poly_nox_voc": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.csv"
-            ),
-            "response_surface_png_rf": str(RESULTS_DIR / "beijing_peak_o3_response_surface_rf.png"),
-            "response_surface_pdf_rf": str(RESULTS_DIR / "beijing_peak_o3_response_surface_rf.pdf"),
-            "response_surface_png_mlp": str(RESULTS_DIR / "beijing_peak_o3_response_surface_mlp.png"),
-            "response_surface_pdf_mlp": str(RESULTS_DIR / "beijing_peak_o3_response_surface_mlp.pdf"),
-            "all_stations_response_surface_png_rf": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_rf.png"
-            ),
-            "all_stations_response_surface_pdf_rf": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_rf.pdf"
-            ),
-            "all_stations_response_surface_png_mlp": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_mlp.png"
-            ),
-            "all_stations_response_surface_pdf_mlp": str(
-                RESULTS_DIR / "all_stations_peak_o3_response_surface_mlp.pdf"
-            ),
-            "station_mean_response_surface_png_rf": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.png"
-            ),
-            "station_mean_response_surface_pdf_rf": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_rf.pdf"
-            ),
-            "station_mean_response_surface_png_mlp": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.png"
-            ),
-            "station_mean_response_surface_pdf_mlp": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_mlp.pdf"
-            ),
-            "station_mean_response_surface_png_poly_nox_voc": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.png"
-            ),
-            "station_mean_response_surface_pdf_poly_nox_voc": str(
-                RESULTS_DIR / "station_mean_peak_o3_response_surface_poly_nox_voc.pdf"
-            ),
-            "peid_graph_png_rf": str(RESULTS_DIR / "peid_o3_h1_causal_graph_rf.png"),
-            "peid_graph_pdf_rf": str(RESULTS_DIR / "peid_o3_h1_causal_graph_rf.pdf"),
-            "peid_graph_png_mlp": str(RESULTS_DIR / "peid_o3_h1_causal_graph_mlp.png"),
-            "peid_graph_pdf_mlp": str(RESULTS_DIR / "peid_o3_h1_causal_graph_mlp.pdf"),
-            "figure_notes": str(RESULTS_DIR / "figure_notes.md"),
+        "artifacts": build_o3_h1_artifact_manifest(
+            peid_enabled_by_model=peid_enabled_by_model,
+            station_mean_shape_by_model=station_mean_shape_by_model,
+        ),
+        "cleanup_notes": {
+            "removed_failed_display_outputs": True,
+            "retained_failed_diagnostic_tables": True,
+            "failed_models_not_used_for_followup_peid": [
+                model_name for model_name, passed in peid_enabled_by_model.items() if not passed
+            ],
+        },
+        "tm_followup_plan": {
+            "estimator": "transport_map_continuous_peid",
+            "source_model": "station_mean_poly_nox_voc",
+            "target": "O3hat",
+            "primary_source_set": ["NOx", "VOC"],
+            "comparison_source_sets": [
+                ["NOx", "Temp"],
+                ["NOx", "RH"],
+                ["VOC", "Temp"],
+                ["VOC", "SSR"],
+                ["Temp", "RH"],
+                ["NOx", "VOC", "Temp"],
+            ],
+            "exclude_failed_model_controls": True,
+            "do_not_discretize": True,
         },
         "reference_surface_diagnostics": reference_diagnostics,
         "empirical_surface_passes_sillman_shape_check": peid_enabled_by_model,
