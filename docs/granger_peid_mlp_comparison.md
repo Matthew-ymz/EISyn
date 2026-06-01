@@ -1,48 +1,95 @@
-# MLP 学习下 Granger 与 PEID 因果图对照实验
+# 统一动力系统：共同驱动 + sine 协同
 
-本文档记录一个模拟实验：先生成带有已知因果结构的时间序列，用 MLP 学习一步转移动力学，再分别用基于 time lag 的 Granger/ablation 方法和 PEID 最大熵干预方法识别变量之间的因果关系。
+这个例子把两种容易混淆的结构放进同一个动力系统：一方面，`w` 是 `x`、`y` 背后的共同原因；另一方面，`x`、`y` 对 `z` 的作用不是两条可分离的 pairwise 边，而是一个二源协同项。系统为
 
-## 实验设计
+$$
+\begin{aligned}
+w_{t+1} &= 0.78w_t + \eta^w_t,\\
+x_{t+1} &= 0.42x_t + 0.82w_t + \eta^x_t,\\
+y_{t+1} &= 0.38y_t + 0.76w_t + \eta^y_t,\\
+z_{t+1} &= 0.22z_t + \alpha\sin\left(x_t y_t\right) + \eta^z_t.
+\end{aligned}
+$$
 
-变量为 `x, y, z, w`。`w` 主要作为无关变量或 common-driver 对照。当前 smoke 结果包含三类机制：
+其中 `w` 不直接进入 `z` 的结构方程。真实机制应读成两层：
 
-- `linear_additive`：真实机制是 `x -> z` 与 `y -> z` 的线性加性 pairwise 因果关系。这是 sanity check。
-- `multiplicative_gate`：真实机制是 `{x, y} -> z` 的连续非线性协同门控关系，单独看 `x` 或 `y` 都不足以解释目标。
-- `xor_synergy`：真实机制是 `{x, y} -> z` 的 XOR/parity 协同关系，是 PEID 应该明显优于 pairwise time-lag 图的核心例子。
+- pairwise 层面：`w -> x`、`w -> y`；
+- 高阶层面：`{x, y} -> z`；
+- 非结构边：`w -> z` 不是直接机制边，单独的 `x -> z`、`y -> z` 也只是 sine 协同项的 pairwise 投影。
 
-## Ground truth 因果图、MLP 学习情况与两种识别结果
+## 读出方式
 
-下图每一行是一个机制；四列分别是 Ground truth 因果图、MLP 学习情况（loss 曲线）、time lag / Granger 识别的因果图、PEID 识别的因果图。蓝色箭头表示普通 pairwise 边，绿色结构表示 PEID 的协同超边。
+同一条模拟时间序列先用于训练一个 MLP 一步转移模型，输入为 `[x_t, y_t, z_t, w_t]`，输出为 `[x_{t+1}, y_{t+1}, z_{t+1}, w_{t+1}]`。随后在固定 MLP 上读出四类量：
 
-![实验示意与结果图](../fig/granger_peid_mlp_comparison/experiment_report_panels.png)
+- Granger/ablation：把某个 source 的输入列替换为均值，记录目标预测 MSE 的增量。它回答“去掉这个变量会不会损害预测”。
+- SHAP 类归因：在同一 fitted MLP 上做 interventional Shapley 读出，用经验背景替换未给定特征。单特征 SHAP 报告 mean absolute attribution；二阶 SHAP interaction 报告 `x:y` 的 mean absolute interaction。前者回答“某个特征分到多少预测贡献”，后者回答“两个特征的非加性预测贡献有多大”。
+- 交互项 probe：在同一 fitted MLP 的最大熵干预预测面上，用标准化主效应加一个二阶乘积项拟合目标输出，并记录该乘积项相对于主效应模型的 incremental `R^2`。它回答“固定这个预测器时，响应面是否含有可由 `x:y` 近似的二阶非加性形状”。
+- PEID：先做最大熵独立干预，再计算 single-source EI、joint EI 和 synergy：
 
-## 汇总结果图
+$$
+\mathrm{Syn}(\{x,y\}\to z)
+= \max\left(0,\; EI(\{x,y\}\to z)-EI(x\to z)-EI(y\to z)\right).
+$$
 
-下图汇总不同机制下的平均 F1。对协同机制，Granger 只能输出 pairwise 边，而 PEID 可以输出 `{x, y} -> z` 的 synergy hyperedge，因此 `peid_advantage` 为正。
+## 代表性结果
 
-![F1 汇总图](../fig/granger_peid_mlp_comparison/granger_vs_peid_summary.png)
+| quantity | value |
+| --- | ---: |
+| fitted MLP final training loss | 0.1546 |
+| Granger/ablation `w -> x` | 0.3356 |
+| Granger/ablation `w -> y` | 0.3002 |
+| Granger/ablation `w -> z` | 0.006681 |
+| Granger/ablation `x -> z` | 0.2121 |
+| Granger/ablation `y -> z` | 0.2078 |
+| SHAP mean abs `w -> x` | 0.4859 |
+| SHAP mean abs `w -> y` | 0.4569 |
+| SHAP mean abs `w -> z` | 0.01567 |
+| SHAP mean abs `x -> z` | 0.1393 |
+| SHAP mean abs `y -> z` | 0.1357 |
+| SHAP interaction mean abs `x:y -> z` | 0.3625 |
+| product interaction `x:y -> z` incremental `R^2` | 0.8669 |
+| product interaction `x:y -> z` coefficient | 0.3758 |
+| product interaction `w:x -> z` incremental `R^2` | 0.001375 |
+| product interaction `w:y -> z` incremental `R^2` | 0.001088 |
+| PEID pairwise EI `w -> x` | 0.6961 |
+| PEID pairwise EI `w -> y` | 0.6918 |
+| PEID pairwise EI `w -> z` | 0.01494 |
+| PEID pairwise EI `x -> z` | 0.1475 |
+| PEID pairwise EI `y -> z` | 0.135 |
+| PEID joint EI `{x, y} -> z` | 1.081 |
+| PEID synergy `{x, y} -> z` | 0.7989 |
 
-## 代表性因果图对照
+![同一 MLP 上的二维读出对照](../fig/granger_peid_mlp_comparison/sine_readout_2d_summary.png)
 
-下图单独放大比较 Granger 与 PEID 的代表性因果图。可以看到，在 `multiplicative_gate` 和 `xor_synergy` 中，Granger 倾向给出 `x -> z`、`y -> z` 这样的 pairwise 解释；PEID 则把同一机制表达为 `{x, y} -> z` 的协同超边。
+图中左侧热图把 Granger、SHAP 和 PEID 的单源读出放在同一组边上比较。因为三行的单位不同，颜色只在每一行内部归一化，格子里的数字才是原始读数。右上角显示标准化乘积项对 `z` 的增量解释度：`x:y` 明显高于 `w:x` 与 `w:y`。右下角显示 PEID 对 `z` 的信息分解，联合 EI 与 synergy 高于单源 EI。
 
-![代表性因果图](../fig/granger_peid_mlp_comparison/representative_causal_graphs.png)
+## alpha 扫描：SHAP 交互与 PEID 协同
 
-## 数值汇总
+![alpha 扫描下的 SHAP 与 PEID 对照](../fig/granger_peid_mlp_comparison/sine_alpha_shap_peid_sweep.png)
 
-| 指标 | 含义 |
-| --- | --- |
-| `granger_pairwise_f1` | time lag / Granger pairwise 图相对真实 pairwise 边的 F1 |
-| `peid_pairwise_f1` | PEID pairwise EI 图相对真实 pairwise 边的 F1 |
-| `peid_hyperedge_f1` | PEID synergy hyperedge 相对真实协同超边的 F1 |
-| `peid_advantage` | `peid_hyperedge_f1 - granger_pairwise_f1`，越大越凸显 PEID 在协同机制中的优势 |
+| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | product probe incremental `R^2` | PEID joint EI `{x,y}->z` | PEID synergy `{x,y}->z` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | 0.004416 | 0.002329 | 0.003175 | 0.002055 | 0.00873 | 0.1859 | 0.03884 |
+| 0.20 | 0.03171 | 0.03216 | 0.009361 | 0.06448 | 0.7161 | 0.8641 | 0.6433 |
+| 0.40 | 0.06578 | 0.06662 | 0.01125 | 0.1258 | 0.7124 | 0.9199 | 0.7038 |
+| 0.60 | 0.09785 | 0.1008 | 0.01287 | 0.2028 | 0.7314 | 0.9471 | 0.7141 |
+| 0.80 | 0.1307 | 0.1353 | 0.01678 | 0.2791 | 0.7365 | 0.978 | 0.7339 |
+| 1.00 | 0.1637 | 0.1687 | 0.01961 | 0.3523 | 0.7371 | 0.9757 | 0.7297 |
 
-| mechanism | granger_pairwise_f1 | peid_pairwise_f1 | peid_hyperedge_f1 | peid_advantage |
-| --- | ---: | ---: | ---: | ---: |
-| linear_additive | 1.000 | 1.000 | 0.000 | -1.000 |
-| multiplicative_gate | 0.000 | 0.000 | 1.000 | 1.000 |
-| xor_synergy | 0.000 | 0.000 | 1.000 | 1.000 |
+这里的 `alpha` 是 sine 项前面的强度系数。`alpha=0` 时，`z` 只剩自身记忆与噪声，SHAP 二阶交互和产品项增量解释度接近零；PEID 仍保留少量估计底噪和分箱残差。随着 `alpha` 增大，SHAP 单源 `x->z`、`y->z` 与 SHAP interaction 同时上升，但单源项是对协同响应的归因分摊，不是结构边；SHAP interaction 与产品项 probe 反映的是 fitted MLP 响应面的二阶非加性形状；PEID joint EI 与 synergy 反映的是在最大熵联合干预下 `{x,y}` 对目标分布施加的机制信息约束。
 
-## 结论
 
-这个实验凸显了两类方法差异显著的条件：真实机制不是单变量滞后可以还原的 pairwise 关系，而是需要多个源变量联合出现才产生目标响应的协同机制。此时 Granger/time-lag 图容易把联合机制拆成若干 pairwise 箭头；PEID 在最大熵独立干预下比较 joint EI 与 single-source EI，可以把这种结构表示为协同超边，因此更接近 ground truth。
+
+## 解释
+
+`w -> x` 和 `w -> y` 在 Granger/ablation 与 PEID pairwise EI 中都很强，说明 fitted MLP 学到了共同驱动结构。`w -> z` 很小，符合结构方程中 `w` 不直接进入 `z` 的设定；若某些归因方法给出非零 `w -> z`，应解释为 `w` 通过诱导 `x,y` 相关性形成的代理贡献，而不是直接结构边。
+
+对 `z` 来说，Granger/ablation 会给出明显的 `x -> z` 与 `y -> z`，SHAP 类单特征归因也会倾向把 sine 项拆成单变量贡献。交互项 probe 则能进一步指出 fitted MLP 的响应面中确实存在强 `x:y` 二阶非加性项，因此它比纯单特征 SHAP 更接近“有交互”的诊断；但它仍然是响应面形状分析，不是源侧最大熵干预语义下的机制信息分解。这些读出有预测解释价值，但它们把
+
+$$
+\alpha\sin(x_t y_t)
+$$
+
+投影成了 pairwise 贡献或低阶乘积项，不能单独表达“只有联合给定 `x_t` 和 `y_t` 时才稳定确定目标响应”的机制事实。
+
+PEID 的关键读数是 `EI({x, y} -> z)` 与 `Syn({x, y} -> z)` 均显著高于单源投影。它说明联合干预 `{x,y}` 后，目标分布的约束远超过两个单源 EI 的加和。因此这个例子的结论不是“PEID 消除了所有代理效应”，而是：在同一个 learned transition surrogate 上，PEID 可以同时保留 `w -> x,y` 的共同驱动边，以及 `{x,y} -> z` 的协同超边；Granger 和 SHAP 单特征方法主要给出预测贡献的 pairwise 投影，交互项 probe 可以提示 `x:y` 非加性存在，但 PEID 才把这个非加性读成源集合到目标的协同有效信息。
