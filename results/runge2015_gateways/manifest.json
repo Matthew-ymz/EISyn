@@ -1,0 +1,225 @@
+{
+  "config": {
+    "mode": "full",
+    "data_dir": "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp",
+    "output_dir": ".",
+    "start_year": 1948,
+    "end_year": 2011,
+    "n_components": 60,
+    "max_lag": 4,
+    "pc_alpha": 0.001,
+    "seed": 42,
+    "causal_backend": "tigramite"
+  },
+  "data_files": [
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1948.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1949.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1950.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1951.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1952.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1953.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1954.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1955.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1956.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1957.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1958.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1959.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1960.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1961.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1962.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1963.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1964.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1965.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1966.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1967.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1968.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1969.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1970.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1971.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1972.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1973.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1974.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1975.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1976.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1977.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1978.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1979.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1980.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1981.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1982.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1983.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1984.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1985.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1986.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1987.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1988.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1989.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1990.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1991.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1992.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1993.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1994.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1995.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1996.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1997.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1998.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1999.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2000.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2001.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2002.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2003.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2004.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2005.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2006.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2007.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2008.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2009.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2010.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2011.nc"
+  ],
+  "dependency_versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.1.4",
+    "xarray": "2023.6.0",
+    "scipy": "1.11.4",
+    "scikit-learn": "1.3.2",
+    "tigramite": "5.2.10.1"
+  },
+  "n_daily_samples": 23376,
+  "n_weekly_samples": 3339,
+  "n_edges": 838,
+  "top_gateways": [
+    {
+      "component": 2,
+      "ace": 8.534246811167044,
+      "acs": 6.312828865559706,
+      "incoming_total_effect": 6.312828865559706,
+      "direct_out_strength": 2.7653107396169814,
+      "direct_in_strength": 2.2237517852649336
+    },
+    {
+      "component": 57,
+      "ace": 8.038180044385003,
+      "acs": 6.529890320985421,
+      "incoming_total_effect": 6.529890320985421,
+      "direct_out_strength": 3.05105028603691,
+      "direct_in_strength": 2.546379001542409
+    },
+    {
+      "component": 9,
+      "ace": 6.745164025935031,
+      "acs": 6.35117742612021,
+      "incoming_total_effect": 6.35117742612021,
+      "direct_out_strength": 2.049886614382856,
+      "direct_in_strength": 2.006571027176419
+    },
+    {
+      "component": 4,
+      "ace": 6.568290672162998,
+      "acs": 6.6458120031499295,
+      "incoming_total_effect": 6.6458120031499295,
+      "direct_out_strength": 1.9930719033127413,
+      "direct_in_strength": 1.826343768167091
+    },
+    {
+      "component": 1,
+      "ace": 6.486653987647992,
+      "acs": 6.742687028533259,
+      "incoming_total_effect": 6.742687028533259,
+      "direct_out_strength": 2.3747937861335067,
+      "direct_in_strength": 2.696183049025237
+    },
+    {
+      "component": 58,
+      "ace": 5.598488190211017,
+      "acs": 6.324378461325538,
+      "incoming_total_effect": 6.324378461325538,
+      "direct_out_strength": 1.352826310646523,
+      "direct_in_strength": 1.5546716365502802
+    },
+    {
+      "component": 0,
+      "ace": 5.400834499697425,
+      "acs": 5.116681991733309,
+      "incoming_total_effect": 5.116681991733309,
+      "direct_out_strength": 2.392775783041964,
+      "direct_in_strength": 2.9461516938762418
+    },
+    {
+      "component": 16,
+      "ace": 5.280022300899809,
+      "acs": 2.3400635082238437,
+      "incoming_total_effect": 2.3400635082238437,
+      "direct_out_strength": 2.196288911335737,
+      "direct_in_strength": 0.9897303072832317
+    },
+    {
+      "component": 30,
+      "ace": 5.110350809111077,
+      "acs": 6.167864943567753,
+      "incoming_total_effect": 6.167864943567753,
+      "direct_out_strength": 1.221232156557391,
+      "direct_in_strength": 1.4233373222125865
+    },
+    {
+      "component": 52,
+      "ace": 4.9327953124917485,
+      "acs": 2.8613723678092517,
+      "incoming_total_effect": 2.8613723678092517,
+      "direct_out_strength": 1.3853792685854687,
+      "direct_in_strength": 1.0047365532901658
+    }
+  ],
+  "top_mediators": [
+    {
+      "component": 57,
+      "amce": 14.538228993323964,
+      "mediated_fraction": 0.07290837712335584
+    },
+    {
+      "component": 1,
+      "amce": 13.718446454647081,
+      "mediated_fraction": 0.06879721512993542
+    },
+    {
+      "component": 2,
+      "amce": 13.315837880859497,
+      "mediated_fraction": 0.0667781564299878
+    },
+    {
+      "component": 0,
+      "amce": 13.19289154188307,
+      "mediated_fraction": 0.06616158765451001
+    },
+    {
+      "component": 9,
+      "amce": 9.30456557362725,
+      "mediated_fraction": 0.046661857927985974
+    },
+    {
+      "component": 4,
+      "amce": 7.363422748319914,
+      "mediated_fraction": 0.036927138986442745
+    },
+    {
+      "component": 7,
+      "amce": 4.4210751145076665,
+      "mediated_fraction": 0.022171435866584977
+    },
+    {
+      "component": 18,
+      "amce": 4.1675322008323645,
+      "mediated_fraction": 0.020899932826174625
+    },
+    {
+      "component": 49,
+      "amce": 4.063637241475672,
+      "mediated_fraction": 0.020378905617050882
+    },
+    {
+      "component": 11,
+      "amce": 4.045472069253802,
+      "mediated_fraction": 0.02028780832951531
+    }
+  ]
+}
