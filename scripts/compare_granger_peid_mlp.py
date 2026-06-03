@@ -43,6 +43,7 @@ class SimConfig:
     weight_decay: float = 1e-4
     intervention_samples: int = 1024
     bins: int = 4
+    common_driver_strength: float = 1.0
     quantile_low: float = 0.05
     quantile_high: float = 0.95
     variable_names: tuple[str, ...] = VARIABLE_NAMES
@@ -67,6 +68,8 @@ class SimConfig:
             raise ValueError("intervention_samples must be at least 16.")
         if self.bins < 2:
             raise ValueError("bins must be at least 2.")
+        if not 0.0 <= self.common_driver_strength <= 1.0:
+            raise ValueError("common_driver_strength must be between 0 and 1.")
 
 
 @dataclass
@@ -104,6 +107,11 @@ class ShapReadout:
     feature_attributions: pd.DataFrame
     shap_interaction_terms: pd.DataFrame
     interaction_terms: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class ConditionalShapReadout:
+    feature_attributions: pd.DataFrame
 
 
 def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]:
@@ -156,6 +164,8 @@ def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]
         truth_hyperedges.add(("x", "y", "z"))
 
     elif config.mechanism == "common_driver_sine_synergy":
+        beta = float(config.common_driver_strength)
+        private_scale = float(np.sqrt(max(0.0, 1.0 - beta**2)))
         data[0, 0] = rng.normal(0.0, 0.4)
         data[0, 1] = rng.normal(0.0, 0.4)
         data[0, 2] = rng.normal(0.0, 0.2)
@@ -164,12 +174,12 @@ def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]
             data[t + 1, 3] = 0.78 * data[t, 3] + rng.normal(0.0, 0.45)
             data[t + 1, 0] = (
                 0.42 * data[t, 0]
-                + 0.82 * data[t, 3]
+                + 0.82 * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
                 + rng.normal(0.0, 0.25)
             )
             data[t + 1, 1] = (
                 0.38 * data[t, 1]
-                + 0.76 * data[t, 3]
+                + 0.76 * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
                 + rng.normal(0.0, 0.25)
             )
             sine_signal = config.synergy_strength * np.sin(data[t, 0] * data[t, 1])
@@ -433,7 +443,7 @@ def estimate_peid_graph(
             joint_ei = _effective_information_from_states(joint_sources, target_states[target])
             single_a = single_lookup[(source_a, target)]
             single_b = single_lookup[(source_b, target)]
-            synergy = max(0.0, float(joint_ei - single_a - single_b))
+            synergy = float(joint_ei - single_a - single_b)
             syn_rows.append(
                 {
                     "method": "peid_synergy",
@@ -633,6 +643,99 @@ def estimate_shap_readout(
         interaction_terms=pd.DataFrame(interaction_rows).sort_values(
             "incremental_r2", ascending=False
         ).reset_index(drop=True),
+    )
+
+
+def estimate_conditional_shap_readout(
+    model: TrainedMLPTransition,
+    features: np.ndarray,
+    config: SimConfig,
+    *,
+    target: str = "y",
+    foreground_samples: int = 64,
+    background_samples: int = 384,
+    neighbors: int = 64,
+) -> ConditionalShapReadout:
+    """Approximate observational SHAP by conditioning missing features with nearest neighbors."""
+
+    rng = np.random.default_rng(int(config.seed) + 7079)
+    feature_values = np.asarray(features, dtype=float)
+    if config.lag != 1:
+        raise ValueError("conditional SHAP readout is currently defined for lag=1 examples.")
+    if len(feature_values) == 0:
+        raise ValueError("features must not be empty.")
+    names = tuple(config.variable_names)
+    if target not in names:
+        raise ValueError(f"unknown target {target!r}.")
+    target_idx = names.index(target)
+    foreground_idx = rng.choice(
+        len(feature_values),
+        size=min(int(foreground_samples), len(feature_values)),
+        replace=False,
+    )
+    background_idx = rng.choice(
+        len(feature_values),
+        size=min(int(background_samples), len(feature_values)),
+        replace=False,
+    )
+    foreground = feature_values[foreground_idx]
+    background = feature_values[background_idx]
+    bg_mean = background.mean(axis=0, keepdims=True)
+    bg_std = background.std(axis=0, keepdims=True)
+    bg_std = np.where(bg_std > 1e-8, bg_std, 1.0)
+    background_z = (background - bg_mean) / bg_std
+    foreground_z = (foreground - bg_mean) / bg_std
+    n_features = len(names)
+    all_indices = tuple(range(n_features))
+    k = max(1, min(int(neighbors), len(background)))
+    value_cache: dict[tuple[int, tuple[int, ...]], float] = {}
+
+    def conditional_value(row_idx: int, subset: tuple[int, ...]) -> float:
+        key = (int(row_idx), tuple(sorted(subset)))
+        if key in value_cache:
+            return value_cache[key]
+        row = foreground[row_idx]
+        if not key[1]:
+            conditional_samples = background.copy()
+        else:
+            cols = list(key[1])
+            distances = np.sum((background_z[:, cols] - foreground_z[row_idx, cols]) ** 2, axis=1)
+            nearest_idx = np.argsort(distances)[:k]
+            conditional_samples = background[nearest_idx].copy()
+            for feature_idx in key[1]:
+                conditional_samples[:, feature_idx] = row[feature_idx]
+        prediction = float(np.mean(model.predict(conditional_samples)[:, target_idx]))
+        value_cache[key] = prediction
+        return prediction
+
+    rows: list[dict[str, object]] = []
+    for source_idx, source in enumerate(names):
+        phi = np.zeros(len(foreground), dtype=float)
+        remaining = tuple(idx for idx in all_indices if idx != source_idx)
+        for row_idx in range(len(foreground)):
+            value_sum = 0.0
+            for subset_size in range(len(remaining) + 1):
+                for subset in combinations(remaining, subset_size):
+                    with_source = tuple(sorted((*subset, source_idx)))
+                    weight = _shapley_kernel_weight(subset_size, n_features)
+                    value_sum += weight * (
+                        conditional_value(row_idx, with_source)
+                        - conditional_value(row_idx, tuple(subset))
+                    )
+            phi[row_idx] = value_sum
+        rows.append(
+            {
+                "method": "conditional_shap",
+                "source": source,
+                "target": target,
+                "mean_abs_phi": float(np.mean(np.abs(phi))),
+                "mean_phi": float(np.mean(phi)),
+            }
+        )
+    return ConditionalShapReadout(
+        feature_attributions=pd.DataFrame(rows).sort_values(
+            "mean_abs_phi", ascending=False
+        ).reset_index(drop=True)
     )
 
 
@@ -1252,6 +1355,7 @@ def _edge_records(
     granger_edges: pd.DataFrame,
     peid: PeidGraph,
     shap_readout: ShapReadout | None = None,
+    conditional_shap_readout: ConditionalShapReadout | None = None,
 ) -> list[dict[str, object]]:
     base = {
         "run_id": run_id,
@@ -1275,6 +1379,9 @@ def _edge_records(
             rows.append({**base, "edge_type": "interventional_shap_interaction", **row})
         for row in shap_readout.interaction_terms.to_dict("records"):
             rows.append({**base, "edge_type": "product_interaction_probe", **row})
+    if conditional_shap_readout is not None:
+        for row in conditional_shap_readout.feature_attributions.to_dict("records"):
+            rows.append({**base, "edge_type": "conditional_shap", **row})
     return rows
 
 
@@ -1495,6 +1602,8 @@ def run_sine_alpha_sweep(
     intervention_samples: int = 768,
     bins: int = 4,
 ) -> list[dict[str, float]]:
+    from yrd.transport_map import summarize_two_source_synergy_transport_map
+
     rows: list[dict[str, float]] = []
     for alpha in alpha_values:
         config = SimConfig(
@@ -1510,7 +1619,13 @@ def run_sine_alpha_sweep(
         series, _ = simulate_system(config)
         features, targets = make_lagged_dataset(series, lag=config.lag)
         model = train_mlp_transition_model(features, targets, config)
+        granger = estimate_granger_graph(model, features, targets, config)
         peid = estimate_peid_graph(model, series, config)
+        tm_peid_xy_z = summarize_two_source_synergy_transport_map(
+            peid.intervention_states[["x"]].to_numpy(dtype=float),
+            peid.intervention_states[["y"]].to_numpy(dtype=float),
+            peid.intervention_states[["z_pred"]].to_numpy(dtype=float),
+        )
         shap_readout = estimate_shap_readout(
             model,
             features,
@@ -1537,6 +1652,10 @@ def run_sine_alpha_sweep(
             (shap_readout.interaction_terms["sources"] == "x+y")
             & (shap_readout.interaction_terms["target"] == "z")
         ].iloc[0]
+        granger_lookup = {
+            str(row["source"]): float(row["score"])
+            for row in granger[granger["target"] == "z"].to_dict("records")
+        }
         rows.append(
             {
                 "alpha": float(alpha),
@@ -1548,8 +1667,15 @@ def run_sine_alpha_sweep(
                 "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
                 "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
                 "product_xy_coef": float(product_xy_z["interaction_coef"]),
+                "granger_x_to_z": float(granger_lookup.get("x", 0.0)),
+                "granger_y_to_z": float(granger_lookup.get("y", 0.0)),
+                "granger_w_to_z": float(granger_lookup.get("w", 0.0)),
                 "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
                 "peid_xy_synergy": float(peid_xy_z["synergy"]),
+                "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
+                "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                "tm_peid_x_to_z": float(tm_peid_xy_z["left_ei"]),
+                "tm_peid_y_to_z": float(tm_peid_xy_z["right_ei"]),
                 "peid_x_to_z": float(
                     peid.pairwise_edges[
                         (peid.pairwise_edges["source"] == "x")
@@ -1590,7 +1716,7 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
         }
     )
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(1, 3, figsize=(10.4, 3.0), constrained_layout=True)
+    fig, axes = plt.subplots(1, 3, figsize=(10.8, 3.0), constrained_layout=True)
 
     ax = axes[0]
     ax.plot(
@@ -1617,6 +1743,14 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
         linewidth=1.4,
         label="SHAP w->z",
     )
+    ax.plot(
+        frame["alpha"],
+        frame["shap_xy_mean_abs_interaction"],
+        marker="D",
+        color="#7b6aa8",
+        linewidth=1.8,
+        label="SHAP interaction (x,y)->z",
+    )
     ax.set_xlabel("alpha in alpha * sin(x y)")
     ax.set_ylabel("mean |SHAP value|")
     ax.set_ylim(bottom=0.0)
@@ -1626,22 +1760,30 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
     ax = axes[1]
     ax.plot(
         frame["alpha"],
-        frame["shap_xy_mean_abs_interaction"],
+        frame["granger_x_to_z"],
         marker="o",
         color="#4f7ca8",
         linewidth=1.8,
-        label="SHAP interaction |x:y|",
+        label="Granger x->z",
     )
     ax.plot(
         frame["alpha"],
-        frame["product_xy_incremental_r2"],
+        frame["granger_y_to_z"],
         marker="s",
-        color="#7b6aa8",
-        linewidth=1.5,
-        label="product probe incremental R2",
+        color="#c48f65",
+        linewidth=1.8,
+        label="Granger y->z",
+    )
+    ax.plot(
+        frame["alpha"],
+        frame["granger_w_to_z"],
+        marker="^",
+        color="#8c8c8c",
+        linewidth=1.4,
+        label="Granger w->z",
     )
     ax.set_xlabel("alpha in alpha * sin(x y)")
-    ax.set_ylabel("SHAP/probe scale")
+    ax.set_ylabel("ablation score")
     ax.set_ylim(bottom=0.0)
     ax.grid(alpha=0.18, linewidth=0.5)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
@@ -1649,43 +1791,416 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
     ax = axes[2]
     ax.plot(
         frame["alpha"],
-        frame["peid_xy_joint_ei"],
+        frame["tm_peid_xy_joint_ei"],
         marker="o",
         color="#5f8f6b",
         linewidth=1.8,
-        label="PEID joint EI",
+        label="TM PEID joint EI {x,y}->z",
     )
     ax.plot(
         frame["alpha"],
-        frame["peid_xy_synergy"],
+        frame["tm_peid_xy_synergy"],
         marker="s",
         color="#2f6f4e",
         linewidth=1.8,
-        label="PEID synergy",
+        label="TM PEID synergy {x,y}->z",
     )
     ax.plot(
         frame["alpha"],
-        frame["peid_x_to_z"],
+        frame["tm_peid_x_to_z"],
         marker="^",
         color="#9bb7d4",
         linewidth=1.2,
-        label="PEID x->z",
+        label="TM PEID x->z",
     )
     ax.plot(
         frame["alpha"],
-        frame["peid_y_to_z"],
+        frame["tm_peid_y_to_z"],
         marker="v",
         color="#c4a07a",
         linewidth=1.2,
-        label="PEID y->z",
+        label="TM PEID y->z",
     )
     ax.set_xlabel("alpha in alpha * sin(x y)")
-    ax.set_ylabel("bits")
+    ax.set_ylabel("nats")
     ax.set_ylim(bottom=0.0)
     ax.grid(alpha=0.18, linewidth=0.5)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     path = figure_dir / "sine_alpha_shap_peid_sweep.png"
+    fig.savefig(path, dpi=260, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def run_sine_beta_common_driver_sweep(
+    *,
+    beta_values: Sequence[float] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+    seeds: Sequence[int] = (0, 1, 2, 3),
+    n_samples: int = 1100,
+    alpha: float = 1.0,
+    noise: float = 0.05,
+    mlp_epochs: int = 90,
+    intervention_samples: int = 640,
+    bins: int = 4,
+) -> dict[str, object]:
+    from yrd.transport_map import summarize_two_source_synergy_transport_map
+
+    rows: list[dict[str, float]] = []
+    for beta in beta_values:
+        for seed in seeds:
+            config = SimConfig(
+                mechanism="common_driver_sine_synergy",
+                n_samples=int(n_samples),
+                noise=float(noise),
+                seed=int(seed),
+                synergy_strength=float(alpha),
+                common_driver_strength=float(beta),
+                mlp_epochs=int(mlp_epochs),
+                intervention_samples=int(intervention_samples),
+                bins=int(bins),
+            )
+            series, _ = simulate_system(config)
+            features, targets = make_lagged_dataset(series, lag=config.lag)
+            model = train_mlp_transition_model(features, targets, config)
+            peid = estimate_peid_graph(model, series, config)
+            shap_readout = estimate_shap_readout(
+                model,
+                features,
+                series,
+                config,
+                foreground_samples=64,
+                background_samples=64,
+            )
+            intervention_samples_frame = _sample_intervention_sources(series, config)
+            intervention_predictions = model.predict(
+                _intervention_features(intervention_samples_frame, config)
+            )
+            tm_peid_xy_z = summarize_two_source_synergy_transport_map(
+                intervention_samples_frame[["x"]].to_numpy(dtype=float),
+                intervention_samples_frame[["y"]].to_numpy(dtype=float),
+                intervention_predictions[:, [config.variable_names.index("z")]],
+            )
+            peid_xy_z = peid.synergy_edges[
+                (peid.synergy_edges["sources"] == "x+y")
+                & (peid.synergy_edges["target"] == "z")
+            ].iloc[0]
+            shap_xy_z = shap_readout.shap_interaction_terms[
+                (shap_readout.shap_interaction_terms["sources"] == "x+y")
+                & (shap_readout.shap_interaction_terms["target"] == "z")
+            ].iloc[0]
+            product_xy_z = shap_readout.interaction_terms[
+                (shap_readout.interaction_terms["sources"] == "x+y")
+                & (shap_readout.interaction_terms["target"] == "z")
+            ].iloc[0]
+            rows.append(
+                {
+                    "beta": float(beta),
+                    "seed": float(seed),
+                    "xy_observed_corr": float(series[["x", "y"]].corr().iloc[0, 1]),
+                    "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
+                    "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
+                    "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
+                    "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
+                    "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
+                    "peid_xy_synergy": float(peid_xy_z["synergy"]),
+                    "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
+                    "tm_peid_xy_left_ei": float(tm_peid_xy_z["left_ei"]),
+                    "tm_peid_xy_right_ei": float(tm_peid_xy_z["right_ei"]),
+                    "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                    "peid_x_to_z": float(
+                        peid.pairwise_edges[
+                            (peid.pairwise_edges["source"] == "x")
+                            & (peid.pairwise_edges["target"] == "z")
+                        ].iloc[0]["ei"]
+                    ),
+                    "peid_y_to_z": float(
+                        peid.pairwise_edges[
+                            (peid.pairwise_edges["source"] == "y")
+                            & (peid.pairwise_edges["target"] == "z")
+                        ].iloc[0]["ei"]
+                    ),
+                }
+            )
+    frame = pd.DataFrame(rows)
+    summary = (
+        frame.groupby("beta", as_index=False)
+        .agg(
+            xy_observed_corr_mean=("xy_observed_corr", "mean"),
+            xy_observed_corr_std=("xy_observed_corr", "std"),
+            shap_xy_mean_abs_interaction_mean=("shap_xy_mean_abs_interaction", "mean"),
+            shap_xy_mean_abs_interaction_std=("shap_xy_mean_abs_interaction", "std"),
+            product_xy_incremental_r2_mean=("product_xy_incremental_r2", "mean"),
+            product_xy_incremental_r2_std=("product_xy_incremental_r2", "std"),
+            peid_xy_joint_ei_mean=("peid_xy_joint_ei", "mean"),
+            peid_xy_joint_ei_std=("peid_xy_joint_ei", "std"),
+            peid_xy_synergy_mean=("peid_xy_synergy", "mean"),
+            peid_xy_synergy_std=("peid_xy_synergy", "std"),
+            tm_peid_xy_joint_ei_mean=("tm_peid_xy_joint_ei", "mean"),
+            tm_peid_xy_joint_ei_std=("tm_peid_xy_joint_ei", "std"),
+            tm_peid_xy_synergy_mean=("tm_peid_xy_synergy", "mean"),
+            tm_peid_xy_synergy_std=("tm_peid_xy_synergy", "std"),
+            peid_x_to_z_mean=("peid_x_to_z", "mean"),
+            peid_y_to_z_mean=("peid_y_to_z", "mean"),
+        )
+        .sort_values("beta")
+        .reset_index(drop=True)
+    )
+    trend = _beta_sweep_trend_stats(frame)
+    return {
+        "runs": rows,
+        "summary": summary.to_dict("records"),
+        "trend": trend,
+    }
+
+
+def _linear_slope(values: pd.DataFrame, y_col: str) -> float:
+    finite = values[["beta", y_col]].replace([np.inf, -np.inf], np.nan).dropna()
+    if finite["beta"].nunique() < 2:
+        return float("nan")
+    slope, _intercept = np.polyfit(finite["beta"].to_numpy(dtype=float), finite[y_col].to_numpy(dtype=float), deg=1)
+    return float(slope)
+
+
+def _bootstrap_slope_ci(
+    values: pd.DataFrame,
+    y_col: str,
+    *,
+    seed: int,
+    n_boot: int = 1000,
+) -> tuple[float, float]:
+    finite = values[["beta", y_col]].replace([np.inf, -np.inf], np.nan).dropna().reset_index(drop=True)
+    if len(finite) < 4 or finite["beta"].nunique() < 2:
+        return (float("nan"), float("nan"))
+    rng = np.random.default_rng(seed)
+    slopes = np.empty(int(n_boot), dtype=float)
+    for idx in range(int(n_boot)):
+        sample_idx = rng.integers(0, len(finite), size=len(finite))
+        sample = finite.iloc[sample_idx]
+        slopes[idx] = _linear_slope(sample, y_col)
+    lo, hi = np.nanpercentile(slopes, [2.5, 97.5])
+    return (float(lo), float(hi))
+
+
+def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
+    shap_slope = _linear_slope(frame, "shap_xy_mean_abs_interaction")
+    peid_slope = _linear_slope(frame, "peid_xy_synergy")
+    tm_peid_slope = _linear_slope(frame, "tm_peid_xy_synergy")
+    product_slope = _linear_slope(frame, "product_xy_incremental_r2")
+    corr_slope = _linear_slope(frame, "xy_observed_corr")
+    shap_ci = _bootstrap_slope_ci(frame, "shap_xy_mean_abs_interaction", seed=17001)
+    peid_ci = _bootstrap_slope_ci(frame, "peid_xy_synergy", seed=17002)
+    tm_peid_ci = _bootstrap_slope_ci(frame, "tm_peid_xy_synergy", seed=17004)
+    product_ci = _bootstrap_slope_ci(frame, "product_xy_incremental_r2", seed=17003)
+    return {
+        "xy_observed_corr_slope": corr_slope,
+        "shap_interaction_slope": shap_slope,
+        "shap_interaction_slope_ci_low": shap_ci[0],
+        "shap_interaction_slope_ci_high": shap_ci[1],
+        "product_probe_r2_slope": product_slope,
+        "product_probe_r2_slope_ci_low": product_ci[0],
+        "product_probe_r2_slope_ci_high": product_ci[1],
+        "peid_synergy_slope": peid_slope,
+        "peid_synergy_slope_ci_low": peid_ci[0],
+        "peid_synergy_slope_ci_high": peid_ci[1],
+        "tm_peid_synergy_slope": tm_peid_slope,
+        "tm_peid_synergy_slope_ci_low": tm_peid_ci[0],
+        "tm_peid_synergy_slope_ci_high": tm_peid_ci[1],
+        "slope_difference_shap_minus_peid": float(shap_slope - peid_slope),
+        "slope_difference_shap_minus_tm_peid": float(shap_slope - tm_peid_slope),
+    }
+
+
+def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
+    summary_rows = beta_result.get("summary", [])
+    if not summary_rows:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    frame = pd.DataFrame(summary_rows).sort_values("beta")
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+        }
+    )
+    figure_dir.mkdir(parents=True, exist_ok=True)
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.05), constrained_layout=True)
+
+    def line_with_band(ax, y_col: str, std_col: str, *, label: str, color: str, marker: str = "o") -> None:
+        x = frame["beta"].to_numpy(dtype=float)
+        y = frame[y_col].to_numpy(dtype=float)
+        std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
+        ax.plot(x, y, marker=marker, color=color, linewidth=1.7, label=label)
+        ax.fill_between(x, y - std, y + std, color=color, alpha=0.16, linewidth=0.0)
+
+    line_with_band(
+        axes[0],
+        "xy_observed_corr_mean",
+        "xy_observed_corr_std",
+        label="observed corr(x,y)",
+        color="#6b7280",
+    )
+    line_with_band(
+        axes[0],
+        "shap_xy_mean_abs_interaction_mean",
+        "shap_xy_mean_abs_interaction_std",
+        label="SHAP interaction (x,y)->z",
+        color="#3b6fb6",
+    )
+    axes[0].set_ylabel("correlation / SHAP scale")
+    axes[0].set_ylim(-0.05, 1.05)
+
+    line_with_band(
+        axes[1],
+        "peid_xy_synergy_mean",
+        "peid_xy_synergy_std",
+        label="PEID synergy {x,y}->z",
+        color="#2f6f4e",
+    )
+    line_with_band(
+        axes[1],
+        "peid_xy_joint_ei_mean",
+        "peid_xy_joint_ei_std",
+        label="PEID joint EI {x,y}->z",
+        color="#5f8f6b",
+        marker="s",
+    )
+    axes[1].set_ylabel("bits")
+    axes[1].set_ylim(bottom=0.0)
+
+    for ax in axes:
+        ax.set_xlabel("beta: common-driver strength")
+        ax.set_xticks(frame["beta"].to_numpy(dtype=float))
+        ax.grid(alpha=0.18, linewidth=0.5)
+        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    path = figure_dir / "sine_beta_shap_peid_sweep.png"
+    fig.savefig(path, dpi=260, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def _proxy_y_readout_values(edge_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    edge_frame = pd.DataFrame(edge_rows)
+    sine_runs = edge_frame.loc[
+        edge_frame["mechanism"].eq("common_driver_sine_synergy"), "run_id"
+    ].dropna()
+    if sine_runs.empty:
+        return []
+    run_id = str(sine_runs.iloc[0])
+    run_edges = edge_frame[edge_frame["run_id"] == run_id].copy()
+    methods = [
+        ("SHAP", "interventional_shap", "mean_abs_phi"),
+        ("PEID EI", "peid_pairwise", "ei"),
+        ("Granger", "granger_pairwise", "score"),
+    ]
+    sources = ["w", "x", "y", "z"]
+    rows: list[dict[str, object]] = []
+    for method_label, edge_type, score_col in methods:
+        for source in sources:
+            subset = run_edges[
+                (run_edges["edge_type"] == edge_type)
+                & (run_edges["source"] == source)
+                & (run_edges["target"] == "y")
+            ]
+            value = float(subset.iloc[0][score_col]) if not subset.empty else 0.0
+            rows.append(
+                {
+                    "method": method_label,
+                    "source": source,
+                    "target": "y",
+                    "value": value,
+                }
+            )
+    return rows
+
+
+def _plot_proxy_y_readout_summary(edge_rows: list[dict[str, object]], figure_dir: Path) -> Path | None:
+    rows = _proxy_y_readout_values(edge_rows)
+    if not rows:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    frame = pd.DataFrame(rows)
+    method_order = ["SHAP", "PEID EI", "Granger"]
+    source_order = ["w", "x", "y", "z"]
+    matrix = np.zeros((len(method_order), len(source_order)), dtype=float)
+    for row_idx, method in enumerate(method_order):
+        for col_idx, source in enumerate(source_order):
+            subset = frame[(frame["method"] == method) & (frame["source"] == source)]
+            matrix[row_idx, col_idx] = float(subset.iloc[0]["value"]) if not subset.empty else 0.0
+    row_scaled = matrix.copy()
+    for row_idx in range(row_scaled.shape[0]):
+        row_max = np.nanmax(row_scaled[row_idx])
+        if np.isfinite(row_max) and row_max > 0.0:
+            row_scaled[row_idx] = row_scaled[row_idx] / row_max
+    ratios = []
+    for row_idx, method in enumerate(method_order):
+        driver = matrix[row_idx, source_order.index("w")]
+        proxy = matrix[row_idx, source_order.index("x")]
+        ratios.append(proxy / (driver + 1e-12))
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+        }
+    )
+    figure_dir.mkdir(parents=True, exist_ok=True)
+    fig, axes = plt.subplots(1, 2, figsize=(6.9, 2.7), constrained_layout=True, width_ratios=[1.45, 0.9])
+
+    ax = axes[0]
+    im = ax.imshow(row_scaled, cmap="Blues", vmin=0.0, vmax=1.0, aspect="auto")
+    ax.set_xticks(np.arange(len(source_order)))
+    ax.set_xticklabels([f"{source}->y" for source in source_order], rotation=28, ha="right")
+    ax.set_yticks(np.arange(len(method_order)))
+    ax.set_yticklabels(method_order)
+    ax.set_title("Target y readouts on the same MLP", fontsize=9, fontweight="bold", pad=6)
+    for row_idx in range(matrix.shape[0]):
+        for col_idx in range(matrix.shape[1]):
+            value = matrix[row_idx, col_idx]
+            color = "white" if row_scaled[row_idx, col_idx] > 0.62 else "#202020"
+            ax.text(col_idx, row_idx, f"{value:.3g}", ha="center", va="center", fontsize=7, color=color)
+    cbar = fig.colorbar(im, ax=ax, fraction=0.055, pad=0.025)
+    cbar.set_label("Row-normalized intensity", fontsize=7)
+    cbar.ax.tick_params(labelsize=7)
+
+    ax = axes[1]
+    y_pos = np.arange(len(method_order))
+    colors = ["#4f7ca8", "#5f8f6b", "#8c8c8c"]
+    ax.barh(y_pos, ratios, color=colors)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(method_order)
+    ax.invert_yaxis()
+    ax.set_xlabel("proxy / driver ratio")
+    ax.set_title("x->y relative to w->y", fontsize=9, fontweight="bold", pad=6)
+    xmax = max(max(ratios), 0.05)
+    ax.set_xlim(0.0, xmax * 1.25)
+    for idx, value in enumerate(ratios):
+        ax.text(value + xmax * 0.025, idx, f"{value:.3g}", va="center", ha="left", fontsize=7)
+
+    path = figure_dir / "proxy_y_shap_peid_readout.png"
     fig.savefig(path, dpi=260, bbox_inches="tight")
     plt.close(fig)
     return path
@@ -2179,8 +2694,11 @@ def _write_chinese_report(
     graph_figure_path: Path,
     report_figure_path: Path,
     sine_readout_figure_path: Path | None,
+    proxy_y_figure_path: Path | None,
     alpha_sweep_figure_path: Path | None,
     alpha_sweep_rows: list[dict[str, float]],
+    beta_sweep_figure_path: Path | None,
+    beta_sweep_result: dict[str, object],
     report_path: Path,
 ) -> Path:
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2477,6 +2995,38 @@ def _write_chinese_report(
         if sine_readout_rel
         else ""
     )
+    proxy_y_rel = (
+        _relative_markdown_path(proxy_y_figure_path, report_path)
+        if proxy_y_figure_path is not None
+        else ""
+    )
+    proxy_y_rows = _proxy_y_readout_values(edge_rows)
+    proxy_y_block = ""
+    if proxy_y_rel and proxy_y_rows:
+        proxy_frame = pd.DataFrame(proxy_y_rows)
+        proxy_table_lines = [
+            "| method | `w->y` true driver | `x->y` proxy | `y->y` memory | `x/w` ratio |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+        for method in ["SHAP", "PEID EI", "Granger"]:
+            values_by_source: dict[str, float] = {}
+            for source in ["w", "x", "y"]:
+                subset = proxy_frame[
+                    (proxy_frame["method"] == method) & (proxy_frame["source"] == source)
+                ]
+                values_by_source[source] = float(subset.iloc[0]["value"]) if not subset.empty else 0.0
+            ratio = values_by_source["x"] / (values_by_source["w"] + 1e-12)
+            proxy_table_lines.append(
+                f"| {method} | {values_by_source['w']:.4g} | {values_by_source['x']:.4g} | {values_by_source['y']:.4g} | {ratio:.4g} |"
+            )
+        proxy_y_block = (
+            "## 第二章：代理变量情形：`x` 作为 `w -> y` 的 proxy\n\n"
+            "同一个动力系统还包含一个不需要额外造数的代理变量实验。对目标 `y_{t+1}`，结构方程中有直接项 `w_t -> y_{t+1}` 与自回归项 `y_t -> y_{t+1}`，但没有 `x_t -> y_{t+1}`。不过 `x_t` 由自相关的 `w` 驱动，因此在观测分布上是 `w_t` 的代理变量。\n\n"
+            f"![target y 的代理变量读出]({proxy_y_rel})\n\n"
+            + "\n".join(proxy_table_lines)
+            + "\n\n"
+            "这里不再区分不同 SHAP 口径，只保留当前应用最常见的背景替换式 SHAP 基线。该读出在同一 fitted MLP 上计算 mean absolute attribution，用来表示特征对预测输出的平均贡献；PEID 使用最大熵独立干预读出，主要保留直接 driver `w->y` 与自回归 `y->y`，而不是把观测 proxy 当作强机制边。\n\n"
+        )
     alpha_sweep_rel = (
         _relative_markdown_path(alpha_sweep_figure_path, report_path)
         if alpha_sweep_figure_path is not None
@@ -2485,33 +3035,97 @@ def _write_chinese_report(
     alpha_sweep_block = ""
     if alpha_sweep_rel:
         alpha_table_lines = [
-            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | product probe incremental `R^2` | PEID joint EI `{x,y}->z` | PEID synergy `{x,y}->z` |",
-            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for row in alpha_sweep_rows:
             alpha_table_lines.append(
-                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {r2:.4g} | {joint:.4g} | {syn:.4g} |".format(
+                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {granger_x:.4g} | {granger_y:.4g} | {granger_w:.4g} | {joint:.4g} | {syn:.4g} |".format(
                     alpha=float(row["alpha"]),
                     shap_x=float(row["shap_x_to_z_mean_abs"]),
                     shap_y=float(row["shap_y_to_z_mean_abs"]),
                     shap_w=float(row["shap_w_to_z_mean_abs"]),
                     shap_interaction=float(row["shap_xy_mean_abs_interaction"]),
-                    r2=float(row["product_xy_incremental_r2"]),
-                    joint=float(row["peid_xy_joint_ei"]),
-                    syn=float(row["peid_xy_synergy"]),
+                    granger_x=float(row["granger_x_to_z"]),
+                    granger_y=float(row["granger_y_to_z"]),
+                    granger_w=float(row["granger_w_to_z"]),
+                    joint=float(row["tm_peid_xy_joint_ei"]),
+                    syn=float(row["tm_peid_xy_synergy"]),
                 )
             )
         alpha_sweep_block = (
-            "## alpha 扫描：SHAP 交互与 PEID 协同\n\n"
+            "### alpha 扫描：SHAP 交互与 PEID 协同\n\n"
             f"![alpha 扫描下的 SHAP 与 PEID 对照]({alpha_sweep_rel})\n\n"
             + "\n".join(alpha_table_lines)
             + "\n\n"
             "这里的 `alpha` 是 sine 项前面的强度系数。`alpha=0` 时，`z` 只剩自身记忆与噪声，"
-            "SHAP 二阶交互和产品项增量解释度接近零；PEID 仍保留少量估计底噪和分箱残差。随着 `alpha` 增大，"
+            "SHAP 二阶交互接近零；TM PEID 仅保留少量连续估计底噪。随着 `alpha` 增大，"
             "SHAP 单源 `x->z`、`y->z` 与 SHAP interaction 同时上升，但单源项是对协同响应的归因分摊，不是结构边；"
-            "SHAP interaction 与产品项 probe 反映的是 fitted MLP 响应面的二阶非加性形状；"
-            "PEID joint EI 与 synergy 反映的是在最大熵联合干预下 `{x,y}` 对目标分布施加的机制信息约束。"
+            "Granger/ablation 的 `x->z`、`y->z` 也会随 `alpha` 上升，因为它衡量单源置换对 fitted MLP 预测误差的影响；"
+            "这里的 PEID 曲线改用连续 transport-map EI，在同一最大熵联合干预样本上直接读出 `{x,y}` 对连续目标预测的机制信息约束。"
             "\n\n"
+        )
+    beta_sweep_rel = (
+        _relative_markdown_path(beta_sweep_figure_path, report_path)
+        if beta_sweep_figure_path is not None
+        else ""
+    )
+    beta_sweep_block = ""
+    beta_summary_rows = list(beta_sweep_result.get("summary", []))
+    beta_trend = dict(beta_sweep_result.get("trend", {}))
+    if beta_sweep_rel and beta_summary_rows:
+        beta_table_lines = [
+            "| beta | corr(`x`,`y`) | SHAP interaction `(x,y)->z` | PEID synergy `{x,y}->z` | PEID joint EI `{x,y}->z` |",
+            "| ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for row in beta_summary_rows:
+            beta_table_lines.append(
+                "| {beta:.2f} | {corr:.4g} | {shap:.4g} | {syn:.4g} | {joint:.4g} |".format(
+                    beta=float(row["beta"]),
+                    corr=float(row["xy_observed_corr_mean"]),
+                    shap=float(row["shap_xy_mean_abs_interaction_mean"]),
+                    syn=float(row["peid_xy_synergy_mean"]),
+                    joint=float(row["peid_xy_joint_ei_mean"]),
+                )
+            )
+        beta_sweep_block = (
+            "### beta 扫描：共同驱动增强但结构协同固定\n\n"
+            "这里固定 `alpha=1`，只改变 `x,y` 的共同驱动强度 `beta`。生成式中 `beta` 增大只让 `x` 与 `y` 在观测轨迹上更相关，"
+            "并没有增强 `z_{t+1}` 中的 `sin(x_t y_t)` 结构项。因此理论预期是：`{x,y}->z` 的 PEID 协同不应因为 `beta` 增大而单调增加。\n\n"
+            "beta 扫描对应的动力学为\n\n"
+            "$$\n"
+            "\\begin{aligned}\n"
+            "w_{t+1} &= 0.78w_t + \\eta^w_t,\\\\\n"
+            "x_{t+1} &= 0.42x_t + 0.82\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^x_t\\right) + \\eta^x_t,\\\\\n"
+            "y_{t+1} &= 0.38y_t + 0.76\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^y_t\\right) + \\eta^y_t,\\\\\n"
+            "z_{t+1} &= 0.22z_t + \\sin\\left(x_t y_t\\right) + \\eta^z_t.\n"
+            "\\end{aligned}\n"
+            "$$\n\n"
+            "其中 `beta=0` 时，`x` 与 `y` 主要由各自私有扰动驱动；`beta=1` 时，它们的新增驱动完全共享同一个 `w_t`。"
+            "`\\sqrt{1-\\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；"
+            "这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。"
+            "`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。\n\n"
+            f"![beta 扫描下的 SHAP 与 PEID 趋势对照]({beta_sweep_rel})\n\n"
+            + "\n".join(beta_table_lines)
+            + "\n\n"
+            "图中左侧把两个读数叠在同一坐标轴上：灰色线是观测轨迹里 `x` 与 `y` 的 Pearson 相关系数，"
+            "用来显示共同驱动造成的源变量相关性；蓝色线是同一 fitted MLP 上面向 `z` 的 SHAP `(x,y)->z` 二阶交互强度。"
+            "右侧 PEID 曲线比较的是同一个源集合 `{x,y}` 到目标 `z` 的 synergy 与 joint EI。"
+            "为保持图面简洁，图中 PEID 曲线使用离散化估计器；transport-map PEID 不再单独绘制，只在趋势读数中作为稳健性补充。"
+            "灰线不是因果边或 PEID 读数，而是 beta 扫描的观测相关性参照。\n\n"
+            "线性趋势读数显示，SHAP interaction 的 beta 斜率为 "
+            f"{float(beta_trend.get('shap_interaction_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('shap_interaction_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('shap_interaction_slope_ci_high', float('nan'))):.4g}])；"
+            "离散化 PEID synergy 的 beta 斜率为 "
+            f"{float(beta_trend.get('peid_synergy_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('peid_synergy_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('peid_synergy_slope_ci_high', float('nan'))):.4g}])；"
+            "transport-map PEID synergy 的 beta 斜率为 "
+            f"{float(beta_trend.get('tm_peid_synergy_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('tm_peid_synergy_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('tm_peid_synergy_slope_ci_high', float('nan'))):.4g}])。"
+            "这说明在这个对照里，SHAP interaction 更容易随观测相关性增强而上升；离散化 PEID 与 transport-map PEID 都没有相同的上升趋势。\n\n"
         )
 
     text = f"""# 统一动力系统：共同驱动 + sine 协同
@@ -2538,16 +3152,18 @@ $$
 同一条模拟时间序列先用于训练一个 MLP 一步转移模型，输入为 `[x_t, y_t, z_t, w_t]`，输出为 `[x_{{t+1}}, y_{{t+1}}, z_{{t+1}}, w_{{t+1}}]`。随后在固定 MLP 上读出四类量：
 
 - Granger/ablation：把某个 source 的输入列替换为均值，记录目标预测 MSE 的增量。它回答“去掉这个变量会不会损害预测”。
-- SHAP 类归因：在同一 fitted MLP 上做 interventional Shapley 读出，用经验背景替换未给定特征。单特征 SHAP 报告 mean absolute attribution；二阶 SHAP interaction 报告 `x:y` 的 mean absolute interaction。前者回答“某个特征分到多少预测贡献”，后者回答“两个特征的非加性预测贡献有多大”。
+- SHAP 类归因：在同一 fitted MLP 上只保留一个常用背景替换式 SHAP 基线，用经验背景替换未给定特征。单特征 SHAP 报告 mean absolute attribution；二阶 SHAP interaction 报告 `x:y` 的 mean absolute interaction。前者回答“某个特征分到多少预测贡献”，后者回答“两个特征的非加性预测贡献有多大”。
 - 交互项 probe：在同一 fitted MLP 的最大熵干预预测面上，用标准化主效应加一个二阶乘积项拟合目标输出，并记录该乘积项相对于主效应模型的 incremental `R^2`。它回答“固定这个预测器时，响应面是否含有可由 `x:y` 近似的二阶非加性形状”。
 - PEID：先做最大熵独立干预，再计算 single-source EI、joint EI 和 synergy：
 
 $$
 \\mathrm{{Syn}}(\\{{x,y\\}}\\to z)
-= \\max\\left(0,\\; EI(\\{{x,y\\}}\\to z)-EI(x\\to z)-EI(y\\to z)\\right).
+= EI(\\{{x,y\\}}\\to z)-EI(x\\to z)-EI(y\\to z).
 $$
 
-## 代表性结果
+## 第一章：二源协同情形：`{{x,y}} -> z`
+
+### 代表性结果
 
 {sine_system_table}
 
@@ -2555,7 +3171,9 @@ $$
 
 {alpha_sweep_block}
 
-## 解释
+{beta_sweep_block}
+
+### 解释
 
 `w -> x` 和 `w -> y` 在 Granger/ablation 与 PEID pairwise EI 中都很强，说明 fitted MLP 学到了共同驱动结构。`w -> z` 很小，符合结构方程中 `w` 不直接进入 `z` 的设定；若某些归因方法给出非零 `w -> z`，应解释为 `w` 通过诱导 `x,y` 相关性形成的代理贡献，而不是直接结构边。
 
@@ -2568,6 +3186,8 @@ $$
 投影成了 pairwise 贡献或低阶乘积项，不能单独表达“只有联合给定 `x_t` 和 `y_t` 时才稳定确定目标响应”的机制事实。
 
 PEID 的关键读数是 `EI({{x, y}} -> z)` 与 `Syn({{x, y}} -> z)` 均显著高于单源投影。它说明联合干预 `{{x,y}}` 后，目标分布的约束远超过两个单源 EI 的加和。因此这个例子的结论不是“PEID 消除了所有代理效应”，而是：在同一个 learned transition surrogate 上，PEID 可以同时保留 `w -> x,y` 的共同驱动边，以及 `{{x,y}} -> z` 的协同超边；Granger 和 SHAP 单特征方法主要给出预测贡献的 pairwise 投影，交互项 probe 可以提示 `x:y` 非加性存在，但 PEID 才把这个非加性读成源集合到目标的协同有效信息。
+
+{proxy_y_block}
 """
     report_path.write_text(text, encoding="utf-8")
     return report_path
@@ -2592,6 +3212,7 @@ def run_comparison_grid(
     result_dir: Path | str = DEFAULT_RESULT_DIR,
     figure_dir: Path | str = DEFAULT_FIGURE_DIR,
     report_path: Path | str | None = None,
+    include_diagnostic_sweeps: bool | None = None,
 ) -> dict[str, str]:
     if mode not in {"smoke", "full"}:
         raise ValueError("mode must be 'smoke' or 'full'.")
@@ -2612,6 +3233,11 @@ def run_comparison_grid(
     result_dir = Path(result_dir)
     figure_dir = Path(figure_dir)
     report_path = _resolve_report_path(report_path, result_dir, figure_dir)
+    run_diagnostic_sweeps = (
+        (report_path.resolve() == DEFAULT_REPORT_PATH.resolve()) or mode == "full"
+        if include_diagnostic_sweeps is None
+        else bool(include_diagnostic_sweeps)
+    )
     result_dir.mkdir(parents=True, exist_ok=True)
 
     runs: list[dict[str, object]] = []
@@ -2657,6 +3283,11 @@ def run_comparison_grid(
             if is_report_sine_run
             else None
         )
+        conditional_shap_readout = (
+            estimate_conditional_shap_readout(model, features, config, target="y")
+            if is_report_sine_run
+            else None
+        )
         metrics = _evaluate_run(truth, granger_edges, peid)
         run_id = f"{mechanism}_seed{seed}_n{n_samples}_noise{noise:g}_syn{synergy_strength:g}"
         runs.append(
@@ -2674,7 +3305,16 @@ def run_comparison_grid(
                 **metrics,
             }
         )
-        edge_rows.extend(_edge_records(run_id, config, granger_edges, peid, shap_readout))
+        edge_rows.extend(
+            _edge_records(
+                run_id,
+                config,
+                granger_edges,
+                peid,
+                shap_readout,
+                conditional_shap_readout,
+            )
+        )
 
     summary_path = result_dir / "summary.json"
     edge_table_path = result_dir / "edge_table.jsonl"
@@ -2686,12 +3326,19 @@ def run_comparison_grid(
     graph_figure_path = _plot_representative_causal_graphs(runs, edge_rows, figure_dir)
     report_figure_path = _plot_report_panels(runs, edge_rows, figure_dir)
     sine_readout_figure_path = _plot_sine_readout_summary(edge_rows, figure_dir)
+    proxy_y_figure_path = _plot_proxy_y_readout_summary(edge_rows, figure_dir)
     alpha_sweep_rows = (
         run_sine_alpha_sweep()
-        if "common_driver_sine_synergy" in set(mechanisms)
+        if run_diagnostic_sweeps and "common_driver_sine_synergy" in set(mechanisms)
         else []
     )
     alpha_sweep_figure_path = _plot_sine_alpha_sweep(alpha_sweep_rows, figure_dir)
+    beta_sweep_result = (
+        run_sine_beta_common_driver_sweep()
+        if run_diagnostic_sweeps and "common_driver_sine_synergy" in set(mechanisms)
+        else {"runs": [], "summary": [], "trend": {}}
+    )
+    beta_sweep_figure_path = _plot_sine_beta_sweep(beta_sweep_result, figure_dir)
     report_markdown_path = _write_chinese_report(
         runs,
         edge_rows=edge_rows,
@@ -2703,8 +3350,11 @@ def run_comparison_grid(
         graph_figure_path=graph_figure_path,
         report_figure_path=report_figure_path,
         sine_readout_figure_path=sine_readout_figure_path,
+        proxy_y_figure_path=proxy_y_figure_path,
         alpha_sweep_figure_path=alpha_sweep_figure_path,
         alpha_sweep_rows=alpha_sweep_rows,
+        beta_sweep_figure_path=beta_sweep_figure_path,
+        beta_sweep_result=beta_sweep_result,
         report_path=report_path,
     )
 
@@ -2733,11 +3383,14 @@ def run_comparison_grid(
         "graph_figure_path": str(graph_figure_path),
         "report_figure_path": str(report_figure_path),
         "sine_readout_figure_path": str(sine_readout_figure_path) if sine_readout_figure_path else None,
+        "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
+        "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),
         "edge_table_path": str(edge_table_path),
         "sine_alpha_sweep": alpha_sweep_rows,
+        "sine_beta_common_driver_sweep": beta_sweep_result,
         "lagged_proxy_common_driver": lagged_proxy_result,
         "lag_sensitivity_lagged_proxy": lag_sensitivity_result,
         "neural_granger_lagged_proxy": neural_granger_result,
@@ -2754,7 +3407,9 @@ def run_comparison_grid(
         "graph_figure_path": str(graph_figure_path),
         "report_figure_path": str(report_figure_path),
         "sine_readout_figure_path": str(sine_readout_figure_path) if sine_readout_figure_path else None,
+        "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
+        "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),
     }

@@ -1,0 +1,24 @@
+{
+  "input_path": "exp/TM/lorzen/input",
+  "sample_count": 1000,
+  "effective_sample_count": 2000,
+  "node_count": 8,
+  "metrics": {
+    "top_k": 4,
+    "accuracy": 1.0,
+    "f1": 1.0,
+    "auc": 1.0,
+    "target_mode": "delta",
+    "estimator_mode": "surrogate_intervention",
+    "box_width": 1.5,
+    "sample_count": 2000,
+    "seed": 17
+  },
+  "artifacts": {
+    "ei_matrix": "exp/TM/lorzen/results_tuned/lorzen_tm_ei_matrix.csv",
+    "edge_table": "exp/TM/lorzen/results_tuned/lorzen_tm_ei_edges.csv",
+    "topk_graph": "exp/TM/lorzen/results_tuned/lorzen_tm_ei_topk_graph.csv",
+    "groundtruth": "exp/TM/lorzen/results_tuned/lorzen_lorenz96_groundtruth.csv",
+    "heatmap": "exp/TM/lorzen/results_tuned/lorzen_tm_ei_heatmap.png"
+  }
+}
