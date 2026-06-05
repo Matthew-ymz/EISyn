@@ -1,0 +1,16 @@
+{
+  "block_size": 26,
+  "bootstrap_ci95_rmse_improvement": [
+    0.0008929340221573379,
+    0.001824921054879572
+  ],
+  "bootstrap_mean_rmse_improvement": 0.0013701132663210022,
+  "bootstrap_p_improvement_le_0": 0.0001999600079984003,
+  "bootstrap_reps": 5000,
+  "mlp_rmse": 0.7148632063017851,
+  "mse_improvement": 0.0019689680723102843,
+  "n_components": 60,
+  "ridge_rmse": 0.7162390465454804,
+  "rmse_improvement": 0.0013758402436953032,
+  "test_time_points": 500
+}

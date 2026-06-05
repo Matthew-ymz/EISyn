@@ -1,0 +1,147 @@
+{
+  "block_size": 26,
+  "horizons": {
+    "1": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7694074782559799,
+        "bootstrap_ci95": [
+          -0.009543464067965607,
+          -0.005798315606928811
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.007711116067810941,
+        "rnn_rmse": 0.7771185943237908
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7694074782559799,
+        "bootstrap_ci95": [
+          -0.009543464067965607,
+          -0.005798315606928811
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.007711116067810941,
+        "rnn_rmse": 0.7771185943237908
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7771185943237908,
+        "bootstrap_ci95": [
+          0.0,
+          0.0
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": 0.0,
+        "rnn_rmse": 0.7771185943237908
+      }
+    },
+    "2": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8002626876894409,
+        "bootstrap_ci95": [
+          -0.015418256177234541,
+          -0.010450146145608425
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.01297793476893283,
+        "rnn_rmse": 0.8132406224583737
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8002626876894409,
+        "bootstrap_ci95": [
+          -0.015418256177234541,
+          -0.010450146145608425
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.01297793476893283,
+        "rnn_rmse": 0.8132406224583737
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.8141520847686917,
+        "bootstrap_ci95": [
+          0.0005101836764879436,
+          0.0012953444193162047
+        ],
+        "bootstrap_p_improvement_le_0": 0.0002,
+        "rmse_improvement": 0.000911462310318023,
+        "rnn_rmse": 0.8132406224583737
+      }
+    },
+    "4": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8103787499502858,
+        "bootstrap_ci95": [
+          -0.016121909009509446,
+          -0.011300762224134354
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.01375916218647899,
+        "rnn_rmse": 0.8241379121367648
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8103787499502858,
+        "bootstrap_ci95": [
+          -0.016121909009509446,
+          -0.011300762224134354
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.01375916218647899,
+        "rnn_rmse": 0.8241379121367648
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.8255926706262333,
+        "bootstrap_ci95": [
+          0.0010008437089057659,
+          0.0018972322540947411
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.0014547584894685217,
+        "rnn_rmse": 0.8241379121367648
+      }
+    },
+    "8": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8129799345814405,
+        "bootstrap_ci95": [
+          -0.01621201859953259,
+          -0.011151817794757931
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.013755846514957537,
+        "rnn_rmse": 0.826735781096398
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.8129799345814405,
+        "bootstrap_ci95": [
+          -0.01621201859953259,
+          -0.011151817794757931
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.013755846514957537,
+        "rnn_rmse": 0.826735781096398
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.8282680280143135,
+        "bootstrap_ci95": [
+          0.0010245277683677723,
+          0.0020603793613230004
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.0015322469179155362,
+        "rnn_rmse": 0.826735781096398
+      }
+    }
+  },
+  "method": "paired_circular_block_bootstrap",
+  "reps": 5000
+}

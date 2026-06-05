@@ -1,0 +1,265 @@
+{
+  "config": {
+    "mode": "full",
+    "data_dir": "data/ncep_reanalysis_slp",
+    "output_dir": ".",
+    "start_year": 1948,
+    "end_year": 2011,
+    "n_components": 60,
+    "max_lag": 4,
+    "pc_alpha": 0.001,
+    "link_density": 0.2,
+    "seed": 42,
+    "causal_backend": "tigramite"
+  },
+  "data_files": [
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1948.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1949.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1950.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1951.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1952.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1953.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1954.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1955.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1956.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1957.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1958.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1959.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1960.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1961.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1962.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1963.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1964.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1965.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1966.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1967.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1968.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1969.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1970.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1971.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1972.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1973.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1974.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1975.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1976.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1977.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1978.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1979.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1980.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1981.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1982.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1983.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1984.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1985.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1986.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1987.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1988.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1989.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1990.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1991.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1992.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1993.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1994.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1995.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1996.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1997.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1998.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.1999.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2000.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2001.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2002.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2003.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2004.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2005.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2006.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2007.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2008.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2009.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2010.nc",
+    "/Users/yangmingzhe/Desktop/code/github/EISyn/data/ncep_reanalysis_slp/daily/slp.2011.nc"
+  ],
+  "dependency_versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.1.4",
+    "xarray": "2023.6.0",
+    "scipy": "1.11.4",
+    "scikit-learn": "1.3.2",
+    "tigramite": "5.2.10.1"
+  },
+  "n_daily_samples": 23376,
+  "n_weekly_samples": 3339,
+  "n_edges": 837,
+  "n_linear_matrix_elements": 3600,
+  "paper_component_label_map": {
+    "7": 18,
+    "18": 7,
+    "8": 26,
+    "26": 8,
+    "21": 48,
+    "48": 21
+  },
+  "top_gateways": [
+    {
+      "component": 2,
+      "ace": 0.07227427258769821,
+      "acs": 0.04544462031085033,
+      "incoming_total_effect": 0.04544462031085033,
+      "direct_out_strength": 0.05943183164614616,
+      "direct_in_strength": 0.035418593195526475,
+      "paper_component": 2
+    },
+    {
+      "component": 1,
+      "ace": 0.057493252011893974,
+      "acs": 0.04524820604922904,
+      "incoming_total_effect": 0.04524820604922904,
+      "direct_out_strength": 0.04126403106827254,
+      "direct_in_strength": 0.03685208289497991,
+      "paper_component": 1
+    },
+    {
+      "component": 0,
+      "ace": 0.05343086780298926,
+      "acs": 0.04599510219145437,
+      "incoming_total_effect": 0.04599510219145437,
+      "direct_out_strength": 0.03977086444909659,
+      "direct_in_strength": 0.034503364132134284,
+      "paper_component": 0
+    },
+    {
+      "component": 3,
+      "ace": 0.052787569022092154,
+      "acs": 0.04095886325097412,
+      "incoming_total_effect": 0.04095886325097412,
+      "direct_out_strength": 0.03954664523369605,
+      "direct_in_strength": 0.030816797106855667,
+      "paper_component": 3
+    },
+    {
+      "component": 6,
+      "ace": 0.05123244199071354,
+      "acs": 0.028900718085473752,
+      "incoming_total_effect": 0.028900718085473752,
+      "direct_out_strength": 0.03377278537204028,
+      "direct_in_strength": 0.021636164949327578,
+      "paper_component": 6
+    },
+    {
+      "component": 4,
+      "ace": 0.04579741044058611,
+      "acs": 0.029435889316960177,
+      "incoming_total_effect": 0.029435889316960177,
+      "direct_out_strength": 0.03660416182228008,
+      "direct_in_strength": 0.022448499085243896,
+      "paper_component": 4
+    },
+    {
+      "component": 21,
+      "ace": 0.04568930235453535,
+      "acs": 0.04197971690077656,
+      "incoming_total_effect": 0.04197971690077656,
+      "direct_out_strength": 0.032990393381377034,
+      "direct_in_strength": 0.03215013207410454,
+      "paper_component": 48
+    },
+    {
+      "component": 14,
+      "ace": 0.042853129368011514,
+      "acs": 0.0366292089402769,
+      "incoming_total_effect": 0.0366292089402769,
+      "direct_out_strength": 0.02983437136136673,
+      "direct_in_strength": 0.026880138050208866,
+      "paper_component": 14
+    },
+    {
+      "component": 7,
+      "ace": 0.04101388453989823,
+      "acs": 0.03618371007322059,
+      "incoming_total_effect": 0.03618371007322059,
+      "direct_out_strength": 0.029619224083906288,
+      "direct_in_strength": 0.027565207662664678,
+      "paper_component": 18
+    },
+    {
+      "component": 11,
+      "ace": 0.040315772702846496,
+      "acs": 0.03775322555933682,
+      "incoming_total_effect": 0.03775322555933682,
+      "direct_out_strength": 0.0304315048254387,
+      "direct_in_strength": 0.029381485619146445,
+      "paper_component": 11
+    }
+  ],
+  "top_mediators": [
+    {
+      "component": 2,
+      "amce": 0.0028786067543803443,
+      "mediated_fraction": 0.9687317358270018,
+      "mediated_strength_fraction": 0.08104856989696897,
+      "paper_component": 2
+    },
+    {
+      "component": 1,
+      "amce": 0.0018588266773161136,
+      "mediated_fraction": 0.8135593220338984,
+      "mediated_strength_fraction": 0.04395290768757589,
+      "paper_component": 1
+    },
+    {
+      "component": 0,
+      "amce": 0.0017379282638181651,
+      "mediated_fraction": 0.859146697837522,
+      "mediated_strength_fraction": 0.043396895254832264,
+      "paper_component": 0
+    },
+    {
+      "component": 21,
+      "amce": 0.0015605712106476432,
+      "mediated_fraction": 0.9307422559906487,
+      "mediated_strength_fraction": 0.042215555732343785,
+      "paper_component": 48
+    },
+    {
+      "component": 8,
+      "amce": 0.0014832296627947195,
+      "mediated_fraction": 0.8065458796025716,
+      "mediated_strength_fraction": 0.03476938168912364,
+      "paper_component": 26
+    },
+    {
+      "component": 3,
+      "amce": 0.0014022274860715806,
+      "mediated_fraction": 0.9272355347749854,
+      "mediated_strength_fraction": 0.03778922899266634,
+      "paper_component": 3
+    },
+    {
+      "component": 11,
+      "amce": 0.0011914783953048526,
+      "mediated_fraction": 0.9178842781998832,
+      "mediated_strength_fraction": 0.03178583257581686,
+      "paper_component": 11
+    },
+    {
+      "component": 14,
+      "amce": 0.0010636662916857346,
+      "mediated_fraction": 0.9360023378141438,
+      "mediated_strength_fraction": 0.02893622137573745,
+      "paper_component": 14
+    },
+    {
+      "component": 7,
+      "amce": 0.0010301929073425486,
+      "mediated_fraction": 0.842197545295149,
+      "mediated_strength_fraction": 0.025216918527707317,
+      "paper_component": 18
+    },
+    {
+      "component": 6,
+      "amce": 0.000983045551951272,
+      "mediated_fraction": 0.8179427235534775,
+      "mediated_strength_fraction": 0.02336985534557667,
+      "paper_component": 6
+    }
+  ]
+}

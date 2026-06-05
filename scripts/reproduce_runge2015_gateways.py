@@ -20,8 +20,20 @@ from sklearn.decomposition import PCA
 
 
 DEFAULT_DATA_DIR = Path("data/ncep_reanalysis_slp")
-RESULT_SUBDIR = Path("results/runge2015_gateways")
-FIG_SUBDIR = Path("fig/runge2015_gateways")
+RESULT_SUBDIR = Path("results/runge/2015_gateways")
+FIG_SUBDIR = Path("fig/runge/2015_gateways")
+# The local orthomax implementation follows the paper ordering convention, but
+# a few paper-discussed modes are permuted relative to the published labels.
+# These visual calibrations are based on the published Fig. 2/Fig. 4 component
+# locations and keep the mapping bijective.
+DEFAULT_PAPER_COMPONENT_LABEL_MAP: dict[int, int] = {
+    7: 18,
+    18: 7,
+    8: 26,
+    26: 8,
+    21: 48,
+    48: 21,
+}
 
 mpl.rcParams.update(
     {
@@ -46,6 +58,7 @@ class RungeConfig:
     n_components: int = 60
     max_lag: int = 4
     pc_alpha: float = 0.001
+    link_density: float = 0.2
     seed: int = 42
     causal_backend: Literal["tigramite", "regression"] = "tigramite"
 
@@ -66,6 +79,23 @@ class SemEffects:
     path_effects: pd.DataFrame
     gateway_scores: pd.DataFrame
     mediator_scores: pd.DataFrame
+    coefficient_matrices: np.ndarray
+    causal_effect_matrices: np.ndarray
+    linear_coefficient_matrix: np.ndarray
+
+
+def apply_paper_component_labels(
+    frame: pd.DataFrame,
+    label_map: dict[int, int] | None = None,
+) -> pd.DataFrame:
+    """Attach paper-aligned component labels while preserving internal indices."""
+
+    if "component" not in frame.columns:
+        raise ValueError("frame must contain a 'component' column.")
+    mapping = label_map if label_map is not None else DEFAULT_PAPER_COMPONENT_LABEL_MAP
+    labelled = frame.copy()
+    labelled["paper_component"] = labelled["component"].map(lambda value: int(mapping.get(int(value), int(value))))
+    return labelled
 
 
 def _repo_root() -> Path:
@@ -80,8 +110,8 @@ def _resolve_path(path: str | Path) -> Path:
     return root_candidate if root_candidate.exists() else candidate.resolve()
 
 
-def varimax(loadings: np.ndarray, *, gamma: float = 1.0, max_iter: int = 100, tol: float = 1e-6) -> tuple[np.ndarray, np.ndarray]:
-    """Rotate columns of a loading matrix using orthogonal Varimax."""
+def varimax(loadings: np.ndarray, *, gamma: float = 1.0, max_iter: int = 500, tol: float = np.finfo(np.float32).eps**0.5) -> tuple[np.ndarray, np.ndarray]:
+    """Rotate columns using the orthomax/Varimax convention from Runge et al."""
 
     phi = np.asarray(loadings, dtype=float)
     if phi.ndim != 2:
@@ -91,23 +121,37 @@ def varimax(loadings: np.ndarray, *, gamma: float = 1.0, max_iter: int = 100, to
         raise ValueError("loadings must contain at least one component.")
 
     rotation = np.eye(n_cols)
+    rotated = phi.copy(order="C")
     previous = 0.0
     for _ in range(max_iter):
-        transformed = phi @ rotation
-        u, singular_values, vh = np.linalg.svd(
-            phi.T
-            @ (
-                transformed**3
-                - (gamma / n_rows) * transformed @ np.diag(np.sum(transformed**2, axis=0))
-            ),
-            full_matrices=False,
-        )
+        old_previous = previous
+        column_norms = np.sum(rotated**2, axis=0, keepdims=True)
+        target = n_rows * rotated**3 - gamma * rotated * column_norms
+        u, singular_values, vh = np.linalg.svd(rotated.T @ target, full_matrices=False)
         rotation = u @ vh
-        total = float(np.sum(singular_values))
-        if previous and total < previous * (1.0 + tol):
+        previous = float(np.sum(singular_values))
+        rotated = phi @ rotation
+        if old_previous and abs(previous - old_previous) / max(previous, 1.0e-12) < tol:
             break
-        previous = total
-    return phi @ rotation, rotation
+
+    for index in range(n_cols):
+        if float(np.max(rotated[:, index])) < -float(np.min(rotated[:, index])):
+            rotated[:, index] *= -1.0
+            rotation[index, :] *= -1.0
+    return rotated, rotation
+
+
+def rotated_component_order(rotation: np.ndarray, eigenvalues: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    rot = np.asarray(rotation, dtype=float)
+    values = np.asarray(eigenvalues, dtype=float)
+    if rot.ndim != 2 or rot.shape[0] != rot.shape[1]:
+        raise ValueError("rotation must be a square matrix.")
+    if values.ndim != 1 or len(values) != rot.shape[0]:
+        raise ValueError("eigenvalues length must match rotation dimensions.")
+    rotated_covariance = rot.T @ np.diag(values) @ rot
+    diagonal = np.diag(rotated_covariance)
+    order = np.argsort(diagonal)[::-1]
+    return order.astype(int), diagonal
 
 
 def weekly_aggregate(frame: pd.DataFrame) -> pd.DataFrame:
@@ -164,6 +208,24 @@ def standardize_daily_anomalies(slp: xr.DataArray) -> xr.DataArray:
     return standardized.fillna(0.0)
 
 
+def detrend_time_axis(field: xr.DataArray) -> xr.DataArray:
+    values = np.asarray(field.values, dtype=np.float64)
+    if values.ndim < 2:
+        raise ValueError("field must have a time axis and at least one feature axis.")
+    n_time = values.shape[0]
+    if n_time < 2:
+        return field.copy()
+    matrix = values.reshape(n_time, -1)
+    x = np.arange(n_time, dtype=np.float64)
+    x_centered = x - x.mean()
+    denom = float(np.sum(x_centered**2))
+    slopes = (x_centered[:, None] * matrix).sum(axis=0) / denom if denom > 0.0 else np.zeros(matrix.shape[1])
+    intercepts = matrix.mean(axis=0) - slopes * x.mean()
+    trend = intercepts[None, :] + slopes[None, :] * x[:, None]
+    detrended = (matrix - trend).reshape(values.shape)
+    return xr.DataArray(detrended, coords=field.coords, dims=field.dims, attrs=field.attrs, name=field.name)
+
+
 def latitude_area_weights(latitudes: xr.DataArray | np.ndarray) -> np.ndarray:
     lat = np.asarray(latitudes, dtype=float)
     weights = np.sqrt(np.clip(np.cos(np.deg2rad(lat)), 0.0, None))
@@ -177,33 +239,59 @@ def fit_varimax_components(
     n_components: int,
     seed: int,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    values = np.asarray(standardized_slp.values, dtype=np.float64)
+    return fit_projected_varimax_components(
+        standardized_slp,
+        standardized_slp,
+        n_components=n_components,
+        seed=seed,
+    )
+
+
+def fit_projected_varimax_components(
+    fit_slp: xr.DataArray,
+    score_slp: xr.DataArray,
+    *,
+    n_components: int,
+    seed: int,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    values = np.asarray(fit_slp.values, dtype=np.float64)
     if values.ndim != 3:
         raise ValueError("SLP array must have shape [time, lat, lon].")
     n_time, n_lat, n_lon = values.shape
     if n_components < 1 or n_components > min(n_time, n_lat * n_lon):
         raise ValueError("n_components must be between 1 and min(time, grid_size).")
 
-    weights = latitude_area_weights(standardized_slp["lat"].values)
+    if tuple(fit_slp["lat"].values) != tuple(score_slp["lat"].values) or tuple(fit_slp["lon"].values) != tuple(score_slp["lon"].values):
+        raise ValueError("fit_slp and score_slp must share the same spatial grid.")
+
+    weights = latitude_area_weights(fit_slp["lat"].values)
     weighted = values * weights[None, :, None]
     matrix = weighted.reshape(n_time, n_lat * n_lon)
     matrix = matrix - matrix.mean(axis=0, keepdims=True)
     matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
-    pca = PCA(n_components=int(n_components), svd_solver="randomized", random_state=int(seed))
+    pca = PCA(n_components=int(n_components), svd_solver="full")
     pca_scores = pca.fit_transform(matrix)
-    loadings = pca.components_.T * np.sqrt(np.maximum(pca.explained_variance_, 0.0))[None, :]
+    loadings = pca.components_.T
     rotated_loadings, rotation = varimax(loadings)
-    rotated_scores = pca_scores @ rotation
+    order, rotated_diagonal = rotated_component_order(rotation, np.asarray(pca.explained_variance_, dtype=float))
+    rotated_loadings = rotated_loadings[:, order]
+    score_values = np.asarray(score_slp.values, dtype=np.float64)
+    score_weighted = score_values * weights[None, :, None]
+    score_matrix = score_weighted.reshape(score_values.shape[0], n_lat * n_lon)
+    score_matrix = np.nan_to_num(score_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+    rotated_scores = (pca.transform(score_matrix) @ rotation)[:, order]
     rotated_scores = (rotated_scores - rotated_scores.mean(axis=0, keepdims=True)) / np.maximum(
         rotated_scores.std(axis=0, ddof=1, keepdims=True), 1.0e-12
     )
 
     columns = [f"component_{index + 1:02d}" for index in range(int(n_components))]
-    dates = pd.to_datetime(standardized_slp["time"].values)
+    dates = pd.to_datetime(score_slp["time"].values)
     scores = pd.DataFrame(rotated_scores, index=dates, columns=columns)
     maps = rotated_loadings.reshape(n_lat, n_lon, int(n_components))
-    return scores, maps, np.asarray(pca.explained_variance_ratio_, dtype=float)
+    total_variance = float(np.sum(pca.explained_variance_))
+    rotated_ratio = rotated_diagonal[order] / total_variance if total_variance > 0.0 else np.zeros_like(rotated_diagonal[order])
+    return scores, maps, np.asarray(rotated_ratio, dtype=float)
 
 
 def discover_causal_edges(
@@ -211,10 +299,16 @@ def discover_causal_edges(
     *,
     max_lag: int,
     pc_alpha: float,
+    link_density: float,
     backend: Literal["tigramite", "regression"],
 ) -> list[LaggedEdge]:
     if backend == "tigramite":
-        return _discover_causal_edges_tigramite(weekly_scores, max_lag=max_lag, pc_alpha=pc_alpha)
+        return _discover_causal_edges_tigramite(
+            weekly_scores,
+            max_lag=max_lag,
+            pc_alpha=pc_alpha,
+            link_density=link_density,
+        )
     if backend == "regression":
         return _discover_causal_edges_regression(weekly_scores, max_lag=max_lag, pc_alpha=pc_alpha)
     raise ValueError(f"Unsupported causal backend: {backend}")
@@ -233,7 +327,13 @@ def ensure_causal_backend_available(backend: Literal["tigramite", "regression"])
         )
 
 
-def _discover_causal_edges_tigramite(weekly_scores: pd.DataFrame, *, max_lag: int, pc_alpha: float) -> list[LaggedEdge]:
+def _discover_causal_edges_tigramite(
+    weekly_scores: pd.DataFrame,
+    *,
+    max_lag: int,
+    pc_alpha: float,
+    link_density: float,
+) -> list[LaggedEdge]:
     try:
         from tigramite import data_processing as pp
         from tigramite.independence_tests.parcorr import ParCorr
@@ -249,24 +349,95 @@ def _discover_causal_edges_tigramite(weekly_scores: pd.DataFrame, *, max_lag: in
     pcmci = PCMCI(dataframe=data, cond_ind_test=ParCorr(significance="analytic"), verbosity=0)
     result = pcmci.run_pcmci(tau_max=int(max_lag), pc_alpha=float(pc_alpha))
     p_matrix = np.asarray(result["p_matrix"], dtype=float)
-    val_matrix = np.asarray(result["val_matrix"], dtype=float)
     n_components = weekly_scores.shape[1]
-    edges: list[LaggedEdge] = []
+    parent_candidates: dict[int, list[tuple[int, int, float]]] = {target: [] for target in range(n_components)}
     for source in range(n_components):
         for target in range(n_components):
             for lag in range(1, int(max_lag) + 1):
                 p_value = float(p_matrix[source, target, lag])
                 if np.isfinite(p_value) and p_value <= pc_alpha:
-                    edges.append(
-                        LaggedEdge(
-                            source=source,
-                            target=target,
-                            lag=lag,
-                            coefficient=float(val_matrix[source, target, lag]),
-                            p_value=p_value,
-                        )
-                    )
+                    parent_candidates[target].append((source, lag, p_value))
+
+    candidates = _fit_sparse_standardized_regressions(weekly_scores, parent_candidates, max_lag=max_lag)
+    return _threshold_edges_by_link_density(candidates, n_components=n_components, link_density=link_density)
+
+
+def _fit_sparse_standardized_regressions(
+    weekly_scores: pd.DataFrame,
+    parent_candidates: dict[int, list[tuple[int, int, float]]],
+    *,
+    max_lag: int,
+) -> list[LaggedEdge]:
+    values = weekly_scores.to_numpy(dtype=float)
+    n_time, n_components = values.shape
+    start = int(max_lag)
+    edges: list[LaggedEdge] = []
+    if n_time <= start + 2:
+        return edges
+    for target in range(n_components):
+        parents = sorted(set(parent_candidates.get(target, [])))
+        if not parents:
+            continue
+        y = values[start:, target]
+        x_columns = [values[start - lag : n_time - lag, source] for source, lag, _ in parents]
+        x = np.column_stack(x_columns)
+        x_std = x.std(axis=0, ddof=1)
+        keep = x_std > 1.0e-12
+        if not np.any(keep) or y.std(ddof=1) <= 1.0e-12:
+            continue
+        kept_parents = [parent for parent, ok in zip(parents, keep) if bool(ok)]
+        x = x[:, keep]
+        x = (x - x.mean(axis=0, keepdims=True)) / x.std(axis=0, ddof=1, keepdims=True)
+        y_scaled = (y - y.mean()) / y.std(ddof=1)
+        design = np.column_stack([np.ones(len(x)), x])
+        beta, *_ = np.linalg.lstsq(design, y_scaled, rcond=None)
+        coefficients = beta[1:]
+        residual = y_scaled - design @ beta
+        df = max(1, len(y_scaled) - design.shape[1])
+        sigma2 = float(np.sum(residual**2) / df)
+        try:
+            cov = sigma2 * np.linalg.pinv(design.T @ design)
+            se = np.sqrt(np.maximum(np.diag(cov)[1:], 0.0))
+            t_values = np.divide(coefficients, se, out=np.zeros_like(coefficients), where=se > 1.0e-12)
+            p_values = 2.0 * stats.t.sf(np.abs(t_values), df=df)
+        except np.linalg.LinAlgError:
+            p_values = np.ones_like(coefficients, dtype=float)
+        for (source, lag, selection_p), coefficient, p_value in zip(kept_parents, coefficients, p_values):
+            if abs(float(coefficient)) <= 1.0e-12:
+                continue
+            edges.append(
+                LaggedEdge(
+                    source=int(source),
+                    target=int(target),
+                    lag=int(lag),
+                    coefficient=float(coefficient),
+                    p_value=float(p_value) if np.isfinite(p_value) else float(selection_p),
+                )
+            )
     return edges
+
+
+def _threshold_edges_by_link_density(
+    candidates: Sequence[LaggedEdge],
+    *,
+    n_components: int,
+    link_density: float,
+) -> list[LaggedEdge]:
+    if not candidates:
+        return []
+    density = min(max(float(link_density), 0.0), 1.0)
+    target_pairs = max(1, int(round(density * int(n_components) * (int(n_components) - 1))))
+    cross_pair_strength: dict[tuple[int, int], float] = {}
+    for edge in candidates:
+        if int(edge.source) == int(edge.target):
+            continue
+        key = (int(edge.source), int(edge.target))
+        cross_pair_strength[key] = max(cross_pair_strength.get(key, 0.0), abs(float(edge.coefficient)))
+    if not cross_pair_strength:
+        return list(candidates)
+    ordered = sorted(cross_pair_strength.values(), reverse=True)
+    threshold = ordered[min(target_pairs, len(ordered)) - 1]
+    return [edge for edge in candidates if abs(float(edge.coefficient)) >= threshold]
 
 
 def _discover_causal_edges_regression(weekly_scores: pd.DataFrame, *, max_lag: int, pc_alpha: float) -> list[LaggedEdge]:
@@ -301,10 +472,14 @@ def _discover_causal_edges_regression(weekly_scores: pd.DataFrame, *, max_lag: i
 
 
 def compute_sem_effects(edges: Sequence[LaggedEdge], *, n_components: int, max_lag: int) -> SemEffects:
-    direct = np.zeros((int(n_components), int(n_components)), dtype=float)
+    n = int(n_components)
+    tau_max = int(max_lag)
+    coefficient_matrices = np.zeros((tau_max + 1, n, n), dtype=float)
     direct_rows: list[dict[str, float | int]] = []
     for edge in edges:
-        direct[edge.source, edge.target] += float(edge.coefficient)
+        if not 1 <= int(edge.lag) <= tau_max:
+            continue
+        coefficient_matrices[int(edge.lag), int(edge.target), int(edge.source)] += float(edge.coefficient)
         direct_rows.append(
             {
                 "source": int(edge.source),
@@ -315,60 +490,76 @@ def compute_sem_effects(edges: Sequence[LaggedEdge], *, n_components: int, max_l
             }
         )
 
-    total = np.zeros_like(direct)
-    power = direct.copy()
-    for _ in range(max(1, int(n_components))):
-        total += power
-        power = power @ direct
+    causal_effect_matrices = _compute_causal_effect_matrices(coefficient_matrices)
+    ce_source_target = np.transpose(causal_effect_matrices[:, :, :], (0, 2, 1))
+    ce_max_abs = np.max(np.abs(ce_source_target[1:]), axis=0) if tau_max > 0 else np.zeros((n, n), dtype=float)
+    coefficient_source_target = np.transpose(coefficient_matrices, (0, 2, 1))
+    linear_coefficient_matrix = _collapse_lagged_matrix_by_max_abs(coefficient_source_target)
 
     total_rows = [
-        {"source": source, "target": target, "total_effect": float(total[source, target])}
-        for source in range(int(n_components))
-        for target in range(int(n_components))
-        if source != target and abs(float(total[source, target])) > 1.0e-12
+        {"source": source, "target": target, "lag": lag, "total_effect": float(ce_source_target[lag, source, target])}
+        for lag in range(1, tau_max + 1)
+        for source in range(n)
+        for target in range(n)
+        if source != target and abs(float(ce_source_target[lag, source, target])) > 1.0e-12
     ]
     path_rows: list[dict[str, float | int]] = []
-    for source in range(int(n_components)):
-        for mediator in range(int(n_components)):
-            if source == mediator or abs(direct[source, mediator]) <= 1.0e-12:
+    cmax = max(1, (n - 1) * (n - 2))
+    for mediator in range(n):
+        blocked = coefficient_matrices.copy()
+        blocked[:, mediator, :] = 0.0
+        blocked_ce = np.transpose(_compute_causal_effect_matrices(blocked), (0, 2, 1))
+        mce = ce_source_target - blocked_ce
+        for source in range(n):
+            if source == mediator:
                 continue
-            for target in range(int(n_components)):
+            for target in range(n):
                 if target in (source, mediator):
                     continue
-                mediated = float(direct[source, mediator] * total[mediator, target])
-                if abs(mediated) > 1.0e-12:
-                    path_rows.append(
-                        {
-                            "source": source,
-                            "mediator": mediator,
-                            "target": target,
-                            "amce": mediated,
-                            "abs_amce": abs(mediated),
-                        }
-                    )
+                lag_values = mce[1:, source, target]
+                if len(lag_values) == 0:
+                    continue
+                best_index = int(np.argmax(np.abs(lag_values)))
+                mediated = float(lag_values[best_index])
+                if abs(mediated) <= 1.0e-12:
+                    continue
+                path_rows.append(
+                    {
+                        "source": source,
+                        "mediator": mediator,
+                        "target": target,
+                        "lag": best_index + 1,
+                        "mce": mediated,
+                        "mce_max_abs": abs(mediated),
+                    }
+                )
 
     gateway_rows = []
     mediator_rows = []
-    mediated_total = float(sum(float(row["abs_amce"]) for row in path_rows))
-    for component in range(int(n_components)):
-        outgoing = float(np.sum(np.abs(total[component, :])))
-        incoming = float(np.sum(np.abs(total[:, component])))
+    mediated_total = float(sum(float(row["mce_max_abs"]) for row in path_rows))
+    denom = max(1, n - 1)
+    direct_abs_max = np.max(np.abs(coefficient_source_target[1:]), axis=0) if tau_max > 0 else np.zeros((n, n), dtype=float)
+    for component in range(n):
+        outgoing = float(np.sum(ce_max_abs[component, :]) / denom)
+        incoming = float(np.sum(ce_max_abs[:, component]) / denom)
         gateway_rows.append(
             {
                 "component": component,
                 "ace": outgoing,
                 "acs": incoming,
                 "incoming_total_effect": incoming,
-                "direct_out_strength": float(np.sum(np.abs(direct[component, :]))),
-                "direct_in_strength": float(np.sum(np.abs(direct[:, component]))),
+                "direct_out_strength": float(np.sum(direct_abs_max[component, :]) / denom),
+                "direct_in_strength": float(np.sum(direct_abs_max[:, component]) / denom),
             }
         )
-        mediated = sum(float(row["abs_amce"]) for row in path_rows if int(row["mediator"]) == component)
+        mediated_values = [float(row["mce_max_abs"]) for row in path_rows if int(row["mediator"]) == component]
+        mediated = float(np.mean(mediated_values)) if mediated_values else 0.0
         mediator_rows.append(
             {
                 "component": component,
                 "amce": mediated,
-                "mediated_fraction": float(mediated / mediated_total) if mediated_total > 0.0 else 0.0,
+                "mediated_fraction": float(len(mediated_values) / cmax),
+                "mediated_strength_fraction": float(sum(mediated_values) / mediated_total) if mediated_total > 0.0 else 0.0,
             }
         )
 
@@ -378,7 +569,38 @@ def compute_sem_effects(edges: Sequence[LaggedEdge], *, n_components: int, max_l
         path_effects=pd.DataFrame(path_rows),
         gateway_scores=pd.DataFrame(gateway_rows).sort_values("ace", ascending=False).reset_index(drop=True),
         mediator_scores=pd.DataFrame(mediator_rows).sort_values("amce", ascending=False).reset_index(drop=True),
+        coefficient_matrices=coefficient_matrices,
+        causal_effect_matrices=causal_effect_matrices,
+        linear_coefficient_matrix=linear_coefficient_matrix,
     )
+
+
+def _compute_causal_effect_matrices(coefficient_matrices: np.ndarray) -> np.ndarray:
+    matrices = np.asarray(coefficient_matrices, dtype=float)
+    if matrices.ndim != 3 or matrices.shape[1] != matrices.shape[2]:
+        raise ValueError("coefficient_matrices must have shape [lag, target, source].")
+    tau_max = matrices.shape[0] - 1
+    n = matrices.shape[1]
+    effects = np.zeros_like(matrices)
+    effects[0] = np.eye(n)
+    for tau in range(1, tau_max + 1):
+        total = np.zeros((n, n), dtype=float)
+        for lag in range(1, tau + 1):
+            total += matrices[lag] @ effects[tau - lag]
+        effects[tau] = total
+    return effects
+
+
+def _collapse_lagged_matrix_by_max_abs(matrices: np.ndarray) -> np.ndarray:
+    values = np.asarray(matrices, dtype=float)
+    if values.ndim != 3:
+        raise ValueError("matrices must have shape [lag, source, target].")
+    if values.shape[0] <= 1:
+        return np.zeros(values.shape[1:], dtype=float)
+    lagged = values[1:]
+    best = np.argmax(np.abs(lagged), axis=0)
+    rows, cols = np.indices(best.shape)
+    return lagged[best, rows, cols]
 
 
 def save_ranking_figure(frame: pd.DataFrame, output_path: str | Path, *, title: str) -> Path:
@@ -403,7 +625,8 @@ def save_ranking_figure(frame: pd.DataFrame, output_path: str | Path, *, title: 
     else:
         score_column = "amce" if "amce" in plot_frame.columns else "ace"
         ax.bar(x, plot_frame[score_column], width=0.64, label=score_column.upper(), color="#54a24b")
-    labels = [f"C{int(component) + 1}" for component in plot_frame.get("component", [])]
+    label_column = "paper_component" if "paper_component" in plot_frame.columns else "component"
+    labels = [f"No.{int(component)}" for component in plot_frame.get(label_column, [])]
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=45, ha="right")
     ax.set_ylabel("effect score")
@@ -499,14 +722,21 @@ def dependency_versions() -> dict[str, str]:
     return versions
 
 
+def _paper_component_label(value: object) -> str:
+    return f"No.{int(value)}"
+
+
 def _markdown_table(frame: pd.DataFrame, columns: Sequence[str], *, n: int = 10) -> str:
     subset = frame.loc[:, list(columns)].head(n).copy()
-    lines = ["| " + " | ".join(columns) + " |", "| " + " | ".join(["---"] * len(columns)) + " |"]
+    display_columns = list(columns)
+    lines = ["| " + " | ".join(display_columns) + " |", "| " + " | ".join(["---"] * len(display_columns)) + " |"]
     for row in subset.to_dict("records"):
         cells = []
         for column in columns:
             value = row[column]
-            if isinstance(value, float):
+            if column in {"component", "paper_component"}:
+                cells.append(_paper_component_label(value))
+            elif isinstance(value, float):
                 cells.append(f"{value:.6g}")
             else:
                 cells.append(str(value))
@@ -529,17 +759,19 @@ def write_summary_report(
         "",
         "## Method",
         "",
-        "- Daily SLP fields are restricted to the configured year range, transformed to standardized daily anomalies, and latitude-area weighted.",
-        "- The weighted anomaly matrix is reduced to Varimax-rotated PCA components.",
+        "- Daily SLP fields are restricted to the configured year range, transformed to standardized daily anomalies, linearly detrended, and latitude-area weighted.",
+        "- Varimax-rotated PCA components are fitted on monthly fields when enough monthly samples are available, then projected back to daily fields.",
         "- Component scores are aggregated to weekly resolution.",
-        "- Lagged causal links are reconstructed with the configured backend; the full reproduction uses Tigramite PCMCI with ParCorr.",
-        "- Causal gateways are ranked by outgoing average causal effect (ACE), susceptibility by incoming total effect (ACS), and mediators by absolute mediated causal effect (AMCE).",
+        "- Tigramite/ParCorr selects candidate parents; sparse standardized OLS estimates the lagged causal regression coefficients.",
+        "- Lagged links are thresholded by the configured aggregated cross-link density.",
+        "- Causal effects use the lag-resolved Runge recursion, and gateways/mediators are ranked by ACE, ACS, and AMCE.",
         "",
         "## Run",
         "",
         f"- Years: {manifest['config']['start_year']}-{manifest['config']['end_year']}",
         f"- Components: {manifest['config']['n_components']}",
         f"- Weekly lag maximum: {manifest['config']['max_lag']}",
+        f"- Link density target: {manifest['config']['link_density']}",
         f"- Backend: {manifest['config']['causal_backend']}",
         f"- Daily samples: {manifest['n_daily_samples']}",
         f"- Weekly samples: {manifest['n_weekly_samples']}",
@@ -547,11 +779,11 @@ def write_summary_report(
         "",
         "## Top causal gateways",
         "",
-        _markdown_table(gateway_scores, ["component", "ace", "acs", "direct_out_strength", "direct_in_strength"]),
+        _markdown_table(gateway_scores, ["paper_component", "component", "ace", "acs", "direct_out_strength", "direct_in_strength"]),
         "",
         "## Top causal mediators",
         "",
-        _markdown_table(mediator_scores, ["component", "amce", "mediated_fraction"]),
+        _markdown_table(mediator_scores, ["paper_component", "component", "amce", "mediated_fraction"]),
         "",
         "## Artifacts",
         "",
@@ -560,7 +792,7 @@ def write_summary_report(
         "- `mediator_scores.csv`: component AMCE rankings.",
         "- `mediated_path_effects.csv`: source-mediator-target path effects.",
         "- `component_weekly_scores.csv`: weekly rotated component scores.",
-        "- `fig/runge2015_gateways/*.png`: component maps, network, gateway ranking, and mediator ranking.",
+        "- `fig/runge/2015_gateways/*.png`: component maps, network, gateway ranking, and mediator ranking.",
         "",
     ]
     output.write_text("\n".join(lines), encoding="utf-8")
@@ -593,20 +825,34 @@ def save_outputs(
     edge_rows = [asdict(edge) for edge in edges]
     edge_columns = ["source", "target", "lag", "coefficient", "p_value"]
     with (result_dir / "causal_edges.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=edge_columns)
+        writer = csv.DictWriter(handle, fieldnames=edge_columns, lineterminator="\n")
         writer.writeheader()
         writer.writerows(edge_rows)
+
+    gateway_scores = apply_paper_component_labels(effects.gateway_scores)
+    mediator_scores = apply_paper_component_labels(effects.mediator_scores)
 
     effects.direct_effects.to_csv(result_dir / "direct_effects.csv", index=False)
     effects.total_effects.to_csv(result_dir / "total_effects.csv", index=False)
     effects.path_effects.to_csv(result_dir / "mediated_path_effects.csv", index=False)
-    effects.gateway_scores.to_csv(result_dir / "gateway_scores.csv", index=False)
-    effects.mediator_scores.to_csv(result_dir / "mediator_scores.csv", index=False)
+    gateway_scores.to_csv(result_dir / "gateway_scores.csv", index=False)
+    mediator_scores.to_csv(result_dir / "mediator_scores.csv", index=False)
+    pd.DataFrame(
+        effects.linear_coefficient_matrix,
+        index=weekly_scores.columns,
+        columns=weekly_scores.columns,
+    ).to_csv(result_dir / "linear_coefficient_matrix.csv")
+    np.savez_compressed(
+        result_dir / "lagged_linear_matrices.npz",
+        coefficient_matrices=effects.coefficient_matrices,
+        causal_effect_matrices=effects.causal_effect_matrices,
+        component_names=np.asarray(list(weekly_scores.columns), dtype=object),
+    )
 
     save_component_map_figure(component_maps, fig_dir / "component_maps.png")
     save_causal_network_figure(edges, fig_dir / "causal_network.png", n_components=config.n_components)
-    save_ranking_figure(effects.gateway_scores, fig_dir / "gateway_ranking.png", title="Causal gateway ranking")
-    save_ranking_figure(effects.mediator_scores, fig_dir / "mediator_ranking.png", title="Causal mediator ranking")
+    save_ranking_figure(gateway_scores, fig_dir / "gateway_ranking.png", title="Causal gateway ranking")
+    save_ranking_figure(mediator_scores, fig_dir / "mediator_ranking.png", title="Causal mediator ranking")
 
     manifest: dict[str, object] = {
         "config": {key: str(value) if isinstance(value, Path) else value for key, value in asdict(config).items()},
@@ -615,15 +861,17 @@ def save_outputs(
         "n_daily_samples": int(len(daily_scores)),
         "n_weekly_samples": int(len(weekly_scores)),
         "n_edges": int(len(edges)),
-        "top_gateways": effects.gateway_scores.head(10).to_dict("records"),
-        "top_mediators": effects.mediator_scores.head(10).to_dict("records"),
+        "n_linear_matrix_elements": int(effects.linear_coefficient_matrix.size),
+        "paper_component_label_map": DEFAULT_PAPER_COMPONENT_LABEL_MAP,
+        "top_gateways": gateway_scores.head(10).to_dict("records"),
+        "top_mediators": mediator_scores.head(10).to_dict("records"),
     }
     (result_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     write_summary_report(
         result_dir / "summary.md",
         manifest=manifest,
-        gateway_scores=effects.gateway_scores,
-        mediator_scores=effects.mediator_scores,
+        gateway_scores=gateway_scores,
+        mediator_scores=mediator_scores,
     )
     return manifest
 
@@ -631,8 +879,11 @@ def save_outputs(
 def run_pipeline(config: RungeConfig) -> dict[str, object]:
     ensure_causal_backend_available(config.causal_backend)
     slp = load_daily_slp(config.data_dir, config.start_year, config.end_year)
-    standardized = standardize_daily_anomalies(slp)
-    daily_scores, component_maps, explained = fit_varimax_components(
+    standardized = detrend_time_axis(standardize_daily_anomalies(slp))
+    monthly = standardized.resample(time="MS").mean()
+    fit_field = monthly if int(monthly.sizes["time"]) >= int(config.n_components) else standardized
+    daily_scores, component_maps, explained = fit_projected_varimax_components(
+        fit_field,
         standardized,
         n_components=config.n_components,
         seed=config.seed,
@@ -642,6 +893,7 @@ def run_pipeline(config: RungeConfig) -> dict[str, object]:
         weekly_scores,
         max_lag=config.max_lag,
         pc_alpha=config.pc_alpha,
+        link_density=config.link_density,
         backend=config.causal_backend,
     )
     effects = compute_sem_effects(edges, n_components=config.n_components, max_lag=config.max_lag)
@@ -666,6 +918,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--n-components", type=int, default=60)
     parser.add_argument("--max-lag", type=int, default=RungeConfig.max_lag)
     parser.add_argument("--pc-alpha", type=float, default=RungeConfig.pc_alpha)
+    parser.add_argument("--link-density", type=float, default=RungeConfig.link_density)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--causal-backend", choices=["tigramite", "regression"], default="tigramite")
     return parser.parse_args(argv)
@@ -682,6 +935,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         n_components=args.n_components,
         max_lag=args.max_lag,
         pc_alpha=args.pc_alpha,
+        link_density=args.link_density,
         seed=args.seed,
         causal_backend=args.causal_backend,
     )

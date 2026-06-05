@@ -1,0 +1,147 @@
+{
+  "block_size": 26,
+  "horizons": {
+    "1": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7313237822665067,
+        "bootstrap_ci95": [
+          0.00028939774364644124,
+          0.0011374959404842453
+        ],
+        "bootstrap_p_improvement_le_0": 0.0002,
+        "rmse_improvement": 0.000704838774778116,
+        "rnn_rmse": 0.7306189434917286
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7313237822665067,
+        "bootstrap_ci95": [
+          0.00028939774364644124,
+          0.0011374959404842453
+        ],
+        "bootstrap_p_improvement_le_0": 0.0002,
+        "rmse_improvement": 0.000704838774778116,
+        "rnn_rmse": 0.7306189434917286
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7322487662527023,
+        "bootstrap_ci95": [
+          0.0012938580179163162,
+          0.002026272962219966
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.001629822760973676,
+        "rnn_rmse": 0.7306189434917286
+      }
+    },
+    "2": {
+      "BestBaseline": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7746094919468816,
+        "bootstrap_ci95": [
+          0.0001078015008495359,
+          0.001004563067759992
+        ],
+        "bootstrap_p_improvement_le_0": 0.0038,
+        "rmse_improvement": 0.00050577013816544,
+        "rnn_rmse": 0.7741037218087161
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7764196048616077,
+        "bootstrap_ci95": [
+          0.0018721473647572233,
+          0.0028160373500778794
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.002315883052891543,
+        "rnn_rmse": 0.7741037218087161
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7746094919468816,
+        "bootstrap_ci95": [
+          0.0001078015008495359,
+          0.001004563067759992
+        ],
+        "bootstrap_p_improvement_le_0": 0.0038,
+        "rmse_improvement": 0.00050577013816544,
+        "rnn_rmse": 0.7741037218087161
+      }
+    },
+    "4": {
+      "BestBaseline": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7867044866179127,
+        "bootstrap_ci95": [
+          0.0,
+          0.0
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": 0.0,
+        "rnn_rmse": 0.7867044866179127
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7888973531989105,
+        "bootstrap_ci95": [
+          0.0015540379140523725,
+          0.0028317008212387137
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.002192866580997821,
+        "rnn_rmse": 0.7867044866179127
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7867044866179127,
+        "bootstrap_ci95": [
+          0.0,
+          0.0
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": 0.0,
+        "rnn_rmse": 0.7867044866179127
+      }
+    },
+    "8": {
+      "BestBaseline": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7891679585693003,
+        "bootstrap_ci95": [
+          2.29865409660246e-06,
+          0.000669579349864293
+        ],
+        "bootstrap_p_improvement_le_0": 0.0242,
+        "rmse_improvement": 0.00030404287088359183,
+        "rnn_rmse": 0.7888639156984167
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.790742853515471,
+        "bootstrap_ci95": [
+          0.00125386214914813,
+          0.002511827157798796
+        ],
+        "bootstrap_p_improvement_le_0": 0.0,
+        "rmse_improvement": 0.0018789378170542825,
+        "rnn_rmse": 0.7888639156984167
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7891679585693003,
+        "bootstrap_ci95": [
+          2.29865409660246e-06,
+          0.000669579349864293
+        ],
+        "bootstrap_p_improvement_le_0": 0.0242,
+        "rmse_improvement": 0.00030404287088359183,
+        "rnn_rmse": 0.7888639156984167
+      }
+    }
+  },
+  "method": "paired_circular_block_bootstrap",
+  "reps": 5000
+}

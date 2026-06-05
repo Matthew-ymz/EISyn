@@ -1,0 +1,12 @@
+{
+  "ei_nonzero_elements": 2990,
+  "linear_nonzero_elements": 766,
+  "n_elements": 3600,
+  "n_off_diagonal_elements": 3540,
+  "off_diagonal_pearson_abs_linear_vs_ei": 0.6983017292014276,
+  "off_diagonal_spearman_abs_linear_vs_ei": 0.4827170198983785,
+  "off_diagonal_support_match_fraction": 0.35706214689265536,
+  "pearson_abs_linear_vs_ei": 0.8329132428042171,
+  "spearman_abs_linear_vs_ei": 0.5163493332793295,
+  "support_match_fraction": 0.36777777777777776
+}

@@ -1,0 +1,147 @@
+{
+  "block_size": 26,
+  "horizons": {
+    "1": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7465891936625257,
+        "bootstrap_ci95": [
+          -0.000856160356431393,
+          0.00017733685750068165
+        ],
+        "bootstrap_p_improvement_le_0": 0.9064,
+        "rmse_improvement": -0.000342418109994469,
+        "rnn_rmse": 0.7469316117725202
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7465891936625257,
+        "bootstrap_ci95": [
+          -0.000856160356431393,
+          0.00017733685750068165
+        ],
+        "bootstrap_p_improvement_le_0": 0.9064,
+        "rmse_improvement": -0.000342418109994469,
+        "rnn_rmse": 0.7469316117725202
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7469316117725202,
+        "bootstrap_ci95": [
+          0.0,
+          0.0
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": 0.0,
+        "rnn_rmse": 0.7469316117725202
+      }
+    },
+    "2": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7843048209998511,
+        "bootstrap_ci95": [
+          -0.0039198071476898525,
+          -0.0025647661885084246
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.003291835871219728,
+        "rnn_rmse": 0.7875966568710708
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.7843048209998511,
+        "bootstrap_ci95": [
+          -0.0039198071476898525,
+          -0.0025647661885084246
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.003291835871219728,
+        "rnn_rmse": 0.7875966568710708
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7874947451274433,
+        "bootstrap_ci95": [
+          -0.0002867082568865753,
+          7.54024106872252e-05
+        ],
+        "bootstrap_p_improvement_le_0": 0.8714,
+        "rmse_improvement": -0.00010191174362750299,
+        "rnn_rmse": 0.7875966568710708
+      }
+    },
+    "4": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.795715926735329,
+        "bootstrap_ci95": [
+          -0.004301001759371268,
+          -0.002804284523274442
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.0035828595329674418,
+        "rnn_rmse": 0.7992987862682964
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.795715926735329,
+        "bootstrap_ci95": [
+          -0.004301001759371268,
+          -0.002804284523274442
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.0035828595329674418,
+        "rnn_rmse": 0.7992987862682964
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.7994616695533141,
+        "bootstrap_ci95": [
+          -1.588357310658983e-05,
+          0.00034522217184218817
+        ],
+        "bootstrap_p_improvement_le_0": 0.039,
+        "rmse_improvement": 0.00016288328501767868,
+        "rnn_rmse": 0.7992987862682964
+      }
+    },
+    "8": {
+      "BestBaseline": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.798072787816977,
+        "bootstrap_ci95": [
+          -0.004253203263975764,
+          -0.0027076829125519514
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.003497644375604403,
+        "rnn_rmse": 0.8015704321925814
+      },
+      "MLP": {
+        "baseline_model": "MLP",
+        "baseline_rmse": 0.798072787816977,
+        "bootstrap_ci95": [
+          -0.004253203263975764,
+          -0.0027076829125519514
+        ],
+        "bootstrap_p_improvement_le_0": 1.0,
+        "rmse_improvement": -0.003497644375604403,
+        "rnn_rmse": 0.8015704321925814
+      },
+      "TunedRidge": {
+        "baseline_model": "TunedRidge",
+        "baseline_rmse": 0.801536243749031,
+        "bootstrap_ci95": [
+          -0.000311693812740238,
+          0.000223604829754459
+        ],
+        "bootstrap_p_improvement_le_0": 0.5918,
+        "rmse_improvement": -3.4188443550409175e-05,
+        "rnn_rmse": 0.8015704321925814
+      }
+    }
+  },
+  "method": "paired_circular_block_bootstrap",
+  "reps": 5000
+}
