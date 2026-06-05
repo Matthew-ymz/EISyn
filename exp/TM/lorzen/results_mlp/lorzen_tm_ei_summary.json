@@ -1,0 +1,35 @@
+{
+  "metrics": {
+    "top_k": 4,
+    "accuracy": 1.0,
+    "f1": 1.0,
+    "auc": 0.990234375,
+    "estimator_mode": "mlp_intervention",
+    "target_mode": "next",
+    "lag": 15,
+    "node_count": 8,
+    "steps": 8000,
+    "burn_in": 1000,
+    "dt": 0.01,
+    "forcing": 8.0,
+    "train_sample_count": 5000,
+    "intervention_sample_count": 3000,
+    "box_width": 8.0,
+    "seed": 4,
+    "train_r2": 0.9971425262954028,
+    "test_r2": 0.9964748092813387,
+    "mlp_iterations": 180,
+    "reference_style_accuracy": 1.0,
+    "reference_style_f1": 1.0,
+    "reference_style_auc": 0.990234375
+  },
+  "artifacts": {
+    "ei_matrix": "exp/TM/lorzen/results_mlp/lorzen_tm_ei_matrix.csv",
+    "edge_table": "exp/TM/lorzen/results_mlp/lorzen_tm_ei_edges.csv",
+    "topk_graph": "exp/TM/lorzen/results_mlp/lorzen_tm_ei_topk_graph.csv",
+    "groundtruth": "exp/TM/lorzen/results_mlp/lorzen_lorenz96_groundtruth.csv",
+    "heatmap": "exp/TM/lorzen/results_mlp/lorzen_tm_ei_heatmap.png",
+    "causal_graph": "exp/TM/lorzen/results_mlp/lorzen_ei_causal_graph.png",
+    "training_history": "exp/TM/lorzen/results_mlp/lorzen_mlp_training_history.csv"
+  }
+}

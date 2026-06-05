@@ -3,6 +3,7 @@
 Thumbs.db
 .vscode/
 .idea/
+.sedna/
 
 # Python
 __pycache__/
@@ -42,6 +43,10 @@ exp/tmp/
 exp/**/tmp/
 exp/cache/
 results/
+fig/
+!fig/
+!fig/runge2015_gateways/
+!fig/runge2015_gateways/fig4cd_reproduction.png
 fig/**/artifacts/
 *.pt
 *.pth

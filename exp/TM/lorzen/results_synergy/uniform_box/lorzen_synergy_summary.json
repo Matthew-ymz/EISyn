@@ -1,0 +1,51 @@
+{
+  "sample_mode": "uniform_box",
+  "sample_count": 3000,
+  "box_width": 8.0,
+  "forcing": 8.0,
+  "seed": 4,
+  "product_terms": {
+    "full_interaction_neg_pair": {
+      "joint_ei_mean": 0.3495951647332066,
+      "left_ei_mean": 0.0,
+      "right_ei_mean": 0.0007771875885868571,
+      "syn_mean": 0.3488179771446197
+    },
+    "full_interaction_pos_pair": {
+      "joint_ei_mean": 0.3507241229608282,
+      "left_ei_mean": 0.00019351787925491037,
+      "right_ei_mean": 0.0007771875885868571,
+      "syn_mean": 0.3497534174929864
+    },
+    "negative_product": {
+      "joint_ei_mean": 8.736665440140225,
+      "left_ei_mean": 0.00021384849770381896,
+      "right_ei_mean": 0.0005721170692694681,
+      "syn_mean": 8.73587947457325
+    },
+    "positive_product": {
+      "joint_ei_mean": 8.737937739959483,
+      "left_ei_mean": 0.0005214231903907601,
+      "right_ei_mean": 0.0004953416153607724,
+      "syn_mean": 8.736920975153732
+    }
+  },
+  "rhs_terms": {
+    "linear_self": {
+      "joint_ei_mean": 0.04452645645845024,
+      "synergy_mean": 0.0
+    },
+    "negative_product_pair": {
+      "joint_ei_mean": 0.31112915831230514,
+      "synergy_mean": 0.31029566423824917
+    },
+    "positive_product_pair": {
+      "joint_ei_mean": 0.3066034451057831,
+      "synergy_mean": 0.30567572054606057
+    }
+  },
+  "artifacts": {
+    "product_synergy": "exp/TM/lorzen/results_synergy/uniform_box/lorzen_product_synergy.csv",
+    "rhs_synergy": "exp/TM/lorzen/results_synergy/uniform_box/lorzen_rhs_synergy.csv"
+  }
+}
