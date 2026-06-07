@@ -56,9 +56,14 @@ class RungeRnnForecastConfig:
     horizons: tuple[int, ...] = (1, 2, 4, 8)
     rnn_type: str = "gru"
     rnn_objective: str = "direct_multihorizon"
+    device: str = "auto"
     hidden_dim: int = 192
     num_layers: int = 1
     dropout: float = 0.0
+    transformer_nhead: int = 4
+    transformer_dim_feedforward: int = 384
+    transformer_pooling: str = "last"
+    transformer_positional_encoding: str = "learned"
     epochs: int = 160
     learning_rate: float = 8.0e-4
     batch_size: int = 256
@@ -110,6 +115,43 @@ def _jsonable_config(config: RungeRnnForecastConfig) -> dict[str, object]:
     data["dropout_grid"] = list(config.dropout_grid)
     data["weight_decay_grid"] = list(config.weight_decay_grid)
     return data
+
+
+def primary_model_name(config: RungeRnnForecastConfig | None = None, *, rnn_type: str | None = None) -> str:
+    value = str(rnn_type if rnn_type is not None else getattr(config, "rnn_type", "rnn")).lower()
+    return "Transformer" if value == "transformer" else "RNN"
+
+
+def resolve_torch_device(requested: str):
+    import torch
+
+    value = str(requested).lower()
+    if value == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+    if value == "cuda" and not torch.cuda.is_available():
+        return torch.device("cpu")
+    if value == "mps" and not (getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available()):
+        return torch.device("cpu")
+    if value not in {"cpu", "cuda", "mps"}:
+        raise ValueError("device must be 'auto', 'cpu', 'mps', or 'cuda'.")
+    return torch.device(value)
+
+
+def _state_dict_cpu(model: object) -> dict[str, object]:
+    return {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+
+
+def _model_device(model: object):
+    import torch
+
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return torch.device("cpu")
 
 
 def parse_int_tuple(text: str | Sequence[int] | None) -> tuple[int, ...]:
@@ -304,6 +346,124 @@ class RnnTransition:
         return _Net()
 
 
+class TransformerTransition:
+    def __new__(
+        cls,
+        *,
+        input_size: int,
+        output_dim: int,
+        lag: int,
+        hidden_dim: int,
+        num_layers: int,
+        dropout: float,
+        transformer_nhead: int,
+        transformer_dim_feedforward: int,
+        transformer_pooling: str,
+        transformer_positional_encoding: str,
+        use_linear_skip: bool,
+    ):
+        import math
+        import torch
+
+        if int(transformer_nhead) < 1:
+            raise ValueError("transformer_nhead must be positive.")
+        if int(hidden_dim) % int(transformer_nhead) != 0:
+            raise ValueError("hidden_dim must be divisible by transformer_nhead.")
+        if str(transformer_pooling) not in {"last", "mean"}:
+            raise ValueError("transformer_pooling must be 'last' or 'mean'.")
+        if str(transformer_positional_encoding) not in {"learned", "sinusoidal"}:
+            raise ValueError("transformer_positional_encoding must be 'learned' or 'sinusoidal'.")
+        feedforward_dim = int(transformer_dim_feedforward) if int(transformer_dim_feedforward) > 0 else int(hidden_dim) * 4
+
+        class _Net(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.lag = int(lag)
+                self.input_size = int(input_size)
+                self.pooling = str(transformer_pooling)
+                self.positional_encoding_kind = str(transformer_positional_encoding)
+                self.residual_scale = 1.0
+                self.input_projection = torch.nn.Linear(int(input_size), int(hidden_dim))
+                if self.positional_encoding_kind == "learned":
+                    self.position = torch.nn.Parameter(torch.zeros(1, int(lag), int(hidden_dim)))
+                    torch.nn.init.normal_(self.position, mean=0.0, std=0.02)
+                else:
+                    positions = torch.arange(int(lag), dtype=torch.float32).unsqueeze(1)
+                    div_term = torch.exp(
+                        torch.arange(0, int(hidden_dim), 2, dtype=torch.float32)
+                        * (-math.log(10000.0) / max(1, int(hidden_dim)))
+                    )
+                    encoding = torch.zeros(int(lag), int(hidden_dim), dtype=torch.float32)
+                    encoding[:, 0::2] = torch.sin(positions * div_term)
+                    if int(hidden_dim) > 1:
+                        encoding[:, 1::2] = torch.cos(positions * div_term[: encoding[:, 1::2].shape[1]])
+                    self.register_buffer("position", encoding.unsqueeze(0), persistent=False)
+                layer = torch.nn.TransformerEncoderLayer(
+                    d_model=int(hidden_dim),
+                    nhead=int(transformer_nhead),
+                    dim_feedforward=feedforward_dim,
+                    dropout=float(dropout),
+                    activation="gelu",
+                    batch_first=True,
+                    norm_first=True,
+                )
+                self.encoder = torch.nn.TransformerEncoder(layer, num_layers=max(1, int(num_layers)))
+                self.output_norm = torch.nn.LayerNorm(int(hidden_dim))
+                self.head = torch.nn.Linear(int(hidden_dim), int(output_dim))
+                self.skip = torch.nn.Linear(int(lag) * int(input_size), int(output_dim)) if use_linear_skip else None
+                if self.skip is not None:
+                    torch.nn.init.zeros_(self.head.weight)
+                    torch.nn.init.zeros_(self.head.bias)
+
+            def forward(self, x):
+                sequence = x.reshape(x.shape[0], self.lag, self.input_size)
+                tokens = self.input_projection(sequence) + self.position[:, : self.lag, :].to(sequence.device)
+                encoded = self.encoder(tokens)
+                if self.pooling == "mean":
+                    pooled = encoded.mean(dim=1)
+                else:
+                    pooled = encoded[:, -1, :]
+                output = self.head(self.output_norm(pooled)) * float(self.residual_scale)
+                if self.skip is not None:
+                    output = output + self.skip(x)
+                return output
+
+        return _Net()
+
+
+def build_transition_model(
+    *,
+    config: RungeRnnForecastConfig,
+    input_size: int,
+    output_dim: int,
+) -> object:
+    rnn_type_lower = str(config.rnn_type).lower()
+    if rnn_type_lower == "transformer":
+        return TransformerTransition(
+            input_size=int(input_size),
+            output_dim=int(output_dim),
+            lag=int(config.lag),
+            hidden_dim=int(config.hidden_dim),
+            num_layers=int(config.num_layers),
+            dropout=float(config.dropout),
+            transformer_nhead=int(config.transformer_nhead),
+            transformer_dim_feedforward=int(config.transformer_dim_feedforward),
+            transformer_pooling=str(config.transformer_pooling),
+            transformer_positional_encoding=str(config.transformer_positional_encoding),
+            use_linear_skip=bool(config.use_linear_skip),
+        )
+    return RnnTransition(
+        input_size=int(input_size),
+        output_dim=int(output_dim),
+        lag=int(config.lag),
+        hidden_dim=int(config.hidden_dim),
+        num_layers=int(config.num_layers),
+        dropout=float(config.dropout),
+        rnn_type=str(config.rnn_type),
+        use_linear_skip=bool(config.use_linear_skip),
+    )
+
+
 def initialize_linear_skip(model: object, x_scaled: np.ndarray, y_scaled: np.ndarray, *, alpha: float) -> None:
     import torch
 
@@ -312,8 +472,8 @@ def initialize_linear_skip(model: object, x_scaled: np.ndarray, y_scaled: np.nda
         return
     weight, bias = pairwise.fit_ridge_linear_map(x_scaled, y_scaled, alpha=float(alpha))
     with torch.no_grad():
-        skip.weight.copy_(torch.tensor(weight, dtype=skip.weight.dtype))
-        skip.bias.copy_(torch.tensor(bias, dtype=skip.bias.dtype))
+        skip.weight.copy_(torch.tensor(weight, dtype=skip.weight.dtype, device=skip.weight.device))
+        skip.bias.copy_(torch.tensor(bias, dtype=skip.bias.dtype, device=skip.bias.device))
 
 
 def _scale_rollout_targets(targets: np.ndarray, y_mean: np.ndarray, y_std: np.ndarray, *, n_components: int) -> np.ndarray:
@@ -366,25 +526,38 @@ def train_or_load_rnn(
 ) -> tuple[object, dict[str, np.ndarray], list[float], bool]:
     import torch
 
+    device = resolve_torch_device(str(config.device))
     x_train, y_train = splits["train"]
     rollout_objective = str(config.rnn_objective) == "rollout_multistep"
     output_dim = int(n_components) if rollout_objective else y_train.shape[1]
     if model_path.exists() and not config.force_retrain:
         payload = torch.load(model_path, map_location="cpu", weights_only=False)
         if payload.get("config_hash") == config_hash:
-            model = RnnTransition(
-                input_size=int(n_components),
-                output_dim=output_dim,
-                lag=int(config.lag),
+            model_config = replace(
+                config,
                 hidden_dim=int(payload["hidden_dim"]),
                 num_layers=int(payload["num_layers"]),
                 dropout=float(payload["dropout"]),
                 rnn_type=str(payload["rnn_type"]),
                 use_linear_skip=bool(payload["use_linear_skip"]),
+                transformer_nhead=int(payload.get("transformer_nhead", config.transformer_nhead)),
+                transformer_dim_feedforward=int(
+                    payload.get("transformer_dim_feedforward", config.transformer_dim_feedforward)
+                ),
+                transformer_pooling=str(payload.get("transformer_pooling", config.transformer_pooling)),
+                transformer_positional_encoding=str(
+                    payload.get("transformer_positional_encoding", config.transformer_positional_encoding)
+                ),
+            )
+            model = build_transition_model(
+                config=model_config,
+                input_size=int(n_components),
+                output_dim=output_dim,
             )
             model.load_state_dict(payload["model_state_dict"])
             model.residual_scale = float(payload.get("residual_scale", 1.0))
             model.training_summary = dict(payload.get("training_summary", {}))
+            model.to(device)
             scalers = {
                 "x_mean": np.asarray(payload["x_mean"], dtype=np.float32),
                 "x_std": np.asarray(payload["x_std"], dtype=np.float32),
@@ -394,7 +567,8 @@ def train_or_load_rnn(
             return model, scalers, list(payload.get("loss_history", [])), True
 
     torch.manual_seed(int(config.seed))
-    torch.set_num_threads(1)
+    if device.type == "cpu":
+        torch.set_num_threads(1)
     x_train_scaled, x_mean, x_std = pairwise._standardize(x_train, x_train)
     if rollout_objective:
         y_train_base = np.asarray(y_train[:, : int(n_components)], dtype=np.float32)
@@ -408,16 +582,12 @@ def train_or_load_rnn(
         y_val_scaled = _scale_rollout_targets(y_val, y_mean, y_std, n_components=int(n_components))
     else:
         y_val_scaled = (np.asarray(y_val, dtype=np.float32) - y_mean) / y_std
-    model = RnnTransition(
+    model = build_transition_model(
+        config=config,
         input_size=int(n_components),
         output_dim=output_dim,
-        lag=int(config.lag),
-        hidden_dim=int(config.hidden_dim),
-        num_layers=int(config.num_layers),
-        dropout=float(config.dropout),
-        rnn_type=str(config.rnn_type),
-        use_linear_skip=bool(config.use_linear_skip),
     )
+    model.to(device)
     skip_targets = y_train_scaled[:, : int(n_components)] if rollout_objective else y_train_scaled
     initialize_linear_skip(model, x_train_scaled, skip_targets, alpha=float(ridge_alpha))
     if bool(config.freeze_linear_skip) and getattr(model, "skip", None) is not None:
@@ -435,13 +605,13 @@ def train_or_load_rnn(
         patience=max(1, int(config.scheduler_patience)),
     )
     loss_fn = torch.nn.MSELoss()
-    x_tensor = torch.tensor(x_train_scaled, dtype=torch.float32)
-    y_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
-    x_val_tensor = torch.tensor(x_val_scaled, dtype=torch.float32)
-    y_val_tensor = torch.tensor(y_val_scaled, dtype=torch.float32)
+    x_tensor = torch.tensor(x_train_scaled, dtype=torch.float32, device=device)
+    y_tensor = torch.tensor(y_train_scaled, dtype=torch.float32, device=device)
+    x_val_tensor = torch.tensor(x_val_scaled, dtype=torch.float32, device=device)
+    y_val_tensor = torch.tensor(y_val_scaled, dtype=torch.float32, device=device)
     batch_size = max(1, min(int(config.batch_size), len(x_tensor)))
     generator = torch.Generator().manual_seed(int(config.seed))
-    best_state = {key: value.detach().clone() for key, value in model.state_dict().items()}
+    best_state = _state_dict_cpu(model)
     best_epoch = 0
     best_train_loss = float("inf")
     model.eval()
@@ -469,7 +639,7 @@ def train_or_load_rnn(
         losses: list[float] = []
         model.train()
         for start in range(0, len(order), batch_size):
-            batch = order[start : start + batch_size]
+            batch = order[start : start + batch_size].to(device)
             optimizer.zero_grad(set_to_none=True)
             if rollout_objective:
                 loss = _rollout_loss(
@@ -512,7 +682,7 @@ def train_or_load_rnn(
             best_val_loss = val_loss
             best_train_loss = train_loss
             best_epoch = len(loss_history)
-            best_state = {key: value.detach().clone() for key, value in model.state_dict().items()}
+            best_state = _state_dict_cpu(model)
             epochs_without_improvement = 0
         else:
             epochs_without_improvement += 1
@@ -520,7 +690,7 @@ def train_or_load_rnn(
             stopped_early = True
             break
 
-    final_state = {key: value.detach().clone() for key, value in model.state_dict().items()}
+    final_state = _state_dict_cpu(model)
     residual_scale = 1.0
     if bool(config.residual_shrinkage) and getattr(model, "skip", None) is not None:
         gamma_values = np.linspace(
@@ -564,6 +734,7 @@ def train_or_load_rnn(
     model.training_summary = {
         "type": f"{config.rnn_type}_transition",
         "training_objective": str(config.rnn_objective),
+        "device": str(device),
         "horizons": [int(horizon) for horizon in horizons],
         "train_loss_history": loss_history,
         "val_loss_history": val_loss_history,
@@ -583,6 +754,10 @@ def train_or_load_rnn(
             "num_layers": int(config.num_layers),
             "dropout": float(config.dropout),
             "rnn_type": str(config.rnn_type),
+            "transformer_nhead": int(config.transformer_nhead),
+            "transformer_dim_feedforward": int(config.transformer_dim_feedforward),
+            "transformer_pooling": str(config.transformer_pooling),
+            "transformer_positional_encoding": str(config.transformer_positional_encoding),
             "horizons": [int(horizon) for horizon in horizons],
             "use_linear_skip": bool(config.use_linear_skip),
             "model_state_dict": model.state_dict(),
@@ -600,7 +775,16 @@ def train_or_load_rnn(
 
 
 def predict_torch_model(model: object, scalers: dict[str, np.ndarray], features: np.ndarray) -> np.ndarray:
-    return pairwise.predict_mlp(model, scalers, features)
+    import torch
+
+    values = np.asarray(features, dtype=np.float32)
+    scaled = (values - scalers["x_mean"]) / scalers["x_std"]
+    device = _model_device(model)
+    model.eval()
+    with torch.no_grad():
+        pred_tensor = model(torch.tensor(scaled, dtype=torch.float32, device=device)).detach().cpu()
+        pred = np.asarray(pred_tensor.tolist(), dtype=np.float32)
+    return pred * scalers["y_std"] + scalers["y_mean"]
 
 
 def predict_direct_horizons(
@@ -611,7 +795,7 @@ def predict_direct_horizons(
     horizons: Sequence[int],
     n_components: int,
 ) -> dict[int, np.ndarray]:
-    raw = pairwise.predict_mlp(model, scalers, features)
+    raw = predict_torch_model(model, scalers, features)
     predictions: dict[int, np.ndarray] = {}
     for idx, horizon in enumerate(horizons):
         start = idx * int(n_components)
@@ -740,13 +924,14 @@ def compute_prediction_significance(
     reps: int,
     block_size: int,
     seed: int,
+    primary_model: str = "RNN",
 ) -> dict[str, object]:
     rng = np.random.default_rng(int(seed) + 2909)
     horizon_results: dict[str, object] = {}
     comparisons = ["MLP", "TunedRidge", "BestBaseline"]
     for horizon in sorted(targets_by_horizon):
         target = np.asarray(targets_by_horizon[int(horizon)], dtype=float)
-        rnn_pred = np.asarray(forecasts["RNN"][int(horizon)], dtype=float)
+        primary_pred = np.asarray(forecasts[str(primary_model)][int(horizon)], dtype=float)
         baseline_preds = {
             "MLP": np.asarray(forecasts["MLP"][int(horizon)], dtype=float),
             "TunedRidge": np.asarray(forecasts["TunedRidge"][int(horizon)], dtype=float),
@@ -755,7 +940,7 @@ def compute_prediction_significance(
         best_name = min(baseline_rmse, key=baseline_rmse.get)
         baseline_preds["BestBaseline"] = baseline_preds[best_name]
         baseline_rmse["BestBaseline"] = baseline_rmse[best_name]
-        observed_rnn_rmse = _rmse_from_rows(rnn_pred, target)
+        observed_primary_rmse = _rmse_from_rows(primary_pred, target)
         rows_by_rep = [
             _circular_block_indices(len(target), block_size=int(block_size), rng=rng)
             for _ in range(max(1, int(reps)))
@@ -764,16 +949,19 @@ def compute_prediction_significance(
         for comparison in comparisons:
             improvements = np.asarray(
                 [
-                    _rmse_from_rows(baseline_preds[comparison], target, rows) - _rmse_from_rows(rnn_pred, target, rows)
+                    _rmse_from_rows(baseline_preds[comparison], target, rows)
+                    - _rmse_from_rows(primary_pred, target, rows)
                     for rows in rows_by_rep
                 ],
                 dtype=float,
             )
             per_comparison[comparison] = {
                 "baseline_model": best_name if comparison == "BestBaseline" else comparison,
-                "rnn_rmse": float(observed_rnn_rmse),
+                "primary_model": str(primary_model),
+                "primary_rmse": float(observed_primary_rmse),
+                "rnn_rmse": float(observed_primary_rmse),
                 "baseline_rmse": float(baseline_rmse[comparison]),
-                "rmse_improvement": float(baseline_rmse[comparison] - observed_rnn_rmse),
+                "rmse_improvement": float(baseline_rmse[comparison] - observed_primary_rmse),
                 "bootstrap_ci95": [
                     float(np.quantile(improvements, 0.025)),
                     float(np.quantile(improvements, 0.975)),
@@ -783,6 +971,7 @@ def compute_prediction_significance(
         horizon_results[str(int(horizon))] = per_comparison
     return {
         "method": "paired_circular_block_bootstrap",
+        "primary_model": str(primary_model),
         "reps": int(reps),
         "block_size": int(block_size),
         "horizons": horizon_results,
@@ -792,9 +981,27 @@ def compute_prediction_significance(
 def save_metric_plot(metrics: pd.DataFrame, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     overall = metrics[metrics["component"] == "overall"].copy()
-    colors = {"RNN": "#4c78a8", "MLP": "#f58518", "TunedRidge": "#54a24b"}
+    colors = {
+        "RNN": "#4c78a8",
+        "Transformer": "#b279a2",
+        "MLP": "#f58518",
+        "TunedRidge": "#54a24b",
+        "BestBaseline": "#666666",
+    }
     fig, ax = plt.subplots(figsize=(6.8, 3.8), constrained_layout=True)
-    for model_name in ["RNN", "MLP", "TunedRidge"]:
+    preferred_order = [
+        "RNN",
+        "Transformer",
+        "TransformerEnsembleTop2",
+        "TransformerEnsembleTop3",
+        "TransformerEnsembleTop5",
+        "TransformerHorizonSelector",
+        "MLP",
+        "TunedRidge",
+    ]
+    model_order = [name for name in preferred_order if name in set(overall["model"])]
+    model_order.extend([name for name in overall["model"].dropna().unique() if name not in set(model_order) and name != "BestBaseline"])
+    for idx, model_name in enumerate(model_order):
         frame = overall[overall["model"] == model_name].sort_values("horizon")
         if frame.empty:
             continue
@@ -805,7 +1012,7 @@ def save_metric_plot(metrics: pd.DataFrame, output_path: Path) -> Path:
             linewidth=1.8,
             markersize=4.0,
             label=model_name,
-            color=colors.get(model_name),
+            color=colors.get(model_name, f"C{idx}"),
         )
     ax.set_xlabel("Forecast horizon (weeks)")
     ax.set_ylabel("Test RMSE")
@@ -831,8 +1038,50 @@ def add_best_baseline_rows(metrics: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(rows, ignore_index=True)
 
 
-def _rnn_overall_summary(metrics: pd.DataFrame, *, prefix: str) -> dict[str, float]:
-    overall = metrics[(metrics["component"] == "overall") & (metrics["model"] == "RNN")].copy()
+def split_sample_indices(n_samples: int, *, train_fraction: float, val_fraction: float) -> dict[str, np.ndarray]:
+    dummy = np.arange(int(n_samples))
+    splits = pairwise.split_temporal_arrays(
+        dummy[:, None],
+        dummy[:, None],
+        train_fraction=float(train_fraction),
+        val_fraction=float(val_fraction),
+    )
+    return {name: values[1].reshape(-1).astype(int) for name, values in splits.items()}
+
+
+def save_forecast_arrays(
+    output_path: Path,
+    *,
+    forecasts_by_split: dict[str, dict[str, dict[int, np.ndarray]]],
+    targets_by_split: dict[str, dict[int, np.ndarray]],
+    sample_indices_by_split: dict[str, np.ndarray],
+    horizons: Sequence[int],
+    lag: int,
+) -> Path:
+    arrays: dict[str, np.ndarray] = {}
+    for split_name, targets in targets_by_split.items():
+        sample_indices = np.asarray(sample_indices_by_split[split_name], dtype=np.int64)
+        for horizon in horizons:
+            arrays[f"{split_name}_target_h{int(horizon)}"] = np.asarray(targets[int(horizon)], dtype=np.float32)
+            arrays[f"{split_name}_target_index_h{int(horizon)}"] = (
+                sample_indices + int(lag) + int(horizon) - 1
+            ).astype(np.int64)
+        for model_name, model_forecasts in forecasts_by_split[split_name].items():
+            safe_name = str(model_name).replace(" ", "")
+            for horizon in horizons:
+                arrays[f"{split_name}_{safe_name}_h{int(horizon)}"] = np.asarray(
+                    model_forecasts[int(horizon)],
+                    dtype=np.float32,
+                )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(output_path, **arrays)
+    return output_path
+
+
+def _primary_overall_summary(metrics: pd.DataFrame, *, prefix: str) -> dict[str, float]:
+    model_names = [name for name in metrics["model"].dropna().unique() if name not in {"MLP", "TunedRidge", "BestBaseline"}]
+    model_name = "RNN" if "RNN" in model_names else str(model_names[0])
+    overall = metrics[(metrics["component"] == "overall") & (metrics["model"] == model_name)].copy()
     summary = {
         f"{prefix}_avg_rmse": float(overall["rmse"].mean()),
         f"{prefix}_avg_corr": float(overall["corr"].mean()),
@@ -841,6 +1090,10 @@ def _rnn_overall_summary(metrics: pd.DataFrame, *, prefix: str) -> dict[str, flo
         rows = overall[overall["horizon"] == horizon]
         summary[f"{prefix}_h{horizon}_rmse"] = float(rows.iloc[0]["rmse"]) if not rows.empty else float("nan")
     return summary
+
+
+def _rnn_overall_summary(metrics: pd.DataFrame, *, prefix: str) -> dict[str, float]:
+    return _primary_overall_summary(metrics, prefix=prefix)
 
 
 def rank_leaderboard(frame: pd.DataFrame, *, rank_metric: str = "val_avg_rmse") -> pd.DataFrame:
@@ -978,7 +1231,16 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
         raise ValueError("lag must be positive.")
     if config.rnn_objective not in {"direct_multihorizon", "one_step_recursive", "rollout_multistep"}:
         raise ValueError("rnn_objective must be 'direct_multihorizon', 'one_step_recursive', or 'rollout_multistep'.")
+    if str(config.rnn_type).lower() not in {"gru", "rnn", "transformer"}:
+        raise ValueError("rnn_type must be 'gru', 'rnn', or 'transformer'.")
+    if str(config.transformer_pooling) not in {"last", "mean"}:
+        raise ValueError("transformer_pooling must be 'last' or 'mean'.")
+    if str(config.transformer_positional_encoding) not in {"learned", "sinusoidal"}:
+        raise ValueError("transformer_positional_encoding must be 'learned' or 'sinusoidal'.")
+    if str(config.rnn_type).lower() == "transformer" and int(config.hidden_dim) % int(config.transformer_nhead) != 0:
+        raise ValueError("hidden_dim must be divisible by transformer_nhead.")
     horizons = parse_int_tuple(config.horizons)
+    model_name = primary_model_name(config)
     component_scores_path = pairwise._resolve_path(config.component_scores)
     frame = pairwise.load_component_scores(component_scores_path)
     names = list(frame.columns)
@@ -1121,7 +1383,7 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
         max_horizon=max_horizon,
     )
     val_forecasts = {
-        "RNN": rnn_val_metric_forecasts,
+        model_name: rnn_val_metric_forecasts,
         "MLP": mlp_val_forecasts,
         "TunedRidge": ridge_val_forecasts,
     }
@@ -1134,7 +1396,7 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
     validation_metrics.to_csv(result_dir / "validation_metrics.csv", index=False)
 
     forecasts = {
-        "RNN": rnn_test_forecasts,
+        model_name: rnn_test_forecasts,
         "MLP": forecast_recursive(
             x_test,
             lambda x: pairwise.predict_mlp(mlp_model, mlp_scalers, x),
@@ -1158,6 +1420,7 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
         reps=int(config.bootstrap_reps),
         block_size=int(config.bootstrap_block_size),
         seed=int(config.seed),
+        primary_model=model_name,
     )
     result_dir.mkdir(parents=True, exist_ok=True)
     (result_dir / "prediction_significance.json").write_text(
@@ -1177,6 +1440,7 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
         "linear_alpha_search": {str(alpha): values for alpha, values in linear_search.items()},
         "rnn_cache": str(rnn_path),
         "rnn_cache_reused": bool(rnn_cache_reused),
+        "primary_model": model_name,
         "rnn_training": getattr(rnn_model, "training_summary", {}),
         "rnn_linear_blend": rnn_linear_blend,
         "prediction_significance": significance,
@@ -1187,6 +1451,28 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
     }
     manifest = _json_sanitize(manifest)
     result_dir.mkdir(parents=True, exist_ok=True)
+    sample_indices = split_sample_indices(
+        len(features),
+        train_fraction=float(config.train_fraction),
+        val_fraction=float(config.val_fraction),
+    )
+    forecast_arrays_path = save_forecast_arrays(
+        result_dir / "forecast_arrays.npz",
+        forecasts_by_split={
+            "val": val_forecasts,
+            "test": forecasts,
+        },
+        targets_by_split={
+            "val": y_val_by_horizon,
+            "test": y_test_by_horizon,
+        },
+        sample_indices_by_split={
+            "val": sample_indices["val"],
+            "test": sample_indices["test"],
+        },
+        horizons=horizons,
+        lag=int(config.lag),
+    )
     (result_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
     write_summary(result_dir / "summary.md", manifest, metrics)
     return {
@@ -1195,6 +1481,7 @@ def run(config: RungeRnnForecastConfig) -> dict[str, Path]:
         "manifest": result_dir / "manifest.json",
         "metrics": result_dir / "multistep_metrics.csv",
         "validation_metrics": result_dir / "validation_metrics.csv",
+        "forecast_arrays": forecast_arrays_path,
     }
 
 
@@ -1232,7 +1519,7 @@ def run_history_sweep(config: RungeRnnForecastConfig) -> dict[str, Path]:
             dropout=float(dropout),
             weight_decay=float(weight_decay),
             seed=int(seed),
-            rnn_type="gru",
+            rnn_type=str(config.rnn_type),
             rnn_objective="rollout_multistep",
             rnn_linear_blend_grid_steps=int(config.rnn_linear_blend_grid_steps)
             if int(config.rnn_linear_blend_grid_steps) > 0
@@ -1355,15 +1642,20 @@ def parse_args(argv: Sequence[str] | None = None) -> RungeRnnForecastConfig:
     parser.add_argument("--weight-decay-grid", default="0.00001,0.0001,0.001")
     parser.add_argument("--lag", type=int, default=4)
     parser.add_argument("--horizons", default="1,2,4,8")
-    parser.add_argument("--rnn-type", choices=["gru", "rnn"], default="gru")
+    parser.add_argument("--rnn-type", choices=["gru", "rnn", "transformer"], default="gru")
     parser.add_argument(
         "--rnn-objective",
         choices=["direct_multihorizon", "one_step_recursive", "rollout_multistep"],
         default="direct_multihorizon",
     )
+    parser.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto")
     parser.add_argument("--hidden-dim", type=int, default=192)
     parser.add_argument("--num-layers", type=int, default=1)
     parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--transformer-nhead", type=int, default=4)
+    parser.add_argument("--transformer-dim-feedforward", type=int, default=384)
+    parser.add_argument("--transformer-pooling", choices=["last", "mean"], default="last")
+    parser.add_argument("--transformer-positional-encoding", choices=["learned", "sinusoidal"], default="learned")
     parser.add_argument("--epochs", type=int, default=160)
     parser.add_argument("--learning-rate", type=float, default=8.0e-4)
     parser.add_argument("--batch-size", type=int, default=256)

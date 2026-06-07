@@ -1,9 +1,0 @@
-{
-  "cache_dir": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100",
-  "results_dir": "/Users/yangmingzhe/Desktop/code/github/EISyn/fig/yrd_air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100",
-  "config": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100/config.json",
-  "checkpoint": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100/joint_model_checkpoint.pt",
-  "loss_history": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100/loss_history.json",
-  "predictions": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100/test_predictions.npz",
-  "metrics": "/Users/yangmingzhe/Desktop/code/github/EISyn/exp/cache/yrd_coupling/air_search/hangzhou/24h/refine_tm_g1p00_m4096_seed100/metrics_summary.json"
-}

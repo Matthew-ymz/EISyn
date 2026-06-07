@@ -43,11 +43,8 @@ exp/tmp/
 exp/**/tmp/
 exp/cache/
 results/
-fig/
-!fig/
-!fig/runge2015_gateways/
-!fig/runge2015_gateways/fig4cd_reproduction.png
-fig/**/artifacts/
+/fig/
+tests/
 *.pt
 *.pth
 *.ckpt

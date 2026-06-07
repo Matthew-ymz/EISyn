@@ -1,8 +1,0 @@
-{
-  "notebook": "exp/tm_vs_nis.ipynb",
-  "figures": [
-    "nis_transport_combined_cases.png",
-    "nis_transport_ratio_cases.png"
-  ],
-  "summary_csv": "nis_transport_case_summary.csv"
-}
