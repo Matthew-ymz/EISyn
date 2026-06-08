@@ -221,20 +221,20 @@ def summarize_two_source_synergy_transport_map(
 
     left_ei = float(
         estimate_mutual_information_transport_map(
-            lift_transport_source_features(left_array),
+            left_array,
             target_array,
         )["mi_hat"]
     )
     right_ei = float(
         estimate_mutual_information_transport_map(
-            lift_transport_source_features(right_array),
+            right_array,
             target_array,
         )["mi_hat"]
     )
     joint_source = np.concatenate([left_array, right_array], axis=1)
     joint_ei = float(
         estimate_mutual_information_transport_map(
-            lift_transport_source_features(joint_source),
+            joint_source,
             target_array,
         )["mi_hat"]
     )
@@ -242,6 +242,7 @@ def summarize_two_source_synergy_transport_map(
     right_ei = clip_nonnegative_ei(right_ei)
     joint_ei = clip_nonnegative_ei(joint_ei)
     return {
+        "backend": "polynomial_triangular_transport_map_degree_3",
         "left_ei": left_ei,
         "right_ei": right_ei,
         "joint_ei": joint_ei,
@@ -6151,7 +6152,11 @@ import sys as _yrd_sys
 
 from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
+    PolynomialTriangularTransportMapDensityEstimator,
+    estimate_mutual_information_transport_map,
+    estimate_specific_mutual_information_transport_map,
     fit_affine_transport_map_density,
+    fit_polynomial_triangular_transport_map_density,
     multivariate_gaussian_logpdf,
     standard_gaussian_logpdf,
 )

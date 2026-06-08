@@ -1602,7 +1602,11 @@ def run_sine_alpha_sweep(
     intervention_samples: int = 768,
     bins: int = 4,
 ) -> list[dict[str, float]]:
-    from yrd.transport_map import summarize_two_source_synergy_transport_map
+    from yrd.transport_map import (
+        clip_nonnegative_ei,
+        estimate_mutual_information_transport_map,
+        summarize_two_source_synergy_transport_map,
+    )
 
     rows: list[dict[str, float]] = []
     for alpha in alpha_values:
@@ -1625,6 +1629,14 @@ def run_sine_alpha_sweep(
             peid.intervention_states[["x"]].to_numpy(dtype=float),
             peid.intervention_states[["y"]].to_numpy(dtype=float),
             peid.intervention_states[["z_pred"]].to_numpy(dtype=float),
+        )
+        tm_peid_w_to_z = clip_nonnegative_ei(
+            float(
+                estimate_mutual_information_transport_map(
+                    peid.intervention_states[["w"]].to_numpy(dtype=float),
+                    peid.intervention_states[["z_pred"]].to_numpy(dtype=float),
+                )["mi_hat"]
+            )
         )
         shap_readout = estimate_shap_readout(
             model,
@@ -1676,6 +1688,7 @@ def run_sine_alpha_sweep(
                 "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
                 "tm_peid_x_to_z": float(tm_peid_xy_z["left_ei"]),
                 "tm_peid_y_to_z": float(tm_peid_xy_z["right_ei"]),
+                "tm_peid_w_to_z": float(tm_peid_w_to_z),
                 "peid_x_to_z": float(
                     peid.pairwise_edges[
                         (peid.pairwise_edges["source"] == "x")
@@ -1821,8 +1834,16 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
         linewidth=1.2,
         label="TM PEID y->z",
     )
+    ax.plot(
+        frame["alpha"],
+        frame["tm_peid_w_to_z"],
+        marker="P",
+        color="#8c8c8c",
+        linewidth=1.2,
+        label="TM PEID w->z",
+    )
     ax.set_xlabel("alpha in alpha * sin(x y)")
-    ax.set_ylabel("nats")
+    ax.set_ylabel("Information (bits)")
     ax.set_ylim(bottom=0.0)
     ax.grid(alpha=0.18, linewidth=0.5)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
@@ -1845,6 +1866,7 @@ def run_sine_beta_common_driver_sweep(
     bins: int = 4,
 ) -> dict[str, object]:
     from yrd.transport_map import summarize_two_source_synergy_transport_map
+    from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
 
     rows: list[dict[str, float]] = []
     for beta in beta_values:
@@ -1881,6 +1903,28 @@ def run_sine_beta_common_driver_sweep(
                 intervention_samples_frame[["y"]].to_numpy(dtype=float),
                 intervention_predictions[:, [config.variable_names.index("z")]],
             )
+            oracle_z = (
+                0.22 * intervention_samples_frame["z"].to_numpy(dtype=float)
+                + float(alpha)
+                * np.sin(
+                    intervention_samples_frame["x"].to_numpy(dtype=float)
+                    * intervention_samples_frame["y"].to_numpy(dtype=float)
+                )
+            ).reshape(-1, 1)
+            oracle_peid_xy_z = summarize_two_source_synergy_transport_map(
+                intervention_samples_frame[["x"]].to_numpy(dtype=float),
+                intervention_samples_frame[["y"]].to_numpy(dtype=float),
+                oracle_z,
+            )
+            surd_xy_z = decompose_surd_2source_transport_map(
+                series["x"].to_numpy(dtype=float)[:-1],
+                series["y"].to_numpy(dtype=float)[:-1],
+                series["z"].to_numpy(dtype=float)[1:],
+                degree=3,
+                target_anchors=128,
+                conditional_samples=64,
+                seed=int(seed),
+            )
             peid_xy_z = peid.synergy_edges[
                 (peid.synergy_edges["sources"] == "x+y")
                 & (peid.synergy_edges["target"] == "z")
@@ -1893,12 +1937,21 @@ def run_sine_beta_common_driver_sweep(
                 (shap_readout.interaction_terms["sources"] == "x+y")
                 & (shap_readout.interaction_terms["target"] == "z")
             ].iloc[0]
+            shap_single_lookup = {
+                str(row["source"]): float(row["mean_abs_phi"])
+                for row in shap_readout.feature_attributions[
+                    shap_readout.feature_attributions["target"] == "z"
+                ].to_dict("records")
+            }
             rows.append(
                 {
+                    "run_id": f"beta={float(beta):.2f}|seed={int(seed)}",
                     "beta": float(beta),
                     "seed": float(seed),
                     "xy_observed_corr": float(series[["x", "y"]].corr().iloc[0, 1]),
                     "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
+                    "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
+                    "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
                     "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
                     "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
                     "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
@@ -1908,6 +1961,21 @@ def run_sine_beta_common_driver_sweep(
                     "tm_peid_xy_left_ei": float(tm_peid_xy_z["left_ei"]),
                     "tm_peid_xy_right_ei": float(tm_peid_xy_z["right_ei"]),
                     "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                    "surd_redundancy": float(surd_xy_z["redundancy"]),
+                    "surd_unique_x": float(surd_xy_z["unique_x"]),
+                    "surd_unique_y": float(surd_xy_z["unique_y"]),
+                    "surd_xy_synergy": float(surd_xy_z["synergy"]),
+                    "surd_xy_joint": float(surd_xy_z["joint_ei"]),
+                    "mlp_peid_redundancy": 0.0,
+                    "mlp_peid_unique_x": float(tm_peid_xy_z["left_ei"]),
+                    "mlp_peid_unique_y": float(tm_peid_xy_z["right_ei"]),
+                    "mlp_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                    "mlp_peid_xy_joint": float(tm_peid_xy_z["joint_ei"]),
+                    "oracle_peid_redundancy": 0.0,
+                    "oracle_peid_unique_x": float(oracle_peid_xy_z["left_ei"]),
+                    "oracle_peid_unique_y": float(oracle_peid_xy_z["right_ei"]),
+                    "oracle_peid_xy_synergy": float(oracle_peid_xy_z["syn"]),
+                    "oracle_peid_xy_joint": float(oracle_peid_xy_z["joint_ei"]),
                     "peid_x_to_z": float(
                         peid.pairwise_edges[
                             (peid.pairwise_edges["source"] == "x")
@@ -1930,6 +1998,10 @@ def run_sine_beta_common_driver_sweep(
             xy_observed_corr_std=("xy_observed_corr", "std"),
             shap_xy_mean_abs_interaction_mean=("shap_xy_mean_abs_interaction", "mean"),
             shap_xy_mean_abs_interaction_std=("shap_xy_mean_abs_interaction", "std"),
+            shap_x_to_z_mean_abs_mean=("shap_x_to_z_mean_abs", "mean"),
+            shap_x_to_z_mean_abs_std=("shap_x_to_z_mean_abs", "std"),
+            shap_y_to_z_mean_abs_mean=("shap_y_to_z_mean_abs", "mean"),
+            shap_y_to_z_mean_abs_std=("shap_y_to_z_mean_abs", "std"),
             product_xy_incremental_r2_mean=("product_xy_incremental_r2", "mean"),
             product_xy_incremental_r2_std=("product_xy_incremental_r2", "std"),
             peid_xy_joint_ei_mean=("peid_xy_joint_ei", "mean"),
@@ -1940,6 +2012,40 @@ def run_sine_beta_common_driver_sweep(
             tm_peid_xy_joint_ei_std=("tm_peid_xy_joint_ei", "std"),
             tm_peid_xy_synergy_mean=("tm_peid_xy_synergy", "mean"),
             tm_peid_xy_synergy_std=("tm_peid_xy_synergy", "std"),
+            tm_peid_xy_left_ei_mean=("tm_peid_xy_left_ei", "mean"),
+            tm_peid_xy_left_ei_std=("tm_peid_xy_left_ei", "std"),
+            tm_peid_xy_right_ei_mean=("tm_peid_xy_right_ei", "mean"),
+            tm_peid_xy_right_ei_std=("tm_peid_xy_right_ei", "std"),
+            surd_redundancy_mean=("surd_redundancy", "mean"),
+            surd_redundancy_std=("surd_redundancy", "std"),
+            surd_unique_x_mean=("surd_unique_x", "mean"),
+            surd_unique_x_std=("surd_unique_x", "std"),
+            surd_unique_y_mean=("surd_unique_y", "mean"),
+            surd_unique_y_std=("surd_unique_y", "std"),
+            surd_xy_synergy_mean=("surd_xy_synergy", "mean"),
+            surd_xy_synergy_std=("surd_xy_synergy", "std"),
+            surd_xy_joint_mean=("surd_xy_joint", "mean"),
+            surd_xy_joint_std=("surd_xy_joint", "std"),
+            mlp_peid_redundancy_mean=("mlp_peid_redundancy", "mean"),
+            mlp_peid_redundancy_std=("mlp_peid_redundancy", "std"),
+            mlp_peid_unique_x_mean=("mlp_peid_unique_x", "mean"),
+            mlp_peid_unique_x_std=("mlp_peid_unique_x", "std"),
+            mlp_peid_unique_y_mean=("mlp_peid_unique_y", "mean"),
+            mlp_peid_unique_y_std=("mlp_peid_unique_y", "std"),
+            mlp_peid_xy_synergy_mean=("mlp_peid_xy_synergy", "mean"),
+            mlp_peid_xy_synergy_std=("mlp_peid_xy_synergy", "std"),
+            mlp_peid_xy_joint_mean=("mlp_peid_xy_joint", "mean"),
+            mlp_peid_xy_joint_std=("mlp_peid_xy_joint", "std"),
+            oracle_peid_redundancy_mean=("oracle_peid_redundancy", "mean"),
+            oracle_peid_redundancy_std=("oracle_peid_redundancy", "std"),
+            oracle_peid_unique_x_mean=("oracle_peid_unique_x", "mean"),
+            oracle_peid_unique_x_std=("oracle_peid_unique_x", "std"),
+            oracle_peid_unique_y_mean=("oracle_peid_unique_y", "mean"),
+            oracle_peid_unique_y_std=("oracle_peid_unique_y", "std"),
+            oracle_peid_xy_synergy_mean=("oracle_peid_xy_synergy", "mean"),
+            oracle_peid_xy_synergy_std=("oracle_peid_xy_synergy", "std"),
+            oracle_peid_xy_joint_mean=("oracle_peid_xy_joint", "mean"),
+            oracle_peid_xy_joint_std=("oracle_peid_xy_joint", "std"),
             peid_x_to_z_mean=("peid_x_to_z", "mean"),
             peid_y_to_z_mean=("peid_y_to_z", "mean"),
         )
@@ -1948,6 +2054,21 @@ def run_sine_beta_common_driver_sweep(
     )
     trend = _beta_sweep_trend_stats(frame)
     return {
+        "config": {
+            "beta_values": [float(value) for value in beta_values],
+            "seeds": [int(value) for value in seeds],
+            "n_samples": int(n_samples),
+            "alpha": float(alpha),
+            "noise": float(noise),
+            "mlp_epochs": int(mlp_epochs),
+            "intervention_samples": int(intervention_samples),
+        },
+        "units": {
+            "shap": "mean absolute SHAP readout",
+            "surd": "bits",
+            "mlp_peid": "bits",
+            "oracle_peid": "bits",
+        },
         "runs": rows,
         "summary": summary.to_dict("records"),
         "trend": trend,
@@ -1986,11 +2107,15 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     shap_slope = _linear_slope(frame, "shap_xy_mean_abs_interaction")
     peid_slope = _linear_slope(frame, "peid_xy_synergy")
     tm_peid_slope = _linear_slope(frame, "tm_peid_xy_synergy")
+    surd_slope = _linear_slope(frame, "surd_xy_synergy")
+    oracle_slope = _linear_slope(frame, "oracle_peid_xy_synergy")
     product_slope = _linear_slope(frame, "product_xy_incremental_r2")
     corr_slope = _linear_slope(frame, "xy_observed_corr")
     shap_ci = _bootstrap_slope_ci(frame, "shap_xy_mean_abs_interaction", seed=17001)
     peid_ci = _bootstrap_slope_ci(frame, "peid_xy_synergy", seed=17002)
     tm_peid_ci = _bootstrap_slope_ci(frame, "tm_peid_xy_synergy", seed=17004)
+    surd_ci = _bootstrap_slope_ci(frame, "surd_xy_synergy", seed=17005)
+    oracle_ci = _bootstrap_slope_ci(frame, "oracle_peid_xy_synergy", seed=17006)
     product_ci = _bootstrap_slope_ci(frame, "product_xy_incremental_r2", seed=17003)
     return {
         "xy_observed_corr_slope": corr_slope,
@@ -2006,6 +2131,12 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
         "tm_peid_synergy_slope": tm_peid_slope,
         "tm_peid_synergy_slope_ci_low": tm_peid_ci[0],
         "tm_peid_synergy_slope_ci_high": tm_peid_ci[1],
+        "surd_synergy_slope": surd_slope,
+        "surd_synergy_slope_ci_low": surd_ci[0],
+        "surd_synergy_slope_ci_high": surd_ci[1],
+        "oracle_peid_synergy_slope": oracle_slope,
+        "oracle_peid_synergy_slope_ci_low": oracle_ci[0],
+        "oracle_peid_synergy_slope_ci_high": oracle_ci[1],
         "slope_difference_shap_minus_peid": float(shap_slope - peid_slope),
         "slope_difference_shap_minus_tm_peid": float(shap_slope - tm_peid_slope),
     }
@@ -2035,7 +2166,8 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
         }
     )
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.05), constrained_layout=True)
+    fig, axes = plt.subplots(2, 3, figsize=(13.8, 7.4), constrained_layout=True)
+    flat_axes = axes.ravel()
 
     def line_with_band(ax, y_col: str, std_col: str, *, label: str, color: str, marker: str = "o") -> None:
         x = frame["beta"].to_numpy(dtype=float)
@@ -2045,47 +2177,160 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
         ax.fill_between(x, y - std, y + std, color=color, alpha=0.16, linewidth=0.0)
 
     line_with_band(
-        axes[0],
+        flat_axes[0],
         "xy_observed_corr_mean",
         "xy_observed_corr_std",
         label="observed corr(x,y)",
         color="#6b7280",
     )
-    line_with_band(
-        axes[0],
-        "shap_xy_mean_abs_interaction_mean",
-        "shap_xy_mean_abs_interaction_std",
-        label="SHAP interaction (x,y)->z",
-        color="#3b6fb6",
-    )
-    axes[0].set_ylabel("correlation / SHAP scale")
-    axes[0].set_ylim(-0.05, 1.05)
+    flat_axes[0].set_ylabel(r"Observed corr$(x,y)$")
+    flat_axes[0].set_title("Observed source correlation")
+    flat_axes[0].set_ylim(-0.05, 1.05)
 
-    line_with_band(
-        axes[1],
-        "peid_xy_synergy_mean",
-        "peid_xy_synergy_std",
-        label="PEID synergy {x,y}->z",
-        color="#2f6f4e",
-    )
-    line_with_band(
-        axes[1],
-        "peid_xy_joint_ei_mean",
-        "peid_xy_joint_ei_std",
-        label="PEID joint EI {x,y}->z",
-        color="#5f8f6b",
-        marker="s",
-    )
-    axes[1].set_ylabel("bits")
-    axes[1].set_ylim(bottom=0.0)
+    for y_col, std_col, label, color, marker in [
+        ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "#4c78a8", "^"),
+        ("shap_y_to_z_mean_abs_mean", "shap_y_to_z_mean_abs_std", "SHAP y->z", "#f58518", "v"),
+        (
+            "shap_xy_mean_abs_interaction_mean",
+            "shap_xy_mean_abs_interaction_std",
+            "SHAP interaction x:y->z",
+            "#e45756",
+            "o",
+        ),
+    ]:
+        line_with_band(flat_axes[1], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[1].set_ylabel("Mean absolute SHAP readout")
+    flat_axes[1].set_title("MLP+SHAP")
 
-    for ax in axes:
+    for y_col, std_col, label, color, marker in [
+        ("surd_redundancy_mean", "surd_redundancy_std", r"SURD $R_{xy}$", "#7f8c8d", "s"),
+        ("surd_unique_x_mean", "surd_unique_x_std", r"SURD $U_x$", "#4c78a8", "^"),
+        ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "#f58518", "v"),
+        ("surd_xy_synergy_mean", "surd_xy_synergy_std", r"SURD $S_{xy}$", "#e45756", "o"),
+    ]:
+        line_with_band(flat_axes[2], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[2].set_ylabel("Information (bits)")
+    flat_axes[2].set_title("Observational SURD")
+
+    for y_col, std_col, label, color, marker in [
+        ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"PEID $U_x$", "#4c78a8", "^"),
+        ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"PEID $U_y$", "#f58518", "v"),
+        ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"PEID $S_{xy}$", "#e45756", "o"),
+    ]:
+        line_with_band(flat_axes[3], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[3].set_ylabel("Information (bits)")
+    flat_axes[3].set_title("MLP+PEID")
+
+    representative = frame.loc[frame["beta"].idxmax()]
+    components = {
+        "MLP+SHAP": np.asarray(
+            [
+                0.0,
+                representative["shap_x_to_z_mean_abs_mean"],
+                representative["shap_y_to_z_mean_abs_mean"],
+                representative["shap_xy_mean_abs_interaction_mean"],
+            ],
+            dtype=float,
+        ),
+        "Observational SURD": np.asarray(
+            [
+                representative["surd_redundancy_mean"],
+                representative["surd_unique_x_mean"],
+                representative["surd_unique_y_mean"],
+                representative["surd_xy_synergy_mean"],
+            ],
+            dtype=float,
+        ),
+        "MLP+PEID": np.asarray(
+            [
+                representative["mlp_peid_redundancy_mean"],
+                representative["mlp_peid_unique_x_mean"],
+                representative["mlp_peid_unique_y_mean"],
+                representative["mlp_peid_xy_synergy_mean"],
+            ],
+            dtype=float,
+        ),
+    }
+    x_positions = np.arange(len(components))
+    bottoms = np.zeros(len(components), dtype=float)
+    share_styles = (
+        ("redundancy", "#7f8c8d"),
+        ("x single / unique", "#4c78a8"),
+        ("y single / unique", "#f58518"),
+        ("interaction / synergy", "#e45756"),
+    )
+    for index, (label, color) in enumerate(share_styles):
+        shares = np.asarray(
+            [
+                values[index] / values.sum() if values.sum() > 1.0e-12 else 0.0
+                for values in components.values()
+            ]
+        )
+        flat_axes[4].bar(x_positions, shares, bottom=bottoms, label=label, color=color)
+        bottoms += shares
+    flat_axes[4].set_xticks(x_positions, list(components), rotation=15, ha="right")
+    flat_axes[4].set_ylabel("Relative readout shares")
+    flat_axes[4].set_title(r"Within-method composition at $\beta=1.0$")
+    flat_axes[4].set_ylim(0.0, 1.0)
+    flat_axes[5].axis("off")
+
+    for ax in flat_axes[:4]:
         ax.set_xlabel("beta: common-driver strength")
         ax.set_xticks(frame["beta"].to_numpy(dtype=float))
         ax.grid(alpha=0.18, linewidth=0.5)
         ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    flat_axes[4].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
-    path = figure_dir / "sine_beta_shap_peid_sweep.png"
+    path = figure_dir / "sine_beta_unified_readout_sweep.png"
+    fig.savefig(path, dpi=260, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def _plot_sine_beta_validation(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
+    summary_rows = beta_result.get("summary", [])
+    if not summary_rows:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    frame = pd.DataFrame(summary_rows).sort_values("beta")
+    figure_dir.mkdir(parents=True, exist_ok=True)
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 3.6), constrained_layout=True)
+    axes[0].plot(
+        frame["beta"],
+        frame["mlp_peid_xy_synergy_mean"],
+        marker="o",
+        color="#1b9e77",
+        label="MLP+PEID synergy",
+    )
+    axes[0].plot(
+        frame["beta"],
+        frame["oracle_peid_xy_synergy_mean"],
+        marker="s",
+        color="#7570b3",
+        label="Oracle+PEID synergy",
+    )
+    axes[0].set(xlabel="beta: common-driver strength", ylabel="Information (bits)")
+    axes[0].set_title("MLP+PEID versus Oracle+PEID")
+    axes[0].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    q1_path = ROOT / "results" / "surd_original_synergistic_collider" / "summary_q1.json"
+    if q1_path.exists():
+        q1 = json.loads(q1_path.read_text(encoding="utf-8"))["q1"]["normalized_atoms"]
+        names = list(q1)
+        colors = ["#607d8b" if name.startswith("R") else "#e57373" if name.startswith("U") else "#fdb462" for name in names]
+        axes[1].bar(np.arange(len(names)), [q1[name] for name in names], color=colors)
+        axes[1].set_xticks(np.arange(len(names)), names, rotation=60, ha="right", fontsize=7)
+        axes[1].set_ylabel("Normalized SURD atom")
+        axes[1].set_title("SURD Q1 transport-map reproduction")
+    else:
+        axes[1].text(0.5, 0.5, "Q1 reproduction summary unavailable", ha="center", va="center")
+        axes[1].axis("off")
+    path = figure_dir / "sine_beta_method_validation.png"
     fig.savefig(path, dpi=260, bbox_inches="tight")
     plt.close(fig)
     return path
@@ -2698,6 +2943,7 @@ def _write_chinese_report(
     alpha_sweep_figure_path: Path | None,
     alpha_sweep_rows: list[dict[str, float]],
     beta_sweep_figure_path: Path | None,
+    beta_validation_figure_path: Path | None,
     beta_sweep_result: dict[str, object],
     report_path: Path,
 ) -> Path:
@@ -3035,12 +3281,12 @@ def _write_chinese_report(
     alpha_sweep_block = ""
     if alpha_sweep_rel:
         alpha_table_lines = [
-            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` |",
-            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` | TM PEID `w->z` |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for row in alpha_sweep_rows:
             alpha_table_lines.append(
-                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {granger_x:.4g} | {granger_y:.4g} | {granger_w:.4g} | {joint:.4g} | {syn:.4g} |".format(
+                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {granger_x:.4g} | {granger_y:.4g} | {granger_w:.4g} | {joint:.4g} | {syn:.4g} | {tm_w:.4g} |".format(
                     alpha=float(row["alpha"]),
                     shap_x=float(row["shap_x_to_z_mean_abs"]),
                     shap_y=float(row["shap_y_to_z_mean_abs"]),
@@ -3051,6 +3297,7 @@ def _write_chinese_report(
                     granger_w=float(row["granger_w_to_z"]),
                     joint=float(row["tm_peid_xy_joint_ei"]),
                     syn=float(row["tm_peid_xy_synergy"]),
+                    tm_w=float(row["tm_peid_w_to_z"]),
                 )
             )
         alpha_sweep_block = (
@@ -3070,22 +3317,34 @@ def _write_chinese_report(
         if beta_sweep_figure_path is not None
         else ""
     )
+    beta_validation_rel = (
+        _relative_markdown_path(beta_validation_figure_path, report_path)
+        if beta_validation_figure_path is not None
+        else ""
+    )
     beta_sweep_block = ""
     beta_summary_rows = list(beta_sweep_result.get("summary", []))
     beta_trend = dict(beta_sweep_result.get("trend", {}))
     if beta_sweep_rel and beta_summary_rows:
         beta_table_lines = [
-            "| beta | corr(`x`,`y`) | SHAP interaction `(x,y)->z` | PEID synergy `{x,y}->z` | PEID joint EI `{x,y}->z` |",
-            "| ---: | ---: | ---: | ---: | ---: |",
+            "| beta | corr(`x`,`y`) | SHAP `x` | SHAP `y` | SHAP `x:y` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |",
+            "| ---: | ---: | ---: | ---: | ---: | --- | --- |",
         ]
         for row in beta_summary_rows:
             beta_table_lines.append(
-                "| {beta:.2f} | {corr:.4g} | {shap:.4g} | {syn:.4g} | {joint:.4g} |".format(
+                "| {beta:.2f} | {corr:.4g} | {shap_x:.4g} | {shap_y:.4g} | {shap_xy:.4g} | {surd_r:.4g}/{surd_ux:.4g}/{surd_uy:.4g}/{surd_s:.4g} | {peid_ux:.4g}/{peid_uy:.4g}/{peid_s:.4g} |".format(
                     beta=float(row["beta"]),
                     corr=float(row["xy_observed_corr_mean"]),
-                    shap=float(row["shap_xy_mean_abs_interaction_mean"]),
-                    syn=float(row["peid_xy_synergy_mean"]),
-                    joint=float(row["peid_xy_joint_ei_mean"]),
+                    shap_x=float(row["shap_x_to_z_mean_abs_mean"]),
+                    shap_y=float(row["shap_y_to_z_mean_abs_mean"]),
+                    shap_xy=float(row["shap_xy_mean_abs_interaction_mean"]),
+                    surd_r=float(row["surd_redundancy_mean"]),
+                    surd_ux=float(row["surd_unique_x_mean"]),
+                    surd_uy=float(row["surd_unique_y_mean"]),
+                    surd_s=float(row["surd_xy_synergy_mean"]),
+                    peid_ux=float(row["mlp_peid_unique_x_mean"]),
+                    peid_uy=float(row["mlp_peid_unique_y_mean"]),
+                    peid_s=float(row["mlp_peid_xy_synergy_mean"]),
                 )
             )
         beta_sweep_block = (
@@ -3105,27 +3364,33 @@ def _write_chinese_report(
             "`\\sqrt{1-\\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；"
             "这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。"
             "`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。\n\n"
-            f"![beta 扫描下的 SHAP 与 PEID 趋势对照]({beta_sweep_rel})\n\n"
+            f"![beta 扫描统一方法对照]({beta_sweep_rel})\n\n"
             + "\n".join(beta_table_lines)
             + "\n\n"
-            "图中左侧把两个读数叠在同一坐标轴上：灰色线是观测轨迹里 `x` 与 `y` 的 Pearson 相关系数，"
-            "用来显示共同驱动造成的源变量相关性；蓝色线是同一 fitted MLP 上面向 `z` 的 SHAP `(x,y)->z` 二阶交互强度。"
-            "右侧 PEID 曲线比较的是同一个源集合 `{x,y}` 到目标 `z` 的 synergy 与 joint EI。"
-            "为保持图面简洁，图中 PEID 曲线使用离散化估计器；transport-map PEID 不再单独绘制，只在趋势读数中作为稳健性补充。"
-            "灰线不是因果边或 PEID 读数，而是 beta 扫描的观测相关性参照。\n\n"
+            "每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；"
+            "MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，PEID 与 Oracle+PEID 共享同一组独立干预源样本。"
+            "SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。"
+            "SHAP 保留自身原始归因尺度，不与信息量绝对值直接比较；`beta=1` 的组成面板仅表示各方法内部的 relative readout shares，"
+            "不是把 SHAP 声称为严格的信息分解。\n\n"
             "线性趋势读数显示，SHAP interaction 的 beta 斜率为 "
             f"{float(beta_trend.get('shap_interaction_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('shap_interaction_slope_ci_low', float('nan'))):.4g}, "
             f"{float(beta_trend.get('shap_interaction_slope_ci_high', float('nan'))):.4g}])；"
-            "离散化 PEID synergy 的 beta 斜率为 "
-            f"{float(beta_trend.get('peid_synergy_slope', float('nan'))):.4g} "
-            f"(bootstrap 95% CI [{float(beta_trend.get('peid_synergy_slope_ci_low', float('nan'))):.4g}, "
-            f"{float(beta_trend.get('peid_synergy_slope_ci_high', float('nan'))):.4g}])；"
-            "transport-map PEID synergy 的 beta 斜率为 "
+            "Observational SURD synergy 的 beta 斜率为 "
+            f"{float(beta_trend.get('surd_synergy_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('surd_synergy_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('surd_synergy_slope_ci_high', float('nan'))):.4g}])；"
+            "MLP+PEID synergy 的 beta 斜率为 "
             f"{float(beta_trend.get('tm_peid_synergy_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('tm_peid_synergy_slope_ci_low', float('nan'))):.4g}, "
-            f"{float(beta_trend.get('tm_peid_synergy_slope_ci_high', float('nan'))):.4g}])。"
-            "这说明在这个对照里，SHAP interaction 更容易随观测相关性增强而上升；离散化 PEID 与 transport-map PEID 都没有相同的上升趋势。\n\n"
+            f"{float(beta_trend.get('tm_peid_synergy_slope_ci_high', float('nan'))):.4g}])。\n\n"
+            + (
+                f"![Oracle+PEID 与 SURD Q1 验证]({beta_validation_rel})\n\n"
+                if beta_validation_rel
+                else ""
+            )
+            + "验证图中的 Oracle+PEID 只用于检查 learned MLP 的 PEID 趋势是否偏离真实转移方程；"
+            "SURD Q1 原子用于确认原论文 specific-MI transport-map 复现入口。二者都不进入主方法排名。\n\n"
         )
 
     text = f"""# 统一动力系统：共同驱动 + sine 协同
@@ -3161,6 +3426,19 @@ $$
 = EI(\\{{x,y\\}}\\to z)-EI(x\\to z)-EI(y\\to z).
 $$
 
+- Observational SURD：直接在自然轨迹的 `(x_t,y_t,z_{{t+1}})` 上，按原论文方式先用 transport map 估计逐目标状态的 specific MI：
+
+$$
+R_{{xy}}(z)=\\min\\{{i_x(z),i_y(z)\\}},\\quad
+U_x(z)=i_x(z)-R_{{xy}}(z),\\quad
+U_y(z)=i_y(z)-R_{{xy}}(z),\\quad
+S_{{xy}}(z)=i_{{xy}}(z)-\\max\\{{i_x(z),i_y(z)\\}}.
+$$
+
+最后对目标状态积分得到 `Rxy/Ux/Uy/Sxy`，满足 `Rxy + Ux + Uy + Sxy = I({{x,y}};z)`。SURD 描述观测分布中的冗余、特有与协同；PEID 描述独立干预后机制映射的信息约束，两者回答的问题不同。PEID 当前定义不单独分配冗余原子，因此报告中其 redundancy 显式记为零。
+
+独立入口 `scripts/reproduce_surd_synergistic_collider.py` 保留用于原论文 Q1 的 11 原子复现；Q1 的主导原子应为 `S23`。该验证只确认 SURD specific-MI transport-map 实现，不进入共同驱动 sine 主方法排名。
+
 ## 第一章：二源协同情形：`{{x,y}} -> z`
 
 ### 代表性结果
@@ -3189,7 +3467,7 @@ PEID 的关键读数是 `EI({{x, y}} -> z)` 与 `Syn({{x, y}} -> z)` 均显著�
 
 {proxy_y_block}
 """
-    report_path.write_text(text, encoding="utf-8")
+    report_path.write_text(text.rstrip() + "\n", encoding="utf-8")
     return report_path
 
 
@@ -3339,6 +3617,7 @@ def run_comparison_grid(
         else {"runs": [], "summary": [], "trend": {}}
     )
     beta_sweep_figure_path = _plot_sine_beta_sweep(beta_sweep_result, figure_dir)
+    beta_validation_figure_path = _plot_sine_beta_validation(beta_sweep_result, figure_dir)
     report_markdown_path = _write_chinese_report(
         runs,
         edge_rows=edge_rows,
@@ -3354,6 +3633,7 @@ def run_comparison_grid(
         alpha_sweep_figure_path=alpha_sweep_figure_path,
         alpha_sweep_rows=alpha_sweep_rows,
         beta_sweep_figure_path=beta_sweep_figure_path,
+        beta_validation_figure_path=beta_validation_figure_path,
         beta_sweep_result=beta_sweep_result,
         report_path=report_path,
     )
@@ -3386,6 +3666,7 @@ def run_comparison_grid(
         "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
+        "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),
         "edge_table_path": str(edge_table_path),
@@ -3410,6 +3691,7 @@ def run_comparison_grid(
         "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
+        "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),
     }

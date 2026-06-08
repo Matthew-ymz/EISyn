@@ -477,6 +477,7 @@ def test_alpha_sweep_plot_combines_shap_without_product_r2(tmp_path: Path, monke
                 "tm_peid_xy_synergy": 0.0,
                 "tm_peid_x_to_z": 0.0,
                 "tm_peid_y_to_z": 0.0,
+                "tm_peid_w_to_z": 0.0,
             },
             {
                 "alpha": 1.0,
@@ -492,6 +493,7 @@ def test_alpha_sweep_plot_combines_shap_without_product_r2(tmp_path: Path, monke
                 "tm_peid_xy_synergy": 0.8,
                 "tm_peid_x_to_z": 0.02,
                 "tm_peid_y_to_z": 0.02,
+                "tm_peid_w_to_z": 0.01,
             },
         ],
         tmp_path,
@@ -523,9 +525,48 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     summary = json.loads(Path(output["summary_path"]).read_text(encoding="utf-8"))
     beta_sweep = summary["sine_beta_common_driver_sweep"]
     assert beta_sweep["summary"]
-    assert "tm_peid_xy_synergy_mean" in beta_sweep["summary"][0]
+    run = beta_sweep["runs"][0]
+    expected_run_fields = {
+        "run_id",
+        "shap_x_to_z_mean_abs",
+        "shap_y_to_z_mean_abs",
+        "shap_xy_mean_abs_interaction",
+        "surd_redundancy",
+        "surd_unique_x",
+        "surd_unique_y",
+        "surd_xy_synergy",
+        "surd_xy_joint",
+        "mlp_peid_redundancy",
+        "mlp_peid_unique_x",
+        "mlp_peid_unique_y",
+        "mlp_peid_xy_synergy",
+        "mlp_peid_xy_joint",
+        "oracle_peid_redundancy",
+        "oracle_peid_unique_x",
+        "oracle_peid_unique_y",
+        "oracle_peid_xy_synergy",
+        "oracle_peid_xy_joint",
+    }
+    assert expected_run_fields <= set(run)
+    assert np.isclose(
+        run["surd_redundancy"] + run["surd_unique_x"] + run["surd_unique_y"] + run["surd_xy_synergy"],
+        run["surd_xy_joint"],
+    )
+    assert np.isclose(
+        run["mlp_peid_unique_x"] + run["mlp_peid_unique_y"] + run["mlp_peid_xy_synergy"],
+        run["mlp_peid_xy_joint"],
+    )
+    assert run["mlp_peid_redundancy"] == 0.0
+    assert run["oracle_peid_redundancy"] == 0.0
+    assert "surd_xy_synergy_mean" in beta_sweep["summary"][0]
     assert "tm_peid_synergy_slope" in beta_sweep["trend"]
+    assert "surd_synergy_slope" in beta_sweep["trend"]
+    assert "oracle_peid_synergy_slope" in beta_sweep["trend"]
+    assert Path(summary["beta_sweep_figure_path"]).name == "sine_beta_unified_readout_sweep.png"
     assert Path(summary["beta_sweep_figure_path"]).exists()
+    assert Path(summary["beta_validation_figure_path"]).exists()
 
     report_text = Path(summary["report_markdown_path"]).read_text(encoding="utf-8")
-    assert "transport-map PEID synergy" in report_text
+    assert "Observational SURD" in report_text
+    assert "MLP+SHAP" in report_text
+    assert "MLP+PEID" in report_text

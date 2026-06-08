@@ -6,7 +6,10 @@ import numpy as np
 
 from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
+    estimate_mutual_information_transport_map,
+    estimate_specific_mutual_information_transport_map,
     fit_affine_transport_map_density,
+    fit_polynomial_triangular_transport_map_density,
     fit_quadratic_triangular_transport_map_density,
     pairwise_effective_information_for_dynamics,
     multivariate_gaussian_logpdf,
@@ -73,6 +76,34 @@ class TransportMapDensityTests(unittest.TestCase):
 
         self.assertLess(rmse, 0.10)
         self.assertEqual(estimator.backend, "quadratic_triangular_transport_map")
+
+    def test_polynomial_transport_map_specific_mi_averages_to_mutual_information(self) -> None:
+        rng = np.random.default_rng(47)
+        source = rng.uniform(-2.0, 2.0, size=(900, 1))
+        target = np.sin(source) + 0.15 * rng.normal(size=(900, 1))
+
+        estimator = fit_polynomial_triangular_transport_map_density(
+            np.concatenate([target, source], axis=1),
+            degree=3,
+        )
+        specific = estimate_specific_mutual_information_transport_map(
+            source,
+            target,
+            target_anchors=target[::9],
+            degree=3,
+            conditional_samples=160,
+            seed=5,
+        )
+        mutual = estimate_mutual_information_transport_map(source, target, degree=3)
+
+        self.assertEqual(estimator.backend, "polynomial_triangular_transport_map_degree_3")
+        self.assertEqual(specific["specific_mi"].shape, (100,))
+        self.assertTrue(np.isfinite(specific["specific_mi"]).all())
+        self.assertAlmostEqual(
+            float(specific["specific_mi"].mean()),
+            float(mutual["mi_hat"]),
+            delta=0.25,
+        )
 
     def test_pairwise_effective_information_for_dynamics_returns_indexed_matrix(self) -> None:
         def dynamics(inputs: np.ndarray) -> np.ndarray:

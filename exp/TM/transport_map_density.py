@@ -9,14 +9,19 @@ from scipy.special import digamma
 
 __all__ = [
     "AffineTransportMapDensityEstimator",
+    "PolynomialTriangularTransportMapDensityEstimator",
     "QuadraticTriangularTransportMapDensityEstimator",
     "estimate_mutual_information_transport_map",
+    "estimate_specific_mutual_information_transport_map",
     "fit_affine_transport_map_density",
+    "fit_polynomial_triangular_transport_map_density",
     "fit_quadratic_triangular_transport_map_density",
     "multivariate_gaussian_logpdf",
     "pairwise_effective_information_for_dynamics",
     "standard_gaussian_logpdf",
 ]
+
+LOG_2 = float(np.log(2.0))
 
 
 @dataclass(frozen=True)
@@ -119,6 +124,86 @@ class QuadraticTriangularTransportMapDensityEstimator:
         return np.exp(self.log_prob(samples))
 
 
+@dataclass(frozen=True)
+class PolynomialTriangularTransportMapDensityEstimator:
+    """Polynomial autoregressive triangular transport-map density estimator."""
+
+    coefficients: tuple[np.ndarray, ...]
+    predictor_means: tuple[np.ndarray, ...]
+    predictor_scales: tuple[np.ndarray, ...]
+    exponents: tuple[np.ndarray, ...]
+    residual_scales: np.ndarray
+    sample_size: int
+    degree: int = 3
+
+    def __post_init__(self) -> None:
+        dimension = len(self.coefficients)
+        if dimension < 1:
+            raise ValueError("coefficients must contain at least one dimension.")
+        if not (
+            len(self.predictor_means)
+            == len(self.predictor_scales)
+            == len(self.exponents)
+            == dimension
+        ):
+            raise ValueError("polynomial transport-map parameter lengths must match.")
+        residual_scales = np.asarray(self.residual_scales, dtype=float)
+        if residual_scales.shape != (dimension,) or bool(np.any(residual_scales <= 0.0)):
+            raise ValueError("residual_scales must contain one positive value per dimension.")
+        object.__setattr__(self, "residual_scales", residual_scales)
+        object.__setattr__(self, "dimension", dimension)
+        object.__setattr__(self, "backend", f"polynomial_triangular_transport_map_degree_{int(self.degree)}")
+
+    def _conditional_mean(self, dimension: int, previous: np.ndarray) -> np.ndarray:
+        design = _polynomial_design(
+            previous,
+            exponents=self.exponents[dimension],
+            mean=self.predictor_means[dimension],
+            scale=self.predictor_scales[dimension],
+        )
+        return design @ self.coefficients[dimension]
+
+    def map_to_reference(self, samples: np.ndarray) -> np.ndarray:
+        array = _coerce_samples(samples, expected_dim=self.dimension)
+        reference = np.empty_like(array, dtype=float)
+        for dimension in range(self.dimension):
+            conditional_mean = self._conditional_mean(dimension, array[:, :dimension])
+            reference[:, dimension] = (
+                array[:, dimension] - conditional_mean
+            ) / self.residual_scales[dimension]
+        return reference
+
+    def log_prob(self, samples: np.ndarray) -> np.ndarray:
+        reference = self.map_to_reference(samples)
+        return standard_gaussian_logpdf(reference) - float(np.log(self.residual_scales).sum())
+
+    def pdf(self, samples: np.ndarray) -> np.ndarray:
+        return np.exp(self.log_prob(samples))
+
+    def sample_conditional(
+        self,
+        prefix_values: np.ndarray,
+        *,
+        samples_per_prefix: int,
+        seed: int = 0,
+    ) -> np.ndarray:
+        prefix = _coerce_samples(prefix_values)
+        prefix_dimension = prefix.shape[1]
+        if not 0 < prefix_dimension < self.dimension:
+            raise ValueError("prefix_values must fix between one and dimension - 1 variables.")
+        if samples_per_prefix < 1:
+            raise ValueError("samples_per_prefix must be positive.")
+        rng = np.random.default_rng(seed)
+        generated = np.repeat(prefix, int(samples_per_prefix), axis=0)
+        for dimension in range(prefix_dimension, self.dimension):
+            conditional_mean = self._conditional_mean(dimension, generated[:, :dimension])
+            values = conditional_mean + self.residual_scales[dimension] * rng.normal(
+                size=generated.shape[0]
+            )
+            generated = np.column_stack([generated, values])
+        return generated.reshape(prefix.shape[0], int(samples_per_prefix), self.dimension)
+
+
 def fit_affine_transport_map_density(
     samples: np.ndarray,
     *,
@@ -162,13 +247,58 @@ def fit_quadratic_triangular_transport_map_density(
     )
 
 
+def fit_polynomial_triangular_transport_map_density(
+    samples: np.ndarray,
+    *,
+    degree: int = 3,
+    ridge: float = 1e-6,
+    min_scale: float = 1e-8,
+) -> PolynomialTriangularTransportMapDensityEstimator:
+    array = _coerce_samples(samples)
+    if array.shape[0] < 4:
+        raise ValueError("samples must contain at least four rows.")
+    if degree < 1:
+        raise ValueError("degree must be positive.")
+    coefficients: list[np.ndarray] = []
+    predictor_means: list[np.ndarray] = []
+    predictor_scales: list[np.ndarray] = []
+    exponent_rows: list[np.ndarray] = []
+    residual_scales: list[float] = []
+    for dimension in range(array.shape[1]):
+        previous = array[:, :dimension]
+        mean = previous.mean(axis=0) if dimension else np.empty(0, dtype=float)
+        scale = previous.std(axis=0, ddof=1) if dimension else np.empty(0, dtype=float)
+        scale = np.where(scale > min_scale, scale, 1.0)
+        exponents = _polynomial_exponents(dimension, degree)
+        design = _polynomial_design(previous, exponents=exponents, mean=mean, scale=scale)
+        gram = design.T @ design + float(ridge) * np.eye(design.shape[1], dtype=float)
+        gram[0, 0] -= float(ridge)
+        coefficient = np.linalg.solve(gram, design.T @ array[:, dimension])
+        residual = array[:, dimension] - design @ coefficient
+        coefficients.append(coefficient)
+        predictor_means.append(mean)
+        predictor_scales.append(scale)
+        exponent_rows.append(exponents)
+        residual_scales.append(max(float(np.std(residual, ddof=1)), float(min_scale)))
+    return PolynomialTriangularTransportMapDensityEstimator(
+        coefficients=tuple(coefficients),
+        predictor_means=tuple(predictor_means),
+        predictor_scales=tuple(predictor_scales),
+        exponents=tuple(exponent_rows),
+        residual_scales=np.asarray(residual_scales, dtype=float),
+        sample_size=int(array.shape[0]),
+        degree=int(degree),
+    )
+
+
 def estimate_mutual_information_transport_map(
     x: np.ndarray,
     y: np.ndarray,
     *,
     jitter: float = 1e-6,
+    degree: int = 3,
 ) -> dict[str, object]:
-    """Estimate mutual information with an affine transport-map density model."""
+    """Estimate mutual information with a polynomial triangular transport map."""
 
     x_array = _coerce_samples(x)
     y_array = _coerce_samples(y)
@@ -176,29 +306,68 @@ def estimate_mutual_information_transport_map(
         raise ValueError("x and y must have matching sample counts.")
 
     sample_size = int(x_array.shape[0])
-    joint = np.concatenate([x_array, y_array], axis=1)
-    joint_model = fit_affine_transport_map_density(joint, jitter=jitter)
-    x_model = joint_model.marginal(list(range(x_array.shape[1])))
-    y_model = joint_model.marginal(list(range(x_array.shape[1], joint.shape[1])))
+    joint = np.concatenate([y_array, x_array], axis=1)
+    joint_model = fit_polynomial_triangular_transport_map_density(joint, degree=degree)
+    x_model = fit_polynomial_triangular_transport_map_density(x_array, degree=degree)
+    y_model = fit_polynomial_triangular_transport_map_density(y_array, degree=degree)
 
     log_pxy = joint_model.log_prob(joint)
     log_px = x_model.log_prob(x_array)
     log_py = y_model.log_prob(y_array)
-    pointwise_mi_raw = log_pxy - log_px - log_py
-    bias_correction = 0.5 * (
-        _gaussian_logdet_bias_correction(x_array.shape[1], sample_size)
-        + _gaussian_logdet_bias_correction(y_array.shape[1], sample_size)
-        - _gaussian_logdet_bias_correction(joint.shape[1], sample_size)
-    )
-    pointwise_mi = pointwise_mi_raw - bias_correction
+    pointwise_mi = (log_pxy - log_px - log_py) / LOG_2
     return {
         "backend": joint_model.backend,
         "mi_hat": float(pointwise_mi.mean()),
-        "bias_correction": float(bias_correction),
+        "bias_correction": 0.0,
         "pointwise_mi": pointwise_mi,
         "log_pxy": log_pxy,
         "log_px": log_px,
         "log_py": log_py,
+    }
+
+
+def estimate_specific_mutual_information_transport_map(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    target_anchors: np.ndarray | None = None,
+    degree: int = 3,
+    conditional_samples: int = 128,
+    seed: int = 0,
+) -> dict[str, object]:
+    """Estimate SURD specific MI by conditional sampling from a transport map."""
+
+    x_array = _coerce_samples(x)
+    y_array = _coerce_samples(y)
+    if x_array.shape[0] != y_array.shape[0]:
+        raise ValueError("x and y must have matching sample counts.")
+    anchors = y_array if target_anchors is None else _coerce_samples(
+        target_anchors, expected_dim=y_array.shape[1]
+    )
+    joint_model = fit_polynomial_triangular_transport_map_density(
+        np.concatenate([y_array, x_array], axis=1),
+        degree=degree,
+    )
+    x_model = fit_polynomial_triangular_transport_map_density(x_array, degree=degree)
+    y_model = fit_polynomial_triangular_transport_map_density(y_array, degree=degree)
+    conditional_joint = joint_model.sample_conditional(
+        anchors,
+        samples_per_prefix=int(conditional_samples),
+        seed=seed,
+    )
+    flat_joint = conditional_joint.reshape(-1, conditional_joint.shape[-1])
+    flat_y = flat_joint[:, : y_array.shape[1]]
+    flat_x = flat_joint[:, y_array.shape[1] :]
+    log_ratio_bits = (
+        joint_model.log_prob(flat_joint) - x_model.log_prob(flat_x) - y_model.log_prob(flat_y)
+    ) / LOG_2
+    specific_mi = log_ratio_bits.reshape(len(anchors), int(conditional_samples)).mean(axis=1)
+    return {
+        "backend": joint_model.backend,
+        "specific_mi": specific_mi,
+        "target_anchors": anchors,
+        "conditional_samples": int(conditional_samples),
+        "mi_hat": float(specific_mi.mean()),
     }
 
 
@@ -309,6 +478,35 @@ def multivariate_gaussian_logpdf(
     quadratic = np.sum(whitened**2, axis=1)
     log_det = 2.0 * float(np.log(np.diag(cholesky)).sum())
     return -0.5 * (mean_array.shape[0] * np.log(2.0 * np.pi) + log_det + quadratic)
+
+
+def _polynomial_exponents(predictor_dimension: int, degree: int) -> np.ndarray:
+    if predictor_dimension == 0:
+        return np.zeros((1, 0), dtype=int)
+    rows = [tuple(0 for _ in range(predictor_dimension))]
+    for total_degree in range(1, int(degree) + 1):
+        rows.extend(
+            exponent
+            for exponent in np.ndindex(*([total_degree + 1] * predictor_dimension))
+            if sum(exponent) == total_degree
+        )
+    return np.asarray(rows, dtype=int)
+
+
+def _polynomial_design(
+    predictors: np.ndarray,
+    *,
+    exponents: np.ndarray,
+    mean: np.ndarray,
+    scale: np.ndarray,
+) -> np.ndarray:
+    values = np.asarray(predictors, dtype=float)
+    if values.ndim != 2:
+        raise ValueError("predictors must be a 2D array.")
+    if values.shape[1] == 0:
+        return np.ones((values.shape[0], 1), dtype=float)
+    standardized = (values - np.asarray(mean, dtype=float)) / np.asarray(scale, dtype=float)
+    return np.prod(standardized[:, None, :] ** np.asarray(exponents, dtype=int)[None, :, :], axis=2)
 
 
 def _coerce_samples(samples: np.ndarray, *, expected_dim: int | None = None) -> np.ndarray:

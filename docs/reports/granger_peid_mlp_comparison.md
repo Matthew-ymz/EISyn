@@ -31,35 +31,48 @@ $$
 = EI(\{x,y\}\to z)-EI(x\to z)-EI(y\to z).
 $$
 
+- Observational SURD：直接在自然轨迹的 `(x_t,y_t,z_{t+1})` 上，按原论文方式先用 transport map 估计逐目标状态的 specific MI：
+
+$$
+R_{xy}(z)=\min\{i_x(z),i_y(z)\},\quad
+U_x(z)=i_x(z)-R_{xy}(z),\quad
+U_y(z)=i_y(z)-R_{xy}(z),\quad
+S_{xy}(z)=i_{xy}(z)-\max\{i_x(z),i_y(z)\}.
+$$
+
+最后对目标状态积分得到 `Rxy/Ux/Uy/Sxy`，满足 `Rxy + Ux + Uy + Sxy = I({x,y};z)`。SURD 描述观测分布中的冗余、特有与协同；PEID 描述独立干预后机制映射的信息约束，两者回答的问题不同。PEID 当前定义不单独分配冗余原子，因此报告中其 redundancy 显式记为零。
+
+独立入口 `scripts/reproduce_surd_synergistic_collider.py` 保留用于原论文 Q1 的 11 原子复现；Q1 的主导原子应为 `S23`。该验证只确认 SURD specific-MI transport-map 实现，不进入共同驱动 sine 主方法排名。
+
 ## 第一章：二源协同情形：`{x,y} -> z`
 
 ### 代表性结果
 
 | quantity | value |
 | --- | ---: |
-| fitted MLP final training loss | 0.16 |
-| Granger/ablation `w -> x` | 0.4901 |
-| Granger/ablation `w -> y` | 0.4105 |
-| Granger/ablation `w -> z` | 0.01194 |
-| Granger/ablation `x -> z` | 0.2161 |
-| Granger/ablation `y -> z` | 0.2305 |
-| SHAP mean abs `w -> x` | 0.5004 |
-| SHAP mean abs `w -> y` | 0.4622 |
-| SHAP mean abs `w -> z` | 0.03244 |
-| SHAP mean abs `x -> z` | 0.1456 |
-| SHAP mean abs `y -> z` | 0.1425 |
-| SHAP interaction mean abs `x:y -> z` | 0.2212 |
-| product interaction `x:y -> z` incremental `R^2` | 0.4634 |
-| product interaction `x:y -> z` coefficient | 0.2389 |
-| product interaction `w:x -> z` incremental `R^2` | 0.003497 |
-| product interaction `w:y -> z` incremental `R^2` | 0.01562 |
-| PEID pairwise EI `w -> x` | 0.6253 |
-| PEID pairwise EI `w -> y` | 0.7456 |
-| PEID pairwise EI `w -> z` | 0.02398 |
-| PEID pairwise EI `x -> z` | 0.09064 |
-| PEID pairwise EI `y -> z` | 0.114 |
-| PEID joint EI `{x, y} -> z` | 0.7879 |
-| PEID synergy `{x, y} -> z` | 0.5833 |
+| fitted MLP final training loss | 0.153 |
+| Granger/ablation `w -> x` | 0.3711 |
+| Granger/ablation `w -> y` | 0.3192 |
+| Granger/ablation `w -> z` | 0.008312 |
+| Granger/ablation `x -> z` | 0.2256 |
+| Granger/ablation `y -> z` | 0.2072 |
+| SHAP mean abs `w -> x` | 0.4956 |
+| SHAP mean abs `w -> y` | 0.4614 |
+| SHAP mean abs `w -> z` | 0.03569 |
+| SHAP mean abs `x -> z` | 0.1816 |
+| SHAP mean abs `y -> z` | 0.1746 |
+| SHAP interaction mean abs `x:y -> z` | 0.3946 |
+| product interaction `x:y -> z` incremental `R^2` | 0.7946 |
+| product interaction `x:y -> z` coefficient | 0.3652 |
+| product interaction `w:x -> z` incremental `R^2` | 0.001036 |
+| product interaction `w:y -> z` incremental `R^2` | 0.0007202 |
+| PEID pairwise EI `w -> x` | 0.6188 |
+| PEID pairwise EI `w -> y` | 0.6915 |
+| PEID pairwise EI `w -> z` | 0.007138 |
+| PEID pairwise EI `x -> z` | 0.1071 |
+| PEID pairwise EI `y -> z` | 0.1305 |
+| PEID joint EI `{x, y} -> z` | 0.9957 |
+| PEID synergy `{x, y} -> z` | 0.7581 |
 
 ![同一 MLP 上的二维读出对照](../fig/granger_peid_mlp_comparison/sine_readout_2d_summary.png)
 
@@ -69,14 +82,14 @@ $$
 
 ![alpha 扫描下的 SHAP 与 PEID 对照](../fig/granger_peid_mlp_comparison/sine_alpha_shap_peid_sweep.png)
 
-| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.00 | 0.001942 | 0.001324 | 0.0007372 | 0.0006254 | 1.843e-05 | 1.302e-05 | 1.777e-05 | 0.03093 | -0.002546 |
-| 0.20 | 0.03113 | 0.03195 | 0.01068 | 0.05843 | 0.008518 | 0.008888 | 0.0001599 | 0.7449 | 0.6899 |
-| 0.40 | 0.06357 | 0.06288 | 0.01511 | 0.139 | 0.03565 | 0.03363 | 0.001393 | 0.8727 | 0.828 |
-| 0.60 | 0.09526 | 0.09575 | 0.02041 | 0.2181 | 0.07952 | 0.07362 | 0.00362 | 0.9068 | 0.8594 |
-| 0.80 | 0.127 | 0.1283 | 0.02525 | 0.2961 | 0.1417 | 0.1317 | 0.006221 | 0.9265 | 0.8803 |
-| 1.00 | 0.1588 | 0.1605 | 0.03084 | 0.3733 | 0.2229 | 0.2085 | 0.009188 | 0.9335 | 0.8885 |
+| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` | TM PEID `w->z` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | 0.001942 | 0.001324 | 0.0007372 | 0.0006254 | 1.843e-05 | 1.302e-05 | 1.777e-05 | 0.08449 | 0.01985 | 0.02464 |
+| 0.20 | 0.03113 | 0.03195 | 0.01068 | 0.05843 | 0.008518 | 0.008888 | 0.0001599 | 0.532 | 0.4755 | 0.05535 |
+| 0.40 | 0.06357 | 0.06288 | 0.01511 | 0.139 | 0.03565 | 0.03363 | 0.001393 | 0.5887 | 0.5323 | 0.04073 |
+| 0.60 | 0.09526 | 0.09575 | 0.02041 | 0.2181 | 0.07952 | 0.07362 | 0.00362 | 0.6143 | 0.5381 | 0.03565 |
+| 0.80 | 0.127 | 0.1283 | 0.02525 | 0.2961 | 0.1417 | 0.1317 | 0.006221 | 0.619 | 0.5468 | 0.03178 |
+| 1.00 | 0.1588 | 0.1605 | 0.03084 | 0.3733 | 0.2229 | 0.2085 | 0.009188 | 0.6167 | 0.5529 | 0.03054 |
 
 这里的 `alpha` 是 sine 项前面的强度系数。`alpha=0` 时，`z` 只剩自身记忆与噪声，SHAP 二阶交互接近零；TM PEID 仅保留少量连续估计底噪。随着 `alpha` 增大，SHAP 单源 `x->z`、`y->z` 与 SHAP interaction 同时上升，但单源项是对协同响应的归因分摊，不是结构边；Granger/ablation 的 `x->z`、`y->z` 也会随 `alpha` 上升，因为它衡量单源置换对 fitted MLP 预测误差的影响；这里的 PEID 曲线改用连续 transport-map EI，在同一最大熵联合干预样本上直接读出 `{x,y}` 对连续目标预测的机制信息约束。
 
@@ -99,20 +112,24 @@ $$
 
 其中 `beta=0` 时，`x` 与 `y` 主要由各自私有扰动驱动；`beta=1` 时，它们的新增驱动完全共享同一个 `w_t`。`\sqrt{1-\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。
 
-![beta 扫描下的 SHAP 与 PEID 趋势对照](../fig/granger_peid_mlp_comparison/sine_beta_shap_peid_sweep.png)
+![beta 扫描统一方法对照](../fig/granger_peid_mlp_comparison/sine_beta_unified_readout_sweep.png)
 
-| beta | corr(`x`,`y`) | SHAP interaction `(x,y)->z` | PEID synergy `{x,y}->z` | PEID joint EI `{x,y}->z` |
-| ---: | ---: | ---: | ---: | ---: |
-| 0.00 | 0.01436 | 0.1803 | 0.7325 | 1.081 |
-| 0.20 | 0.1014 | 0.2094 | 0.7142 | 1.053 |
-| 0.40 | 0.3089 | 0.2919 | 0.7346 | 1.086 |
-| 0.60 | 0.5427 | 0.4229 | 0.7209 | 1.084 |
-| 0.80 | 0.7463 | 0.538 | 0.7361 | 1.097 |
-| 1.00 | 0.9052 | 0.4702 | 0.7211 | 1.049 |
+| beta | corr(`x`,`y`) | SHAP `x` | SHAP `y` | SHAP `x:y` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |
+| ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 0.00 | 0.01436 | 0.09309 | 0.0856 | 0.1803 | 0.003486/0.003278/0.007816/0.1935 | 0.0126/0.009989/0.5657 |
+| 0.20 | 0.1014 | 0.09906 | 0.09415 | 0.2094 | 0.004451/0.001839/0.008352/0.2037 | 0.01241/0.01089/0.5624 |
+| 0.40 | 0.3089 | 0.1177 | 0.1171 | 0.2919 | 0.002588/0.002315/0.005618/0.302 | 0.007841/0.006555/0.5812 |
+| 0.60 | 0.5427 | 0.1435 | 0.1429 | 0.4229 | 0.001861/0.002627/0.004727/0.3991 | 0.01201/0.01212/0.5859 |
+| 0.80 | 0.7463 | 0.1519 | 0.1581 | 0.538 | 0.007804/0.002845/0.007263/0.1592 | 0.01808/0.01729/0.5971 |
+| 1.00 | 0.9052 | 0.167 | 0.175 | 0.4702 | 0.004404/0.004633/0.004019/0.02776 | 0.03436/0.03172/0.5977 |
 
-图中左侧把两个读数叠在同一坐标轴上：灰色线是观测轨迹里 `x` 与 `y` 的 Pearson 相关系数，用来显示共同驱动造成的源变量相关性；蓝色线是同一 fitted MLP 上面向 `z` 的 SHAP `(x,y)->z` 二阶交互强度。右侧 PEID 曲线比较的是同一个源集合 `{x,y}` 到目标 `z` 的 synergy 与 joint EI。为保持图面简洁，图中 PEID 曲线使用离散化估计器；transport-map PEID 不再单独绘制，只在趋势读数中作为稳健性补充。灰线不是因果边或 PEID 读数，而是 beta 扫描的观测相关性参照。
+每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，PEID 与 Oracle+PEID 共享同一组独立干预源样本。SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。SHAP 保留自身原始归因尺度，不与信息量绝对值直接比较；`beta=1` 的组成面板仅表示各方法内部的 relative readout shares，不是把 SHAP 声称为严格的信息分解。
 
-线性趋势读数显示，SHAP interaction 的 beta 斜率为 0.3666 (bootstrap 95% CI [0.2956, 0.4617])；离散化 PEID synergy 的 beta 斜率为 -0.000766 (bootstrap 95% CI [-0.05571, 0.05186])；transport-map PEID synergy 的 beta 斜率为 -0.3193 (bootstrap 95% CI [-0.5234, -0.1593])。这说明在这个对照里，SHAP interaction 更容易随观测相关性增强而上升；离散化 PEID 与 transport-map PEID 都没有相同的上升趋势。
+线性趋势读数显示，SHAP interaction 的 beta 斜率为 0.3666 (bootstrap 95% CI [0.2956, 0.4617])；Observational SURD synergy 的 beta 斜率为 -0.1236 (bootstrap 95% CI [-0.249, 0.04224])；MLP+PEID synergy 的 beta 斜率为 0.03836 (bootstrap 95% CI [-0.01003, 0.08451])。
+
+![Oracle+PEID 与 SURD Q1 验证](../fig/granger_peid_mlp_comparison/sine_beta_method_validation.png)
+
+验证图中的 Oracle+PEID 只用于检查 learned MLP 的 PEID 趋势是否偏离真实转移方程；SURD Q1 原子用于确认原论文 specific-MI transport-map 复现入口。二者都不进入主方法排名。
 
 
 
@@ -138,8 +155,8 @@ PEID 的关键读数是 `EI({x, y} -> z)` 与 `Syn({x, y} -> z)` 均显著高于
 
 | method | `w->y` true driver | `x->y` proxy | `y->y` memory | `x/w` ratio |
 | --- | ---: | ---: | ---: | ---: |
-| SHAP | 0.4622 | 0.0454 | 0.2652 | 0.09822 |
-| PEID EI | 0.7456 | 0.02086 | 0.1523 | 0.02797 |
-| Granger | 0.4105 | 0.006092 | 0.1348 | 0.01484 |
+| SHAP | 0.4614 | 0.01679 | 0.3203 | 0.03639 |
+| PEID EI | 0.6915 | 0.01548 | 0.1752 | 0.02239 |
+| Granger | 0.3192 | 0.003122 | 0.1357 | 0.009779 |
 
 这里不再区分不同 SHAP 口径，只保留当前应用最常见的背景替换式 SHAP 基线。该读出在同一 fitted MLP 上计算 mean absolute attribution，用来表示特征对预测输出的平均贡献；PEID 使用最大熵独立干预读出，主要保留直接 driver `w->y` 与自回归 `y->y`，而不是把观测 proxy 当作强机制边。

@@ -45,6 +45,10 @@ exp/cache/
 results/
 /fig/
 tests/
+!tests/
+tests/*
+!tests/test_pcmci_peid_synergy_comparison.py
+!tests/test_pcmci_peid_synergy_notebook.py
 *.pt
 *.pth
 *.ckpt
