@@ -218,7 +218,7 @@ function Explanation({ selection }: { selection: GraphSelection | undefined }) {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>("boolean");
+  const [mode, setMode] = useState<Mode>("continuous");
   const [nodeCount, setNodeCount] = useState(3);
   const [ruleType, setRuleType] = useState<(typeof functionChoices)[number]>("xor");
   const [alpha, setAlpha] = useState(1);

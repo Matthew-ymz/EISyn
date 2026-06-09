@@ -182,8 +182,8 @@ def compute_boolean_graph(payload: dict[str, object]) -> dict[str, object]:
 
     return {
         "nodes": nodes,
-        "pairwise_edges": pairwise_edges,
-        "hyperedges": hyperedges,
+        "pairwise_edges": sorted(pairwise_edges, key=lambda row: float(row["ei"]), reverse=True),
+        "hyperedges": sorted(hyperedges, key=lambda row: float(row["display_value"]), reverse=True),
         "diagnostics": {
             "signed_interactions": signed_interactions,
             "estimator": "exact",

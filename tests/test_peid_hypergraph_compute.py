@@ -106,6 +106,8 @@ def test_continuous_sine_default_recovers_common_driver_and_synergy() -> None:
     assert _edge_value(result, "w", "x") > 0.5
     assert _edge_value(result, "w", "y") > 0.5
     assert _edge_value(result, "w", "z") < 0.15
+    assert result["hyperedges"][0]["sources"] == ["x", "y"]
+    assert result["hyperedges"][0]["target"] == "z"
     xy_to_z = _hyperedge(result, ("x", "y"), "z")
     assert float(xy_to_z["synergy"]) > 0.1
     assert result["diagnostics"]["estimator"] == "transport_map"
