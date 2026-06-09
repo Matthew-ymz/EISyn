@@ -1,5 +1,13 @@
-import { Activity, Download, FlaskConical, Network, Play, SlidersHorizontal } from "lucide-react";
+import { Download, FlaskConical, Network, Play, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+  type BooleanRuleType,
+  booleanRuleTypes,
+  buildTruthTable,
+  getRulePresentation,
+  interpretSynergy,
+  minimumNodeCountForRule,
+} from "./dynamics";
 import {
   type DisplayOptions,
   type GraphResult,
@@ -18,8 +26,6 @@ import {
 } from "./graph";
 
 type Mode = "boolean" | "continuous";
-
-const functionChoices = ["xor", "and", "or", "copy", "majority"] as const;
 
 const fallbackResult: GraphResult = {
   nodes: [{ id: "w", label: "w" }, { id: "x", label: "x" }, { id: "y", label: "y" }, { id: "z", label: "z" }],
@@ -86,6 +92,116 @@ function formatNumber(value: number | undefined): string {
   if (value === undefined || Number.isNaN(value)) return "-";
   if (Math.abs(value) >= 10) return value.toFixed(1);
   return value.toFixed(3);
+}
+
+function NodeCountSummary({ nodeCount }: { nodeCount: number }) {
+  const sources = Array.from({ length: nodeCount - 1 }, (_, index) => `x${index}`);
+  return (
+    <div className="node-summary">
+      <strong>Total nodes: {nodeCount}</strong>
+      <span>Source candidates: {sources.join(", ")}</span>
+      <span>Default target: x{nodeCount - 1}</span>
+      <small>The last node is used as the target by default.</small>
+    </div>
+  );
+}
+
+function MechanismPresets({
+  selected,
+  onSelect,
+}: {
+  selected: BooleanRuleType;
+  onSelect: (rule: BooleanRuleType) => void;
+}) {
+  return (
+    <section className="generator-section">
+      <div className="section-label">Mechanism presets</div>
+      <div className="preset-grid">
+        {booleanRuleTypes.map((type) => {
+          const rule = getRulePresentation(type, 3);
+          return (
+            <button
+              key={type}
+              className={selected === type ? "preset-button selected" : "preset-button"}
+              title={rule.description}
+              onClick={() => onSelect(type)}
+            >
+              {rule.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="helper-text">{getRulePresentation(selected, 3).description}</p>
+    </section>
+  );
+}
+
+function RuleDiagram({ inputs, ruleLabel, target }: { inputs: string[]; ruleLabel: string; target: string }) {
+  return (
+    <div className="rule-diagram" aria-label={`${inputs.join(" and ")} flow through ${ruleLabel} to next ${target}`}>
+      <div className="diagram-inputs">
+        {inputs.map((input) => <span key={input}>{input}</span>)}
+      </div>
+      <span className="diagram-arrow">→</span>
+      <strong className="diagram-rule">{ruleLabel}</strong>
+      <span className="diagram-arrow">→</span>
+      <span className="diagram-target">{target}_next</span>
+    </div>
+  );
+}
+
+function BooleanTruthTable({ ruleType, nodeCount }: { ruleType: BooleanRuleType; nodeCount: number }) {
+  const rule = getRulePresentation(ruleType, nodeCount);
+  const rows = buildTruthTable(ruleType, nodeCount);
+  return (
+    <div className="truth-table-wrap">
+      <div className="section-label">Truth table preview</div>
+      <table className="truth-table">
+        <thead>
+          <tr>
+            {rule.inputs.map((input) => <th key={input}>{input}</th>)}
+            <th>{rule.target}_next</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.inputs.join("")}>
+              {row.inputs.map((value, index) => <td key={`${row.inputs.join("")}-${index}`}>{value}</td>)}
+              <td>{row.output}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TargetRuleCard({ ruleType, nodeCount }: { ruleType: BooleanRuleType; nodeCount: number }) {
+  const rule = getRulePresentation(ruleType, nodeCount);
+  return (
+    <section className="target-rule-card">
+      <h3>Target update rule</h3>
+      <div className="rule-facts">
+        <span><strong>Target node:</strong> {rule.target}</span>
+        <span><strong>Input nodes:</strong> {rule.inputs.join(", ")}</span>
+        <span><strong>Rule:</strong> {rule.label}</span>
+      </div>
+      <code>{rule.formula}</code>
+      <p>{rule.explanation}</p>
+      <RuleDiagram inputs={rule.inputs} ruleLabel={rule.label} target={rule.target} />
+      <BooleanTruthTable ruleType={ruleType} nodeCount={nodeCount} />
+    </section>
+  );
+}
+
+function GraphLegend() {
+  return (
+    <div className="graph-legend" aria-label="Graph legend">
+      <span><i className="legend-line pair" />Pairwise edge</span>
+      <span><i className="legend-line hyperedge" />Synergistic hyperedge</span>
+      <span><i className="legend-line selected" />Selected mechanism</span>
+    </div>
+  );
 }
 
 function GraphView({
@@ -165,6 +281,9 @@ function GraphView({
             <text x={hub.x} y={hub.y + 4} textAnchor="middle">
               {edge.source_order}
             </text>
+            <text className="hyper-label" x={hub.x + 20} y={hub.y - 18}>
+              {"{"}{edge.sources.join(", ")}{"}"} → {edge.target}
+            </text>
           </g>
         );
       })}
@@ -213,14 +332,18 @@ function Explanation({ selection }: { selection: GraphSelection | undefined }) {
         <dt>{edge.interaction_type === "signed_interaction" ? "Signed value" : "Synergy"}</dt>
         <dd>{formatNumber(edge.synergy)} bits</dd>
       </dl>
+      <div className="interpretation">
+        <h3>Interpretation</h3>
+        <p>{interpretSynergy(edge.synergy)}</p>
+      </div>
     </section>
   );
 }
 
 export default function App() {
   const [mode, setMode] = useState<Mode>("continuous");
-  const [nodeCount, setNodeCount] = useState(3);
-  const [ruleType, setRuleType] = useState<(typeof functionChoices)[number]>("xor");
+  const [nodeCount, setNodeCount] = useState(5);
+  const [ruleType, setRuleType] = useState<BooleanRuleType>("xor");
   const [alpha, setAlpha] = useState(1);
   const [beta, setBeta] = useState(0.75);
   const [result, setResult] = useState<GraphResult>(fallbackResult);
@@ -234,6 +357,16 @@ export default function App() {
   });
 
   const visible = useMemo(() => filterVisibleGraph(result, display), [result, display]);
+
+  function markSettingsChanged() {
+    setStatus("settings changed; compute to update graph");
+  }
+
+  function selectRule(rule: BooleanRuleType) {
+    setRuleType(rule);
+    setNodeCount((current) => Math.max(current, minimumNodeCountForRule(rule)));
+    markSettingsChanged();
+  }
 
   async function handleCompute() {
     setStatus("computing...");
@@ -272,57 +405,73 @@ export default function App() {
         <aside className="builder-panel">
           <div className="panel-heading">
             <FlaskConical size={18} />
-            <h2>Dynamics</h2>
+            <h2>System Generator</h2>
           </div>
+          <p className="panel-subtitle">Define the dynamical rule used to generate the state transition table for PEID.</p>
 
           <label className="field">
             <span>Mode</span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as Mode)}>
+            <select value={mode} onChange={(event) => { setMode(event.target.value as Mode); markSettingsChanged(); }}>
               <option value="boolean">Boolean exact</option>
               <option value="continuous">Continuous sine</option>
             </select>
           </label>
+          <p className="helper-text mode-help">
+            {mode === "boolean"
+              ? "Binary-state deterministic network. Each node is either 0 or 1. PEID is computed exactly from the full state transition table."
+              : "Experimental continuous-valued dynamics with sine coupling. PEID is estimated from sampled trajectories, so results may depend on sampling settings."}
+          </p>
 
           {mode === "boolean" ? (
             <>
               <label className="field">
-                <span>Node count</span>
-                <input type="range" min="3" max="8" value={nodeCount} onChange={(event) => setNodeCount(Number(event.target.value))} />
-                <strong>{nodeCount}</strong>
+                <span>Total nodes</span>
+                <input type="range" min={minimumNodeCountForRule(ruleType)} max="8" value={nodeCount} onChange={(event) => { setNodeCount(Number(event.target.value)); markSettingsChanged(); }} />
               </label>
+              <NodeCountSummary nodeCount={nodeCount} />
               <label className="field">
                 <span>Target function</span>
-                <select value={ruleType} onChange={(event) => setRuleType(event.target.value as (typeof functionChoices)[number])}>
-                  {functionChoices.map((choice) => (
+                <select value={ruleType} onChange={(event) => selectRule(event.target.value as BooleanRuleType)}>
+                  {booleanRuleTypes.map((choice) => (
                     <option key={choice} value={choice}>
-                      {choice}
+                      {getRulePresentation(choice, nodeCount).label}
                     </option>
                   ))}
                 </select>
               </label>
-              <div className="rule-preview">
-                <span>Target</span>
-                <strong>x{nodeCount - 1}' = {ruleType}(x0, x1)</strong>
-              </div>
+              <MechanismPresets selected={ruleType} onSelect={selectRule} />
+              <TargetRuleCard ruleType={ruleType} nodeCount={nodeCount} />
             </>
           ) : (
             <>
               <label className="field">
-                <span>alpha</span>
-                <input type="range" min="0" max="1.5" step="0.05" value={alpha} onChange={(event) => setAlpha(Number(event.target.value))} />
+                <span>Synergy strength (alpha)</span>
+                <input type="range" min="0" max="1.5" step="0.05" value={alpha} onChange={(event) => { setAlpha(Number(event.target.value)); markSettingsChanged(); }} />
                 <strong>{alpha.toFixed(2)}</strong>
               </label>
               <label className="field">
-                <span>common driver</span>
-                <input type="range" min="0" max="1" step="0.05" value={beta} onChange={(event) => setBeta(Number(event.target.value))} />
+                <span>Common-driver strength</span>
+                <input type="range" min="0" max="1" step="0.05" value={beta} onChange={(event) => { setBeta(Number(event.target.value)); markSettingsChanged(); }} />
                 <strong>{beta.toFixed(2)}</strong>
               </label>
-              <div className="rule-preview">
-                <span>z'</span>
-                <strong>0.22z + alpha sin(xy)</strong>
-              </div>
+              <section className="target-rule-card">
+                <h3>Target update rule</h3>
+                <div className="rule-facts">
+                  <span><strong>Target node:</strong> z</span>
+                  <span><strong>Input nodes:</strong> x, y</span>
+                  <span><strong>Rule:</strong> Sine interaction</span>
+                </div>
+                <code>z_next = 0.22z + alpha sin(xy)</code>
+                <p>The product of x and y enters the target through a nonlinear sine coupling, which can create joint influence beyond either source alone.</p>
+                <RuleDiagram inputs={["x", "y"]} ruleLabel="sin(xy)" target="z" />
+              </section>
             </>
           )}
+
+          <details className="education-note">
+            <summary>How this affects PEID</summary>
+            <p>The selected rule defines how the target node updates from its inputs. PEID compares the effective information carried by individual sources and source groups. If a group provides extra information beyond its members alone, the app draws a synergistic hyperedge.</p>
+          </details>
 
           <div className="panel-heading compact">
             <SlidersHorizontal size={18} />
@@ -359,6 +508,7 @@ export default function App() {
             <h2>Computed graph</h2>
             <span>{visible.pairwise_edges.length} pairwise / {visible.hyperedges.length} hyper</span>
           </div>
+          <GraphLegend />
           <GraphView result={visible} selected={selected} onSelect={setSelected} />
         </section>
 
@@ -369,14 +519,12 @@ export default function App() {
             <div className="table-list">
               {result.hyperedges.slice(0, 6).map((edge) => (
                 <button key={`${edge.sources.join("+")}-${edge.target}`} onClick={() => setSelected({ kind: "hyperedge", edge })}>
-                  <span>{"{"}{edge.sources.join(",")}{"}"} {"->"} {edge.target}</span>
-                  <strong>{formatNumber(edge.display_value)}</strong>
+                  <span><strong>{"{"}{edge.sources.join(", ")}{"}"} {"->"} {edge.target}</strong><small>Synergy: {formatNumber(edge.synergy)} bits</small></span>
                 </button>
               ))}
               {result.pairwise_edges.slice(0, 6).map((edge) => (
                 <button key={`${edge.source}-${edge.target}`} onClick={() => setSelected({ kind: "pairwise", edge })}>
-                  <span>{edge.source} {"->"} {edge.target}</span>
-                  <strong>{formatNumber(edge.ei)}</strong>
+                  <span><strong>{edge.source} {"->"} {edge.target}</strong><small>EI: {formatNumber(edge.ei)} bits</small></span>
                 </button>
               ))}
             </div>
