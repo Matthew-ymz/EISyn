@@ -14,7 +14,10 @@ if str(ROOT) not in sys.path:
 import scripts.compare_granger_peid_mlp as comparison
 from scripts.compare_granger_peid_mlp import (
     SimConfig,
+    _observational_wms,
+    _plot_sine_alpha_neural_granger_sweep,
     _plot_sine_alpha_sweep,
+    _plot_sine_beta_sweep,
     _proxy_y_readout_values,
     estimate_granger_graph,
     estimate_peid_graph,
@@ -22,8 +25,10 @@ from scripts.compare_granger_peid_mlp import (
     run_comparison_grid,
     run_lagged_proxy_common_driver_experiment,
     run_lag_sensitivity_lagged_proxy_experiment,
+    run_neural_granger_readout,
     run_neural_granger_lagged_proxy_experiment,
     run_sine_alpha_sweep,
+    run_sine_beta_common_driver_sweep,
     simulate_system,
     train_mlp_transition_model,
 )
@@ -130,6 +135,51 @@ def test_peid_synergy_keeps_signed_joint_minus_single_value(monkeypatch) -> None
     ].iloc[0]
 
     assert abs(float(edge["synergy"]) + 0.3) < 1e-12
+
+
+def test_observational_wms_keeps_signed_whole_minus_sum(monkeypatch) -> None:
+    estimates = iter((0.6, 0.5, 0.8))
+
+    def fake_mutual_information(source, target):
+        assert np.asarray(source).shape[0] == np.asarray(target).shape[0]
+        return next(estimates)
+
+    monkeypatch.setattr(comparison, "_mutual_information_from_states", fake_mutual_information)
+    result = _observational_wms(
+        np.arange(8, dtype=float),
+        np.arange(8, dtype=float) + 1.0,
+        np.arange(8, dtype=float) + 2.0,
+    )
+
+    assert abs(result["x_mi"] - 0.6) < 1e-12
+    assert abs(result["y_mi"] - 0.5) < 1e-12
+    assert abs(result["joint_mi"] - 0.8) < 1e-12
+    assert abs(result["wms"] + 0.3) < 1e-12
+
+
+def test_observational_wms_becomes_negative_with_full_common_driver() -> None:
+    values = {}
+    for beta in (0.0, 1.0):
+        series, _ = simulate_system(
+            SimConfig(
+                mechanism="common_driver_sine_synergy",
+                n_samples=1100,
+                noise=0.05,
+                seed=0,
+                synergy_strength=1.0,
+                common_driver_strength=beta,
+                bins=4,
+            )
+        )
+        values[beta] = _observational_wms(
+            series["x"].to_numpy(dtype=float)[:-1],
+            series["y"].to_numpy(dtype=float)[:-1],
+            series["z"].to_numpy(dtype=float)[1:],
+            bins=4,
+        )["wms"]
+
+    assert values[0.0] > 0.0
+    assert values[1.0] < 0.0
 
 
 def _trained_model(config: SimConfig):
@@ -336,6 +386,39 @@ def test_neural_granger_lagged_proxy_keeps_proxy_under_collinearity() -> None:
     assert lag2_y_x["group_norm"] > 0.1
 
 
+def test_four_variable_neural_granger_readout_returns_sine_edges() -> None:
+    config = SimConfig(
+        mechanism="common_driver_sine_synergy",
+        n_samples=320,
+        noise=0.05,
+        seed=0,
+        synergy_strength=1.0,
+        mlp_epochs=2,
+    )
+    series, _ = simulate_system(config)
+    features, targets = make_lagged_dataset(series, lag=config.lag)
+
+    readout = run_neural_granger_readout(
+        features,
+        targets,
+        variable_names=config.variable_names,
+        max_lag=config.lag,
+        epochs=2,
+        hidden_dim=8,
+        group_lasso=0.01,
+        seed=0,
+    )
+    rows = readout["rows"]
+    edge_keys = {(row["source"], row["target"]) for row in rows}
+
+    assert ("x", "z") in edge_keys
+    assert ("y", "z") in edge_keys
+    assert ("w", "z") in edge_keys
+    assert ("w", "x") in edge_keys
+    assert ("w", "y") in edge_keys
+    assert all("group_norm" in row for row in rows)
+
+
 def test_smoke_grid_writes_summary_edges_and_png(tmp_path: Path) -> None:
     result_dir = tmp_path / "results"
     figure_dir = tmp_path / "fig"
@@ -371,6 +454,7 @@ def test_smoke_grid_writes_summary_edges_and_png(tmp_path: Path) -> None:
     report_text = Path(summary["report_markdown_path"]).read_text(encoding="utf-8")
     assert "统一动力系统：共同驱动 + sine 协同" in report_text
     assert "Granger/ablation `w -> x`" in report_text
+    assert "Neural Granger `w -> x`" in report_text
     assert "PEID synergy `{x, y} -> z`" in report_text
     assert "transport-map PEID" not in report_text
     assert "滞后共同驱动造成的 Granger 伪边" not in report_text
@@ -442,6 +526,9 @@ def test_alpha_sweep_reports_transport_map_peid_for_sine_synergy() -> None:
         assert "granger_x_to_z" in row
         assert "granger_y_to_z" in row
         assert "granger_w_to_z" in row
+        assert "neural_granger_x_to_z" in row
+        assert "neural_granger_y_to_z" in row
+        assert "neural_granger_w_to_z" in row
         assert "tm_peid_xy_joint_ei" in row
         assert "tm_peid_xy_synergy" in row
         assert "tm_peid_x_to_z" in row
@@ -503,7 +590,50 @@ def test_alpha_sweep_plot_combines_shap_without_product_r2(tmp_path: Path, monke
     assert "SHAP interaction (x,y)->z" in plotted_labels
     assert "Granger x->z" in plotted_labels
     assert "Granger y->z" in plotted_labels
+    assert "Neural Granger x->z" not in plotted_labels
+    assert "Neural Granger y->z" not in plotted_labels
+    assert "Neural Granger w->z" not in plotted_labels
     assert "product probe incremental R2" not in plotted_labels
+
+
+def test_alpha_neural_granger_sweep_plot_is_standalone(tmp_path: Path, monkeypatch) -> None:
+    import matplotlib.axes
+
+    plotted_labels: list[str] = []
+    original_plot = matplotlib.axes.Axes.plot
+
+    def capture_plot(self, *args, **kwargs):
+        label = kwargs.get("label")
+        if label:
+            plotted_labels.append(str(label))
+        return original_plot(self, *args, **kwargs)
+
+    monkeypatch.setattr(matplotlib.axes.Axes, "plot", capture_plot)
+    path = _plot_sine_alpha_neural_granger_sweep(
+        [
+            {
+                "alpha": 0.0,
+                "neural_granger_x_to_z": 0.0,
+                "neural_granger_y_to_z": 0.0,
+                "neural_granger_w_to_z": 0.0,
+            },
+            {
+                "alpha": 1.0,
+                "neural_granger_x_to_z": 1.0,
+                "neural_granger_y_to_z": 0.8,
+                "neural_granger_w_to_z": 0.1,
+            },
+        ],
+        tmp_path,
+    )
+
+    assert plotted_labels == [
+        "Neural Granger x->z",
+        "Neural Granger y->z",
+        "Neural Granger w->z",
+    ]
+    assert path is not None and path.exists()
+    assert path.name == "sine_alpha_neural_granger_sweep.png"
 
 
 def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> None:
@@ -531,6 +661,10 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
         "shap_x_to_z_mean_abs",
         "shap_y_to_z_mean_abs",
         "shap_xy_mean_abs_interaction",
+        "observational_x_to_z_mi",
+        "observational_y_to_z_mi",
+        "observational_xy_to_z_joint_mi",
+        "observational_wms",
         "surd_redundancy",
         "surd_unique_x",
         "surd_unique_y",
@@ -559,9 +693,13 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert run["mlp_peid_redundancy"] == 0.0
     assert run["oracle_peid_redundancy"] == 0.0
     assert "surd_xy_synergy_mean" in beta_sweep["summary"][0]
+    assert "observational_wms_mean" in beta_sweep["summary"][0]
+    assert "observational_wms_slope" in beta_sweep["trend"]
     assert "tm_peid_synergy_slope" in beta_sweep["trend"]
     assert "surd_synergy_slope" in beta_sweep["trend"]
     assert "oracle_peid_synergy_slope" in beta_sweep["trend"]
+    assert "neural_granger_xy_to_z_mean" in beta_sweep["summary"][0]
+    assert "neural_granger_xy_to_z_slope" in beta_sweep["trend"]
     assert Path(summary["beta_sweep_figure_path"]).name == "sine_beta_unified_readout_sweep.png"
     assert Path(summary["beta_sweep_figure_path"]).exists()
     assert Path(summary["beta_validation_figure_path"]).exists()
@@ -570,3 +708,146 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert "Observational SURD" in report_text
     assert "MLP+SHAP" in report_text
     assert "MLP+PEID" in report_text
+    assert "Neural Granger" in report_text
+    assert "observational WMS" in report_text
+
+
+def test_beta_sweep_reports_neural_granger_fields() -> None:
+    result = run_sine_beta_common_driver_sweep(
+        beta_values=(0.0, 0.5),
+        seeds=(0,),
+        n_samples=240,
+        mlp_epochs=2,
+        intervention_samples=96,
+        bins=4,
+        neural_granger_epochs=2,
+    )
+
+    assert result["runs"]
+    run = result["runs"][0]
+    summary = result["summary"][0]
+    trend = result["trend"]
+    assert "neural_granger_x_to_z" in run
+    assert "neural_granger_y_to_z" in run
+    assert "neural_granger_w_to_z" in run
+    assert "neural_granger_xy_to_z_mean" in summary
+    assert "neural_granger_xy_to_z_slope" in trend
+    assert "observational_wms" in run
+    assert "observational_wms_mean" in summary
+    assert "observational_wms_slope" in trend
+
+
+def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: Path, monkeypatch) -> None:
+    import matplotlib.axes
+
+    plotted_labels: list[str] = []
+    bar_calls: list[object] = []
+    horizontal_lines: list[float] = []
+    original_plot = matplotlib.axes.Axes.plot
+    original_bar = matplotlib.axes.Axes.bar
+    original_axhline = matplotlib.axes.Axes.axhline
+
+    def capture_plot(self, *args, **kwargs):
+        label = kwargs.get("label")
+        if label:
+            plotted_labels.append(str(label))
+        return original_plot(self, *args, **kwargs)
+
+    def capture_bar(self, *args, **kwargs):
+        bar_calls.append(args)
+        return original_bar(self, *args, **kwargs)
+
+    def capture_axhline(self, y=0, *args, **kwargs):
+        horizontal_lines.append(float(y))
+        return original_axhline(self, y, *args, **kwargs)
+
+    monkeypatch.setattr(matplotlib.axes.Axes, "plot", capture_plot)
+    monkeypatch.setattr(matplotlib.axes.Axes, "bar", capture_bar)
+    monkeypatch.setattr(matplotlib.axes.Axes, "axhline", capture_axhline)
+    path = _plot_sine_beta_sweep(
+        {
+            "summary": [
+                {
+                    "beta": 0.0,
+                    "xy_observed_corr_mean": 0.0,
+                    "xy_observed_corr_std": 0.0,
+                    "observational_wms_mean": 0.2,
+                    "observational_wms_std": 0.0,
+                    "shap_x_to_z_mean_abs_mean": 0.1,
+                    "shap_x_to_z_mean_abs_std": 0.0,
+                    "shap_y_to_z_mean_abs_mean": 0.1,
+                    "shap_y_to_z_mean_abs_std": 0.0,
+                    "shap_xy_mean_abs_interaction_mean": 0.2,
+                    "shap_xy_mean_abs_interaction_std": 0.0,
+                    "surd_redundancy_mean": 0.0,
+                    "surd_redundancy_std": 0.0,
+                    "surd_unique_x_mean": 0.01,
+                    "surd_unique_x_std": 0.0,
+                    "surd_unique_y_mean": 0.01,
+                    "surd_unique_y_std": 0.0,
+                    "surd_xy_synergy_mean": 0.2,
+                    "surd_xy_synergy_std": 0.0,
+                    "mlp_peid_unique_x_mean": 0.01,
+                    "mlp_peid_unique_x_std": 0.0,
+                    "mlp_peid_unique_y_mean": 0.01,
+                    "mlp_peid_unique_y_std": 0.0,
+                    "mlp_peid_xy_synergy_mean": 0.5,
+                    "mlp_peid_xy_synergy_std": 0.0,
+                    "neural_granger_x_to_z_mean": 1.0,
+                    "neural_granger_x_to_z_std": 0.0,
+                    "neural_granger_y_to_z_mean": 1.1,
+                    "neural_granger_y_to_z_std": 0.0,
+                    "neural_granger_w_to_z_mean": 0.0,
+                    "neural_granger_w_to_z_std": 0.0,
+                    "neural_granger_xy_to_z_mean": 2.1,
+                    "neural_granger_xy_to_z_std": 0.0,
+                },
+                {
+                    "beta": 1.0,
+                    "xy_observed_corr_mean": 0.9,
+                    "xy_observed_corr_std": 0.0,
+                    "observational_wms_mean": -0.1,
+                    "observational_wms_std": 0.0,
+                    "shap_x_to_z_mean_abs_mean": 0.2,
+                    "shap_x_to_z_mean_abs_std": 0.0,
+                    "shap_y_to_z_mean_abs_mean": 0.2,
+                    "shap_y_to_z_mean_abs_std": 0.0,
+                    "shap_xy_mean_abs_interaction_mean": 0.4,
+                    "shap_xy_mean_abs_interaction_std": 0.0,
+                    "surd_redundancy_mean": 0.0,
+                    "surd_redundancy_std": 0.0,
+                    "surd_unique_x_mean": 0.01,
+                    "surd_unique_x_std": 0.0,
+                    "surd_unique_y_mean": 0.01,
+                    "surd_unique_y_std": 0.0,
+                    "surd_xy_synergy_mean": 0.1,
+                    "surd_xy_synergy_std": 0.0,
+                    "mlp_peid_unique_x_mean": 0.02,
+                    "mlp_peid_unique_x_std": 0.0,
+                    "mlp_peid_unique_y_mean": 0.02,
+                    "mlp_peid_unique_y_std": 0.0,
+                    "mlp_peid_xy_synergy_mean": 0.5,
+                    "mlp_peid_xy_synergy_std": 0.0,
+                    "neural_granger_x_to_z_mean": 1.2,
+                    "neural_granger_x_to_z_std": 0.0,
+                    "neural_granger_y_to_z_mean": 1.3,
+                    "neural_granger_y_to_z_std": 0.0,
+                    "neural_granger_w_to_z_mean": 0.0,
+                    "neural_granger_w_to_z_std": 0.0,
+                    "neural_granger_xy_to_z_mean": 2.5,
+                    "neural_granger_xy_to_z_std": 0.0,
+                },
+            ]
+        },
+        tmp_path,
+    )
+
+    assert path is not None and path.exists()
+    assert "observational WMS" in plotted_labels
+    assert "observed corr(x,y)" not in plotted_labels
+    assert "NG x->z" in plotted_labels
+    assert "NG y->z" in plotted_labels
+    assert "NG w->z" not in plotted_labels
+    assert "NG x+y->z sum" not in plotted_labels
+    assert 0.0 in horizontal_lines
+    assert not bar_calls

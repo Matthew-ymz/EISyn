@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
 
 DEFAULT_RESULT_DIR = ROOT / "results" / "granger_peid_mlp_comparison"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "granger_peid_mlp_comparison"
-DEFAULT_REPORT_PATH = ROOT / "docs" / "granger_peid_mlp_comparison.md"
+DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "granger_peid_mlp_comparison.md"
 VARIABLE_NAMES = ("x", "y", "z", "w")
 
 
@@ -364,6 +364,20 @@ def _effective_information_from_states(source_states: np.ndarray, target_states:
     probs = counts[observed] / row_totals[observed, None]
     target_probs = probs.mean(axis=0)
     return float(_entropy_bits(target_probs) - np.mean([_entropy_bits(row) for row in probs]))
+
+
+def _mutual_information_from_states(source_states: np.ndarray, target_states: np.ndarray) -> float:
+    """Compute empirical mutual information in bits from discrete states."""
+
+    _, source_codes = _state_codes(source_states)
+    _, target_codes = _state_codes(target_states)
+    _, joint_codes = _state_codes(np.column_stack([source_codes, target_codes]))
+
+    def state_entropy(codes: np.ndarray) -> float:
+        counts = np.bincount(np.asarray(codes, dtype=int))
+        return _entropy_bits(counts / max(float(counts.sum()), 1.0))
+
+    return float(state_entropy(source_codes) + state_entropy(target_codes) - state_entropy(joint_codes))
 
 
 def _discretize_vector(values: np.ndarray, bins: int) -> np.ndarray:
@@ -1132,6 +1146,7 @@ def _fit_componentwise_neural_granger(
     *,
     target_idx: int,
     max_lag: int,
+    variable_names: Sequence[str],
     group_lasso: float,
     hidden_dim: int,
     epochs: int,
@@ -1142,11 +1157,24 @@ def _fit_componentwise_neural_granger(
 
     import torch
 
+    names = tuple(str(name) for name in variable_names)
+    if not names:
+        raise ValueError("variable_names must not be empty.")
+    if max_lag < 1:
+        raise ValueError("max_lag must be positive.")
+
     torch.manual_seed(int(seed))
     torch.set_num_threads(1)
 
     x = np.asarray(features, dtype=np.float32)
     y = np.asarray(targets[:, target_idx : target_idx + 1], dtype=np.float32)
+    expected_features = int(max_lag) * len(names)
+    if x.ndim != 2 or x.shape[1] != expected_features:
+        raise ValueError(
+            f"features must have {expected_features} columns for {len(names)} variables and max_lag={max_lag}."
+        )
+    if targets.shape[1] != len(names):
+        raise ValueError("targets width must match variable_names.")
     x_mean = x.mean(axis=0, keepdims=True)
     x_std = x.std(axis=0, keepdims=True)
     x_std = np.where(x_std > 1e-8, x_std, 1.0)
@@ -1171,8 +1199,10 @@ def _fit_componentwise_neural_granger(
         mse = torch.mean((prediction - y_tensor) ** 2)
         first_layer = net[0].weight
         penalty = sum(
-            torch.linalg.vector_norm(first_layer[:, [lag_idx * 3 + source_idx for lag_idx in range(max_lag)]])
-            for source_idx in range(3)
+            torch.linalg.vector_norm(
+                first_layer[:, [lag_idx * len(names) + source_idx for lag_idx in range(max_lag)]]
+            )
+            for source_idx in range(len(names))
         )
         loss = mse + float(group_lasso) * penalty
         loss.backward()
@@ -1182,17 +1212,82 @@ def _fit_componentwise_neural_granger(
     first_layer_weights = np.asarray(net[0].weight.detach().tolist(), dtype=float)
     group_norms: dict[str, float] = {}
     lag_norms: dict[str, list[float]] = {}
-    for source_idx, source in enumerate(("w", "x", "y")):
-        cols = [lag_idx * 3 + source_idx for lag_idx in range(max_lag)]
+    for source_idx, source in enumerate(names):
+        cols = [lag_idx * len(names) + source_idx for lag_idx in range(max_lag)]
         group_norms[source] = float(np.linalg.norm(first_layer_weights[:, cols]))
         lag_norms[source] = [
-            float(np.linalg.norm(first_layer_weights[:, lag_idx * 3 + source_idx]))
+            float(np.linalg.norm(first_layer_weights[:, lag_idx * len(names) + source_idx]))
             for lag_idx in range(max_lag)
         ]
     return {
         "group_norms": group_norms,
         "lag_norms": lag_norms,
         "scaled_mse": loss_value,
+    }
+
+
+def run_neural_granger_readout(
+    features: np.ndarray,
+    targets: np.ndarray,
+    *,
+    variable_names: Sequence[str],
+    max_lag: int,
+    group_lasso: float = 0.03,
+    hidden_dim: int = 12,
+    epochs: int = 120,
+    learning_rate: float = 0.01,
+    seed: int = 0,
+) -> dict[str, object]:
+    """Run component-wise cMLP Neural Granger and return ranked source norms."""
+
+    names = tuple(str(name) for name in variable_names)
+    if not names:
+        raise ValueError("variable_names must not be empty.")
+    if int(max_lag) < 1:
+        raise ValueError("max_lag must be positive.")
+    if float(group_lasso) < 0.0:
+        raise ValueError("group_lasso must be nonnegative.")
+
+    rows: list[dict[str, object]] = []
+    for target_idx, target in enumerate(names):
+        fit = _fit_componentwise_neural_granger(
+            features,
+            targets,
+            target_idx=target_idx,
+            max_lag=int(max_lag),
+            variable_names=names,
+            group_lasso=float(group_lasso),
+            hidden_dim=int(hidden_dim),
+            epochs=int(epochs),
+            learning_rate=float(learning_rate),
+            seed=int(seed) + target_idx,
+        )
+        group_norms = dict(fit["group_norms"])
+        lag_norms = dict(fit["lag_norms"])
+        ordered_sources = sorted(group_norms, key=lambda name: group_norms[name], reverse=True)
+        for rank, source in enumerate(ordered_sources, start=1):
+            source_lag_norms = [float(value) for value in lag_norms[source]]
+            strongest_lag_idx = int(np.argmax(source_lag_norms)) + 1
+            rows.append(
+                {
+                    "method": "neural_granger",
+                    "source": source,
+                    "target": target,
+                    "rank": int(rank),
+                    "group_norm": float(group_norms[source]),
+                    "strongest_lag": int(strongest_lag_idx),
+                    "strongest_lag_norm": float(max(source_lag_norms)),
+                    "lag_norms": source_lag_norms,
+                    "scaled_mse": float(fit["scaled_mse"]),
+                }
+            )
+    return {
+        "variable_names": list(names),
+        "max_lag": int(max_lag),
+        "group_lasso": float(group_lasso),
+        "hidden_dim": int(hidden_dim),
+        "epochs": int(epochs),
+        "rows": rows,
     }
 
 
@@ -1223,37 +1318,19 @@ def run_neural_granger_lagged_proxy_experiment(
         if max_lag < 1:
             raise ValueError("max_lags must contain positive integers.")
         features, targets = _make_reverse_lag_dataset(series, int(max_lag))
-        for target_idx, target in enumerate(("w", "x", "y")):
-            fit = _fit_componentwise_neural_granger(
-                features,
-                targets,
-                target_idx=target_idx,
-                max_lag=int(max_lag),
-                group_lasso=float(group_lasso),
-                hidden_dim=int(hidden_dim),
-                epochs=int(epochs),
-                learning_rate=float(learning_rate),
-                seed=int(model_seed + 17 * max_lag + target_idx),
-            )
-            group_norms = dict(fit["group_norms"])
-            lag_norms = dict(fit["lag_norms"])
-            ordered_sources = sorted(group_norms, key=lambda name: group_norms[name], reverse=True)
-            for rank, source in enumerate(ordered_sources, start=1):
-                source_lag_norms = [float(value) for value in lag_norms[source]]
-                strongest_lag_idx = int(np.argmax(source_lag_norms)) + 1
-                rows.append(
-                    {
-                        "max_lag": int(max_lag),
-                        "target": target,
-                        "source": source,
-                        "rank": int(rank),
-                        "group_norm": float(group_norms[source]),
-                        "strongest_lag": int(strongest_lag_idx),
-                        "strongest_lag_norm": float(max(source_lag_norms)),
-                        "lag_norms": source_lag_norms,
-                        "scaled_mse": float(fit["scaled_mse"]),
-                    }
-                )
+        readout = run_neural_granger_readout(
+            features,
+            targets,
+            variable_names=("w", "x", "y"),
+            max_lag=int(max_lag),
+            group_lasso=float(group_lasso),
+            hidden_dim=int(hidden_dim),
+            epochs=int(epochs),
+            learning_rate=float(learning_rate),
+            seed=int(model_seed + 17 * max_lag),
+        )
+        for row in readout["rows"]:
+            rows.append({**row, "max_lag": int(max_lag)})
 
     def top_source(max_lag: int, target: str) -> str:
         candidates = [
@@ -1356,6 +1433,7 @@ def _edge_records(
     peid: PeidGraph,
     shap_readout: ShapReadout | None = None,
     conditional_shap_readout: ConditionalShapReadout | None = None,
+    neural_granger_readout: dict[str, object] | None = None,
 ) -> list[dict[str, object]]:
     base = {
         "run_id": run_id,
@@ -1382,6 +1460,9 @@ def _edge_records(
     if conditional_shap_readout is not None:
         for row in conditional_shap_readout.feature_attributions.to_dict("records"):
             rows.append({**base, "edge_type": "conditional_shap", **row})
+    if neural_granger_readout is not None:
+        for row in list(neural_granger_readout.get("rows", [])):
+            rows.append({**base, "edge_type": "neural_granger", **dict(row)})
     return rows
 
 
@@ -1451,6 +1532,7 @@ def _plot_sine_readout_summary(edge_rows: list[dict[str, object]], figure_dir: P
     edge_labels = [f"{source}->{target}" for source, target in directed_edges]
     method_specs = [
         ("Granger", "granger_pairwise", "score"),
+        ("Neural Granger", "neural_granger", "group_norm"),
         ("SHAP", "interventional_shap", "mean_abs_phi"),
         ("PEID", "peid_pairwise", "ei"),
     ]
@@ -1601,6 +1683,7 @@ def run_sine_alpha_sweep(
     mlp_epochs: int = 100,
     intervention_samples: int = 768,
     bins: int = 4,
+    neural_granger_epochs: int = 120,
 ) -> list[dict[str, float]]:
     from yrd.transport_map import (
         clip_nonnegative_ei,
@@ -1625,6 +1708,14 @@ def run_sine_alpha_sweep(
         model = train_mlp_transition_model(features, targets, config)
         granger = estimate_granger_graph(model, features, targets, config)
         peid = estimate_peid_graph(model, series, config)
+        neural_granger = run_neural_granger_readout(
+            features,
+            targets,
+            variable_names=config.variable_names,
+            max_lag=config.lag,
+            epochs=int(neural_granger_epochs),
+            seed=int(seed) + 9201 + int(round(float(alpha) * 1000)),
+        )
         tm_peid_xy_z = summarize_two_source_synergy_transport_map(
             peid.intervention_states[["x"]].to_numpy(dtype=float),
             peid.intervention_states[["y"]].to_numpy(dtype=float),
@@ -1668,6 +1759,11 @@ def run_sine_alpha_sweep(
             str(row["source"]): float(row["score"])
             for row in granger[granger["target"] == "z"].to_dict("records")
         }
+        neural_granger_lookup = {
+            str(row["source"]): float(row["group_norm"])
+            for row in list(neural_granger["rows"])
+            if str(row["target"]) == "z"
+        }
         rows.append(
             {
                 "alpha": float(alpha),
@@ -1682,6 +1778,9 @@ def run_sine_alpha_sweep(
                 "granger_x_to_z": float(granger_lookup.get("x", 0.0)),
                 "granger_y_to_z": float(granger_lookup.get("y", 0.0)),
                 "granger_w_to_z": float(granger_lookup.get("w", 0.0)),
+                "neural_granger_x_to_z": float(neural_granger_lookup.get("x", 0.0)),
+                "neural_granger_y_to_z": float(neural_granger_lookup.get("y", 0.0)),
+                "neural_granger_w_to_z": float(neural_granger_lookup.get("w", 0.0)),
                 "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
                 "peid_xy_synergy": float(peid_xy_z["synergy"]),
                 "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
@@ -1854,6 +1953,184 @@ def _plot_sine_alpha_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path)
     return path
 
 
+def _plot_sine_alpha_neural_granger_sweep(alpha_rows: list[dict[str, float]], figure_dir: Path) -> Path | None:
+    if not alpha_rows:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    frame = pd.DataFrame(alpha_rows).sort_values("alpha")
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+        }
+    )
+    figure_dir.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(4.2, 3.0), constrained_layout=True)
+    for col in ("neural_granger_x_to_z", "neural_granger_y_to_z", "neural_granger_w_to_z"):
+        if col not in frame:
+            frame[col] = 0.0
+
+    ax.plot(
+        frame["alpha"],
+        frame["neural_granger_x_to_z"],
+        marker="o",
+        color="#4f7ca8",
+        linewidth=1.8,
+        label="Neural Granger x->z",
+    )
+    ax.plot(
+        frame["alpha"],
+        frame["neural_granger_y_to_z"],
+        marker="s",
+        color="#c48f65",
+        linewidth=1.8,
+        label="Neural Granger y->z",
+    )
+    ax.plot(
+        frame["alpha"],
+        frame["neural_granger_w_to_z"],
+        marker="^",
+        color="#8c8c8c",
+        linewidth=1.4,
+        label="Neural Granger w->z",
+    )
+    ax.set_xlabel("alpha in alpha * sin(x y)")
+    ax.set_ylabel("first-layer group norm")
+    ax.set_ylim(bottom=0.0)
+    ax.grid(alpha=0.18, linewidth=0.5)
+    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    path = figure_dir / "sine_alpha_neural_granger_sweep.png"
+    fig.savefig(path, dpi=260, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def adjust_fdr_bh(p_values: Sequence[float]) -> np.ndarray:
+    """Benjamini-Hochberg correction preserving input order."""
+
+    values = np.asarray(list(p_values), dtype=float)
+    if values.size == 0:
+        return np.asarray([], dtype=float)
+    values = np.where(np.isfinite(values), np.clip(values, 0.0, 1.0), 1.0)
+    order = np.argsort(values)
+    ranked = values[order]
+    adjusted = ranked * len(values) / np.arange(1, len(values) + 1)
+    adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
+    result = np.empty_like(adjusted)
+    result[order] = np.clip(adjusted, 0.0, 1.0)
+    return result
+
+
+def run_pcmci_cmiknn_readout(
+    series: pd.DataFrame,
+    *,
+    variable_names: Sequence[str] = VARIABLE_NAMES,
+    tau_max: int = 1,
+    pc_alpha: float = 0.05,
+    q_threshold: float = 0.05,
+    knn: float = 0.10,
+    sig_samples: int = 30,
+    workers: int = -1,
+) -> dict[str, object]:
+    """Run nonlinear PCMCI-CMIknn and return cross-variable lagged pair scores."""
+
+    from tigramite import data_processing as pp
+    from tigramite.independence_tests.cmiknn import CMIknn
+    from tigramite.pcmci import PCMCI
+
+    names = tuple(variable_names)
+    test = CMIknn(
+        knn=float(knn),
+        significance="shuffle_test",
+        sig_samples=int(sig_samples),
+        workers=int(workers),
+    )
+    pcmci = PCMCI(
+        dataframe=pp.DataFrame(series[list(names)].to_numpy(dtype=float), var_names=list(names)),
+        cond_ind_test=test,
+        verbosity=0,
+    )
+    result = pcmci.run_pcmci(
+        tau_min=1,
+        tau_max=int(tau_max),
+        pc_alpha=float(pc_alpha),
+        alpha_level=float(q_threshold),
+    )
+    p_matrix = np.asarray(result["p_matrix"], dtype=float)
+    val_matrix = np.asarray(result["val_matrix"], dtype=float)
+    rows: list[dict[str, float | int | str | bool]] = []
+    for source_idx, source in enumerate(names):
+        for target_idx, target in enumerate(names):
+            if source == target:
+                continue
+            for lag in range(1, int(tau_max) + 1):
+                rows.append(
+                    {
+                        "method": "PCMCI-CMIknn",
+                        "source": str(source),
+                        "target": str(target),
+                        "lag": int(lag),
+                        "score": float(abs(val_matrix[source_idx, target_idx, lag])),
+                        "signed_score": float(val_matrix[source_idx, target_idx, lag]),
+                        "p_value": float(p_matrix[source_idx, target_idx, lag]),
+                    }
+                )
+    q_values = adjust_fdr_bh([float(row["p_value"]) for row in rows])
+    for row, q_value in zip(rows, q_values):
+        row["q_value"] = float(q_value)
+        row["selected"] = bool(float(q_value) <= float(q_threshold))
+    rows.sort(key=lambda row: (float(row["q_value"]), -float(row["score"])))
+    return {
+        "method": "PCMCI-CMIknn",
+        "config": {
+            "tau_max": int(tau_max),
+            "pc_alpha": float(pc_alpha),
+            "q_threshold": float(q_threshold),
+            "knn": float(knn),
+            "sig_samples": int(sig_samples),
+        },
+        "rows": rows,
+    }
+
+
+def _observational_wms(
+    left: np.ndarray,
+    right: np.ndarray,
+    target: np.ndarray,
+    *,
+    bins: int = 4,
+) -> dict[str, float]:
+    """Compute signed whole-minus-sum information on aligned observational samples."""
+
+    left_array = _discretize_vector(left, int(bins)).reshape(-1, 1)
+    right_array = _discretize_vector(right, int(bins)).reshape(-1, 1)
+    target_array = _discretize_vector(target, int(bins)).reshape(-1, 1)
+    if not (len(left_array) == len(right_array) == len(target_array)):
+        raise ValueError("left, right, and target must have matching sample counts.")
+
+    x_mi = _mutual_information_from_states(left_array, target_array)
+    y_mi = _mutual_information_from_states(right_array, target_array)
+    joint_mi = _mutual_information_from_states(np.column_stack([left_array, right_array]), target_array)
+    return {
+        "x_mi": x_mi,
+        "y_mi": y_mi,
+        "joint_mi": joint_mi,
+        "wms": float(joint_mi - x_mi - y_mi),
+    }
+
+
 def run_sine_beta_common_driver_sweep(
     *,
     beta_values: Sequence[float] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
@@ -1864,6 +2141,9 @@ def run_sine_beta_common_driver_sweep(
     mlp_epochs: int = 90,
     intervention_samples: int = 640,
     bins: int = 4,
+    neural_granger_epochs: int = 120,
+    pcmci_cmiknn_sig_samples: int = 30,
+    pcmci_cmiknn_knn: float = 0.10,
 ) -> dict[str, object]:
     from yrd.transport_map import summarize_two_source_synergy_transport_map
     from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
@@ -1883,9 +2163,27 @@ def run_sine_beta_common_driver_sweep(
                 bins=int(bins),
             )
             series, _ = simulate_system(config)
+            pcmci_cmiknn = run_pcmci_cmiknn_readout(
+                series,
+                variable_names=config.variable_names,
+                tau_max=config.lag,
+                pc_alpha=0.05,
+                q_threshold=0.05,
+                knn=float(pcmci_cmiknn_knn),
+                sig_samples=int(pcmci_cmiknn_sig_samples),
+                workers=-1,
+            )
             features, targets = make_lagged_dataset(series, lag=config.lag)
             model = train_mlp_transition_model(features, targets, config)
             peid = estimate_peid_graph(model, series, config)
+            neural_granger = run_neural_granger_readout(
+                features,
+                targets,
+                variable_names=config.variable_names,
+                max_lag=config.lag,
+                epochs=int(neural_granger_epochs),
+                seed=int(seed) + 9301 + int(round(float(beta) * 1000)),
+            )
             shap_readout = estimate_shap_readout(
                 model,
                 features,
@@ -1925,6 +2223,12 @@ def run_sine_beta_common_driver_sweep(
                 conditional_samples=64,
                 seed=int(seed),
             )
+            observational_wms = _observational_wms(
+                series["x"].to_numpy(dtype=float)[:-1],
+                series["y"].to_numpy(dtype=float)[:-1],
+                series["z"].to_numpy(dtype=float)[1:],
+                bins=int(config.bins),
+            )
             peid_xy_z = peid.synergy_edges[
                 (peid.synergy_edges["sources"] == "x+y")
                 & (peid.synergy_edges["target"] == "z")
@@ -1943,18 +2247,52 @@ def run_sine_beta_common_driver_sweep(
                     shap_readout.feature_attributions["target"] == "z"
                 ].to_dict("records")
             }
+            neural_granger_lookup = {
+                str(row["source"]): float(row["group_norm"])
+                for row in list(neural_granger["rows"])
+                if str(row["target"]) == "z"
+            }
+            pcmci_lookup = {
+                str(row["source"]): float(row["score"])
+                for row in list(pcmci_cmiknn["rows"])
+                if str(row["target"]) == "z" and int(row["lag"]) == 1
+            }
+            pcmci_q_lookup = {
+                str(row["source"]): float(row["q_value"])
+                for row in list(pcmci_cmiknn["rows"])
+                if str(row["target"]) == "z" and int(row["lag"]) == 1
+            }
             rows.append(
                 {
                     "run_id": f"beta={float(beta):.2f}|seed={int(seed)}",
                     "beta": float(beta),
                     "seed": float(seed),
                     "xy_observed_corr": float(series[["x", "y"]].corr().iloc[0, 1]),
+                    "observational_x_to_z_mi": float(observational_wms["x_mi"]),
+                    "observational_y_to_z_mi": float(observational_wms["y_mi"]),
+                    "observational_xy_to_z_joint_mi": float(observational_wms["joint_mi"]),
+                    "observational_wms": float(observational_wms["wms"]),
                     "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
                     "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
                     "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
                     "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
                     "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
                     "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
+                    "neural_granger_x_to_z": float(neural_granger_lookup.get("x", 0.0)),
+                    "neural_granger_y_to_z": float(neural_granger_lookup.get("y", 0.0)),
+                    "neural_granger_w_to_z": float(neural_granger_lookup.get("w", 0.0)),
+                    "neural_granger_xy_to_z": float(
+                        neural_granger_lookup.get("x", 0.0) + neural_granger_lookup.get("y", 0.0)
+                    ),
+                    "pcmci_cmiknn_x_to_z": float(pcmci_lookup.get("x", 0.0)),
+                    "pcmci_cmiknn_y_to_z": float(pcmci_lookup.get("y", 0.0)),
+                    "pcmci_cmiknn_w_to_z": float(pcmci_lookup.get("w", 0.0)),
+                    "pcmci_cmiknn_xy_to_z": float(
+                        pcmci_lookup.get("x", 0.0) + pcmci_lookup.get("y", 0.0)
+                    ),
+                    "pcmci_cmiknn_x_to_z_q": float(pcmci_q_lookup.get("x", 1.0)),
+                    "pcmci_cmiknn_y_to_z_q": float(pcmci_q_lookup.get("y", 1.0)),
+                    "pcmci_cmiknn_w_to_z_q": float(pcmci_q_lookup.get("w", 1.0)),
                     "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
                     "peid_xy_synergy": float(peid_xy_z["synergy"]),
                     "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
@@ -1996,6 +2334,14 @@ def run_sine_beta_common_driver_sweep(
         .agg(
             xy_observed_corr_mean=("xy_observed_corr", "mean"),
             xy_observed_corr_std=("xy_observed_corr", "std"),
+            observational_x_to_z_mi_mean=("observational_x_to_z_mi", "mean"),
+            observational_x_to_z_mi_std=("observational_x_to_z_mi", "std"),
+            observational_y_to_z_mi_mean=("observational_y_to_z_mi", "mean"),
+            observational_y_to_z_mi_std=("observational_y_to_z_mi", "std"),
+            observational_xy_to_z_joint_mi_mean=("observational_xy_to_z_joint_mi", "mean"),
+            observational_xy_to_z_joint_mi_std=("observational_xy_to_z_joint_mi", "std"),
+            observational_wms_mean=("observational_wms", "mean"),
+            observational_wms_std=("observational_wms", "std"),
             shap_xy_mean_abs_interaction_mean=("shap_xy_mean_abs_interaction", "mean"),
             shap_xy_mean_abs_interaction_std=("shap_xy_mean_abs_interaction", "std"),
             shap_x_to_z_mean_abs_mean=("shap_x_to_z_mean_abs", "mean"),
@@ -2004,6 +2350,25 @@ def run_sine_beta_common_driver_sweep(
             shap_y_to_z_mean_abs_std=("shap_y_to_z_mean_abs", "std"),
             product_xy_incremental_r2_mean=("product_xy_incremental_r2", "mean"),
             product_xy_incremental_r2_std=("product_xy_incremental_r2", "std"),
+            neural_granger_x_to_z_mean=("neural_granger_x_to_z", "mean"),
+            neural_granger_x_to_z_std=("neural_granger_x_to_z", "std"),
+            neural_granger_y_to_z_mean=("neural_granger_y_to_z", "mean"),
+            neural_granger_y_to_z_std=("neural_granger_y_to_z", "std"),
+            neural_granger_w_to_z_mean=("neural_granger_w_to_z", "mean"),
+            neural_granger_w_to_z_std=("neural_granger_w_to_z", "std"),
+            neural_granger_xy_to_z_mean=("neural_granger_xy_to_z", "mean"),
+            neural_granger_xy_to_z_std=("neural_granger_xy_to_z", "std"),
+            pcmci_cmiknn_x_to_z_mean=("pcmci_cmiknn_x_to_z", "mean"),
+            pcmci_cmiknn_x_to_z_std=("pcmci_cmiknn_x_to_z", "std"),
+            pcmci_cmiknn_y_to_z_mean=("pcmci_cmiknn_y_to_z", "mean"),
+            pcmci_cmiknn_y_to_z_std=("pcmci_cmiknn_y_to_z", "std"),
+            pcmci_cmiknn_w_to_z_mean=("pcmci_cmiknn_w_to_z", "mean"),
+            pcmci_cmiknn_w_to_z_std=("pcmci_cmiknn_w_to_z", "std"),
+            pcmci_cmiknn_xy_to_z_mean=("pcmci_cmiknn_xy_to_z", "mean"),
+            pcmci_cmiknn_xy_to_z_std=("pcmci_cmiknn_xy_to_z", "std"),
+            pcmci_cmiknn_x_to_z_q_mean=("pcmci_cmiknn_x_to_z_q", "mean"),
+            pcmci_cmiknn_y_to_z_q_mean=("pcmci_cmiknn_y_to_z_q", "mean"),
+            pcmci_cmiknn_w_to_z_q_mean=("pcmci_cmiknn_w_to_z_q", "mean"),
             peid_xy_joint_ei_mean=("peid_xy_joint_ei", "mean"),
             peid_xy_joint_ei_std=("peid_xy_joint_ei", "std"),
             peid_xy_synergy_mean=("peid_xy_synergy", "mean"),
@@ -2062,9 +2427,15 @@ def run_sine_beta_common_driver_sweep(
             "noise": float(noise),
             "mlp_epochs": int(mlp_epochs),
             "intervention_samples": int(intervention_samples),
+            "neural_granger_epochs": int(neural_granger_epochs),
+            "pcmci_cmiknn_sig_samples": int(pcmci_cmiknn_sig_samples),
+            "pcmci_cmiknn_knn": float(pcmci_cmiknn_knn),
         },
         "units": {
+            "observational_wms": "bits",
             "shap": "mean absolute SHAP readout",
+            "neural_granger": "first-layer source-group norm",
+            "pcmci_cmiknn": "absolute CMIknn dependence statistic",
             "surd": "bits",
             "mlp_peid": "bits",
             "oracle_peid": "bits",
@@ -2104,14 +2475,20 @@ def _bootstrap_slope_ci(
 
 
 def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
+    observational_wms_slope = _linear_slope(frame, "observational_wms")
     shap_slope = _linear_slope(frame, "shap_xy_mean_abs_interaction")
+    neural_granger_xy_slope = _linear_slope(frame, "neural_granger_xy_to_z")
+    pcmci_cmiknn_xy_slope = _linear_slope(frame, "pcmci_cmiknn_xy_to_z")
     peid_slope = _linear_slope(frame, "peid_xy_synergy")
     tm_peid_slope = _linear_slope(frame, "tm_peid_xy_synergy")
     surd_slope = _linear_slope(frame, "surd_xy_synergy")
     oracle_slope = _linear_slope(frame, "oracle_peid_xy_synergy")
     product_slope = _linear_slope(frame, "product_xy_incremental_r2")
     corr_slope = _linear_slope(frame, "xy_observed_corr")
+    observational_wms_ci = _bootstrap_slope_ci(frame, "observational_wms", seed=17009)
     shap_ci = _bootstrap_slope_ci(frame, "shap_xy_mean_abs_interaction", seed=17001)
+    neural_granger_xy_ci = _bootstrap_slope_ci(frame, "neural_granger_xy_to_z", seed=17007)
+    pcmci_cmiknn_xy_ci = _bootstrap_slope_ci(frame, "pcmci_cmiknn_xy_to_z", seed=17008)
     peid_ci = _bootstrap_slope_ci(frame, "peid_xy_synergy", seed=17002)
     tm_peid_ci = _bootstrap_slope_ci(frame, "tm_peid_xy_synergy", seed=17004)
     surd_ci = _bootstrap_slope_ci(frame, "surd_xy_synergy", seed=17005)
@@ -2119,9 +2496,18 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     product_ci = _bootstrap_slope_ci(frame, "product_xy_incremental_r2", seed=17003)
     return {
         "xy_observed_corr_slope": corr_slope,
+        "observational_wms_slope": observational_wms_slope,
+        "observational_wms_slope_ci_low": observational_wms_ci[0],
+        "observational_wms_slope_ci_high": observational_wms_ci[1],
         "shap_interaction_slope": shap_slope,
         "shap_interaction_slope_ci_low": shap_ci[0],
         "shap_interaction_slope_ci_high": shap_ci[1],
+        "neural_granger_xy_to_z_slope": neural_granger_xy_slope,
+        "neural_granger_xy_to_z_slope_ci_low": neural_granger_xy_ci[0],
+        "neural_granger_xy_to_z_slope_ci_high": neural_granger_xy_ci[1],
+        "pcmci_cmiknn_xy_to_z_slope": pcmci_cmiknn_xy_slope,
+        "pcmci_cmiknn_xy_to_z_slope_ci_low": pcmci_cmiknn_xy_ci[0],
+        "pcmci_cmiknn_xy_to_z_slope_ci_high": pcmci_cmiknn_xy_ci[1],
         "product_probe_r2_slope": product_slope,
         "product_probe_r2_slope_ci_low": product_ci[0],
         "product_probe_r2_slope_ci_high": product_ci[1],
@@ -2166,8 +2552,16 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
         }
     )
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(2, 3, figsize=(13.8, 7.4), constrained_layout=True)
-    flat_axes = axes.ravel()
+    fig = plt.figure(figsize=(14.4, 7.4), constrained_layout=True)
+    gs = fig.add_gridspec(2, 6)
+    flat_axes = [
+        fig.add_subplot(gs[0, 0:2]),
+        fig.add_subplot(gs[0, 2:4]),
+        fig.add_subplot(gs[0, 4:6]),
+        fig.add_subplot(gs[1, 0:2]),
+        fig.add_subplot(gs[1, 2:4]),
+        fig.add_subplot(gs[1, 4:6]),
+    ]
 
     def line_with_band(ax, y_col: str, std_col: str, *, label: str, color: str, marker: str = "o") -> None:
         x = frame["beta"].to_numpy(dtype=float)
@@ -2178,14 +2572,14 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
 
     line_with_band(
         flat_axes[0],
-        "xy_observed_corr_mean",
-        "xy_observed_corr_std",
-        label="observed corr(x,y)",
-        color="#6b7280",
+        "observational_wms_mean",
+        "observational_wms_std",
+        label="observational WMS",
+        color="#8c564b",
     )
-    flat_axes[0].set_ylabel(r"Observed corr$(x,y)$")
-    flat_axes[0].set_title("Observed source correlation")
-    flat_axes[0].set_ylim(-0.05, 1.05)
+    flat_axes[0].axhline(0.0, color="#6b7280", linestyle="--", linewidth=0.9)
+    flat_axes[0].set_ylabel("Information (bits)")
+    flat_axes[0].set_title("Whole-minus-sum")
 
     for y_col, std_col, label, color, marker in [
         ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "#4c78a8", "^"),
@@ -2213,73 +2607,39 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
     flat_axes[2].set_title("Observational SURD")
 
     for y_col, std_col, label, color, marker in [
+        ("pcmci_cmiknn_x_to_z_mean", "pcmci_cmiknn_x_to_z_std", "PCMCI x->z", "#4c78a8", "^"),
+        ("pcmci_cmiknn_y_to_z_mean", "pcmci_cmiknn_y_to_z_std", "PCMCI y->z", "#f58518", "v"),
+        ("pcmci_cmiknn_w_to_z_mean", "pcmci_cmiknn_w_to_z_std", "PCMCI w->z", "#6b7280", "s"),
+    ]:
+        if y_col in frame and std_col in frame:
+            line_with_band(flat_axes[3], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[3].set_ylabel("Absolute CMIknn statistic")
+    flat_axes[3].set_title("PCMCI-CMIknn")
+
+    for y_col, std_col, label, color, marker in [
+        ("neural_granger_x_to_z_mean", "neural_granger_x_to_z_std", "NG x->z", "#4c78a8", "^"),
+        ("neural_granger_y_to_z_mean", "neural_granger_y_to_z_std", "NG y->z", "#f58518", "v"),
+    ]:
+        line_with_band(flat_axes[4], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[4].set_ylabel("First-layer group norm")
+    flat_axes[4].set_title("Neural Granger")
+
+    for y_col, std_col, label, color, marker in [
         ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"PEID $U_x$", "#4c78a8", "^"),
         ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"PEID $U_y$", "#f58518", "v"),
         ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"PEID $S_{xy}$", "#e45756", "o"),
     ]:
-        line_with_band(flat_axes[3], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[3].set_ylabel("Information (bits)")
-    flat_axes[3].set_title("MLP+PEID")
+        line_with_band(flat_axes[5], y_col, std_col, label=label, color=color, marker=marker)
+    flat_axes[5].set_ylabel("Information (bits)")
+    flat_axes[5].set_title("MLP+PEID")
 
-    representative = frame.loc[frame["beta"].idxmax()]
-    components = {
-        "MLP+SHAP": np.asarray(
-            [
-                0.0,
-                representative["shap_x_to_z_mean_abs_mean"],
-                representative["shap_y_to_z_mean_abs_mean"],
-                representative["shap_xy_mean_abs_interaction_mean"],
-            ],
-            dtype=float,
-        ),
-        "Observational SURD": np.asarray(
-            [
-                representative["surd_redundancy_mean"],
-                representative["surd_unique_x_mean"],
-                representative["surd_unique_y_mean"],
-                representative["surd_xy_synergy_mean"],
-            ],
-            dtype=float,
-        ),
-        "MLP+PEID": np.asarray(
-            [
-                representative["mlp_peid_redundancy_mean"],
-                representative["mlp_peid_unique_x_mean"],
-                representative["mlp_peid_unique_y_mean"],
-                representative["mlp_peid_xy_synergy_mean"],
-            ],
-            dtype=float,
-        ),
-    }
-    x_positions = np.arange(len(components))
-    bottoms = np.zeros(len(components), dtype=float)
-    share_styles = (
-        ("redundancy", "#7f8c8d"),
-        ("x single / unique", "#4c78a8"),
-        ("y single / unique", "#f58518"),
-        ("interaction / synergy", "#e45756"),
-    )
-    for index, (label, color) in enumerate(share_styles):
-        shares = np.asarray(
-            [
-                values[index] / values.sum() if values.sum() > 1.0e-12 else 0.0
-                for values in components.values()
-            ]
-        )
-        flat_axes[4].bar(x_positions, shares, bottom=bottoms, label=label, color=color)
-        bottoms += shares
-    flat_axes[4].set_xticks(x_positions, list(components), rotation=15, ha="right")
-    flat_axes[4].set_ylabel("Relative readout shares")
-    flat_axes[4].set_title(r"Within-method composition at $\beta=1.0$")
-    flat_axes[4].set_ylim(0.0, 1.0)
-    flat_axes[5].axis("off")
-
-    for ax in flat_axes[:4]:
+    for ax in flat_axes:
         ax.set_xlabel("beta: common-driver strength")
         ax.set_xticks(frame["beta"].to_numpy(dtype=float))
         ax.grid(alpha=0.18, linewidth=0.5)
-        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
-    flat_axes[4].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend(handles, labels, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     path = figure_dir / "sine_beta_unified_readout_sweep.png"
     fig.savefig(path, dpi=260, bbox_inches="tight")
@@ -2941,6 +3301,7 @@ def _write_chinese_report(
     sine_readout_figure_path: Path | None,
     proxy_y_figure_path: Path | None,
     alpha_sweep_figure_path: Path | None,
+    alpha_neural_granger_figure_path: Path | None,
     alpha_sweep_rows: list[dict[str, float]],
     beta_sweep_figure_path: Path | None,
     beta_validation_figure_path: Path | None,
@@ -3091,6 +3452,11 @@ def _write_chinese_report(
                     f"| Granger/ablation `w -> z` | {sine_pair_score('granger_pairwise', 'score', 'w', 'z'):.4g} |",
                     f"| Granger/ablation `x -> z` | {sine_pair_score('granger_pairwise', 'score', 'x', 'z'):.4g} |",
                     f"| Granger/ablation `y -> z` | {sine_pair_score('granger_pairwise', 'score', 'y', 'z'):.4g} |",
+                    f"| Neural Granger `w -> x` | {sine_pair_score('neural_granger', 'group_norm', 'w', 'x'):.4g} |",
+                    f"| Neural Granger `w -> y` | {sine_pair_score('neural_granger', 'group_norm', 'w', 'y'):.4g} |",
+                    f"| Neural Granger `w -> z` | {sine_pair_score('neural_granger', 'group_norm', 'w', 'z'):.4g} |",
+                    f"| Neural Granger `x -> z` | {sine_pair_score('neural_granger', 'group_norm', 'x', 'z'):.4g} |",
+                    f"| Neural Granger `y -> z` | {sine_pair_score('neural_granger', 'group_norm', 'y', 'z'):.4g} |",
                     f"| SHAP mean abs `w -> x` | {sine_shap_score('w', 'x', 'mean_abs_phi'):.4g} |",
                     f"| SHAP mean abs `w -> y` | {sine_shap_score('w', 'y', 'mean_abs_phi'):.4g} |",
                     f"| SHAP mean abs `w -> z` | {sine_shap_score('w', 'z', 'mean_abs_phi'):.4g} |",
@@ -3278,15 +3644,20 @@ def _write_chinese_report(
         if alpha_sweep_figure_path is not None
         else ""
     )
+    alpha_neural_granger_rel = (
+        _relative_markdown_path(alpha_neural_granger_figure_path, report_path)
+        if alpha_neural_granger_figure_path is not None
+        else ""
+    )
     alpha_sweep_block = ""
     if alpha_sweep_rel:
         alpha_table_lines = [
-            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` | TM PEID `w->z` |",
-            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| alpha | SHAP `x->z` | SHAP `y->z` | SHAP `w->z` | SHAP interaction `|x:y|` | Granger `x->z` | Granger `y->z` | Granger `w->z` | Neural Granger `x->z` | Neural Granger `y->z` | Neural Granger `w->z` | TM PEID joint EI `{x,y}->z` | TM PEID synergy `{x,y}->z` | TM PEID `w->z` |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for row in alpha_sweep_rows:
             alpha_table_lines.append(
-                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {granger_x:.4g} | {granger_y:.4g} | {granger_w:.4g} | {joint:.4g} | {syn:.4g} | {tm_w:.4g} |".format(
+                "| {alpha:.2f} | {shap_x:.4g} | {shap_y:.4g} | {shap_w:.4g} | {shap_interaction:.4g} | {granger_x:.4g} | {granger_y:.4g} | {granger_w:.4g} | {ng_x:.4g} | {ng_y:.4g} | {ng_w:.4g} | {joint:.4g} | {syn:.4g} | {tm_w:.4g} |".format(
                     alpha=float(row["alpha"]),
                     shap_x=float(row["shap_x_to_z_mean_abs"]),
                     shap_y=float(row["shap_y_to_z_mean_abs"]),
@@ -3295,6 +3666,9 @@ def _write_chinese_report(
                     granger_x=float(row["granger_x_to_z"]),
                     granger_y=float(row["granger_y_to_z"]),
                     granger_w=float(row["granger_w_to_z"]),
+                    ng_x=float(row["neural_granger_x_to_z"]),
+                    ng_y=float(row["neural_granger_y_to_z"]),
+                    ng_w=float(row["neural_granger_w_to_z"]),
                     joint=float(row["tm_peid_xy_joint_ei"]),
                     syn=float(row["tm_peid_xy_synergy"]),
                     tm_w=float(row["tm_peid_w_to_z"]),
@@ -3303,12 +3677,21 @@ def _write_chinese_report(
         alpha_sweep_block = (
             "### alpha 扫描：SHAP 交互与 PEID 协同\n\n"
             f"![alpha 扫描下的 SHAP 与 PEID 对照]({alpha_sweep_rel})\n\n"
+            + (
+                f'<img src="{alpha_neural_granger_rel}" alt="alpha 扫描下的 Neural Granger 单独读出" width="420">\n\n'
+                "Neural Granger 单图单独展示 target-wise cMLP 的 first-layer source-group norm。"
+                "该读数在 `alpha=0.2` 和 `alpha=0.8` 处把 sine 协同响应投影到 `x->z`、`y->z` 两条 pairwise 边，"
+                "而 `w->z` 保持较低，说明它更像预测结构读出而不是源集合干预语义下的协同分解。\n\n"
+                if alpha_neural_granger_rel
+                else ""
+            )
             + "\n".join(alpha_table_lines)
             + "\n\n"
             "这里的 `alpha` 是 sine 项前面的强度系数。`alpha=0` 时，`z` 只剩自身记忆与噪声，"
             "SHAP 二阶交互接近零；TM PEID 仅保留少量连续估计底噪。随着 `alpha` 增大，"
             "SHAP 单源 `x->z`、`y->z` 与 SHAP interaction 同时上升，但单源项是对协同响应的归因分摊，不是结构边；"
             "Granger/ablation 的 `x->z`、`y->z` 也会随 `alpha` 上升，因为它衡量单源置换对 fitted MLP 预测误差的影响；"
+            "Neural Granger 的 cMLP group norm 同样是 pairwise 预测结构读出，会把 sine 协同响应投影到 `x->z` 与 `y->z`；"
             "这里的 PEID 曲线改用连续 transport-map EI，在同一最大熵联合干预样本上直接读出 `{x,y}` 对连续目标预测的机制信息约束。"
             "\n\n"
         )
@@ -3327,17 +3710,23 @@ def _write_chinese_report(
     beta_trend = dict(beta_sweep_result.get("trend", {}))
     if beta_sweep_rel and beta_summary_rows:
         beta_table_lines = [
-            "| beta | corr(`x`,`y`) | SHAP `x` | SHAP `y` | SHAP `x:y` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |",
-            "| ---: | ---: | ---: | ---: | ---: | --- | --- |",
+            "| beta | corr(`x`,`y`) | observational WMS | SHAP `x` | SHAP `y` | SHAP `x:y` | Neural Granger `x/y->z` | PCMCI-CMIknn `x/y/w->z` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |",
         ]
         for row in beta_summary_rows:
             beta_table_lines.append(
-                "| {beta:.2f} | {corr:.4g} | {shap_x:.4g} | {shap_y:.4g} | {shap_xy:.4g} | {surd_r:.4g}/{surd_ux:.4g}/{surd_uy:.4g}/{surd_s:.4g} | {peid_ux:.4g}/{peid_uy:.4g}/{peid_s:.4g} |".format(
+                "| {beta:.2f} | {corr:.4g} | {wms:.4g} | {shap_x:.4g} | {shap_y:.4g} | {shap_xy:.4g} | {ng_x:.4g}/{ng_y:.4g} | {pcmci_x:.4g}/{pcmci_y:.4g}/{pcmci_w:.4g} | {surd_r:.4g}/{surd_ux:.4g}/{surd_uy:.4g}/{surd_s:.4g} | {peid_ux:.4g}/{peid_uy:.4g}/{peid_s:.4g} |".format(
                     beta=float(row["beta"]),
                     corr=float(row["xy_observed_corr_mean"]),
+                    wms=float(row["observational_wms_mean"]),
                     shap_x=float(row["shap_x_to_z_mean_abs_mean"]),
                     shap_y=float(row["shap_y_to_z_mean_abs_mean"]),
                     shap_xy=float(row["shap_xy_mean_abs_interaction_mean"]),
+                    ng_x=float(row["neural_granger_x_to_z_mean"]),
+                    ng_y=float(row["neural_granger_y_to_z_mean"]),
+                    pcmci_x=float(row.get("pcmci_cmiknn_x_to_z_mean", float("nan"))),
+                    pcmci_y=float(row.get("pcmci_cmiknn_y_to_z_mean", float("nan"))),
+                    pcmci_w=float(row.get("pcmci_cmiknn_w_to_z_mean", float("nan"))),
                     surd_r=float(row["surd_redundancy_mean"]),
                     surd_ux=float(row["surd_unique_x_mean"]),
                     surd_uy=float(row["surd_unique_y_mean"]),
@@ -3368,11 +3757,19 @@ def _write_chinese_report(
             + "\n".join(beta_table_lines)
             + "\n\n"
             "每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；"
+            "左上角 WMS 也直接使用该自然轨迹上对齐的 `(x_t,y_t,z_{t+1})`，计算 "
+            "`I([x_t,y_t];z_{t+1}) - I(x_t;z_{t+1}) - I(y_t;z_{t+1})`。"
+            "三个 MI 均由相同的四分位离散经验联合分布直接计算，并保留 WMS 负值；"
             "MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，PEID 与 Oracle+PEID 共享同一组独立干预源样本。"
+            "Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。"
+            "PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。"
             "SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。"
-            "SHAP 保留自身原始归因尺度，不与信息量绝对值直接比较；`beta=1` 的组成面板仅表示各方法内部的 relative readout shares，"
-            "不是把 SHAP 声称为严格的信息分解。\n\n"
-            "线性趋势读数显示，SHAP interaction 的 beta 斜率为 "
+            "SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。\n\n"
+            "线性趋势读数显示，observational WMS 的 beta 斜率为 "
+            f"{float(beta_trend.get('observational_wms_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('observational_wms_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('observational_wms_slope_ci_high', float('nan'))):.4g}])；"
+            "SHAP interaction 的 beta 斜率为 "
             f"{float(beta_trend.get('shap_interaction_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('shap_interaction_slope_ci_low', float('nan'))):.4g}, "
             f"{float(beta_trend.get('shap_interaction_slope_ci_high', float('nan'))):.4g}])；"
@@ -3380,6 +3777,10 @@ def _write_chinese_report(
             f"{float(beta_trend.get('surd_synergy_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('surd_synergy_slope_ci_low', float('nan'))):.4g}, "
             f"{float(beta_trend.get('surd_synergy_slope_ci_high', float('nan'))):.4g}])；"
+            "PCMCI-CMIknn `x/y->z` 合计强度的 beta 斜率为 "
+            f"{float(beta_trend.get('pcmci_cmiknn_xy_to_z_slope', float('nan'))):.4g} "
+            f"(bootstrap 95% CI [{float(beta_trend.get('pcmci_cmiknn_xy_to_z_slope_ci_low', float('nan'))):.4g}, "
+            f"{float(beta_trend.get('pcmci_cmiknn_xy_to_z_slope_ci_high', float('nan'))):.4g}])；"
             "MLP+PEID synergy 的 beta 斜率为 "
             f"{float(beta_trend.get('tm_peid_synergy_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('tm_peid_synergy_slope_ci_low', float('nan'))):.4g}, "
@@ -3414,9 +3815,10 @@ $$
 
 ## 读出方式
 
-同一条模拟时间序列先用于训练一个 MLP 一步转移模型，输入为 `[x_t, y_t, z_t, w_t]`，输出为 `[x_{{t+1}}, y_{{t+1}}, z_{{t+1}}, w_{{t+1}}]`。随后在固定 MLP 上读出四类量：
+同一条模拟时间序列先用于训练一个 MLP 一步转移模型，输入为 `[x_t, y_t, z_t, w_t]`，输出为 `[x_{{t+1}}, y_{{t+1}}, z_{{t+1}}, w_{{t+1}}]`。随后在同一轨迹或固定 MLP 上读出几类量：
 
 - Granger/ablation：把某个 source 的输入列替换为均值，记录目标预测 MSE 的增量。它回答“去掉这个变量会不会损害预测”。
+- Neural Granger：对每个 target 单独训练带 group-lasso 的 cMLP，并读取第一层按 source lag group 聚合的权重范数。它回答“target-wise 非线性预测器是否使用这个 source 的历史输入”，仍是 pairwise 预测结构读出。
 - SHAP 类归因：在同一 fitted MLP 上只保留一个常用背景替换式 SHAP 基线，用经验背景替换未给定特征。单特征 SHAP 报告 mean absolute attribution；二阶 SHAP interaction 报告 `x:y` 的 mean absolute interaction。前者回答“某个特征分到多少预测贡献”，后者回答“两个特征的非加性预测贡献有多大”。
 - 交互项 probe：在同一 fitted MLP 的最大熵干预预测面上，用标准化主效应加一个二阶乘积项拟合目标输出，并记录该乘积项相对于主效应模型的 incremental `R^2`。它回答“固定这个预测器时，响应面是否含有可由 `x:y` 近似的二阶非加性形状”。
 - PEID：先做最大熵独立干预，再计算 single-source EI、joint EI 和 synergy：
@@ -3445,7 +3847,7 @@ $$
 
 {sine_system_table}
 
-{sine_readout_block}图中左侧热图把 Granger、SHAP 和 PEID 的单源读出放在同一组边上比较。因为三行的单位不同，颜色只在每一行内部归一化，格子里的数字才是原始读数。右上角显示标准化乘积项对 `z` 的增量解释度：`x:y` 明显高于 `w:x` 与 `w:y`。右下角显示 PEID 对 `z` 的信息分解，联合 EI 与 synergy 高于单源 EI。
+{sine_readout_block}图中左侧热图把 Granger、Neural Granger、SHAP 和 PEID 的单源读出放在同一组边上比较。因为各行单位不同，颜色只在每一行内部归一化，格子里的数字才是原始读数。右上角显示标准化乘积项对 `z` 的增量解释度：`x:y` 明显高于 `w:x` 与 `w:y`。右下角显示 PEID 对 `z` 的信息分解，联合 EI 与 synergy 高于单源 EI。
 
 {alpha_sweep_block}
 
@@ -3453,9 +3855,9 @@ $$
 
 ### 解释
 
-`w -> x` 和 `w -> y` 在 Granger/ablation 与 PEID pairwise EI 中都很强，说明 fitted MLP 学到了共同驱动结构。`w -> z` 很小，符合结构方程中 `w` 不直接进入 `z` 的设定；若某些归因方法给出非零 `w -> z`，应解释为 `w` 通过诱导 `x,y` 相关性形成的代理贡献，而不是直接结构边。
+`w -> x` 和 `w -> y` 在 Granger/ablation、Neural Granger 与 PEID pairwise EI 中都很强，说明预测器学到了共同驱动结构。`w -> z` 很小，符合结构方程中 `w` 不直接进入 `z` 的设定；若某些归因方法给出非零 `w -> z`，应解释为 `w` 通过诱导 `x,y` 相关性形成的代理贡献，而不是直接结构边。
 
-对 `z` 来说，Granger/ablation 会给出明显的 `x -> z` 与 `y -> z`，SHAP 类单特征归因也会倾向把 sine 项拆成单变量贡献。交互项 probe 则能进一步指出 fitted MLP 的响应面中确实存在强 `x:y` 二阶非加性项，因此它比纯单特征 SHAP 更接近“有交互”的诊断；但它仍然是响应面形状分析，不是源侧最大熵干预语义下的机制信息分解。这些读出有预测解释价值，但它们把
+对 `z` 来说，Granger/ablation 和 Neural Granger 会给出明显的 `x -> z` 与 `y -> z`，SHAP 类单特征归因也会倾向把 sine 项拆成单变量贡献。交互项 probe 则能进一步指出 fitted MLP 的响应面中确实存在强 `x:y` 二阶非加性项，因此它比纯单特征 SHAP 更接近“有交互”的诊断；但它仍然是响应面形状分析，不是源侧最大熵干预语义下的机制信息分解。这些读出有预测解释价值，但它们把
 
 $$
 \\alpha\\sin(x_t y_t)
@@ -3463,7 +3865,7 @@ $$
 
 投影成了 pairwise 贡献或低阶乘积项，不能单独表达“只有联合给定 `x_t` 和 `y_t` 时才稳定确定目标响应”的机制事实。
 
-PEID 的关键读数是 `EI({{x, y}} -> z)` 与 `Syn({{x, y}} -> z)` 均显著高于单源投影。它说明联合干预 `{{x,y}}` 后，目标分布的约束远超过两个单源 EI 的加和。因此这个例子的结论不是“PEID 消除了所有代理效应”，而是：在同一个 learned transition surrogate 上，PEID 可以同时保留 `w -> x,y` 的共同驱动边，以及 `{{x,y}} -> z` 的协同超边；Granger 和 SHAP 单特征方法主要给出预测贡献的 pairwise 投影，交互项 probe 可以提示 `x:y` 非加性存在，但 PEID 才把这个非加性读成源集合到目标的协同有效信息。
+PEID 的关键读数是 `EI({{x, y}} -> z)` 与 `Syn({{x, y}} -> z)` 均显著高于单源投影。它说明联合干预 `{{x,y}}` 后，目标分布的约束远超过两个单源 EI 的加和。因此这个例子的结论不是“PEID 消除了所有代理效应”，而是：在同一个 learned transition surrogate 上，PEID 可以同时保留 `w -> x,y` 的共同驱动边，以及 `{{x,y}} -> z` 的协同超边；Granger、Neural Granger 和 SHAP 单特征方法主要给出预测贡献的 pairwise 投影，交互项 probe 可以提示 `x:y` 非加性存在，但 PEID 才把这个非加性读成源集合到目标的协同有效信息。
 
 {proxy_y_block}
 """
@@ -3566,6 +3968,17 @@ def run_comparison_grid(
             if is_report_sine_run
             else None
         )
+        neural_granger_readout = (
+            run_neural_granger_readout(
+                features,
+                targets,
+                variable_names=config.variable_names,
+                max_lag=config.lag,
+                seed=int(seed) + 9101,
+            )
+            if is_report_sine_run
+            else None
+        )
         metrics = _evaluate_run(truth, granger_edges, peid)
         run_id = f"{mechanism}_seed{seed}_n{n_samples}_noise{noise:g}_syn{synergy_strength:g}"
         runs.append(
@@ -3591,6 +4004,7 @@ def run_comparison_grid(
                 peid,
                 shap_readout,
                 conditional_shap_readout,
+                neural_granger_readout,
             )
         )
 
@@ -3611,6 +4025,7 @@ def run_comparison_grid(
         else []
     )
     alpha_sweep_figure_path = _plot_sine_alpha_sweep(alpha_sweep_rows, figure_dir)
+    alpha_neural_granger_figure_path = _plot_sine_alpha_neural_granger_sweep(alpha_sweep_rows, figure_dir)
     beta_sweep_result = (
         run_sine_beta_common_driver_sweep()
         if run_diagnostic_sweeps and "common_driver_sine_synergy" in set(mechanisms)
@@ -3631,6 +4046,7 @@ def run_comparison_grid(
         sine_readout_figure_path=sine_readout_figure_path,
         proxy_y_figure_path=proxy_y_figure_path,
         alpha_sweep_figure_path=alpha_sweep_figure_path,
+        alpha_neural_granger_figure_path=alpha_neural_granger_figure_path,
         alpha_sweep_rows=alpha_sweep_rows,
         beta_sweep_figure_path=beta_sweep_figure_path,
         beta_validation_figure_path=beta_validation_figure_path,
@@ -3665,6 +4081,9 @@ def run_comparison_grid(
         "sine_readout_figure_path": str(sine_readout_figure_path) if sine_readout_figure_path else None,
         "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
+        "alpha_neural_granger_figure_path": (
+            str(alpha_neural_granger_figure_path) if alpha_neural_granger_figure_path else None
+        ),
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
         "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
@@ -3690,6 +4109,9 @@ def run_comparison_grid(
         "sine_readout_figure_path": str(sine_readout_figure_path) if sine_readout_figure_path else None,
         "proxy_y_figure_path": str(proxy_y_figure_path) if proxy_y_figure_path else None,
         "alpha_sweep_figure_path": str(alpha_sweep_figure_path) if alpha_sweep_figure_path else None,
+        "alpha_neural_granger_figure_path": (
+            str(alpha_neural_granger_figure_path) if alpha_neural_granger_figure_path else None
+        ),
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
         "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
