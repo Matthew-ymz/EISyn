@@ -132,3 +132,44 @@ def test_display_filter_changes_visible_edges_without_mutating_full_result() -> 
     assert visible["hyperedges"][0]["display_value"] == 0.7
     assert len(result["pairwise_edges"]) == 2
     assert len(result["hyperedges"]) == 2
+
+
+def test_api_examples_and_compute_routes() -> None:
+    from fastapi.testclient import TestClient
+
+    from peid_hypergraph.api import create_app
+
+    client = TestClient(create_app())
+
+    examples = client.get("/api/examples")
+    assert examples.status_code == 200
+    example_ids = {item["id"] for item in examples.json()["examples"]}
+    assert {"boolean_xor", "continuous_sine_common_driver"}.issubset(example_ids)
+
+    boolean_response = client.post(
+        "/api/compute/boolean",
+        json={
+            "variables": ["x0", "x1", "x2"],
+            "update_rules": {
+                "x0": {"type": "copy", "inputs": ["x0"]},
+                "x1": {"type": "copy", "inputs": ["x1"]},
+                "x2": {"type": "xor", "inputs": ["x0", "x1"]},
+            },
+            "noise": 0.0,
+            "max_source_order": 2,
+        },
+    )
+    assert boolean_response.status_code == 200
+    assert boolean_response.json()["hyperedges"][0]["sources"] == ["x0", "x1"]
+
+    continuous_response = client.post(
+        "/api/compute/continuous",
+        json={
+            "example": "sine_common_driver",
+            "intervention_samples": 300,
+            "seed": 3,
+            "max_source_order": 2,
+        },
+    )
+    assert continuous_response.status_code == 200
+    assert continuous_response.json()["diagnostics"]["estimator"] == "transport_map"
