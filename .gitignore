@@ -49,6 +49,7 @@ tests/
 tests/*
 !tests/test_pcmci_peid_synergy_comparison.py
 !tests/test_pcmci_peid_synergy_notebook.py
+!tests/test_peid_hypergraph_compute.py
 *.pt
 *.pth
 *.ckpt
