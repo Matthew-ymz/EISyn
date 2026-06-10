@@ -1,0 +1,37 @@
+{
+  "protocol": {
+    "system": "sis",
+    "tau": 1.0,
+    "dt": 0.02,
+    "integration_steps": 50,
+    "process_noise": 0.05,
+    "noise_location": "sis_dynamics",
+    "training_distribution": "equal_natural_and_uniform_intervention",
+    "transition_replicates": 3,
+    "target_names": [
+      "w_tau",
+      "x_tau",
+      "y_tau"
+    ],
+    "estimator": "transport",
+    "peid_samples": 1800,
+    "acceptance_relative_error": 0.2
+  },
+  "model": {
+    "test_nll": -0.8795679211616516,
+    "epochs": 450
+  },
+  "relations": {
+    "w+x->x_tau": {
+      "oracle_synergy": 0.7631052041223056,
+      "mlp_synergy": 0.7496272609810456,
+      "relative_error": 0.017661972514997935
+    },
+    "w+y->y_tau": {
+      "oracle_synergy": 0.6998907987546974,
+      "mlp_synergy": 0.7002423828445375,
+      "relative_error": 0.0005023413516304518
+    }
+  },
+  "passed": true
+}
