@@ -108,6 +108,8 @@ transport-map EI 与连续动力学实验，包括：
 - [docs/reports/classic_network_dynamics_benchmark.md](docs/reports/classic_network_dynamics_benchmark.md)：经典模型实验设计、干预协议、3-seed 结果与失败模式说明。
 - [scripts/lorenz3d_multihorizon_peid.py](scripts/lorenz3d_multihorizon_peid.py)：三维 Lorenz 自然轨迹直接多步 MLP、Oracle/MLP PEID 与参数扫描。
 - [docs/reports/lorenz3d_multihorizon_mlp_peid.md](docs/reports/lorenz3d_multihorizon_mlp_peid.md)：Lorenz-3D smoke 结果、预测 horizon 与机制恢复对照。
+- [scripts/coupled_standard_map_peid.py](scripts/coupled_standard_map_peid.py)：双转子耦合 standard map 的周期 MLP、Oracle/MLP PEID 与条件 Mixed-MLP 实验。
+- [docs/reports/coupled_standard_map_peid.md](docs/reports/coupled_standard_map_peid.md)：预测误差、逐关系因果强度和预注册门槛结果。
 - [exp/mediated_peid_known_dynamics.ipynb](exp/mediated_peid_known_dynamics.ipynb)：已知动力学中的 mediated PEID 验证。
 
 ## 常用命令
