@@ -1,0 +1,1786 @@
+{
+  "seed": "mean",
+  "mlp_metrics": {
+    "test_mse": 0.00011161820698346336,
+    "baseline_mse": 0.00014541617808087418,
+    "skill_ratio": 0.7696655930413311
+  },
+  "oracle_peid": {
+    "pairwise": [
+      {
+        "source": "w",
+        "target": "dw",
+        "score": 0.0
+      },
+      {
+        "source": "w",
+        "target": "dx",
+        "score": 0.2293520614
+      },
+      {
+        "source": "w",
+        "target": "dy",
+        "score": 0.2538074849
+      },
+      {
+        "source": "x",
+        "target": "dw",
+        "score": 0.0
+      },
+      {
+        "source": "x",
+        "target": "dx",
+        "score": 0.6128575089
+      },
+      {
+        "source": "x",
+        "target": "dy",
+        "score": 0.0
+      },
+      {
+        "source": "y",
+        "target": "dw",
+        "score": 0.0
+      },
+      {
+        "source": "y",
+        "target": "dx",
+        "score": 0.0
+      },
+      {
+        "source": "y",
+        "target": "dy",
+        "score": 0.636782915
+      }
+    ],
+    "hyperedges": [
+      {
+        "sources": "w+x",
+        "target": "dw",
+        "score": 0.0015709499,
+        "joint_ei": 1.4048891363,
+        "single_ei_sum": 0.0
+      },
+      {
+        "sources": "w+x",
+        "target": "dx",
+        "score": 3.5778463584,
+        "joint_ei": 4.6477873335,
+        "single_ei_sum": 0.8422095702
+      },
+      {
+        "sources": "w+x",
+        "target": "dy",
+        "score": 0.0008841766,
+        "joint_ei": 0.2795879276,
+        "single_ei_sum": 0.2538074849
+      },
+      {
+        "sources": "w+y",
+        "target": "dw",
+        "score": 0.0007232969,
+        "joint_ei": 1.4039681487,
+        "single_ei_sum": 0.0
+      },
+      {
+        "sources": "w+y",
+        "target": "dx",
+        "score": 0.000731055,
+        "joint_ei": 0.2542481263,
+        "single_ei_sum": 0.2293520614
+      },
+      {
+        "sources": "w+y",
+        "target": "dy",
+        "score": 3.5543763224,
+        "joint_ei": 4.6930660461,
+        "single_ei_sum": 0.8905903999
+      },
+      {
+        "sources": "x+y",
+        "target": "dw",
+        "score": 0.0004620756,
+        "joint_ei": 0.0028846254,
+        "single_ei_sum": 0.0
+      },
+      {
+        "sources": "x+y",
+        "target": "dx",
+        "score": 0.0018637054,
+        "joint_ei": 0.8188254723,
+        "single_ei_sum": 0.6128575089
+      },
+      {
+        "sources": "x+y",
+        "target": "dy",
+        "score": 0.0003766316,
+        "joint_ei": 0.8618373535,
+        "single_ei_sum": 0.636782915
+      }
+    ]
+  },
+  "mlp_peid": {
+    "pairwise": [
+      {
+        "source": "w",
+        "target": "dw",
+        "score": 0.9392902036
+      },
+      {
+        "source": "w",
+        "target": "dx",
+        "score": 0.0248884706
+      },
+      {
+        "source": "w",
+        "target": "dy",
+        "score": 0.0481816303
+      },
+      {
+        "source": "x",
+        "target": "dw",
+        "score": 0.0875379541
+      },
+      {
+        "source": "x",
+        "target": "dx",
+        "score": 0.9559739042
+      },
+      {
+        "source": "x",
+        "target": "dy",
+        "score": 0.2084734428
+      },
+      {
+        "source": "y",
+        "target": "dw",
+        "score": 0.0616590747
+      },
+      {
+        "source": "y",
+        "target": "dx",
+        "score": 0.0843329022
+      },
+      {
+        "source": "y",
+        "target": "dy",
+        "score": 0.8104013142
+      }
+    ],
+    "hyperedges": [
+      {
+        "sources": "w+x",
+        "target": "dw",
+        "score": 0.506474012,
+        "joint_ei": 2.1849455789,
+        "single_ei_sum": 1.0268281577
+      },
+      {
+        "sources": "w+x",
+        "target": "dx",
+        "score": 0.0776496983,
+        "joint_ei": 1.8902902743,
+        "single_ei_sum": 0.9808623748
+      },
+      {
+        "sources": "w+x",
+        "target": "dy",
+        "score": 0.0214077789,
+        "joint_ei": 0.30799416,
+        "single_ei_sum": 0.2566550731
+      },
+      {
+        "sources": "w+y",
+        "target": "dw",
+        "score": 0.3223494034,
+        "joint_ei": 1.9728837847,
+        "single_ei_sum": 1.0009492783
+      },
+      {
+        "sources": "w+y",
+        "target": "dx",
+        "score": 0.0087781019,
+        "joint_ei": 0.1365588115,
+        "single_ei_sum": 0.1092213729
+      },
+      {
+        "sources": "w+y",
+        "target": "dy",
+        "score": 0.1756326516,
+        "joint_ei": 1.1429301937,
+        "single_ei_sum": 0.8585829446
+      },
+      {
+        "sources": "x+y",
+        "target": "dw",
+        "score": 0.0133912702,
+        "joint_ei": 0.1840215393,
+        "single_ei_sum": 0.1491970288
+      },
+      {
+        "sources": "x+y",
+        "target": "dx",
+        "score": 0.5468260713,
+        "joint_ei": 2.4196495439,
+        "single_ei_sum": 1.0403068064
+      },
+      {
+        "sources": "x+y",
+        "target": "dy",
+        "score": 1.4269349053,
+        "joint_ei": 2.5636692832,
+        "single_ei_sum": 1.018874757
+      }
+    ]
+  },
+  "granger_ablation": [
+    {
+      "source": "w",
+      "target": "dw",
+      "score": 3.35431e-05
+    },
+    {
+      "source": "w",
+      "target": "dx",
+      "score": 5.499e-07
+    },
+    {
+      "source": "w",
+      "target": "dy",
+      "score": 4.916e-07
+    },
+    {
+      "source": "x",
+      "target": "dw",
+      "score": 7.879e-07
+    },
+    {
+      "source": "x",
+      "target": "dx",
+      "score": 2.36891e-05
+    },
+    {
+      "source": "x",
+      "target": "dy",
+      "score": 4.582e-07
+    },
+    {
+      "source": "y",
+      "target": "dw",
+      "score": 4.854e-07
+    },
+    {
+      "source": "y",
+      "target": "dx",
+      "score": 5.729e-07
+    },
+    {
+      "source": "y",
+      "target": "dy",
+      "score": 2.88532e-05
+    }
+  ],
+  "neural_granger": [
+    {
+      "source": "w",
+      "target": "dw",
+      "score": 0.926728336
+    },
+    {
+      "source": "w",
+      "target": "dx",
+      "score": 0.0724908232
+    },
+    {
+      "source": "w",
+      "target": "dy",
+      "score": 0.203456726
+    },
+    {
+      "source": "x",
+      "target": "dw",
+      "score": 0.0963076468
+    },
+    {
+      "source": "x",
+      "target": "dx",
+      "score": 0.9673696305
+    },
+    {
+      "source": "x",
+      "target": "dy",
+      "score": 0.0739321174
+    },
+    {
+      "source": "y",
+      "target": "dw",
+      "score": 0.0938619294
+    },
+    {
+      "source": "y",
+      "target": "dx",
+      "score": 0.4400416023
+    },
+    {
+      "source": "y",
+      "target": "dy",
+      "score": 0.9076614956
+    }
+  ],
+  "shap": {
+    "pairwise": [
+      {
+        "source": "w",
+        "target": "dw",
+        "score": 0.0053073664
+      },
+      {
+        "source": "w",
+        "target": "dx",
+        "score": 0.0004873689
+      },
+      {
+        "source": "w",
+        "target": "dy",
+        "score": 0.000757498
+      },
+      {
+        "source": "x",
+        "target": "dw",
+        "score": 0.0005450774
+      },
+      {
+        "source": "x",
+        "target": "dx",
+        "score": 0.0037463083
+      },
+      {
+        "source": "x",
+        "target": "dy",
+        "score": 0.0007342852
+      },
+      {
+        "source": "y",
+        "target": "dw",
+        "score": 0.0005362646
+      },
+      {
+        "source": "y",
+        "target": "dx",
+        "score": 0.0003338746
+      },
+      {
+        "source": "y",
+        "target": "dy",
+        "score": 0.004082981
+      }
+    ],
+    "interactions": [
+      {
+        "sources": "w+x",
+        "target": "dw",
+        "score": 0.0004435281
+      },
+      {
+        "sources": "w+x",
+        "target": "dx",
+        "score": 0.0001913841
+      },
+      {
+        "sources": "w+x",
+        "target": "dy",
+        "score": 0.0003561908
+      },
+      {
+        "sources": "w+y",
+        "target": "dw",
+        "score": 0.0002726816
+      },
+      {
+        "sources": "w+y",
+        "target": "dx",
+        "score": 0.0002203198
+      },
+      {
+        "sources": "w+y",
+        "target": "dy",
+        "score": 0.000366073
+      },
+      {
+        "sources": "x+y",
+        "target": "dw",
+        "score": 0.0001728784
+      },
+      {
+        "sources": "x+y",
+        "target": "dx",
+        "score": 0.000190657
+      },
+      {
+        "sources": "x+y",
+        "target": "dy",
+        "score": 0.0004319917
+      }
+    ]
+  },
+  "observational": [
+    {
+      "sources": "w+x",
+      "target": "dx",
+      "wms": 0.0517270744,
+      "redundancy": 0.0142966217,
+      "unique_left": 0.0022955299,
+      "unique_right": 0.1252445537,
+      "synergy": 0.0660236961
+    },
+    {
+      "sources": "w+y",
+      "target": "dy",
+      "wms": 0.0567491769,
+      "redundancy": 0.0143183569,
+      "unique_left": 0.000887798,
+      "unique_right": 0.1541512607,
+      "synergy": 0.0710675337
+    }
+  ],
+  "all_seeds": [
+    {
+      "seed": 0,
+      "mlp_metrics": {
+        "test_mse": 0.0001017278616096769,
+        "baseline_mse": 0.00015153562708292156,
+        "skill_ratio": 0.6713131662035526
+      },
+      "oracle_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.2406898041
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.2652709792
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.6236365985
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.6530048379
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0034001058,
+            "joint_ei": 1.4177711832,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 3.5686128659,
+            "joint_ei": 4.6578840356,
+            "single_ei_sum": 0.8643264026
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0015757627,
+            "joint_ei": 0.2903405824,
+            "single_ei_sum": 0.2652709792
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.0006645538,
+            "joint_ei": 1.4161407716,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": -0.0003137954,
+            "joint_ei": 0.2646822146,
+            "single_ei_sum": 0.2406898041
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 3.5492202037,
+            "joint_ei": 4.715439111,
+            "single_ei_sum": 0.9182758171
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0005253666,
+            "joint_ei": 0.0018104024,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.000621907,
+            "joint_ei": 0.8259079876,
+            "single_ei_sum": 0.6236365985
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.0008590316,
+            "joint_ei": 0.8785296335,
+            "single_ei_sum": 0.6530048379
+          }
+        ]
+      },
+      "mlp_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.8339937662
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.0021862461
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.1384817271
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0647539061
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 1.0992809297
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.076108199
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0038189562
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0316267026
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.8467837659
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.8946651611,
+            "joint_ei": 3.3557503222,
+            "single_ei_sum": 0.8987476723
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.0582427845,
+            "joint_ei": 2.4151331377,
+            "single_ei_sum": 1.1014671758
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0489268417,
+            "joint_ei": 0.2929548048,
+            "single_ei_sum": 0.2145899261
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.1732642372,
+            "joint_ei": 2.5746551362,
+            "single_ei_sum": 0.8378127224
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0140536419,
+            "joint_ei": 0.0689631892,
+            "single_ei_sum": 0.0338129487
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.4903401616,
+            "joint_ei": 1.5733891974,
+            "single_ei_sum": 0.985265493
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0080870808,
+            "joint_ei": 0.0933714315,
+            "single_ei_sum": 0.0685728623
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.631791259,
+            "joint_ei": 3.0144935221,
+            "single_ei_sum": 1.1309076323
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.2654614997,
+            "joint_ei": 1.2777189408,
+            "single_ei_sum": 0.9228919649
+          }
+        ]
+      },
+      "granger_ablation": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 3.74077e-05
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 6.575e-07
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 4.921e-07
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 4.525e-07
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 2.53646e-05
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 2.644e-07
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 3.515e-07
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 6.124e-07
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 3.57558e-05
+        }
+      ],
+      "neural_granger": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 0.8295393619
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 0.2589636041
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 0.0180693316
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 0.058738517
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 0.9589912009
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 0.2143582069
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 0.0377411574
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 0.0072919887
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 0.7683848272
+        }
+      ],
+      "shap": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0055453512
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.0005096153
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.0008213023
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0004484579
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.0035947278
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0002187171
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0003763063
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0003029503
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.0043758323
+          }
+        ],
+        "interactions": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0002726911
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.0001657943
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.000204752
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.0002320112
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.000285541
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.0004474123
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 9.91103e-05
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 5.59204e-05
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.000116108
+          }
+        ]
+      },
+      "observational": [
+        {
+          "sources": "w+x",
+          "target": "dx",
+          "wms": 0.0502399652,
+          "redundancy": 0.0172513746,
+          "unique_left": 0.0052221059,
+          "unique_right": 0.1348852343,
+          "synergy": 0.0674913398
+        },
+        {
+          "sources": "w+y",
+          "target": "dy",
+          "wms": 0.061633464,
+          "redundancy": 0.017729008,
+          "unique_left": 0.0026633939,
+          "unique_right": 0.1704391004,
+          "synergy": 0.0793624719
+        }
+      ]
+    },
+    {
+      "seed": 1,
+      "mlp_metrics": {
+        "test_mse": 0.00011937396005377901,
+        "baseline_mse": 0.00014216294221114367,
+        "skill_ratio": 0.8396981533800986
+      },
+      "oracle_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.2207778081
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.2622743415
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.6065948956
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.6395329562
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0001604534,
+            "joint_ei": 1.3899677509,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 3.5829033601,
+            "joint_ei": 4.6321353087,
+            "single_ei_sum": 0.8273727036
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": -0.0002138575,
+            "joint_ei": 0.2878314246,
+            "single_ei_sum": 0.2622743415
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": -0.0005206829,
+            "joint_ei": 1.3890110438,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0012927407,
+            "joint_ei": 0.2460565517,
+            "single_ei_sum": 0.2207778081
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 3.540268947,
+            "joint_ei": 4.6842176535,
+            "single_ei_sum": 0.9018072978
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0003845078,
+            "joint_ei": 0.0034656614,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.0013471204,
+            "joint_ei": 0.8059339347,
+            "single_ei_sum": 0.6065948956
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": -0.0003722189,
+            "joint_ei": 0.857849923,
+            "single_ei_sum": 0.6395329562
+          }
+        ]
+      },
+      "mlp_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.6557851109
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.0031311008
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.0060631639
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.1426565114
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.6512545566
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.407169023
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.1231689152
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.1309963356
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.4881998702
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.2852712532,
+            "joint_ei": 1.1565900239,
+            "single_ei_sum": 0.7984416223
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.0450410011,
+            "joint_ei": 1.7752785047,
+            "single_ei_sum": 0.6543856574
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0087500167,
+            "joint_ei": 0.4672050044,
+            "single_ei_sum": 0.4132321869
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.3804995883,
+            "joint_ei": 1.2228316908,
+            "single_ei_sum": 0.7789540261
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0072690494,
+            "joint_ei": 0.1568386975,
+            "single_ei_sum": 0.1341274364
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.0127952079,
+            "joint_ei": 0.5744630447,
+            "single_ei_sum": 0.4942630342
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.018924665,
+            "joint_ei": 0.3165570557,
+            "single_ei_sum": 0.2658254265
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.4742975983,
+            "joint_ei": 2.3340396286,
+            "single_ei_sum": 0.7822508922
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 2.0734947102,
+            "joint_ei": 3.0652610713,
+            "single_ei_sum": 0.8953688933
+          }
+        ]
+      },
+      "granger_ablation": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 3.3097e-05
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 2.555e-07
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 6.358e-07
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 1.2305e-06
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 2.11686e-05
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 0.0
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 5.271e-07
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 4.728e-07
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 2.51137e-05
+        }
+      ],
+      "neural_granger": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 1.0742406014
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 0.0154134696
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 0.04598478
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 0.0688191205
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 0.9415195656
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 0.6237454727
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 0.0152970956
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 0.0352259326
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 0.6912305663
+        }
+      ],
+      "shap": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0056897642
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.000325602
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.0009362632
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.000840353
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.0037348502
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0015232258
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0004232138
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0002837456
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.0035345675
+          }
+        ],
+        "interactions": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0007765711
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.0002634762
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0007509928
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.0003019358
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 9.37338e-05
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.0005029699
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0002237844
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.0003428663
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.000805521
+          }
+        ]
+      },
+      "observational": [
+        {
+          "sources": "w+x",
+          "target": "dx",
+          "wms": 0.0377297695,
+          "redundancy": 0.0159101595,
+          "unique_left": 0.0016644839,
+          "unique_right": 0.1112460409,
+          "synergy": 0.0536399291
+        },
+        {
+          "sources": "w+y",
+          "target": "dy",
+          "wms": 0.0565725438,
+          "redundancy": 0.0130512065,
+          "unique_left": 0.0,
+          "unique_right": 0.1385495881,
+          "synergy": 0.0696237502
+        }
+      ]
+    },
+    {
+      "seed": 2,
+      "mlp_metrics": {
+        "test_mse": 0.00011375279928693414,
+        "baseline_mse": 0.00014254996494855732,
+        "skill_ratio": 0.797985459540342
+      },
+      "oracle_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.2265885719
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.2338771339
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.6083410325
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.6178109508
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0011522905,
+            "joint_ei": 1.4069284749,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 3.5820228491,
+            "joint_ei": 4.6533426563,
+            "single_ei_sum": 0.8349296044
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0012906246,
+            "joint_ei": 0.2605917758,
+            "single_ei_sum": 0.2338771339
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.0020260198,
+            "joint_ei": 1.4067526307,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0012142196,
+            "joint_ei": 0.2520056127,
+            "single_ei_sum": 0.2265885719
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 3.5736398164,
+            "joint_ei": 4.6795413738,
+            "single_ei_sum": 0.8516880847
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0004763524,
+            "joint_ei": 0.0033778125,
+            "single_ei_sum": 0.0
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.0036220889,
+            "joint_ei": 0.8246344947,
+            "single_ei_sum": 0.6083410325
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.0006430822,
+            "joint_ei": 0.849132504,
+            "single_ei_sum": 0.6178109508
+          }
+        ]
+      },
+      "mlp_peid": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 1.3280917337
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.069348065
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.0
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0552034447
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 1.1173862262
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.1421431064
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0579893528
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0903756685
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 1.0962203065
+          }
+        ],
+        "hyperedges": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.3394856216,
+            "joint_ei": 2.0424963905,
+            "single_ei_sum": 1.3832951784
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.1296653093,
+            "joint_ei": 1.4804591805,
+            "single_ei_sum": 1.1867342912
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0065464783,
+            "joint_ei": 0.1638226709,
+            "single_ei_sum": 0.1421431064
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.4132843848,
+            "joint_ei": 2.1211645271,
+            "single_ei_sum": 1.3860810864
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0050116143,
+            "joint_ei": 0.1838745478,
+            "single_ei_sum": 0.1597237335
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.0237625853,
+            "joint_ei": 1.2809383391,
+            "single_ei_sum": 1.0962203065
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0131620648,
+            "joint_ei": 0.1421361307,
+            "single_ei_sum": 0.1131927975
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.5343893567,
+            "joint_ei": 1.910415481,
+            "single_ei_sum": 1.2077618947
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 1.941848506,
+            "joint_ei": 3.3480278375,
+            "single_ei_sum": 1.2383634129
+          }
+        ]
+      },
+      "granger_ablation": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 3.01245e-05
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 7.368e-07
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 3.469e-07
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 6.807e-07
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 2.4534e-05
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 1.1103e-06
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 5.777e-07
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 6.335e-07
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 2.56901e-05
+        }
+      ],
+      "neural_granger": [
+        {
+          "source": "w",
+          "target": "dw",
+          "score": 0.8764050448
+        },
+        {
+          "source": "x",
+          "target": "dw",
+          "score": 0.0145458667
+        },
+        {
+          "source": "y",
+          "target": "dw",
+          "score": 0.2175316766
+        },
+        {
+          "source": "w",
+          "target": "dx",
+          "score": 0.0899148322
+        },
+        {
+          "source": "x",
+          "target": "dx",
+          "score": 1.001598125
+        },
+        {
+          "source": "y",
+          "target": "dx",
+          "score": 0.4820211273
+        },
+        {
+          "source": "w",
+          "target": "dy",
+          "score": 0.557331925
+        },
+        {
+          "source": "x",
+          "target": "dy",
+          "score": 0.179278431
+        },
+        {
+          "source": "y",
+          "target": "dy",
+          "score": 1.2633690933
+        }
+      ],
+      "shap": {
+        "pairwise": [
+          {
+            "source": "w",
+            "target": "dw",
+            "score": 0.0046869838
+          },
+          {
+            "source": "w",
+            "target": "dx",
+            "score": 0.0006268894
+          },
+          {
+            "source": "w",
+            "target": "dy",
+            "score": 0.0005149284
+          },
+          {
+            "source": "x",
+            "target": "dw",
+            "score": 0.0003464212
+          },
+          {
+            "source": "x",
+            "target": "dx",
+            "score": 0.0039093469
+          },
+          {
+            "source": "x",
+            "target": "dy",
+            "score": 0.0004609127
+          },
+          {
+            "source": "y",
+            "target": "dw",
+            "score": 0.0008092736
+          },
+          {
+            "source": "y",
+            "target": "dx",
+            "score": 0.0004149278
+          },
+          {
+            "source": "y",
+            "target": "dy",
+            "score": 0.0043385433
+          }
+        ],
+        "interactions": [
+          {
+            "sources": "w+x",
+            "target": "dw",
+            "score": 0.0002813221
+          },
+          {
+            "sources": "w+x",
+            "target": "dx",
+            "score": 0.0001448817
+          },
+          {
+            "sources": "w+x",
+            "target": "dy",
+            "score": 0.0001128276
+          },
+          {
+            "sources": "w+y",
+            "target": "dw",
+            "score": 0.0002840979
+          },
+          {
+            "sources": "w+y",
+            "target": "dx",
+            "score": 0.0002816845
+          },
+          {
+            "sources": "w+y",
+            "target": "dy",
+            "score": 0.0001478369
+          },
+          {
+            "sources": "x+y",
+            "target": "dw",
+            "score": 0.0001957406
+          },
+          {
+            "sources": "x+y",
+            "target": "dx",
+            "score": 0.0001731844
+          },
+          {
+            "sources": "x+y",
+            "target": "dy",
+            "score": 0.000374346
+          }
+        ]
+      },
+      "observational": [
+        {
+          "sources": "w+x",
+          "target": "dx",
+          "wms": 0.0672114884,
+          "redundancy": 0.009728331,
+          "unique_left": 0.0,
+          "unique_right": 0.129602386,
+          "synergy": 0.0769398195
+        },
+        {
+          "sources": "w+y",
+          "target": "dy",
+          "wms": 0.0520415229,
+          "redundancy": 0.0121748562,
+          "unique_left": 0.0,
+          "unique_right": 0.1534650937,
+          "synergy": 0.0642163791
+        }
+      ]
+    }
+  ]
+}

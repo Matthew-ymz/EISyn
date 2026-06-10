@@ -104,6 +104,8 @@ transport-map EI 与连续动力学实验，包括：
 - [exp/network_revival/](exp/network_revival/)：network revival、microbiome、multistable attractor 与协同 ignition 实验。
 - [exp/brain/](exp/brain/)：DMF Fig.6、Lausanne 脑网络与 downward causation notebook。
 - [exp/granger_peid_mlp_comparison.ipynb](exp/granger_peid_mlp_comparison.ipynb)：Granger 与 PEID / MLP 因果读出对照。
+- [scripts/classic_network_dynamics_benchmark.py](scripts/classic_network_dynamics_benchmark.py)：Kuramoto、耦合 Rössler、SIS 与 Wilson–Cowan 向量场上的 Granger / SHAP / SURD / PEID 对照。
+- [docs/reports/classic_network_dynamics_benchmark.md](docs/reports/classic_network_dynamics_benchmark.md)：经典模型实验设计、干预协议、3-seed 结果与失败模式说明。
 - [exp/mediated_peid_known_dynamics.ipynb](exp/mediated_peid_known_dynamics.ipynb)：已知动力学中的 mediated PEID 验证。
 
 ## 常用命令

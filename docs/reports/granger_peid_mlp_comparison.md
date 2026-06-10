@@ -1,3 +1,138 @@
+# 经典网络动力学中的共同驱动与状态依赖协同
+
+完整实验设计、数值协议和结果讨论见 [经典网络动力学 benchmark 报告](classic_network_dynamics_benchmark.md)。
+
+主比较使用论文 *Discovering network dynamics with neural symbolic regression* 的原始动力学方程。网络只缩减为可解释 motif；预测目标统一为当前状态到向量场 $\dot{\mathbf{x}}$，避免小步长下一状态中的恒等映射掩盖耦合机制。
+
+协同源集合允许包含目标变量的当前状态。它表示状态依赖门控，例如 SIS 中感染源 $w$ 的作用受到目标当前易感比例 $1-x$ 调制，并不等价于两个外部源共同指向第三变量的 collider。
+
+主表比较 Granger ablation、Neural Granger、SHAP、观测 WMS/SURD、MLP+PEID 与 Oracle+PEID。PCMCI 保留在附录，因为它检验下一状态时间序列中的滞后关系，而不是当前状态到向量场的监督映射。
+
+![跨模型汇总](../../fig/classic_network_dynamics_benchmark/classic_dynamics_summary.png)
+
+图中前三列在各列内部归一化，格内数字是原始值。最后一列越低表示 MLP 相对常数基线越好。Wilson–Cowan 是结构可加对照，不应被误写成 PEID 数值零对照。
+
+## Kuramoto
+
+论文方程：
+
+$$
+\dot{x}_i=\omega_i+0.2\sum_j A_{ij}\sin(x_j-x_i)
+$$
+
+- 结构真值：`{w,x}->dx`, `{w,y}->dy`。
+- Oracle 真值协同均值：0.2517 bits。
+- MLP 真值协同均值：0.1462 bits。
+- MLP 测试 MSE / 常数基线：0.1166。
+- 解释：真值协同采用包含目标当前状态的状态依赖门控口径。
+
+| source set -> target | Oracle PEID | MLP PEID | SHAP interaction | observational WMS | SURD synergy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `{w,x}->dx` | 0.2498 | 0.2325 | 0.1037 | 0.4425 | 0.4632 |
+| `{w,y}->dy` | 0.2537 | 0.0599 | 0.0255 | 0.2089 | 0.2244 |
+
+| pairwise truth | Granger | Neural Granger | SHAP | MLP PEID |
+| --- | ---: | ---: | ---: | ---: |
+| `w->dx` | 0.0227 | 2.8321 | 0.1270 | 0.1418 |
+| `w->dy` | 0.0022 | 1.8257 | 0.0255 | 0.0598 |
+
+![Kuramoto 方法读出](../../fig/classic_network_dynamics_benchmark/kuramoto_readout.png)
+
+## Coupled Rössler
+
+论文方程：
+
+$$
+\dot{x}_i=-y_i-z_i+0.5\sum_jA_{ij}\sin(x_j-x_i),\;\dot{y}_i=x_i+0.165y_i,\;\dot{z}_i=2+z_i(x_i-5.5)
+$$
+
+- 结构真值：`{x0,z0}->dz0`, `{x1,z1}->dz1`, `{x0,x1}->dx0`, `{x0,x1}->dx1`。
+- Oracle 真值协同均值：0.3227 bits。
+- MLP 真值协同均值：0.0148 bits。
+- MLP 测试 MSE / 常数基线：0.0065。
+- 解释：真值协同采用包含目标当前状态的状态依赖门控口径。
+
+| source set -> target | Oracle PEID | MLP PEID | SHAP interaction | observational WMS | SURD synergy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `{x0,z0}->dz0` | 0.6286 | 0.0061 | 0.0654 | -0.6544 | 0.4219 |
+| `{x1,z1}->dz1` | 0.6600 | 0.0507 | 0.1187 | -0.6840 | 0.4148 |
+| `{x0,x1}->dx0` | 0.0013 | 0.0010 | 0.0529 | -0.6129 | 0.3927 |
+| `{x0,x1}->dx1` | 0.0007 | 0.0016 | 0.0813 | -0.6102 | 0.3819 |
+
+| pairwise truth | Granger | Neural Granger | SHAP | MLP PEID |
+| --- | ---: | ---: | ---: | ---: |
+| `x0->dy0` | 1.1640 | 1.0424 | 0.9699 | 0.0000 |
+| `x0->dz0` | 0.1004 | 1.5665 | 0.1043 | 0.0000 |
+| `x1->dy1` | 1.2769 | 0.9292 | 1.0148 | 0.0000 |
+| `x1->dz1` | 0.3159 | 1.7804 | 0.1423 | 0.0000 |
+
+![Coupled Rössler 方法读出](../../fig/classic_network_dynamics_benchmark/coupled_rossler_readout.png)
+
+## SIS
+
+论文方程：
+
+$$
+\dot{x}_i=-\delta_i x_i+\sum_jA_{ij}x_j(1-x_i)
+$$
+
+- 结构真值：`{w,x}->dx`, `{w,y}->dy`。
+- Oracle 真值协同均值：6.1177 bits。
+- MLP 真值协同均值：1.5584 bits。
+- MLP 测试 MSE / 常数基线：0.6658。
+- 解释：真值协同采用包含目标当前状态的状态依赖门控口径。
+
+| source set -> target | Oracle PEID | MLP PEID | SHAP interaction | observational WMS | SURD synergy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `{w,x}->dx` | 5.9394 | 1.3374 | 0.0009 | 0.2292 | 0.2787 |
+| `{w,y}->dy` | 6.2960 | 1.7793 | 0.0004 | 0.2306 | 0.2615 |
+
+| pairwise truth | Granger | Neural Granger | SHAP | MLP PEID |
+| --- | ---: | ---: | ---: | ---: |
+| `w->dx` | 0.0001 | 1.2343 | 0.0092 | 0.2962 |
+| `w->dy` | 0.0001 | 1.1904 | 0.0091 | 0.2405 |
+
+![SIS 方法读出](../../fig/classic_network_dynamics_benchmark/sis_readout.png)
+
+## Wilson–Cowan
+
+论文方程：
+
+$$
+\dot{x}_i=-x_i+\sum_jA_{ij}[1+e^{-5.1(x_j-1)}]^{-1}
+$$
+
+- 结构真值：无显式乘积或相位差交互（结构可加对照）。
+- Oracle 真值协同均值：0.0000 bits。
+- MLP 真值协同均值：0.0000 bits。
+- MLP 测试 MSE / 常数基线：0.7697。
+- 解释：该模型没有显式二源乘积或相位差项，但 PEID 仍可能为 `状态 + 外部驱动` 给出正联合信息残差；因此它是结构交互负对照，不是 PEID 数值零对照。
+
+| source set -> target | Oracle PEID | MLP PEID | SHAP interaction | observational WMS | SURD synergy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `{w,x}->dx` | 3.5778 | 0.0776 | 0.0002 | 0.0517 | 0.0660 |
+| `{w,y}->dy` | 3.5544 | 0.1756 | 0.0004 | 0.0567 | 0.0711 |
+
+| pairwise truth | Granger | Neural Granger | SHAP | MLP PEID |
+| --- | ---: | ---: | ---: | ---: |
+| `w->dx` | 0.0000 | 0.0725 | 0.0005 | 0.0249 |
+| `w->dy` | 0.0000 | 0.2035 | 0.0008 | 0.0482 |
+
+![Wilson–Cowan 方法读出](../../fig/classic_network_dynamics_benchmark/wilson_cowan_readout.png)
+
+
+## 方法口径
+
+- Granger ablation：在固定 MLP 上把单个当前状态替换为均值，读取目标导数预测误差增量。
+- Neural Granger：逐目标 cMLP 第一层 source-group norm，仍是 pairwise 预测结构。
+- SHAP：独立背景替换下的单源贡献和二源 inclusion–exclusion interaction。
+- Observational WMS/SURD：直接基于自然轨迹的状态与导数经验分布。
+- PEID：对源状态做独立最大熵干预，再比较联合 EI 与单源 EI；主结果使用 transport-map 估计，smoke 测试使用离散估计。
+
+## 附录：原共同驱动 sine 基准
+
+以下内容保留原人工系统，用于校准两个外部源到第三目标的纯协同语义。它不再作为主实验。
+
 # 统一动力系统：共同驱动 + sine 协同
 
 这个例子把两种容易混淆的结构放进同一个动力系统：一方面，`w` 是 `x`、`y` 背后的共同原因；另一方面，`x`、`y` 对 `z` 的作用不是两条可分离的 pairwise 边，而是一个二源协同项。系统为

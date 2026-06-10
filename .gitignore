@@ -47,6 +47,7 @@ results/
 tests/
 !tests/
 tests/*
+!tests/test_classic_network_dynamics_benchmark.py
 !tests/test_pcmci_peid_synergy_comparison.py
 !tests/test_pcmci_peid_synergy_notebook.py
 *.pt

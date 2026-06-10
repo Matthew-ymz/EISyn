@@ -1,0 +1,23 @@
+{
+  "mode": "full",
+  "models": [
+    "kuramoto",
+    "coupled_rossler",
+    "sis",
+    "wilson_cowan"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "estimator": "transport",
+  "summary_figure_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/fig/classic_network_dynamics_benchmark/classic_dynamics_summary.png",
+  "model_figure_paths": {
+    "kuramoto": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/fig/classic_network_dynamics_benchmark/kuramoto_readout.png",
+    "coupled_rossler": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/fig/classic_network_dynamics_benchmark/coupled_rossler_readout.png",
+    "sis": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/fig/classic_network_dynamics_benchmark/sis_readout.png",
+    "wilson_cowan": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/fig/classic_network_dynamics_benchmark/wilson_cowan_readout.png"
+  },
+  "report_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/.worktrees/classic-dynamics-benchmark/docs/reports/granger_peid_mlp_comparison.md"
+}
