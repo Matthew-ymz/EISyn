@@ -50,6 +50,7 @@ tests/*
 !tests/test_classic_network_dynamics_benchmark.py
 !tests/test_pcmci_peid_synergy_comparison.py
 !tests/test_pcmci_peid_synergy_notebook.py
+!tests/test_lorenz3d_multihorizon_peid.py
 *.pt
 *.pth
 *.ckpt

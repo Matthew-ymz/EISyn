@@ -1,6 +1,6 @@
 # Lorenz-3D Multihorizon MLP+PEID Implementation Plan
 
-> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a reproducible Lorenz-3D experiment runner for direct multihorizon MLP prediction, matched Oracle/MLP PEID evaluation, cached artifacts, figures, and a Markdown report.
 
@@ -18,10 +18,10 @@
 - Create: `scripts/lorenz3d_multihorizon_peid.py`
 - Create: `tests/test_lorenz3d_multihorizon_peid.py`
 
-- [ ] Write failing tests for the Lorenz vector field, RK4 transition shape, and exact horizon-to-step validation.
-- [ ] Run `pytest tests/test_lorenz3d_multihorizon_peid.py -v` and verify failure because the module is absent.
-- [ ] Implement `LorenzConfig`, vectorized Lorenz field, RK4 stepping, and direct finite-horizon transition.
-- [ ] Run focused tests and verify they pass.
+- [x] Write failing tests for the Lorenz vector field, RK4 transition shape, and exact horizon-to-step validation.
+- [x] Run `pytest tests/test_lorenz3d_multihorizon_peid.py -v` and verify failure because the module is absent.
+- [x] Implement `LorenzConfig`, vectorized Lorenz field, RK4 stepping, and direct finite-horizon transition.
+- [x] Run focused tests and verify they pass.
 
 ### Task 2: Leakage-free natural trajectory splits
 
@@ -29,10 +29,10 @@
 - Modify: `scripts/lorenz3d_multihorizon_peid.py`
 - Modify: `tests/test_lorenz3d_multihorizon_peid.py`
 
-- [ ] Write failing tests for deterministic 8/2/2 trajectory splits, horizon targets, and no trajectory overlap.
-- [ ] Run the focused test and verify the expected failure.
-- [ ] Implement initial-state banks, burn-in/record simulation, trajectory IDs, deterministic subsampling, and split construction.
-- [ ] Run focused tests and verify they pass.
+- [x] Write failing tests for deterministic 8/2/2 trajectory splits, horizon targets, and no trajectory overlap.
+- [x] Run the focused test and verify the expected failure.
+- [x] Implement initial-state banks, burn-in/record simulation, trajectory IDs, deterministic subsampling, and split construction.
+- [x] Run focused tests and verify they pass.
 
 ## Chunk 2: Direct MLP And Prediction Metrics
 
@@ -42,10 +42,10 @@
 - Modify: `scripts/lorenz3d_multihorizon_peid.py`
 - Modify: `tests/test_lorenz3d_multihorizon_peid.py`
 
-- [ ] Write a failing test that trains two horizon-specific smoke models and verifies prediction shape, finite metrics, and distinct model horizon metadata.
-- [ ] Run the focused test and verify failure.
-- [ ] Implement standardized deterministic PyTorch MLP training with validation early stopping and constant/linear baselines.
-- [ ] Run focused tests and verify they pass.
+- [x] Write a failing test that trains two horizon-specific smoke models and verifies prediction shape, finite metrics, and distinct model horizon metadata.
+- [x] Run the focused test and verify failure.
+- [x] Implement standardized deterministic PyTorch MLP training with validation early stopping and constant/linear baselines.
+- [x] Run focused tests and verify they pass.
 
 ## Chunk 3: Matched PEID Evaluation
 
@@ -55,10 +55,10 @@
 - Modify: `scripts/lorenz3d_multihorizon_peid.py`
 - Modify: `tests/test_lorenz3d_multihorizon_peid.py`
 
-- [ ] Write a failing test for all nine source-pair/target rows, matched intervention samples, finite EI fields, and preservation of signed synergy.
-- [ ] Run the focused test and verify failure.
-- [ ] Implement global intervention boxes, Oracle/MLP paired transitions, polynomial transport-map EI, and optional paired bootstrap.
-- [ ] Run focused tests and verify they pass.
+- [x] Write a failing test for all nine source-pair/target rows, matched intervention samples, finite EI fields, and preservation of signed synergy.
+- [x] Run the focused test and verify failure.
+- [x] Implement global intervention boxes, Oracle/MLP paired transitions, polynomial transport-map EI, and optional paired bootstrap.
+- [x] Run focused tests and verify they pass.
 
 ### Task 5: Cache and representative-point summaries
 
@@ -66,10 +66,10 @@
 - Modify: `scripts/lorenz3d_multihorizon_peid.py`
 - Modify: `tests/test_lorenz3d_multihorizon_peid.py`
 
-- [ ] Write a failing test for deterministic cache keys and NPZ/JSON cache reuse.
-- [ ] Run the focused test and verify failure.
-- [ ] Implement cache metadata, prediction-grid summaries, representative-point PEID summaries, and conditional-wing eligibility.
-- [ ] Run focused tests and verify they pass.
+- [x] Write a failing test for deterministic cache keys and NPZ/JSON cache reuse.
+- [x] Run the focused test and verify failure.
+- [x] Implement cache metadata, prediction-grid summaries, representative-point PEID summaries, and conditional-wing eligibility.
+- [x] Run focused tests and verify they pass.
 
 ## Chunk 4: Artifacts, CLI, And Verification
 
@@ -80,10 +80,10 @@
 - Modify: `tests/test_lorenz3d_multihorizon_peid.py`
 - Create: `docs/reports/lorenz3d_multihorizon_mlp_peid.md`
 
-- [ ] Write failing tests for JSON/NPZ, PNG figures, Markdown report, and script-path CLI help.
-- [ ] Run focused tests and verify failure.
-- [ ] Implement smoke/full CLI modes, outside-right legends, PNG-only primary plots, and report generation.
-- [ ] Run focused tests and verify they pass.
+- [x] Write failing tests for JSON/NPZ, PNG figures, Markdown report, and script-path CLI help.
+- [x] Run focused tests and verify failure.
+- [x] Implement smoke/full CLI modes, outside-right legends, PNG-only primary plots, and report generation.
+- [x] Run focused tests and verify they pass.
 
 ### Task 7: Repository verification and main integration
 
@@ -91,8 +91,8 @@
 - Generate: `results/lorenz3d_multihorizon_peid/`
 - Generate: `fig/lorenz3d_multihorizon_peid/`
 
-- [ ] Run the smoke experiment from the CLI and inspect produced summary values.
-- [ ] Visually inspect every generated PNG for clipping and legend overlap.
-- [ ] Run `pytest tests/test_lorenz3d_multihorizon_peid.py tests/test_classic_network_dynamics_benchmark.py -v`.
-- [ ] Run `git diff --check` and inspect the final diff.
-- [ ] Commit only Lorenz experiment files and generated smoke artifacts to `main`; leave unrelated `.npm-cache/` and `package-lock.json` untouched.
+- [x] Run the smoke experiment from the CLI and inspect produced summary values.
+- [x] Visually inspect every generated PNG for clipping and legend overlap.
+- [x] Run `pytest tests/test_lorenz3d_multihorizon_peid.py tests/test_classic_network_dynamics_benchmark.py -v`.
+- [x] Run `git diff --check` and inspect the final diff.
+- [x] Commit only Lorenz experiment files and generated smoke artifacts to `main`; leave unrelated `.npm-cache/` and `package-lock.json` untouched.
