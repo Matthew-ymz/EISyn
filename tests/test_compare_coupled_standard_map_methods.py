@@ -14,6 +14,7 @@ from scripts.compare_coupled_standard_map_methods import (
     METHOD_NAMES,
     build_periodic_source_groups,
     comparison_ground_truth,
+    run_natural_peid_experiment,
     run_experiment,
 )
 from scripts.coupled_standard_map_peid import (
@@ -74,14 +75,48 @@ def test_smoke_run_emits_all_methods_and_matched_interventions(tmp_path: Path) -
     assert Path(result["summary_path"]).exists()
     assert Path(result["arrays_path"]).exists()
     assert Path(result["figure_path"]).exists()
+    assert Path(result["ground_truth_figure_path"]).exists()
     assert Path(result["report_path"]).exists()
     assert "j0_false_positive" in result["diagnostics"]
     with np.load(result["arrays_path"]) as arrays:
         assert arrays["peid_synergy_by_target"].shape == (2, 2)
         assert arrays["shap_interaction_by_target"].shape == (2, 2)
+    assert result["protocol"]["peid_state_distribution"] == "natural_test_trajectory"
+    assert result["protocol"]["peid_target_distribution"] == "mlp_predicted_impulses"
     for row in result["runs"]:
-        assert row["oracle_intervention_digest"] == row["mlp_intervention_digest"]
+        assert row["peid"]["state_distribution"] == "natural_test_trajectory"
+        assert row["peid"]["target_distribution"] == "mlp_predicted_impulses"
+        assert "oracle_peid" not in row
         assert set(row["method_status"]) == set(METHOD_NAMES)
         assert all(row["method_status"].values())
     saved = json.loads(Path(result["summary_path"]).read_text(encoding="utf-8"))
     assert saved["protocol"]["mode"] == "smoke"
+    report_text = Path(result["report_path"]).read_text(encoding="utf-8")
+    assert "I_{1,t}" in report_text
+    assert "J^2/2" in report_text
+    assert "ground_truth_curve" in report_text
+    assert "$$" in report_text
+    assert "\\[" not in report_text
+    assert "Same-rotor angle EI" in report_text
+    assert "Other-rotor angle EI" in report_text
+    assert "(K^2+J^2)/2" in report_text
+
+
+def test_natural_peid_smoke_run_writes_mlp_control(tmp_path: Path) -> None:
+    result = run_natural_peid_experiment(
+        couplings=(0.0, 0.6),
+        seeds=(0,),
+        result_path=tmp_path / "natural_peid.json",
+        trajectory_count=6,
+        steps_per_trajectory=90,
+        bins=4,
+        permutation_count=1,
+    )
+
+    assert result["protocol"]["state_distribution"] == "natural_test_trajectory"
+    assert result["trends"].keys() >= {"natural_peid_synergy"}
+    assert len(result["summary"]) == 2
+    assert Path(result["result_path"]).exists()
+    saved = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert saved["protocol"]["target_distribution"] == "mlp_predicted_impulses"
+    assert saved["runs"][0]["natural_peid"]["target_distribution"] == "mlp_predicted_impulses"

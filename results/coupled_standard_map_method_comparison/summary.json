@@ -26,7 +26,8 @@
     "trajectory_count": 16,
     "steps_per_trajectory": 2500,
     "split": "10/3/3 in full mode",
-    "intervention_samples": 50000,
+    "peid_state_distribution": "natural_test_trajectory",
+    "peid_target_distribution": "mlp_predicted_impulses",
     "workers": 4
   },
   "runs": [
@@ -170,67 +171,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 2.266104081270523,
-          "cross": 0.00021068223642046742,
-          "synergy": -0.015598031800829748,
-          "momentum_null": 0.00020222454998695136,
-          "true_pair_top": 0.0,
-          "oracle_synergy": -0.015951739620164274
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 2.267550753065822,
-            "cross": 0.0,
-            "synergy": -0.015550531680923463,
-            "momentum_null": 6.202497487226575e-05,
-            "strongest_pair": "p2+q2",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015633582631701337
-          },
-          {
-            "target": "I2",
-            "own": 2.2646574094752236,
-            "cross": 0.00042136447284093484,
-            "synergy": -0.015645531920736033,
-            "momentum_null": 0.000342424125101637,
-            "strongest_pair": "p1+q1",
-            "true_pair_top": false,
-            "oracle_synergy": -0.01626989660862721
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 2.2682525068183805,
-          "cross": 4.023420318315378e-05,
-          "synergy": -0.015951739620164274,
-          "momentum_null": 0.00011601253835022971,
+          "own": 2.346226488884487,
+          "cross": 0.003068913134060658,
+          "synergy": -0.1271656429443886,
+          "momentum_null": 0.038656459100476236,
           "true_pair_top": 0.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 2.269186706036912,
+            "own": 2.202167185723953,
             "cross": 0.0,
-            "synergy": -0.015633582631701337,
-            "momentum_null": 0.0,
-            "strongest_pair": "p2+q2",
+            "synergy": -0.12682304687986967,
+            "momentum_null": 0.05575179210748686,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           },
           {
             "target": "I2",
-            "own": 2.267318307599849,
-            "cross": 8.046840636630756e-05,
-            "synergy": -0.01626989660862721,
-            "momentum_null": 0.00023202507670045942,
-            "strongest_pair": "p1+q1",
+            "own": 2.4902857920450208,
+            "cross": 0.006137826268121316,
+            "synergy": -0.1275082390089075,
+            "momentum_null": 0.02156112609346561,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "674f2ff42253f967",
+        "target_digest": "9a85ac403772691d"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -380,67 +351,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 2.2624456254065066,
-          "cross": 0.00014453102404266005,
-          "synergy": -0.014881040693661474,
-          "momentum_null": 0.00021253287309130897,
-          "true_pair_top": 0.0,
-          "oracle_synergy": -0.015377121382879722
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 2.263495531278565,
-            "cross": 0.0,
-            "synergy": -0.014800183788577836,
-            "momentum_null": 0.00029020726815574,
-            "strongest_pair": "p1+p2",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015083611591558466
-          },
-          {
-            "target": "I2",
-            "own": 2.2613957195344483,
-            "cross": 0.0002890620480853201,
-            "synergy": -0.01496189759874511,
-            "momentum_null": 0.00013485847802687792,
-            "strongest_pair": "p1+q1",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015670631174200977
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 2.268342208357331,
-          "cross": 6.621529068064904e-05,
-          "synergy": -0.015377121382879722,
-          "momentum_null": 5.08945295188745e-05,
+          "own": 2.3137351361137712,
+          "cross": 0.00047369932573424443,
+          "synergy": -0.12501888333755237,
+          "momentum_null": 0.035016763190624724,
           "true_pair_top": 0.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 2.269453372607394,
-            "cross": 0.0,
-            "synergy": -0.015083611591558466,
-            "momentum_null": 0.0,
-            "strongest_pair": "p2+q2",
+            "own": 2.296044758326084,
+            "cross": 0.0009473986514684889,
+            "synergy": -0.12348886867186844,
+            "momentum_null": 0.03143682363870024,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           },
           {
             "target": "I2",
-            "own": 2.2672310441072674,
-            "cross": 0.00013243058136129808,
-            "synergy": -0.015670631174200977,
-            "momentum_null": 0.000101789059037749,
-            "strongest_pair": "p1+q1",
+            "own": 2.3314255139014586,
+            "cross": 0.0,
+            "synergy": -0.12654889800323632,
+            "momentum_null": 0.038596702742549206,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "078604be1fc158a6",
+        "target_digest": "806d55410d3afc47"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -590,67 +531,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 2.2624477053924146,
-          "cross": 0.00022520202214577618,
-          "synergy": -0.01456156129694448,
-          "momentum_null": 0.00012064037086574326,
-          "true_pair_top": 0.0,
-          "oracle_synergy": -0.015194033735519197
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 2.2610236272782154,
-            "cross": 0.00045040404429155237,
-            "synergy": -0.014548557015143704,
-            "momentum_null": 0.0,
-            "strongest_pair": "p1+p2",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015561840596091336
-          },
-          {
-            "target": "I2",
-            "own": 2.2638717835066138,
-            "cross": 0.0,
-            "synergy": -0.014574565578745258,
-            "momentum_null": 0.00024128074173148653,
-            "strongest_pair": "p1+q1",
-            "true_pair_top": false,
-            "oracle_synergy": -0.014826226874947057
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 2.268410747493374,
-          "cross": 9.701914598529986e-05,
-          "synergy": -0.015194033735519197,
-          "momentum_null": 0.00010348990957282918,
+          "own": 2.3461857784695113,
+          "cross": 0.0024629915483552088,
+          "synergy": -0.12203312056566902,
+          "momentum_null": 0.0640025893426233,
           "true_pair_top": 0.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 2.2695503337845313,
-            "cross": 0.00014174587688131624,
-            "synergy": -0.015561840596091336,
-            "momentum_null": 0.0,
+            "own": 2.2149087151791207,
+            "cross": 0.0009304938489695051,
+            "synergy": -0.11773366117401399,
+            "momentum_null": 0.04633200639417527,
             "strongest_pair": "p1+p2",
             "true_pair_top": false
           },
           {
             "target": "I2",
-            "own": 2.267271161202217,
-            "cross": 5.229241508928348e-05,
-            "synergy": -0.014826226874947057,
-            "momentum_null": 0.00020697981914565835,
-            "strongest_pair": "p1+q1",
+            "own": 2.4774628417599014,
+            "cross": 0.0039954892477409125,
+            "synergy": -0.12633257995732405,
+            "momentum_null": 0.08167317229107134,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "3d32673817d4888a",
+        "target_digest": "24ac71f5738e9c5a"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -800,67 +711,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 2.2645759719524596,
-          "cross": 0.0004015096545838759,
-          "synergy": -0.014940855252075825,
-          "momentum_null": 0.0005639526702447383,
-          "true_pair_top": 0.0,
-          "oracle_synergy": -0.015548412243953535
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 2.26570842584592,
-            "cross": 0.00012879875648827985,
-            "synergy": -0.01522614603904957,
-            "momentum_null": 0.0006037935560566864,
-            "strongest_pair": "p1+p2",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015526357335285734
-          },
-          {
-            "target": "I2",
-            "own": 2.263443518058999,
-            "cross": 0.000674220552679472,
-            "synergy": -0.014655564465102078,
-            "momentum_null": 0.0005241117844327903,
-            "strongest_pair": "p1+q1",
-            "true_pair_top": false,
-            "oracle_synergy": -0.015570467152621337
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 2.2684654400845385,
-          "cross": 4.455515272958619e-05,
-          "synergy": -0.015548412243953535,
-          "momentum_null": 0.0001834361617905956,
+          "own": 2.3175673989584906,
+          "cross": 0.026969711111480076,
+          "synergy": -0.1523926391289112,
+          "momentum_null": 0.08442406292284313,
           "true_pair_top": 0.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 2.2694013283474566,
-            "cross": 0.0,
-            "synergy": -0.015526357335285734,
-            "momentum_null": 2.2161252963037812e-05,
-            "strongest_pair": "p1+p2",
+            "own": 2.2928858426317698,
+            "cross": 0.03639612732573827,
+            "synergy": -0.16668024560042527,
+            "momentum_null": 0.1482194626847484,
+            "strongest_pair": "p2+q2",
             "true_pair_top": false
           },
           {
             "target": "I2",
-            "own": 2.26752955182162,
-            "cross": 8.911030545917238e-05,
-            "synergy": -0.015570467152621337,
-            "momentum_null": 0.0003447110706181534,
-            "strongest_pair": "p2+q1",
+            "own": 2.3422489552852115,
+            "cross": 0.017543294897221885,
+            "synergy": -0.13810503265739715,
+            "momentum_null": 0.020628663160937855,
+            "strongest_pair": "p1+p2",
             "true_pair_top": false
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "27cdd8b5b5869f9a",
+        "target_digest": "c8cc84fb1ccd1ec1"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -1010,67 +891,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.8841236647655948,
-          "cross": 0.13089429393649726,
-          "synergy": 0.2680376093364138,
-          "momentum_null": 0.00044393038483301337,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.2706424701526681
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.8801241674899896,
-            "cross": 0.13258880871532472,
-            "synergy": 0.2705323812885859,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.27113375510834625
-          },
-          {
-            "target": "I2",
-            "own": 1.8881231620412,
-            "cross": 0.12919977915766978,
-            "synergy": 0.26554283738424167,
-            "momentum_null": 0.0008878607696660267,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.27015118519699
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.8836773545609349,
-          "cross": 0.13250808364313527,
-          "synergy": 0.2706424701526681,
-          "momentum_null": 0.0003333544084038742,
+          "own": 1.895268317228487,
+          "cross": 0.15649572940574688,
+          "synergy": 0.1807145226349247,
+          "momentum_null": 0.013692621120622216,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.8811018767589245,
-            "cross": 0.133851004044835,
-            "synergy": 0.27113375510834625,
-            "momentum_null": 0.0,
+            "own": 1.9083014531295714,
+            "cross": 0.15355666433931514,
+            "synergy": 0.1759394766002811,
+            "momentum_null": 0.02136375504903789,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.886252832362945,
-            "cross": 0.1311651632414355,
-            "synergy": 0.27015118519699,
-            "momentum_null": 0.0006667088168077484,
+            "own": 1.8822351813274025,
+            "cross": 0.15943479447217862,
+            "synergy": 0.18548956866956834,
+            "momentum_null": 0.006021487192206543,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "41a1645c59b6322a",
+        "target_digest": "725256f0d67a6c80"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -1220,67 +1071,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.8818148149266452,
-          "cross": 0.13265304199461864,
-          "synergy": 0.27054791070516016,
-          "momentum_null": 0.0003180462212769797,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.270827383547333
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.880941923832763,
-            "cross": 0.1340766323936986,
-            "synergy": 0.26943152057235253,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.2714376590972366
-          },
-          {
-            "target": "I2",
-            "own": 1.8826877060205272,
-            "cross": 0.13122945159553864,
-            "synergy": 0.2716643008379678,
-            "momentum_null": 0.0006360924425539594,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.2702171079974294
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.8835467797534966,
-          "cross": 0.1326972926879682,
-          "synergy": 0.270827383547333,
-          "momentum_null": 0.0003250340536604668,
+          "own": 1.9024403205236164,
+          "cross": 0.15961777931539717,
+          "synergy": 0.191966301156163,
+          "momentum_null": 0.0036008887065407617,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.8809883240110294,
-            "cross": 0.13375868353175982,
-            "synergy": 0.2714376590972366,
-            "momentum_null": 0.0,
+            "own": 1.9060487803236486,
+            "cross": 0.1608959624261354,
+            "synergy": 0.1767960977276289,
+            "momentum_null": 0.004605000671229398,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.8861052354959638,
-            "cross": 0.13163590184417656,
-            "synergy": 0.2702171079974294,
-            "momentum_null": 0.0006500681073209336,
+            "own": 1.8988318607235846,
+            "cross": 0.15833959620465893,
+            "synergy": 0.20713650458469712,
+            "momentum_null": 0.002596776741852125,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "a9e3199eb168568a",
+        "target_digest": "d00f2aa9d1b9f057"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -1430,67 +1251,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.883296235870875,
-          "cross": 0.13246982272910668,
-          "synergy": 0.2690334702280497,
-          "momentum_null": 0.00033511559039451906,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.271092579324597
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.8799732408670593,
-            "cross": 0.13311737009500818,
-            "synergy": 0.26796651760752005,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.2713734460131384
-          },
-          {
-            "target": "I2",
-            "own": 1.8866192308746903,
-            "cross": 0.13182227536320515,
-            "synergy": 0.27010042284857927,
-            "momentum_null": 0.0006702311807890381,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.27081171263605563
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.8836725528659217,
-          "cross": 0.13267508265262362,
-          "synergy": 0.271092579324597,
-          "momentum_null": 0.00031811974491313677,
+          "own": 1.9188164322039882,
+          "cross": 0.11091386823488732,
+          "synergy": 0.1836147270341393,
+          "momentum_null": 0.031636107106484526,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.88109999879075,
-            "cross": 0.1339871755623024,
-            "synergy": 0.2713734460131384,
-            "momentum_null": 0.0,
+            "own": 1.9224307875426865,
+            "cross": 0.11945489179074383,
+            "synergy": 0.17800831375152076,
+            "momentum_null": 0.0428116946954221,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.8862451069410935,
-            "cross": 0.13136298974294486,
-            "synergy": 0.27081171263605563,
-            "momentum_null": 0.0006362394898262735,
+            "own": 1.9152020768652898,
+            "cross": 0.10237284467903081,
+            "synergy": 0.18922114031675785,
+            "momentum_null": 0.02046051951754695,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "c149aa2cf4a6c36a",
+        "target_digest": "ecb6dc0140feaec0"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -1640,67 +1431,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.8793163138469,
-          "cross": 0.1339526126115193,
-          "synergy": 0.272288829455133,
-          "momentum_null": 0.0003115030776561945,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.27094374960222767
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.8766635854472025,
-            "cross": 0.13536917800291998,
-            "synergy": 0.2723636948130917,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.2712926655623356
-          },
-          {
-            "target": "I2",
-            "own": 1.8819690422465976,
-            "cross": 0.13253604722011864,
-            "synergy": 0.27221396409717435,
-            "momentum_null": 0.000623006155312389,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.2705948336421198
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.8836081278842256,
-          "cross": 0.13265756017543948,
-          "synergy": 0.27094374960222767,
-          "momentum_null": 0.00030639250247981313,
+          "own": 1.915976067270186,
+          "cross": 0.15667572710914007,
+          "synergy": 0.20263344822452997,
+          "momentum_null": 0.010049725866967752,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.8809725303711322,
-            "cross": 0.13379175377388303,
-            "synergy": 0.2712926655623356,
-            "momentum_null": 0.0,
+            "own": 1.9183350532525183,
+            "cross": 0.16130964014039756,
+            "synergy": 0.20938480055445802,
+            "momentum_null": 0.012876068588536427,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.886243725397319,
-            "cross": 0.13152336657699593,
-            "synergy": 0.2705948336421198,
-            "momentum_null": 0.0006127850049596263,
+            "own": 1.913617081287854,
+            "cross": 0.15204181407788261,
+            "synergy": 0.19588209589460193,
+            "momentum_null": 0.007223383145399076,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "6db16afe98fa0be4",
+        "target_digest": "c49048da7c79cae3"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -1850,67 +1611,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.5302039363960196,
-          "cross": 0.256311633218065,
-          "synergy": 0.5718880321184899,
-          "momentum_null": 0.0002274607818980812,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.5717042292155375
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.5288525690144843,
-            "cross": 0.25357286797271444,
-            "synergy": 0.5717155819503734,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.573728117386185
-          },
-          {
-            "target": "I2",
-            "own": 1.5315553037775549,
-            "cross": 0.25905039846341554,
-            "synergy": 0.5720604822866064,
-            "momentum_null": 0.0004549215637961624,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5696803410448901
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.530985468474595,
-          "cross": 0.25694908606362166,
-          "synergy": 0.5717042292155375,
-          "momentum_null": 0.00024960556546433916,
+          "own": 1.5437646773068463,
+          "cross": 0.28494663445551305,
+          "synergy": 0.4924959536995609,
+          "momentum_null": 0.003910042530012259,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.5266294498442226,
-            "cross": 0.2567646839615357,
-            "synergy": 0.573728117386185,
-            "momentum_null": 0.0,
+            "own": 1.548886716019946,
+            "cross": 0.29125075820120666,
+            "synergy": 0.48808147874961066,
+            "momentum_null": 0.002209799329986061,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.5353414871049673,
-            "cross": 0.25713348816570764,
-            "synergy": 0.5696803410448901,
-            "momentum_null": 0.0004992111309286783,
+            "own": 1.5386426385937466,
+            "cross": 0.2786425107098195,
+            "synergy": 0.4969104286495112,
+            "momentum_null": 0.005610285730038456,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "ff97c79246bb5abd",
+        "target_digest": "84f3b6bf6e3276fc"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -2060,67 +1791,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.5292354998994009,
-          "cross": 0.2571892169034343,
-          "synergy": 0.5715106686222936,
-          "momentum_null": 0.00021680388939744328,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.5716531060389807
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.5237978035120663,
-            "cross": 0.25655068341427806,
-            "synergy": 0.5734197046884437,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5735036725837387
-          },
-          {
-            "target": "I2",
-            "own": 1.5346731962867355,
-            "cross": 0.25782775039259054,
-            "synergy": 0.5696016325561435,
-            "momentum_null": 0.00043360777879488657,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5698025394942228
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.5309310441305457,
-          "cross": 0.25711459578032675,
-          "synergy": 0.5716531060389807,
-          "momentum_null": 0.00021827815677815114,
+          "own": 1.5442601860836787,
+          "cross": 0.28919549795542415,
+          "synergy": 0.49105847618098036,
+          "momentum_null": 0.0035756061213466413,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.5267330926429061,
-            "cross": 0.2569069792338109,
-            "synergy": 0.5735036725837387,
+            "own": 1.5338515546797988,
+            "cross": 0.2839734111192659,
+            "synergy": 0.5022835039282131,
             "momentum_null": 0.0,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.5351289956181855,
-            "cross": 0.2573222123268426,
-            "synergy": 0.5698025394942228,
-            "momentum_null": 0.0004365563135563023,
+            "own": 1.5546688174875585,
+            "cross": 0.2944175847915824,
+            "synergy": 0.47983344843374764,
+            "momentum_null": 0.007151212242693283,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "d79de7c5ff0a25bb",
+        "target_digest": "759afece67a5a8a3"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -2270,67 +1971,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.527652851319091,
-          "cross": 0.25634340948211787,
-          "synergy": 0.5714460724199655,
-          "momentum_null": 0.00018747264978760116,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.57164585406677
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.5233899397535666,
-            "cross": 0.2544926682519165,
-            "synergy": 0.5728238024701416,
-            "momentum_null": 1.1508502527490892e-05,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5733582610285197
-          },
-          {
-            "target": "I2",
-            "own": 1.5319157628846156,
-            "cross": 0.2581941507123192,
-            "synergy": 0.5700683423697894,
-            "momentum_null": 0.00036343679704771144,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5699334471050204
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.5309111472152508,
-          "cross": 0.2570392325358502,
-          "synergy": 0.57164585406677,
-          "momentum_null": 0.00020974736488588164,
+          "own": 1.550283506195981,
+          "cross": 0.2802115760687299,
+          "synergy": 0.4992241662730319,
+          "momentum_null": 0.0013597597337233758,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.5266258863332598,
-            "cross": 0.2569411298641862,
-            "synergy": 0.5733582610285197,
-            "momentum_null": 6.427085712168521e-06,
+            "own": 1.551257190982464,
+            "cross": 0.28444233531266416,
+            "synergy": 0.5057366061923412,
+            "momentum_null": 0.0012952260742869377,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.5351964080972418,
-            "cross": 0.2571373352075142,
-            "synergy": 0.5699334471050204,
-            "momentum_null": 0.00041306764405959475,
+            "own": 1.549309821409498,
+            "cross": 0.2759808168247956,
+            "synergy": 0.4927117263537226,
+            "momentum_null": 0.0014242933931598138,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "5313ed7a9b2bbc94",
+        "target_digest": "71589ef6d61ff44a"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -2480,67 +2151,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.5295989031338504,
-          "cross": 0.2559830154928512,
-          "synergy": 0.5715685623548732,
-          "momentum_null": 0.00015680381379121753,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.5714799780569005
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.5247660818534123,
-            "cross": 0.25476945023322484,
-            "synergy": 0.5732452969468599,
-            "momentum_null": 4.503101516384377e-06,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.57336444290117
-          },
-          {
-            "target": "I2",
-            "own": 1.5344317244142887,
-            "cross": 0.2571965807524775,
-            "synergy": 0.5698918277628864,
-            "momentum_null": 0.0003091045260660507,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.5695955132126311
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.530933531382925,
-          "cross": 0.2570443147726009,
-          "synergy": 0.5714799780569005,
-          "momentum_null": 0.00011243854357019241,
+          "own": 1.541143771814562,
+          "cross": 0.27698342697413353,
+          "synergy": 0.5127317910330049,
+          "momentum_null": 0.0025341703543499067,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.526671778718684,
-            "cross": 0.25681934111581645,
-            "synergy": 0.57336444290117,
-            "momentum_null": 0.0,
+            "own": 1.5341545047381449,
+            "cross": 0.2777815361076481,
+            "synergy": 0.507469589610855,
+            "momentum_null": 0.0036346653743885675,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.535195284047166,
-            "cross": 0.2572692884293854,
-            "synergy": 0.5695955132126311,
-            "momentum_null": 0.00022487708714038481,
+            "own": 1.548133038890979,
+            "cross": 0.27618531784061895,
+            "synergy": 0.5179939924551549,
+            "momentum_null": 0.001433675334311246,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "f184f0a3b49ecb90",
+        "target_digest": "3040fc9f6f766020"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -2690,67 +2331,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.2540840098535777,
-          "cross": 0.34775172137395405,
-          "synergy": 0.7614443666667707,
-          "momentum_null": 0.0001716526454045742,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.7615907779874884
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.2539057257147417,
-            "cross": 0.346331054246196,
-            "synergy": 0.762854783933576,
-            "momentum_null": 0.0001014767517062865,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7608543703690792
-          },
-          {
-            "target": "I2",
-            "own": 1.254262293992414,
-            "cross": 0.3491723885017121,
-            "synergy": 0.7600339493999655,
-            "momentum_null": 0.00024182853910286188,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7623271856058975
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.252673086567266,
-          "cross": 0.3527092786086561,
-          "synergy": 0.7615907779874884,
-          "momentum_null": 9.833066869733295e-05,
+          "own": 1.2561608493656,
+          "cross": 0.37162733547124194,
+          "synergy": 0.6931955440784872,
+          "momentum_null": 0.002101778672904864,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.2522930255693656,
-            "cross": 0.35270379600160806,
-            "synergy": 0.7608543703690792,
-            "momentum_null": 0.0001363273805546684,
+            "own": 1.2633030108786447,
+            "cross": 0.3785180110182239,
+            "synergy": 0.691196395987581,
+            "momentum_null": 0.0019721443757987345,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.2530531475651665,
-            "cross": 0.3527147612157041,
-            "synergy": 0.7623271856058975,
-            "momentum_null": 6.0333956839997514e-05,
+            "own": 1.2490186878525553,
+            "cross": 0.36473665992426,
+            "synergy": 0.6951946921693934,
+            "momentum_null": 0.0022314129700109937,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "cb3fbef7366dedce",
+        "target_digest": "d08a9daa3e069e35"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -2900,67 +2511,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.2547647216683182,
-          "cross": 0.35067243926516933,
-          "synergy": 0.7595736894686294,
-          "momentum_null": 0.00017983526252800535,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.761784329341775
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.2532990069978651,
-            "cross": 0.34960319890752684,
-            "synergy": 0.7597031723322034,
-            "momentum_null": 0.00026045102686449444,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7604558009167071
-          },
-          {
-            "target": "I2",
-            "own": 1.256230436338771,
-            "cross": 0.3517416796228119,
-            "synergy": 0.7594442066050553,
-            "momentum_null": 9.921949819151625e-05,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7631128577668429
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.2526329052195075,
-          "cross": 0.35273466834967504,
-          "synergy": 0.761784329341775,
-          "momentum_null": 8.122305451259133e-05,
+          "own": 1.2744288187744124,
+          "cross": 0.38443763751194665,
+          "synergy": 0.663875211871163,
+          "momentum_null": 0.0021552991442592706,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.252296674257094,
-            "cross": 0.35268612673283695,
-            "synergy": 0.7604558009167071,
-            "momentum_null": 0.0001511453383393757,
+            "own": 1.2805801069106835,
+            "cross": 0.3779843272033906,
+            "synergy": 0.6486012006337433,
+            "momentum_null": 0.003422846127701362,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.252969136181921,
-            "cross": 0.35278320996651313,
-            "synergy": 0.7631128577668429,
-            "momentum_null": 1.1300770685806951e-05,
+            "own": 1.2682775306381413,
+            "cross": 0.3908909478205027,
+            "synergy": 0.679149223108583,
+            "momentum_null": 0.0008877521608171794,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "0cc374867942d1cf",
+        "target_digest": "a68b856728430386"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -3110,67 +2691,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.2480361523955645,
-          "cross": 0.35281743042405145,
-          "synergy": 0.7628867625805107,
-          "momentum_null": 0.00011212553111494827,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.7613401146980677
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.2476709220413675,
-            "cross": 0.354213005673388,
-            "synergy": 0.7595888483485941,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7599540587154336
-          },
-          {
-            "target": "I2",
-            "own": 1.2484013827497613,
-            "cross": 0.3514218551747149,
-            "synergy": 0.7661846768124272,
-            "momentum_null": 0.00022425106222989655,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7627261706807018
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.2526007834620456,
-          "cross": 0.35265917026422033,
-          "synergy": 0.7613401146980677,
-          "momentum_null": 7.882346690228918e-05,
+          "own": 1.2561988484400346,
+          "cross": 0.36220368082008825,
+          "synergy": 0.6914170559575579,
+          "momentum_null": 0.002619259615311886,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.252316835544823,
-            "cross": 0.35267969667800064,
-            "synergy": 0.7599540587154336,
-            "momentum_null": 0.0,
+            "own": 1.2606201320612762,
+            "cross": 0.3804150455186603,
+            "synergy": 0.6845361610735963,
+            "momentum_null": 0.003207526516735726,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.2528847313792681,
-            "cross": 0.35263864385043997,
-            "synergy": 0.7627261706807018,
-            "momentum_null": 0.00015764693380457837,
+            "own": 1.2517775648187928,
+            "cross": 0.34399231612151626,
+            "synergy": 0.6982979508415195,
+            "momentum_null": 0.0020309927138880465,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "67ca00d932dfbe8d",
+        "target_digest": "f729b40eb62f76c2"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -3320,67 +2871,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.2511145154725438,
-          "cross": 0.35026542378868103,
-          "synergy": 0.7597926267440501,
-          "momentum_null": 6.0583949510384393e-05,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.7616740052398275
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.2501510213369376,
-            "cross": 0.35300529039747824,
-            "synergy": 0.7570399766389331,
-            "momentum_null": 0.00012116789902076879,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7608010949114514
-          },
-          {
-            "target": "I2",
-            "own": 1.25207800960815,
-            "cross": 0.3475255571798838,
-            "synergy": 0.7625452768491672,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.7625469155682036
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.2526831759462442,
-          "cross": 0.352514905943738,
-          "synergy": 0.7616740052398275,
-          "momentum_null": 5.135486166425447e-05,
+          "own": 1.2470976608714495,
+          "cross": 0.3781806847925524,
+          "synergy": 0.6927544374153995,
+          "momentum_null": 0.0034841628480191565,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.2523699343928592,
-            "cross": 0.3524642367511392,
-            "synergy": 0.7608010949114514,
-            "momentum_null": 8.890515552746332e-05,
+            "own": 1.2462771654073492,
+            "cross": 0.3594457504919342,
+            "synergy": 0.7062720127998527,
+            "momentum_null": 0.003732547351172854,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.2529964174996293,
-            "cross": 0.35256557513633685,
-            "synergy": 0.7625469155682036,
-            "momentum_null": 1.380456780104562e-05,
+            "own": 1.2479181563355497,
+            "cross": 0.3969156190931706,
+            "synergy": 0.6792368620309464,
+            "momentum_null": 0.003235778344865459,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "731a6600a22cce22",
+        "target_digest": "d2e431670a3a8f11"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -3530,67 +3051,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.0539387231944295,
-          "cross": 0.42583922536915175,
-          "synergy": 0.8716649867516059,
-          "momentum_null": 0.00010970515881236764,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.8708267402252259
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.0527297559112165,
-            "cross": 0.4272180594894531,
-            "synergy": 0.8716126371703294,
-            "momentum_null": 4.3848813072955295e-05,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8698961434101158
-          },
-          {
-            "target": "I2",
-            "own": 1.0551476904776425,
-            "cross": 0.4244603912488504,
-            "synergy": 0.8717173363328823,
-            "momentum_null": 0.00017556150455178,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.871757337040336
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.0554308324357495,
-          "cross": 0.4282696074815978,
-          "synergy": 0.8708267402252259,
-          "momentum_null": 0.0001713037641827953,
+          "own": 1.046667040008626,
+          "cross": 0.4535072051688651,
+          "synergy": 0.7894012473326711,
+          "momentum_null": 0.001084691221766576,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.054707069892364,
-            "cross": 0.43041129511005155,
-            "synergy": 0.8698961434101158,
-            "momentum_null": 9.864091482256762e-05,
+            "own": 1.0536594289268937,
+            "cross": 0.44205952555514827,
+            "synergy": 0.7932400307711633,
+            "momentum_null": 0.0008158066128126865,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.0561545949791349,
-            "cross": 0.426127919853144,
-            "synergy": 0.871757337040336,
-            "momentum_null": 0.000243966613543023,
+            "own": 1.039674651090358,
+            "cross": 0.46495488478258196,
+            "synergy": 0.7855624638941789,
+            "momentum_null": 0.0013535758307204656,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "313041df7bc3fad7",
+        "target_digest": "0f481ca6157e6af8"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -3740,67 +3231,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.0553033125387932,
-          "cross": 0.42658042750318315,
-          "synergy": 0.870542875977346,
-          "momentum_null": 0.00022689297624367555,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.8711954902848169
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.053784846852029,
-            "cross": 0.429122816881698,
-            "synergy": 0.86917158199826,
-            "momentum_null": 0.00019799613400106608,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8699605066800101
-          },
-          {
-            "target": "I2",
-            "own": 1.0568217782255573,
-            "cross": 0.4240380381246682,
-            "synergy": 0.8719141699564321,
-            "momentum_null": 0.000255789818486285,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8724304738896238
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.0553224525647757,
-          "cross": 0.4283765030558363,
-          "synergy": 0.8711954902848169,
-          "momentum_null": 0.00025229835461217933,
+          "own": 1.0798787957354263,
+          "cross": 0.4268083891216755,
+          "synergy": 0.7828824197698092,
+          "momentum_null": 0.0019399388090481475,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.0548035297928495,
-            "cross": 0.4305031694974998,
-            "synergy": 0.8699605066800101,
-            "momentum_null": 0.00019557916692765072,
+            "own": 1.0756984613396443,
+            "cross": 0.4184315938334814,
+            "synergy": 0.7783143245659107,
+            "momentum_null": 0.002060046886105482,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.0558413753367017,
-            "cross": 0.42624983661417276,
-            "synergy": 0.8724304738896238,
-            "momentum_null": 0.00030901754229670795,
+            "own": 1.0840591301312081,
+            "cross": 0.43518518440986964,
+            "synergy": 0.7874505149737077,
+            "momentum_null": 0.0018198307319908132,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "691bd36c28829b38",
+        "target_digest": "1be8868521d678ee"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -3950,67 +3411,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.055423623301459,
-          "cross": 0.4275059465665695,
-          "synergy": 0.8690415525793921,
-          "momentum_null": 0.00017696978946020177,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.8703641577295245
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.0536487307428586,
-            "cross": 0.4275507639883269,
-            "synergy": 0.8697413308361885,
-            "momentum_null": 0.0,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8694072529176592
-          },
-          {
-            "target": "I2",
-            "own": 1.0571985158600592,
-            "cross": 0.4274611291448121,
-            "synergy": 0.8683417743225956,
-            "momentum_null": 0.00035393957892040353,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8713210625413896
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.0552733248394415,
-          "cross": 0.4282676759798494,
-          "synergy": 0.8703641577295245,
-          "momentum_null": 0.00016845298757219853,
+          "own": 1.0559441800660805,
+          "cross": 0.44676100287779796,
+          "synergy": 0.7844539075885135,
+          "momentum_null": 0.0020382610947486945,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.0547426504409507,
-            "cross": 0.430467465475879,
-            "synergy": 0.8694072529176592,
-            "momentum_null": 0.0,
+            "own": 1.054185419089713,
+            "cross": 0.43623923431217493,
+            "synergy": 0.7814042927918489,
+            "momentum_null": 0.001221783070350391,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.0558039992379322,
-            "cross": 0.42606788648381977,
-            "synergy": 0.8713210625413896,
-            "momentum_null": 0.00033690597514439706,
+            "own": 1.057702941042448,
+            "cross": 0.457282771443421,
+            "synergy": 0.7875035223851781,
+            "momentum_null": 0.002854739119146998,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "324e28586aa6e0a5",
+        "target_digest": "707288ca5bff9955"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -4160,67 +3591,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 1.054674318812967,
-          "cross": 0.42651392242932246,
-          "synergy": 0.8705480676332673,
-          "momentum_null": 9.485499152583898e-05,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.8707799108718834
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 1.0515869907714501,
-            "cross": 0.42987417743742196,
-            "synergy": 0.8687574511979204,
-            "momentum_null": 0.00014304193240999297,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8698973746693871
-          },
-          {
-            "target": "I2",
-            "own": 1.057761646854484,
-            "cross": 0.42315366742122296,
-            "synergy": 0.8723386840686143,
-            "momentum_null": 4.6668050641685e-05,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.8716624470743797
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 1.0553419291107662,
-          "cross": 0.42831652853816504,
-          "synergy": 0.8707799108718834,
-          "momentum_null": 5.1278170094271004e-05,
+          "own": 1.0445321226705881,
+          "cross": 0.45005706993436045,
+          "synergy": 0.7967548028327007,
+          "momentum_null": 0.003478442305049523,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 1.0547313167507273,
-            "cross": 0.43050210678554135,
-            "synergy": 0.8698973746693871,
-            "momentum_null": 5.072660290412752e-05,
+            "own": 1.0452761504649692,
+            "cross": 0.4539034776232592,
+            "synergy": 0.7913756094394707,
+            "momentum_null": 0.004581380086515985,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 1.055952541470805,
-            "cross": 0.4261309502907887,
-            "synergy": 0.8716624470743797,
-            "momentum_null": 5.182973728441449e-05,
+            "own": 1.043788094876207,
+            "cross": 0.44621066224546163,
+            "synergy": 0.8021339962259308,
+            "momentum_null": 0.002375504523583061,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "cee7f199c7cdf14b",
+        "target_digest": "9d5884f5baa4d0a5"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -4370,67 +3771,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 0.9160268143049712,
-          "cross": 0.4772545506505851,
-          "synergy": 0.9328723213274501,
-          "momentum_null": 0.00029842080453477136,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.9337789790143933
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 0.916561688682302,
-            "cross": 0.4782649351717604,
-            "synergy": 0.9341262590068141,
-            "momentum_null": 8.566264979208431e-05,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9339481577669763
-          },
-          {
-            "target": "I2",
-            "own": 0.9154919399276403,
-            "cross": 0.4762441661294098,
-            "synergy": 0.9316183836480861,
-            "momentum_null": 0.0005111789592774584,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9336098002618103
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 0.9187079607704969,
-          "cross": 0.4763250304717247,
-          "synergy": 0.9337789790143933,
-          "momentum_null": 0.00035724362229663234,
+          "own": 0.931243477199341,
+          "cross": 0.48358651333217095,
+          "synergy": 0.8537527438955386,
+          "momentum_null": 0.002122106526804224,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 0.919370698714895,
-            "cross": 0.478521922400566,
-            "synergy": 0.9339481577669763,
-            "momentum_null": 0.0002502312507649761,
+            "own": 0.9258846523365906,
+            "cross": 0.4949218080364842,
+            "synergy": 0.8400801533240932,
+            "momentum_null": 0.0001904544138097812,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 0.9180452228260989,
-            "cross": 0.47412813854288344,
-            "synergy": 0.9336098002618103,
-            "momentum_null": 0.00046425599382828855,
+            "own": 0.9366023020620913,
+            "cross": 0.4722512186278577,
+            "synergy": 0.867425334466984,
+            "momentum_null": 0.0040537586397986665,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "ac6a174f388df044",
+        "target_digest": "f970a3f527cabdaa"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -4580,67 +3951,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 0.9190191758230539,
-          "cross": 0.47558378093341047,
-          "synergy": 0.9320714724114278,
-          "momentum_null": 0.00019483574990344368,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.933826147158155
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 0.9183356727995106,
-            "cross": 0.4779128082049159,
-            "synergy": 0.9322446991950554,
-            "momentum_null": 0.00017263228130168793,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9340761757581864
-          },
-          {
-            "target": "I2",
-            "own": 0.9197026788465973,
-            "cross": 0.473254753661905,
-            "synergy": 0.9318982456278003,
-            "momentum_null": 0.00021703921850519943,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9335761185581237
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 0.9186580303125311,
-          "cross": 0.4764287057589015,
-          "synergy": 0.933826147158155,
-          "momentum_null": 0.0002798808574041799,
+          "own": 0.9405697445143781,
+          "cross": 0.47497717859952404,
+          "synergy": 0.852421954676849,
+          "momentum_null": 0.0011935944791454213,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 0.9193374383612053,
-            "cross": 0.47859947818532245,
-            "synergy": 0.9340761757581864,
-            "momentum_null": 0.000287679858397638,
+            "own": 0.942723849984375,
+            "cross": 0.4700330094953348,
+            "synergy": 0.8518745743187192,
+            "momentum_null": 0.0004556876340075181,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 0.9179786222638568,
-            "cross": 0.4742579333324805,
-            "synergy": 0.9335761185581237,
-            "momentum_null": 0.0002720818564107218,
+            "own": 0.9384156390443813,
+            "cross": 0.4799213477037133,
+            "synergy": 0.8529693350349788,
+            "momentum_null": 0.0019315013242833245,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "07426aa058c76fc5",
+        "target_digest": "51aee72d70598a32"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -4790,67 +4131,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 0.9175039138380245,
-          "cross": 0.4765382731428919,
-          "synergy": 0.9322362360631207,
-          "momentum_null": 0.0002736299867280856,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.9334944578374214
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 0.9142702978558995,
-            "cross": 0.48091628104460005,
-            "synergy": 0.9325982087649513,
-            "momentum_null": 0.00011885918254019847,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9335651980886088
-          },
-          {
-            "target": "I2",
-            "own": 0.9207375298201497,
-            "cross": 0.4721602652411837,
-            "synergy": 0.93187426336129,
-            "momentum_null": 0.0004284007909159727,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.933423717586234
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 0.9185339155957699,
-          "cross": 0.47627150718459665,
-          "synergy": 0.9334944578374214,
-          "momentum_null": 0.00022105782487686905,
+          "own": 0.9125522979418615,
+          "cross": 0.4521662934299616,
+          "synergy": 0.853180936014446,
+          "momentum_null": 0.0033157536042097927,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 0.9193179575569564,
-            "cross": 0.47854995883980145,
-            "synergy": 0.9335651980886088,
-            "momentum_null": 4.9870538799901e-05,
+            "own": 0.9094528248688419,
+            "cross": 0.45286982339003146,
+            "synergy": 0.8602202064805367,
+            "momentum_null": 0.004746800549977337,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 0.9177498736345834,
-            "cross": 0.47399305552939186,
-            "synergy": 0.933423717586234,
-            "momentum_null": 0.0003922451109538371,
+            "own": 0.9156517710148812,
+            "cross": 0.45146276346989184,
+            "synergy": 0.8461416655483552,
+            "momentum_null": 0.0018847066584422485,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "72a0fbf8007f6fb3",
+        "target_digest": "865203fd2b293a13"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -5000,67 +4311,37 @@
       },
       "peid": {
         "aggregate": {
-          "own": 0.9169907188783251,
-          "cross": 0.4768898727536731,
-          "synergy": 0.9318449255102631,
-          "momentum_null": 0.000234177514705447,
-          "true_pair_top": 1.0,
-          "oracle_synergy": 0.9340155058784467
-        },
-        "targets": [
-          {
-            "target": "I1",
-            "own": 0.9169829416028115,
-            "cross": 0.4807178984171756,
-            "synergy": 0.9314261794331509,
-            "momentum_null": 0.0002573315629799567,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9340690739373889
-          },
-          {
-            "target": "I2",
-            "own": 0.9169984961538387,
-            "cross": 0.4730618470901707,
-            "synergy": 0.9322636715873753,
-            "momentum_null": 0.00021102346643093735,
-            "strongest_pair": "q1+q2",
-            "true_pair_top": true,
-            "oracle_synergy": 0.9339619378195045
-          }
-        ]
-      },
-      "oracle_peid": {
-        "aggregate": {
-          "own": 0.9186548009140939,
-          "cross": 0.47629832621657786,
-          "synergy": 0.9340155058784467,
-          "momentum_null": 0.00020793364190572214,
+          "own": 0.9329815879278046,
+          "cross": 0.4710133344584251,
+          "synergy": 0.8461221581040482,
+          "momentum_null": 0.002837347514216937,
           "true_pair_top": 1.0
         },
         "targets": [
           {
             "target": "I1",
-            "own": 0.9193852440889883,
-            "cross": 0.47860119438525556,
-            "synergy": 0.9340690739373889,
-            "momentum_null": 0.00027949683371062415,
+            "own": 0.9360472152652038,
+            "cross": 0.47017363684988267,
+            "synergy": 0.8413222757911426,
+            "momentum_null": 0.0046358831224928565,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           },
           {
             "target": "I2",
-            "own": 0.9179243577391996,
-            "cross": 0.4739954580479001,
-            "synergy": 0.9339619378195045,
-            "momentum_null": 0.00013637045010082014,
+            "own": 0.9299159605904054,
+            "cross": 0.4718530320669675,
+            "synergy": 0.8509220404169539,
+            "momentum_null": 0.0010388119059410172,
             "strongest_pair": "q1+q2",
             "true_pair_top": true
           }
-        ]
+        ],
+        "state_distribution": "natural_test_trajectory",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": "d31a7a00844c7bf2",
+        "target_digest": "ce63d4949f47ff78"
       },
-      "oracle_intervention_digest": "5bb39c3c324362eb",
-      "mlp_intervention_digest": "5bb39c3c324362eb",
       "method_status": {
         "Whole-minus-sum": true,
         "MLP+SHAP": true,
@@ -5109,16 +4390,14 @@
       "ng_cross_std": 0.002121311404744232,
       "ng_momentum_mean": 0.004359036830686629,
       "ng_momentum_std": 0.0008629839503081384,
-      "peid_own_mean": 2.263893346005476,
-      "peid_own_std": 0.0015442716981178392,
-      "peid_cross_mean": 0.00024548123429819486,
-      "peid_cross_std": 9.507632405901416e-05,
-      "peid_synergy_mean": -0.014995372260877882,
-      "peid_synergy_std": 0.0003766411704244193,
-      "oracle_synergy_mean": -0.015517826745629182,
-      "oracle_synergy_std": 0.0002801141588252892,
-      "peid_momentum_mean": 0.0002748376160471855,
-      "peid_momentum_std": 0.00017067428287725827
+      "peid_own_mean": 2.330928700606565,
+      "peid_own_std": 0.015337403567837195,
+      "peid_cross_mean": 0.008243828779907546,
+      "peid_cross_std": 0.010853932603782883,
+      "peid_synergy_mean": -0.1316525714941303,
+      "peid_synergy_std": 0.012112210657323983,
+      "peid_momentum_mean": 0.05552496863914185,
+      "peid_momentum_std": 0.020075861176951995
     },
     {
       "coupling": 0.2,
@@ -5157,16 +4436,14 @@
       "ng_cross_std": 0.03443419413232966,
       "ng_momentum_mean": 0.004383200312452576,
       "ng_momentum_std": 0.0014972458611326718,
-      "peid_own_mean": 1.8821377573525035,
-      "peid_own_std": 0.0018269329487306265,
-      "peid_cross_mean": 0.13249244281793549,
-      "peid_cross_std": 0.0010854122992331977,
-      "peid_synergy_mean": 0.2699769549311891,
-      "peid_synergy_std": 0.001606391844423719,
-      "oracle_synergy_mean": 0.2708765456567065,
-      "oracle_synergy_std": 0.0001646171091842481,
-      "peid_momentum_mean": 0.00035214881854017666,
-      "peid_momentum_std": 5.368670730341923e-05
+      "peid_own_mean": 1.9081252843065695,
+      "peid_own_std": 0.009663796512844698,
+      "peid_cross_mean": 0.14592577601629286,
+      "peid_cross_std": 0.020252098681310577,
+      "peid_synergy_mean": 0.18973224976243924,
+      "peid_synergy_std": 0.008517267670233643,
+      "peid_momentum_mean": 0.014744835700153813,
+      "peid_momentum_std": 0.010400166058600245
     },
     {
       "coupling": 0.4,
@@ -5205,16 +4482,14 @@
       "ng_cross_std": 0.09311987776240793,
       "ng_momentum_mean": 0.004255313616738025,
       "ng_momentum_std": 0.0006474260684211397,
-      "peid_own_mean": 1.5291727976870906,
-      "peid_own_std": 0.0009432631416834138,
-      "peid_cross_mean": 0.2564568187741171,
-      "peid_cross_std": 0.00044576818032572883,
-      "peid_synergy_mean": 0.5716033338789055,
-      "peid_synergy_std": 0.0001699854131660243,
-      "oracle_synergy_mean": 0.5716207918445472,
-      "oracle_synergy_std": 8.43543712764935e-05,
-      "peid_momentum_mean": 0.0001971352837185858,
-      "peid_momentum_std": 2.7506743946582398e-05
+      "peid_own_mean": 1.544863035350267,
+      "peid_own_std": 0.0033460515188440186,
+      "peid_cross_mean": 0.28283428386345016,
+      "peid_cross_std": 0.004637838727884665,
+      "peid_synergy_mean": 0.4988775967966445,
+      "peid_synergy_std": 0.008572088779311968,
+      "peid_momentum_mean": 0.002844894684858046,
+      "peid_momentum_std": 0.0009963250684519836
     },
     {
       "coupling": 0.6,
@@ -5253,16 +4528,14 @@
       "ng_cross_std": 0.05160779525966234,
       "ng_momentum_mean": 0.004530617131877092,
       "ng_momentum_std": 0.0012553376778252582,
-      "peid_own_mean": 1.2519998498475011,
-      "peid_own_std": 0.0026684711710287952,
-      "peid_cross_mean": 0.350376753712964,
-      "peid_cross_std": 0.0017991332556759468,
-      "peid_synergy_mean": 0.7609243613649902,
-      "peid_synergy_std": 0.0013441132642386896,
-      "oracle_synergy_mean": 0.7615973068167896,
-      "oracle_synergy_std": 0.00016359285168758347,
-      "peid_momentum_mean": 0.00013104934713947805,
-      "peid_momentum_std": 4.835332575495049e-05
+      "peid_own_mean": 1.2584715443628742,
+      "peid_own_std": 0.009931066036052665,
+      "peid_cross_mean": 0.3741123346489573,
+      "peid_cross_std": 0.008233386439254961,
+      "peid_synergy_mean": 0.6853105623306519,
+      "peid_synergy_std": 0.012393019478496494,
+      "peid_momentum_mean": 0.0025901250701237943,
+      "peid_momentum_std": 0.0005540099636983173
     },
     {
       "coupling": 0.8,
@@ -5301,16 +4574,14 @@
       "ng_cross_std": 0.023618968307138666,
       "ng_momentum_mean": 0.0041452151021622785,
       "ng_momentum_std": 0.0011354454833507818,
-      "peid_own_mean": 1.054834994461912,
-      "peid_own_std": 0.0005905346266220514,
-      "peid_cross_mean": 0.42660988046705667,
-      "peid_cross_std": 0.0005930681151245786,
-      "peid_synergy_mean": 0.8704493707354028,
-      "peid_synergy_std": 0.0009324910947512792,
-      "oracle_synergy_mean": 0.8707915747778627,
-      "oracle_synergy_std": 0.0002946208263850283,
-      "peid_momentum_mean": 0.00015210572901052098,
-      "peid_momentum_std": 5.311969772698934e-05
+      "peid_own_mean": 1.0567555346201802,
+      "peid_own_std": 0.014022598047732635,
+      "peid_cross_mean": 0.4442834167756748,
+      "peid_cross_std": 0.010367357034469138,
+      "peid_synergy_mean": 0.7883730943809237,
+      "peid_synergy_std": 0.005404111117050542,
+      "peid_momentum_mean": 0.0021353333576532353,
+      "peid_momentum_std": 0.0008595627661966344
     },
     {
       "coupling": 1.0,
@@ -5349,16 +4620,14 @@
       "ng_cross_std": 0.04902734373127775,
       "ng_momentum_mean": 0.0035357585111011405,
       "ng_momentum_std": 0.0006452504038848028,
-      "peid_own_mean": 0.9173851557110937,
-      "peid_own_std": 0.0010822195952802196,
-      "peid_cross_mean": 0.4765666193701401,
-      "peid_cross_std": 0.0006213930112844384,
-      "peid_synergy_mean": 0.9322562388280654,
-      "peid_synergy_std": 0.0003818622234432804,
-      "oracle_synergy_mean": 0.9337787724721042,
-      "oracle_synergy_std": 0.00018649525510821272,
-      "peid_momentum_mean": 0.0002502660139679369,
-      "peid_momentum_std": 3.935769638981442e-05
+      "peid_own_mean": 0.9293367768958463,
+      "peid_own_std": 0.010305562196961571,
+      "peid_cross_mean": 0.4704358299550204,
+      "peid_cross_std": 0.011485575704866828,
+      "peid_synergy_mean": 0.8513694481727205,
+      "peid_synergy_std": 0.0030660809557618365,
+      "peid_momentum_mean": 0.002367200531094094,
+      "peid_momentum_std": 0.0007997207878950846
     }
   ],
   "trends": {
@@ -5367,8 +4636,7 @@
     "surd_synergy": -0.3714285714285715,
     "pcmci_cross": 1.0,
     "neural_granger_cross": 1.0,
-    "mlp_peid_synergy": 1.0,
-    "oracle_peid_synergy": 1.0
+    "mlp_peid_synergy": 1.0
   },
   "diagnostics": {
     "j0_false_positive": {
@@ -5377,8 +4645,7 @@
       "surd_synergy": 0.8346261953562405,
       "pcmci_cross": 0.0009917396186275296,
       "neural_granger_cross": 0.004652997101748178,
-      "mlp_peid_synergy": 0.014995372260877882,
-      "oracle_peid_synergy": 0.015517826745629182
+      "mlp_peid_synergy": 0.1316525714941303
     },
     "true_null_separation": {
       "shap": {
@@ -5395,15 +4662,14 @@
       },
       "mlp_peid": {
         "cross_above_momentum_rate": 1.0,
-        "mean_cross_minus_momentum": 0.3282839619899673
+        "mean_cross_minus_momentum": 0.3385818503831025
       }
     },
-    "mlp_peid_true_pair_top_rate": 1.0,
-    "mlp_peid_relative_error_mean": 0.002095341604089308,
-    "mlp_peid_relative_error_max": 0.009624730423074173
+    "mlp_peid_true_pair_top_rate": 1.0
   },
   "summary_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/results/coupled_standard_map_method_comparison/summary.json",
   "arrays_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/results/coupled_standard_map_method_comparison/readouts.npz",
   "figure_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/fig/coupled_standard_map_method_comparison/coupled_standard_map_six_method_comparison.png",
-  "report_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/docs/reports/coupled_standard_map_method_comparison.md"
+  "report_path": "/Users/yangmingzhe/Desktop/code/github/EISyn/docs/reports/coupled_standard_map_method_comparison.md",
+  "ground_truth_figure_path": "fig/coupled_standard_map_method_comparison/coupled_standard_map_ground_truth_curve.png"
 }

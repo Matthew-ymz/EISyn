@@ -1,0 +1,39 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@10.9.2
+2 info using node@v22.13.1
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/yangmingzhe/Desktop/code/github/EISyn/.npmrc
+5 silly config load:file:/Users/yangmingzhe/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install
+8 verbose argv "install" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/yangmingzhe/Desktop/code/github/EISyn/.npm-cache/_logs/2026-06-09T10_40_12_271Z-
+10 verbose logfile /Users/yangmingzhe/Desktop/code/github/EISyn/.npm-cache/_logs/2026-06-09T10_40_12_271Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly reify moves {}
+15 verbose stack Error: Could not read package.json: Error: ENOENT: no such file or directory, open '/Users/yangmingzhe/Desktop/code/github/EISyn/package.json'
+15 verbose stack     at async open (node:internal/fs/promises:638:25)
+15 verbose stack     at async readFile (node:internal/fs/promises:1242:14)
+15 verbose stack     at async read (/usr/local/lib/node_modules/npm/node_modules/@npmcli/package-json/lib/read-package.js:9:18)
+15 verbose stack     at async PackageJson.load (/usr/local/lib/node_modules/npm/node_modules/@npmcli/package-json/lib/index.js:131:31)
+15 verbose stack     at async PackageJson.normalize (/usr/local/lib/node_modules/npm/node_modules/@npmcli/package-json/lib/index.js:117:5)
+15 verbose stack     at async runScript (/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/run-script.js:11:28)
+15 verbose stack     at async Install.exec (/usr/local/lib/node_modules/npm/lib/commands/install.js:163:9)
+15 verbose stack     at async Npm.exec (/usr/local/lib/node_modules/npm/lib/npm.js:207:9)
+15 verbose stack     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:74:5)
+16 error code ENOENT
+17 error syscall open
+18 error path /Users/yangmingzhe/Desktop/code/github/EISyn/package.json
+19 error errno -2
+20 error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/Users/yangmingzhe/Desktop/code/github/EISyn/package.json'
+21 error enoent This is related to npm not being able to find a file.
+21 error enoent
+22 verbose cwd /Users/yangmingzhe/Desktop/code/github/EISyn
+23 verbose os Darwin 25.5.0
+24 verbose node v22.13.1
+25 verbose npm  v10.9.2
+26 verbose exit -2
+27 verbose code -2
+28 error A complete log of this run can be found in: /Users/yangmingzhe/Desktop/code/github/EISyn/.npm-cache/_logs/2026-06-09T10_40_12_271Z-debug-0.log

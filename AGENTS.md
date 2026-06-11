@@ -1,22 +1,11 @@
 # AGENTS.md
 
-## Plotting rules for experiment figures
+## Git workflow
 
-- When generating experiment plots, never place the legend on top of lines, markers, bars, scatter points, or shaded confidence regions unless explicitly requested.
-- Prefer putting legends outside the axes, usually on the right:
-  - `ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)`
-- After adding an outside legend, use layout adjustments so it is not clipped:
-  - prefer `constrained_layout=True`, or
-  - `fig.tight_layout()`, and when saving use `bbox_inches="tight"`.
-- For multi-line or dense plots, first try outside-right legend; second choice is above the plot in multiple columns.
-- If the legend still overlaps or makes the figure too narrow, enlarge the figure width before moving the legend back inside.
-- Before finishing, visually check that no legend overlaps any plotted data.
-
-## Figure formats for research documents
-
-- For experiment results, default to producing the primary visualization figure first, preferably a `png` that can be viewed directly in Markdown, notebooks, and chat summaries.
-- Do not export companion `pdf`, `svg`, or `tiff` files unless the user explicitly asks for publication/vector assets or the current document build requires that format.
-- When updating Markdown research documents under `doc/`, reference the directly viewable visualization asset first. Use `pdf` only for final paper export or a proven LaTeX/Pandoc path.
+- Unless the user explicitly asks for a separate branch, work directly on the current main branch and update it in place.
+- Do not create a feature branch or worktree by default.
+- After completing work on the main branch, do not ask whether to merge, open a pull request, keep the branch, or discard the work.
+- Only use a separate branch, worktree, pull request, or branch-completion workflow when the user explicitly requests it.
 
 ## Long-running experiments
 

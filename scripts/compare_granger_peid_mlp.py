@@ -2528,7 +2528,7 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     }
 
 
-def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
+def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
     summary_rows = beta_result.get("summary", [])
     if not summary_rows:
         return None
@@ -2552,96 +2552,188 @@ def _plot_sine_beta_sweep(beta_result: dict[str, object], figure_dir: Path) -> P
         }
     )
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig = plt.figure(figsize=(14.4, 7.4), constrained_layout=True)
-    gs = fig.add_gridspec(2, 6)
-    flat_axes = [
-        fig.add_subplot(gs[0, 0:2]),
-        fig.add_subplot(gs[0, 2:4]),
-        fig.add_subplot(gs[0, 4:6]),
-        fig.add_subplot(gs[1, 0:2]),
-        fig.add_subplot(gs[1, 2:4]),
-        fig.add_subplot(gs[1, 4:6]),
-    ]
+    fig, ax_bits = plt.subplots(figsize=(11.6, 5.1), constrained_layout=True)
+    ax_native = ax_bits.twinx()
+    ax_ng = ax_bits.twinx()
+    ax_ng.spines.right.set_position(("axes", 1.14))
+    ax_ng.spines.right.set_visible(True)
 
-    def line_with_band(ax, y_col: str, std_col: str, *, label: str, color: str, marker: str = "o") -> None:
+    def line_with_errorbar(
+        ax,
+        y_col: str,
+        std_col: str,
+        *,
+        label: str,
+        color: str,
+        marker: str = "o",
+        linestyle: str = "-",
+    ) -> None:
+        x = frame["beta"].to_numpy(dtype=float)
+        y = frame[y_col].to_numpy(dtype=float)
+        std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
+        ax.plot(x, y, marker=marker, color=color, linestyle=linestyle, linewidth=1.7, label=label)
+        ax.errorbar(
+            x,
+            y,
+            yerr=std,
+            fmt="none",
+            ecolor=color,
+            elinewidth=0.75,
+            capsize=2.2,
+            capthick=0.75,
+            alpha=0.58,
+            zorder=1,
+        )
+
+    for y_col, std_col, label, color, marker in [
+        ("observational_x_to_z_mi_mean", "observational_x_to_z_mi_std", r"Obs. MI $x \to z$", "#4c78a8", "^"),
+        ("observational_y_to_z_mi_mean", "observational_y_to_z_mi_std", r"Obs. MI $y \to z$", "#f58518", "v"),
+        ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"MLP+PEID $U_x$", "#009e73", "o"),
+        ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"MLP+PEID $U_y$", "#7e57c2", "o"),
+        ("oracle_peid_unique_x_mean", "oracle_peid_unique_x_std", r"Oracle+PEID $U_x$", "#111827", "s"),
+        ("oracle_peid_unique_y_mean", "oracle_peid_unique_y_std", r"Oracle+PEID $U_y$", "#6b7280", "s"),
+    ]:
+        line_with_errorbar(ax_bits, y_col, std_col, label=label, color=color, marker=marker)
+    for y_col, std_col, label, color, marker in [
+        ("surd_unique_x_mean", "surd_unique_x_std", r"SURD $U_x$", "#4c78a8", "P"),
+        ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "#f58518", "X"),
+    ]:
+        line_with_errorbar(ax_bits, y_col, std_col, label=label, color=color, marker=marker, linestyle=":")
+    ax_bits.set_ylabel("Information (bits)")
+    ax_bits.set_title("Single-source effects")
+
+    for y_col, std_col, label, color, marker, linestyle in [
+        ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "#4c78a8", "^", "--"),
+        ("shap_y_to_z_mean_abs_mean", "shap_y_to_z_mean_abs_std", "SHAP y->z", "#f58518", "v", "--"),
+        ("pcmci_cmiknn_x_to_z_mean", "pcmci_cmiknn_x_to_z_std", "PCMCI x->z", "#4c78a8", "d", "-."),
+        ("pcmci_cmiknn_y_to_z_mean", "pcmci_cmiknn_y_to_z_std", "PCMCI y->z", "#f58518", "d", "-."),
+    ]:
+        if y_col in frame and std_col in frame:
+            line_with_errorbar(
+                ax_native,
+                y_col,
+                std_col,
+                label=label,
+                color=color,
+                marker=marker,
+                linestyle=linestyle,
+            )
+    ax_native.set_ylabel("SHAP / PCMCI native readout")
+
+    for y_col, std_col, label, color, marker in [
+        ("neural_granger_x_to_z_mean", "neural_granger_x_to_z_std", "NG x->z", "#4c78a8", "*"),
+        ("neural_granger_y_to_z_mean", "neural_granger_y_to_z_std", "NG y->z", "#f58518", "*"),
+    ]:
+        if y_col in frame and std_col in frame:
+            line_with_errorbar(
+                ax_ng,
+                y_col,
+                std_col,
+                label=label,
+                color=color,
+                marker=marker,
+                linestyle=(0, (3, 1, 1, 1)),
+            )
+    ax_ng.set_ylabel("Neural Granger group norm")
+
+    for ax in [ax_bits, ax_native, ax_ng]:
+        ax.set_xlabel("beta: common-driver strength")
+        ax.set_xticks(frame["beta"].to_numpy(dtype=float))
+    ax_bits.grid(alpha=0.18, linewidth=0.5)
+    handles, labels = [], []
+    for ax in [ax_bits, ax_native, ax_ng]:
+        ax_handles, ax_labels = ax.get_legend_handles_labels()
+        handles.extend(ax_handles)
+        labels.extend(ax_labels)
+    ax_bits.legend(handles, labels, loc="center left", bbox_to_anchor=(1.23, 0.5), frameon=False, fontsize=7)
+
+    path = figure_dir / "sine_beta_single_source_readout_sweep.png"
+    fig.savefig(path, dpi=260, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
+    summary_rows = beta_result.get("summary", [])
+    if not summary_rows:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    frame = pd.DataFrame(summary_rows).sort_values("beta")
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+        }
+    )
+    figure_dir.mkdir(parents=True, exist_ok=True)
+    fig, ax_bits = plt.subplots(figsize=(8.9, 4.2), constrained_layout=True)
+    ax_shap = ax_bits.twinx()
+
+    def line_with_errorbar(ax, y_col: str, std_col: str, *, label: str, color: str, marker: str = "o") -> None:
         x = frame["beta"].to_numpy(dtype=float)
         y = frame[y_col].to_numpy(dtype=float)
         std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
         ax.plot(x, y, marker=marker, color=color, linewidth=1.7, label=label)
-        ax.fill_between(x, y - std, y + std, color=color, alpha=0.16, linewidth=0.0)
-
-    line_with_band(
-        flat_axes[0],
-        "observational_wms_mean",
-        "observational_wms_std",
-        label="observational WMS",
-        color="#8c564b",
-    )
-    flat_axes[0].axhline(0.0, color="#6b7280", linestyle="--", linewidth=0.9)
-    flat_axes[0].set_ylabel("Information (bits)")
-    flat_axes[0].set_title("Whole-minus-sum")
+        ax.errorbar(
+            x,
+            y,
+            yerr=std,
+            fmt="none",
+            ecolor=color,
+            elinewidth=0.85,
+            capsize=2.4,
+            capthick=0.85,
+            alpha=0.65,
+            zorder=1,
+        )
 
     for y_col, std_col, label, color, marker in [
-        ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "#4c78a8", "^"),
-        ("shap_y_to_z_mean_abs_mean", "shap_y_to_z_mean_abs_std", "SHAP y->z", "#f58518", "v"),
+        ("observational_wms_mean", "observational_wms_std", "observational WMS", "#8c564b", "D"),
+        ("surd_xy_synergy_mean", "surd_xy_synergy_std", r"SURD $S_{xy}$", "#e45756", "o"),
+        ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"MLP+PEID $S_{xy}$", "#1b9e77", "^"),
+        ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "#111827", "s"),
+    ]:
+        line_with_errorbar(ax_bits, y_col, std_col, label=label, color=color, marker=marker)
+    ax_bits.axhline(0.0, color="#6b7280", linestyle="--", linewidth=0.9)
+    ax_bits.set_ylabel("Information (bits)")
+    ax_bits.set_title("Higher-order interaction / Syn")
+
+    for y_col, std_col, label, color, marker in [
         (
             "shap_xy_mean_abs_interaction_mean",
             "shap_xy_mean_abs_interaction_std",
             "SHAP interaction x:y->z",
-            "#e45756",
+            "#7e57c2",
             "o",
         ),
     ]:
-        line_with_band(flat_axes[1], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[1].set_ylabel("Mean absolute SHAP readout")
-    flat_axes[1].set_title("MLP+SHAP")
-
-    for y_col, std_col, label, color, marker in [
-        ("surd_redundancy_mean", "surd_redundancy_std", r"SURD $R_{xy}$", "#7f8c8d", "s"),
-        ("surd_unique_x_mean", "surd_unique_x_std", r"SURD $U_x$", "#4c78a8", "^"),
-        ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "#f58518", "v"),
-        ("surd_xy_synergy_mean", "surd_xy_synergy_std", r"SURD $S_{xy}$", "#e45756", "o"),
-    ]:
-        line_with_band(flat_axes[2], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[2].set_ylabel("Information (bits)")
-    flat_axes[2].set_title("Observational SURD")
-
-    for y_col, std_col, label, color, marker in [
-        ("pcmci_cmiknn_x_to_z_mean", "pcmci_cmiknn_x_to_z_std", "PCMCI x->z", "#4c78a8", "^"),
-        ("pcmci_cmiknn_y_to_z_mean", "pcmci_cmiknn_y_to_z_std", "PCMCI y->z", "#f58518", "v"),
-        ("pcmci_cmiknn_w_to_z_mean", "pcmci_cmiknn_w_to_z_std", "PCMCI w->z", "#6b7280", "s"),
-    ]:
         if y_col in frame and std_col in frame:
-            line_with_band(flat_axes[3], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[3].set_ylabel("Absolute CMIknn statistic")
-    flat_axes[3].set_title("PCMCI-CMIknn")
+            line_with_errorbar(ax_shap, y_col, std_col, label=label, color=color, marker=marker)
+    ax_shap.set_ylabel("SHAP interaction readout")
 
-    for y_col, std_col, label, color, marker in [
-        ("neural_granger_x_to_z_mean", "neural_granger_x_to_z_std", "NG x->z", "#4c78a8", "^"),
-        ("neural_granger_y_to_z_mean", "neural_granger_y_to_z_std", "NG y->z", "#f58518", "v"),
-    ]:
-        line_with_band(flat_axes[4], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[4].set_ylabel("First-layer group norm")
-    flat_axes[4].set_title("Neural Granger")
-
-    for y_col, std_col, label, color, marker in [
-        ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"PEID $U_x$", "#4c78a8", "^"),
-        ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"PEID $U_y$", "#f58518", "v"),
-        ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"PEID $S_{xy}$", "#e45756", "o"),
-    ]:
-        line_with_band(flat_axes[5], y_col, std_col, label=label, color=color, marker=marker)
-    flat_axes[5].set_ylabel("Information (bits)")
-    flat_axes[5].set_title("MLP+PEID")
-
-    for ax in flat_axes:
+    for ax in [ax_bits, ax_shap]:
         ax.set_xlabel("beta: common-driver strength")
         ax.set_xticks(frame["beta"].to_numpy(dtype=float))
-        ax.grid(alpha=0.18, linewidth=0.5)
-        handles, labels = ax.get_legend_handles_labels()
-        if handles:
-            ax.legend(handles, labels, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    ax_bits.grid(alpha=0.18, linewidth=0.5)
+    handles, labels = [], []
+    for ax in [ax_bits, ax_shap]:
+        ax_handles, ax_labels = ax.get_legend_handles_labels()
+        handles.extend(ax_handles)
+        labels.extend(ax_labels)
+    ax_bits.legend(handles, labels, loc="center left", bbox_to_anchor=(1.15, 0.5), frameon=False)
 
-    path = figure_dir / "sine_beta_unified_readout_sweep.png"
+    path = figure_dir / "sine_beta_synergy_readout_sweep.png"
     fig.savefig(path, dpi=260, bbox_inches="tight")
     plt.close(fig)
     return path
@@ -3304,6 +3396,7 @@ def _write_chinese_report(
     alpha_neural_granger_figure_path: Path | None,
     alpha_sweep_rows: list[dict[str, float]],
     beta_sweep_figure_path: Path | None,
+    beta_synergy_figure_path: Path | None,
     beta_validation_figure_path: Path | None,
     beta_sweep_result: dict[str, object],
     report_path: Path,
@@ -3700,9 +3793,9 @@ def _write_chinese_report(
         if beta_sweep_figure_path is not None
         else ""
     )
-    beta_validation_rel = (
-        _relative_markdown_path(beta_validation_figure_path, report_path)
-        if beta_validation_figure_path is not None
+    beta_synergy_rel = (
+        _relative_markdown_path(beta_synergy_figure_path, report_path)
+        if beta_synergy_figure_path is not None
         else ""
     )
     beta_sweep_block = ""
@@ -3710,12 +3803,12 @@ def _write_chinese_report(
     beta_trend = dict(beta_sweep_result.get("trend", {}))
     if beta_sweep_rel and beta_summary_rows:
         beta_table_lines = [
-            "| beta | corr(`x`,`y`) | observational WMS | SHAP `x` | SHAP `y` | SHAP `x:y` | Neural Granger `x/y->z` | PCMCI-CMIknn `x/y/w->z` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |",
+            "| beta | corr(`x`,`y`) | observational WMS | SHAP `x` | SHAP `y` | SHAP `x:y` | Neural Granger `x/y->z` | PCMCI-CMIknn `x/y->z` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |",
             "| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |",
         ]
         for row in beta_summary_rows:
             beta_table_lines.append(
-                "| {beta:.2f} | {corr:.4g} | {wms:.4g} | {shap_x:.4g} | {shap_y:.4g} | {shap_xy:.4g} | {ng_x:.4g}/{ng_y:.4g} | {pcmci_x:.4g}/{pcmci_y:.4g}/{pcmci_w:.4g} | {surd_r:.4g}/{surd_ux:.4g}/{surd_uy:.4g}/{surd_s:.4g} | {peid_ux:.4g}/{peid_uy:.4g}/{peid_s:.4g} |".format(
+                "| {beta:.2f} | {corr:.4g} | {wms:.4g} | {shap_x:.4g} | {shap_y:.4g} | {shap_xy:.4g} | {ng_x:.4g}/{ng_y:.4g} | {pcmci_x:.4g}/{pcmci_y:.4g} | {surd_r:.4g}/{surd_ux:.4g}/{surd_uy:.4g}/{surd_s:.4g} | {peid_ux:.4g}/{peid_uy:.4g}/{peid_s:.4g} |".format(
                     beta=float(row["beta"]),
                     corr=float(row["xy_observed_corr_mean"]),
                     wms=float(row["observational_wms_mean"]),
@@ -3726,7 +3819,6 @@ def _write_chinese_report(
                     ng_y=float(row["neural_granger_y_to_z_mean"]),
                     pcmci_x=float(row.get("pcmci_cmiknn_x_to_z_mean", float("nan"))),
                     pcmci_y=float(row.get("pcmci_cmiknn_y_to_z_mean", float("nan"))),
-                    pcmci_w=float(row.get("pcmci_cmiknn_w_to_z_mean", float("nan"))),
                     surd_r=float(row["surd_redundancy_mean"]),
                     surd_ux=float(row["surd_unique_x_mean"]),
                     surd_uy=float(row["surd_unique_y_mean"]),
@@ -3753,7 +3845,12 @@ def _write_chinese_report(
             "`\\sqrt{1-\\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；"
             "这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。"
             "`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。\n\n"
-            f"![beta 扫描统一方法对照]({beta_sweep_rel})\n\n"
+            f"![beta 扫描单边作用曲线]({beta_sweep_rel})\n\n"
+            + (
+                f"![beta 扫描高阶协同曲线]({beta_synergy_rel})\n\n"
+                if beta_synergy_rel
+                else ""
+            )
             + "\n".join(beta_table_lines)
             + "\n\n"
             "每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；"
@@ -3764,7 +3861,10 @@ def _write_chinese_report(
             "Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。"
             "PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。"
             "SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。"
-            "SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。\n\n"
+            "SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。"
+            "单边作用图中的 ground truth 是真实转移方程上的 Oracle+PEID `U_x/U_y` 曲线；"
+            "高阶作用图中的 ground truth 是 Oracle+PEID `S_{xy}` 曲线。"
+            "单边合并图不显示 `w->z`，只比较对目标 `z` 的 `x` 与 `y` 单源投影。\n\n"
             "线性趋势读数显示，observational WMS 的 beta 斜率为 "
             f"{float(beta_trend.get('observational_wms_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('observational_wms_slope_ci_low', float('nan'))):.4g}, "
@@ -3785,12 +3885,7 @@ def _write_chinese_report(
             f"{float(beta_trend.get('tm_peid_synergy_slope', float('nan'))):.4g} "
             f"(bootstrap 95% CI [{float(beta_trend.get('tm_peid_synergy_slope_ci_low', float('nan'))):.4g}, "
             f"{float(beta_trend.get('tm_peid_synergy_slope_ci_high', float('nan'))):.4g}])。\n\n"
-            + (
-                f"![Oracle+PEID 与 SURD Q1 验证]({beta_validation_rel})\n\n"
-                if beta_validation_rel
-                else ""
-            )
-            + "验证图中的 Oracle+PEID 只用于检查 learned MLP 的 PEID 趋势是否偏离真实转移方程；"
+            + "另存的验证图中，Oracle+PEID 只用于检查 learned MLP 的 PEID 趋势是否偏离真实转移方程；"
             "SURD Q1 原子用于确认原论文 specific-MI transport-map 复现入口。二者都不进入主方法排名。\n\n"
         )
 
@@ -4031,7 +4126,8 @@ def run_comparison_grid(
         if run_diagnostic_sweeps and "common_driver_sine_synergy" in set(mechanisms)
         else {"runs": [], "summary": [], "trend": {}}
     )
-    beta_sweep_figure_path = _plot_sine_beta_sweep(beta_sweep_result, figure_dir)
+    beta_sweep_figure_path = _plot_sine_beta_single_source_sweep(beta_sweep_result, figure_dir)
+    beta_synergy_figure_path = _plot_sine_beta_synergy_sweep(beta_sweep_result, figure_dir)
     beta_validation_figure_path = _plot_sine_beta_validation(beta_sweep_result, figure_dir)
     report_markdown_path = _write_chinese_report(
         runs,
@@ -4049,6 +4145,7 @@ def run_comparison_grid(
         alpha_neural_granger_figure_path=alpha_neural_granger_figure_path,
         alpha_sweep_rows=alpha_sweep_rows,
         beta_sweep_figure_path=beta_sweep_figure_path,
+        beta_synergy_figure_path=beta_synergy_figure_path,
         beta_validation_figure_path=beta_validation_figure_path,
         beta_sweep_result=beta_sweep_result,
         report_path=report_path,
@@ -4085,6 +4182,7 @@ def run_comparison_grid(
             str(alpha_neural_granger_figure_path) if alpha_neural_granger_figure_path else None
         ),
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
+        "beta_synergy_figure_path": str(beta_synergy_figure_path) if beta_synergy_figure_path else None,
         "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),
@@ -4113,6 +4211,7 @@ def run_comparison_grid(
             str(alpha_neural_granger_figure_path) if alpha_neural_granger_figure_path else None
         ),
         "beta_sweep_figure_path": str(beta_sweep_figure_path) if beta_sweep_figure_path else None,
+        "beta_synergy_figure_path": str(beta_synergy_figure_path) if beta_synergy_figure_path else None,
         "beta_validation_figure_path": str(beta_validation_figure_path) if beta_validation_figure_path else None,
         "lagged_proxy_figure_path": str(lagged_proxy_figure_path),
         "report_markdown_path": str(report_markdown_path),

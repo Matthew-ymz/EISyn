@@ -17,7 +17,8 @@ from scripts.compare_granger_peid_mlp import (
     _observational_wms,
     _plot_sine_alpha_neural_granger_sweep,
     _plot_sine_alpha_sweep,
-    _plot_sine_beta_sweep,
+    _plot_sine_beta_single_source_sweep,
+    _plot_sine_beta_synergy_sweep,
     _proxy_y_readout_values,
     estimate_granger_graph,
     estimate_peid_graph,
@@ -700,8 +701,10 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert "oracle_peid_synergy_slope" in beta_sweep["trend"]
     assert "neural_granger_xy_to_z_mean" in beta_sweep["summary"][0]
     assert "neural_granger_xy_to_z_slope" in beta_sweep["trend"]
-    assert Path(summary["beta_sweep_figure_path"]).name == "sine_beta_unified_readout_sweep.png"
+    assert Path(summary["beta_sweep_figure_path"]).name == "sine_beta_single_source_readout_sweep.png"
     assert Path(summary["beta_sweep_figure_path"]).exists()
+    assert Path(summary["beta_synergy_figure_path"]).name == "sine_beta_synergy_readout_sweep.png"
+    assert Path(summary["beta_synergy_figure_path"]).exists()
     assert Path(summary["beta_validation_figure_path"]).exists()
 
     report_text = Path(summary["report_markdown_path"]).read_text(encoding="utf-8")
@@ -737,25 +740,39 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
     assert "observational_wms_slope" in trend
 
 
-def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: Path, monkeypatch) -> None:
+def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path, monkeypatch) -> None:
     import matplotlib.axes
 
     plotted_labels: list[str] = []
+    plotted_colors: dict[str, str] = {}
     bar_calls: list[object] = []
+    errorbar_calls: list[object] = []
+    fill_between_calls: list[object] = []
     horizontal_lines: list[float] = []
     original_plot = matplotlib.axes.Axes.plot
     original_bar = matplotlib.axes.Axes.bar
+    original_errorbar = matplotlib.axes.Axes.errorbar
+    original_fill_between = matplotlib.axes.Axes.fill_between
     original_axhline = matplotlib.axes.Axes.axhline
 
     def capture_plot(self, *args, **kwargs):
         label = kwargs.get("label")
         if label:
             plotted_labels.append(str(label))
+            plotted_colors[str(label)] = str(kwargs.get("color"))
         return original_plot(self, *args, **kwargs)
 
     def capture_bar(self, *args, **kwargs):
         bar_calls.append(args)
         return original_bar(self, *args, **kwargs)
+
+    def capture_errorbar(self, *args, **kwargs):
+        errorbar_calls.append(kwargs.get("yerr"))
+        return original_errorbar(self, *args, **kwargs)
+
+    def capture_fill_between(self, *args, **kwargs):
+        fill_between_calls.append(args)
+        return original_fill_between(self, *args, **kwargs)
 
     def capture_axhline(self, y=0, *args, **kwargs):
         horizontal_lines.append(float(y))
@@ -763,14 +780,19 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
 
     monkeypatch.setattr(matplotlib.axes.Axes, "plot", capture_plot)
     monkeypatch.setattr(matplotlib.axes.Axes, "bar", capture_bar)
+    monkeypatch.setattr(matplotlib.axes.Axes, "errorbar", capture_errorbar)
+    monkeypatch.setattr(matplotlib.axes.Axes, "fill_between", capture_fill_between)
     monkeypatch.setattr(matplotlib.axes.Axes, "axhline", capture_axhline)
-    path = _plot_sine_beta_sweep(
-        {
-            "summary": [
-                {
+    beta_result = {
+        "summary": [
+            {
                     "beta": 0.0,
                     "xy_observed_corr_mean": 0.0,
                     "xy_observed_corr_std": 0.0,
+                    "observational_x_to_z_mi_mean": 0.1,
+                    "observational_x_to_z_mi_std": 0.0,
+                    "observational_y_to_z_mi_mean": 0.1,
+                    "observational_y_to_z_mi_std": 0.0,
                     "observational_wms_mean": 0.2,
                     "observational_wms_std": 0.0,
                     "shap_x_to_z_mean_abs_mean": 0.1,
@@ -779,8 +801,6 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "shap_y_to_z_mean_abs_std": 0.0,
                     "shap_xy_mean_abs_interaction_mean": 0.2,
                     "shap_xy_mean_abs_interaction_std": 0.0,
-                    "surd_redundancy_mean": 0.0,
-                    "surd_redundancy_std": 0.0,
                     "surd_unique_x_mean": 0.01,
                     "surd_unique_x_std": 0.0,
                     "surd_unique_y_mean": 0.01,
@@ -793,6 +813,18 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "mlp_peid_unique_y_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.5,
                     "mlp_peid_xy_synergy_std": 0.0,
+                    "oracle_peid_unique_x_mean": 0.01,
+                    "oracle_peid_unique_x_std": 0.0,
+                    "oracle_peid_unique_y_mean": 0.01,
+                    "oracle_peid_unique_y_std": 0.0,
+                    "oracle_peid_xy_synergy_mean": 0.5,
+                    "oracle_peid_xy_synergy_std": 0.0,
+                    "pcmci_cmiknn_x_to_z_mean": 0.2,
+                    "pcmci_cmiknn_x_to_z_std": 0.0,
+                    "pcmci_cmiknn_y_to_z_mean": 0.2,
+                    "pcmci_cmiknn_y_to_z_std": 0.0,
+                    "pcmci_cmiknn_w_to_z_mean": 0.0,
+                    "pcmci_cmiknn_w_to_z_std": 0.0,
                     "neural_granger_x_to_z_mean": 1.0,
                     "neural_granger_x_to_z_std": 0.0,
                     "neural_granger_y_to_z_mean": 1.1,
@@ -801,11 +833,17 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "neural_granger_w_to_z_std": 0.0,
                     "neural_granger_xy_to_z_mean": 2.1,
                     "neural_granger_xy_to_z_std": 0.0,
-                },
-                {
+                    "product_xy_incremental_r2_mean": 0.9,
+                    "product_xy_incremental_r2_std": 0.0,
+            },
+            {
                     "beta": 1.0,
                     "xy_observed_corr_mean": 0.9,
                     "xy_observed_corr_std": 0.0,
+                    "observational_x_to_z_mi_mean": 0.2,
+                    "observational_x_to_z_mi_std": 0.0,
+                    "observational_y_to_z_mi_mean": 0.2,
+                    "observational_y_to_z_mi_std": 0.0,
                     "observational_wms_mean": -0.1,
                     "observational_wms_std": 0.0,
                     "shap_x_to_z_mean_abs_mean": 0.2,
@@ -814,8 +852,6 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "shap_y_to_z_mean_abs_std": 0.0,
                     "shap_xy_mean_abs_interaction_mean": 0.4,
                     "shap_xy_mean_abs_interaction_std": 0.0,
-                    "surd_redundancy_mean": 0.0,
-                    "surd_redundancy_std": 0.0,
                     "surd_unique_x_mean": 0.01,
                     "surd_unique_x_std": 0.0,
                     "surd_unique_y_mean": 0.01,
@@ -828,6 +864,18 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "mlp_peid_unique_y_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.5,
                     "mlp_peid_xy_synergy_std": 0.0,
+                    "oracle_peid_unique_x_mean": 0.02,
+                    "oracle_peid_unique_x_std": 0.0,
+                    "oracle_peid_unique_y_mean": 0.02,
+                    "oracle_peid_unique_y_std": 0.0,
+                    "oracle_peid_xy_synergy_mean": 0.6,
+                    "oracle_peid_xy_synergy_std": 0.0,
+                    "pcmci_cmiknn_x_to_z_mean": 0.1,
+                    "pcmci_cmiknn_x_to_z_std": 0.0,
+                    "pcmci_cmiknn_y_to_z_mean": 0.1,
+                    "pcmci_cmiknn_y_to_z_std": 0.0,
+                    "pcmci_cmiknn_w_to_z_mean": 0.0,
+                    "pcmci_cmiknn_w_to_z_std": 0.0,
                     "neural_granger_x_to_z_mean": 1.2,
                     "neural_granger_x_to_z_std": 0.0,
                     "neural_granger_y_to_z_mean": 1.3,
@@ -836,18 +884,32 @@ def test_beta_sweep_plot_replaces_source_correlation_with_signed_wms(tmp_path: P
                     "neural_granger_w_to_z_std": 0.0,
                     "neural_granger_xy_to_z_mean": 2.5,
                     "neural_granger_xy_to_z_std": 0.0,
-                },
-            ]
-        },
-        tmp_path,
-    )
+                    "product_xy_incremental_r2_mean": 0.8,
+                    "product_xy_incremental_r2_std": 0.0,
+            },
+        ]
+    }
+    single_path = _plot_sine_beta_single_source_sweep(beta_result, tmp_path)
+    synergy_path = _plot_sine_beta_synergy_sweep(beta_result, tmp_path)
 
-    assert path is not None and path.exists()
+    assert single_path is not None and single_path.exists()
+    assert single_path.name == "sine_beta_single_source_readout_sweep.png"
+    assert synergy_path is not None and synergy_path.exists()
+    assert synergy_path.name == "sine_beta_synergy_readout_sweep.png"
     assert "observational WMS" in plotted_labels
     assert "observed corr(x,y)" not in plotted_labels
+    assert r"Oracle+PEID $U_x$" in plotted_labels
+    assert r"Oracle+PEID $S_{xy}$" in plotted_labels
+    assert not any(label.startswith("GT ") for label in plotted_labels)
+    assert plotted_colors[r"MLP+PEID $U_x$"] == "#009e73"
+    assert plotted_colors[r"MLP+PEID $U_y$"] == "#7e57c2"
+    assert "PCMCI w->z" not in plotted_labels
     assert "NG x->z" in plotted_labels
     assert "NG y->z" in plotted_labels
     assert "NG w->z" not in plotted_labels
     assert "NG x+y->z sum" not in plotted_labels
+    assert r"Product probe $R^2$" not in plotted_labels
     assert 0.0 in horizontal_lines
     assert not bar_calls
+    assert errorbar_calls
+    assert not fill_between_calls
