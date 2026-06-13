@@ -12,8 +12,10 @@ if str(ROOT) not in sys.path:
 
 from scripts.compare_coupled_standard_map_methods import (
     METHOD_NAMES,
+    _plot_part1_four_method_synergy,
     build_periodic_source_groups,
     comparison_ground_truth,
+    run_part1_four_method_comparison,
     run_natural_peid_experiment,
     run_experiment,
 )
@@ -58,6 +60,66 @@ def test_ground_truth_is_zero_for_cross_and_interaction_at_zero_coupling() -> No
     assert truth["cross"] == 0.0
     assert truth["interaction"] == 0.0
     assert truth["momentum"] == 0.0
+
+
+def test_part1_four_method_plot_is_created(tmp_path: Path) -> None:
+    rows = [
+        {
+            "coupling": coupling,
+            "wms_mean": coupling,
+            "wms_std": 0.01,
+            "surd_synergy_mean": 0.2,
+            "surd_synergy_std": 0.02,
+            "shap_interaction_mean": coupling / 2,
+            "shap_interaction_std": 0.01,
+            "peid_synergy_mean": coupling**2,
+            "peid_synergy_std": 0.01,
+        }
+        for coupling in (0.0, 0.5, 1.0)
+    ]
+    path = tmp_path / "four_method.png"
+
+    _plot_part1_four_method_synergy(rows, path)
+
+    assert path.exists()
+
+
+def test_part1_four_method_protocol_records_shared_training_contract(tmp_path: Path) -> None:
+    result = run_part1_four_method_comparison(
+        cached_arrays_path=tmp_path / "does-not-exist.npz",
+        result_path=tmp_path / "part1.json",
+        figure_path=tmp_path / "part1.png",
+        couplings=(0.0,),
+        seeds=(0, 1, 2),
+        trajectory_count=6,
+        steps_per_trajectory=10,
+        epochs=1,
+        hidden_width=4,
+        intervention_samples=30,
+    )
+
+    contract = result["protocol"]["method_data_contract"]
+    assert result["protocol"]["training_distribution"] == "broad_intervention_domain_one_step_pool"
+    assert result["protocol"]["shared_readout_state_distribution"] == "held_out_broad_intervention_domain_one_step_pool"
+    assert result["protocol"]["peid_state_distribution"] == "same_held_out_broad_states_as_wms_surd_shap"
+    assert result["protocol"]["oracle_peid_state_distribution"] == "same_held_out_broad_states_as_all_methods"
+    assert contract["model_training"] == "one_shared_broad_training_pool"
+    assert contract["observational_readout"] == "one_shared_broad_held_out_pool"
+    assert contract["model_reuse"] == "same_fitted_mlp_for_shap_and_peid"
+    assert contract["peid_interventions"] == "same_broad_held_out_pool"
+    assert contract["seed_usage"] == "same_seed_set_for_all_methods_at_each_coupling"
+    assert result["protocol"]["seed_usage"]["seed_set"] == [0, 1, 2]
+    assert result["summary"][0]["n_seeds"] == 3
+    for row in result["runs"]:
+        assert row["readout_state_digest"] == row["peid_state_digest"]
+        assert row["readout_state_digest"] == row["oracle_peid_state_digest"]
+        assert row["shap_mlp_model_digest"] == row["peid_mlp_model_digest"]
+        assert {
+            "train_state_digest",
+            "validation_state_digest",
+            "readout_state_digest",
+            "readout_target_digest",
+        } <= set(row)
 
 
 def test_smoke_run_emits_all_methods_and_matched_interventions(tmp_path: Path) -> None:

@@ -31,6 +31,7 @@ from scripts.coupled_standard_map_peid import (
     fit_impulse_mlp,
     periodic_features,
     prediction_metrics,
+    transition_from_impulses,
 )
 
 
@@ -47,6 +48,8 @@ TARGET_NAMES = ("I1", "I2")
 DEFAULT_RESULT_DIR = ROOT / "results" / "coupled_standard_map_method_comparison"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "coupled_standard_map_method_comparison"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "coupled_standard_map_method_comparison.md"
+PART1_FIGURE_PATH = DEFAULT_FIGURE_DIR / "coupled_standard_map_four_method_synergy_comparison.png"
+PART1_RESULT_PATH = DEFAULT_RESULT_DIR / "part1_four_method_synergy.json"
 
 
 def build_periodic_source_groups() -> dict[str, tuple[int, int]]:
@@ -385,6 +388,35 @@ def _peid_readout(
         "target_distribution": "mlp_predicted_impulses",
         "state_digest": _digest(split.states),
         "target_digest": _digest(learned_targets),
+    }
+
+
+def _interventional_peid_readout(
+    model: FittedImpulseMLP,
+    *,
+    sample_count: int,
+    bins: int,
+    permutation_count: int,
+    seed: int,
+) -> dict[str, object]:
+    rng = np.random.default_rng(int(seed))
+    states = rng.uniform(-np.pi, np.pi, size=(int(sample_count), len(STATE_NAMES)))
+    targets = model.predict_mean(states)
+    learned = evaluate_peid(
+        states=states,
+        targets=targets,
+        bins=bins,
+        permutation_count=permutation_count,
+        seed=int(seed) + 1,
+    )
+    learned_aggregate, learned_rows = _summarize_peid_result(learned)
+    return {
+        "aggregate": learned_aggregate,
+        "targets": learned_rows,
+        "state_distribution": "independent_uniform_intervention",
+        "target_distribution": "mlp_predicted_impulses",
+        "state_digest": _digest(states),
+        "target_digest": _digest(targets),
     }
 
 
@@ -1098,11 +1130,341 @@ def run_natural_peid_experiment(
     return result
 
 
+def _broad_standard_map_split(
+    config: StandardMapConfig,
+    *,
+    seed: int,
+    samples: int,
+) -> DatasetSplit:
+    rng = np.random.default_rng(int(seed))
+    states = rng.uniform(-np.pi, np.pi, size=(int(samples), len(STATE_NAMES)))
+    impulses = coupled_impulses(states, config=config)
+    next_states = transition_from_impulses(states, impulses)
+    return DatasetSplit(
+        states=states,
+        impulses=impulses,
+        next_states=next_states,
+        trajectory_ids=np.full(len(states), -1, dtype=int),
+    )
+
+
+def _fitted_mlp_digest(model: FittedImpulseMLP) -> str:
+    digest = hashlib.sha256()
+    for name, value in sorted(model.net.state_dict().items()):
+        digest.update(name.encode("utf-8"))
+        tensor_values = np.asarray(value.detach().cpu().reshape(-1).tolist(), dtype=np.float32)
+        digest.update(np.ascontiguousarray(tensor_values).view(np.uint8))
+    for value in (model.x_mean, model.x_std, model.y_mean, model.y_std, model.residual_std):
+        digest.update(np.ascontiguousarray(np.asarray(value, dtype=float)).view(np.uint8))
+    return digest.hexdigest()[:16]
+
+
+def _part1_transport_synergy(states: np.ndarray, targets: np.ndarray) -> float:
+    from yrd import summarize_two_source_synergy_transport_map
+
+    tm = summarize_two_source_synergy_transport_map(states[:, [0]], states[:, [2]], targets[:, [0]])
+    return float(tm["syn"])
+
+
+def _run_part1_broad_one(payload: dict[str, object]) -> dict[str, object]:
+    coupling = float(payload["coupling"])
+    seed = int(payload["seed"])
+    config = StandardMapConfig(k=1.5, coupling=coupling, noise_std=0.0)
+    train = _broad_standard_map_split(
+        config,
+        seed=100000 + seed,
+        samples=int(payload["training_samples"]),
+    )
+    validation = _broad_standard_map_split(
+        config,
+        seed=200000 + seed,
+        samples=int(payload["validation_samples"]),
+    )
+    readout = _broad_standard_map_split(
+        config,
+        seed=300000 + seed,
+        samples=int(payload["readout_samples"]),
+    )
+    model = fit_impulse_mlp(
+        train,
+        validation,
+        seed=400000 + seed,
+        epochs=int(payload["epochs"]),
+        hidden_width=int(payload["hidden_width"]),
+    )
+    model_digest = _fitted_mlp_digest(model)
+    wms, surd = _observational_readouts(readout, bins=int(payload["bins"]), seed=seed)
+    shap = _grouped_shap(
+        model,
+        readout,
+        seed=seed,
+        sample_count=int(payload["shap_samples"]),
+    )
+    learned_targets = model.predict_mean(readout.states)
+    peid_synergy = _part1_transport_synergy(readout.states, learned_targets)
+    oracle_peid_synergy = _part1_transport_synergy(readout.states, readout.impulses)
+    return {
+        "coupling": coupling,
+        "seed": seed,
+        "relation": "q1+q2->I1",
+        "wms": float(wms["targets"][0]["wms"]),
+        "surd_synergy": float(surd["targets"][0]["synergy"]),
+        "shap_interaction": float(shap["targets"][0]["interaction"]),
+        "peid_synergy": peid_synergy,
+        "peid_raw_syn": peid_synergy,
+        "oracle_peid_synergy": oracle_peid_synergy,
+        "prediction": prediction_metrics(model, readout),
+        "train_state_digest": _digest(train.states),
+        "train_target_digest": _digest(train.impulses),
+        "validation_state_digest": _digest(validation.states),
+        "validation_target_digest": _digest(validation.impulses),
+        "readout_state_digest": _digest(readout.states),
+        "readout_target_digest": _digest(readout.impulses),
+        "peid_state_digest": _digest(readout.states),
+        "peid_target_digest": _digest(learned_targets[:, [0]]),
+        "oracle_peid_state_digest": _digest(readout.states),
+        "oracle_peid_target_digest": _digest(readout.impulses[:, [0]]),
+        "mlp_readout_target_digest": _digest(learned_targets),
+        "shap_mlp_model_digest": model_digest,
+        "peid_mlp_model_digest": model_digest,
+        "mlp_model_digest": model_digest,
+        "broad_train_samples": int(payload["training_samples"]),
+        "broad_validation_samples": int(payload["validation_samples"]),
+        "broad_readout_samples": int(payload["readout_samples"]),
+    }
+
+
+def _run_part1_peid_one(payload: dict[str, object]) -> dict[str, object]:
+    coupling = float(payload["coupling"])
+    seed = int(payload["seed"])
+    config = StandardMapConfig(k=1.5, coupling=coupling, noise_std=0.05)
+    dataset = build_trajectory_dataset(
+        config,
+        trajectory_count=int(payload["trajectory_count"]),
+        steps_per_trajectory=int(payload["steps_per_trajectory"]),
+        seed=seed,
+    )
+    model = fit_impulse_mlp(
+        dataset.train,
+        dataset.validation,
+        seed=seed,
+        epochs=int(payload["epochs"]),
+        hidden_width=int(payload["hidden_width"]),
+    )
+    from yrd import summarize_two_source_synergy_transport_map
+
+    rng = np.random.default_rng(5000 + int(round(coupling * 1000)))
+    states = rng.uniform(-np.pi, np.pi, size=(int(payload["intervention_samples"]), len(STATE_NAMES)))
+    targets = model.predict_mean(states)
+    tm = summarize_two_source_synergy_transport_map(states[:, [0]], states[:, [2]], targets[:, [0]])
+    raw_syn = float(tm["syn"])
+    return {
+        "coupling": coupling,
+        "seed": seed,
+        "prediction": prediction_metrics(model, dataset.test),
+        "peid_synergy": raw_syn,
+        "peid_raw_syn": raw_syn,
+        "peid_state_digest": _digest(states),
+        "peid_target_digest": _digest(targets[:, [0]]),
+        "train_state_digest": _digest(dataset.train.states),
+        "validation_state_digest": _digest(dataset.validation.states),
+        "test_state_digest": _digest(dataset.test.states),
+    }
+
+
+def _run_part1_oracle_peid_one(payload: dict[str, object]) -> dict[str, object]:
+    from yrd import summarize_two_source_synergy_transport_map
+
+    coupling = float(payload["coupling"])
+    config = StandardMapConfig(k=1.5, coupling=coupling, noise_std=0.05)
+    rng = np.random.default_rng(5000 + int(round(coupling * 1000)))
+    states = rng.uniform(-np.pi, np.pi, size=(int(payload["intervention_samples"]), len(STATE_NAMES)))
+    targets = coupled_impulses(states, config=config)
+    tm = summarize_two_source_synergy_transport_map(states[:, [0]], states[:, [2]], targets[:, [0]])
+    return {
+        "coupling": coupling,
+        "oracle_peid_synergy": float(tm["syn"]),
+        "oracle_peid_state_digest": _digest(states),
+        "oracle_peid_target_digest": _digest(targets[:, [0]]),
+    }
+
+
+def _plot_part1_four_method_synergy(summary: Sequence[dict[str, float]], path: Path) -> None:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+        }
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    couplings = np.asarray([row["coupling"] for row in summary], dtype=float)
+    specs = [
+        ("wms", "WMS", "#8C564B", "o"),
+        ("surd_synergy", "SURD synergy", "#D99A48", "s"),
+        ("shap_interaction", "MLP+SHAP interaction", "#6F6AA8", "D"),
+        ("peid_synergy", "MLP+PEID synergy", "#2F6F4E", "^"),
+    ]
+    if summary and "oracle_peid_synergy_mean" in summary[0]:
+        specs.append(("oracle_peid_synergy", "Oracle PEID", "#3D3D3D", "P"))
+    fig, axis = plt.subplots(figsize=(6.8, 4.0), constrained_layout=True)
+    for key, label, color, marker in specs:
+        mean = np.asarray([row[f"{key}_mean"] for row in summary], dtype=float)
+        std = np.asarray([row[f"{key}_std"] for row in summary], dtype=float)
+        axis.fill_between(couplings, mean - std, mean + std, color=color, alpha=0.16, linewidth=0)
+        axis.plot(
+            couplings,
+            mean,
+            color=color,
+            marker=marker,
+            markersize=4.2,
+            linewidth=1.7,
+            label=label,
+        )
+    axis.axhline(0.0, color="#777777", linewidth=0.7, linestyle="--", zorder=0)
+    axis.set_xlabel("Coupling strength J")
+    axis.set_ylabel("Native synergy readout")
+    axis.set_xticks(couplings)
+    axis.grid(axis="y", alpha=0.18, linewidth=0.5)
+    axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def run_part1_four_method_comparison(
+    *,
+    cached_arrays_path: Path = DEFAULT_RESULT_DIR / "readouts.npz",
+    result_path: Path = PART1_RESULT_PATH,
+    figure_path: Path = PART1_FIGURE_PATH,
+    couplings: Sequence[float] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+    seeds: Sequence[int] = (0, 1, 2),
+    workers: int = 4,
+    trajectory_count: int = 16,
+    steps_per_trajectory: int = 2500,
+    epochs: int = 400,
+    hidden_width: int = 96,
+    intervention_samples: int = 1800,
+    training_samples: int | None = None,
+    validation_samples: int | None = None,
+    shap_samples: int = 72,
+    bins: int = 12,
+    permutation_count: int = 5,
+) -> dict[str, object]:
+    del workers, cached_arrays_path
+    readout_samples = int(intervention_samples)
+    train_samples = int(training_samples) if training_samples is not None else max(256, readout_samples * 4)
+    validation_sample_count = (
+        int(validation_samples) if validation_samples is not None else max(128, readout_samples)
+    )
+    tasks = [(float(coupling), int(seed)) for coupling in couplings for seed in seeds]
+
+    runs: list[dict[str, object]] = [
+        _run_part1_broad_one(
+            {
+                "coupling": coupling,
+                "seed": seed,
+                "training_samples": train_samples,
+                "validation_samples": validation_sample_count,
+                "readout_samples": readout_samples,
+                "epochs": epochs,
+                "hidden_width": hidden_width,
+                "bins": bins,
+                "shap_samples": shap_samples,
+            }
+        )
+        for coupling, seed in tasks
+    ]
+
+    summary: list[dict[str, float]] = []
+    for coupling in sorted({float(run["coupling"]) for run in runs}):
+        group = [run for run in runs if float(run["coupling"]) == coupling]
+        row: dict[str, float] = {
+            "coupling": coupling,
+            "truth": coupling**2 / 2.0,
+            "n_seeds": int(len({int(run["seed"]) for run in group})),
+        }
+        for key in ("wms", "surd_synergy", "shap_interaction", "peid_synergy", "oracle_peid_synergy"):
+            values = np.asarray([float(run[key]) for run in group], dtype=float)
+            row[f"{key}_mean"] = float(values.mean())
+            row[f"{key}_std"] = float(values.std(ddof=0))
+        summary.append(row)
+    truth = [row["truth"] for row in summary]
+    trends = {
+        key: _spearman(truth, [row[f"{key}_mean"] for row in summary])
+        for key in ("wms", "surd_synergy", "shap_interaction", "peid_synergy", "oracle_peid_synergy")
+    }
+    result = {
+        "protocol": {
+            "couplings": [float(value) for value in couplings],
+            "seeds": [int(value) for value in seeds],
+            "relation": "q1+q2->I1",
+            "training_distribution": "broad_intervention_domain_one_step_pool",
+            "validation_distribution": "held_out_broad_intervention_domain_one_step_pool",
+            "shared_readout_state_distribution": "held_out_broad_intervention_domain_one_step_pool",
+            "peid_state_distribution": "same_held_out_broad_states_as_wms_surd_shap",
+            "peid_target_distribution": "mlp_predicted_I1_on_shared_broad_states",
+            "oracle_peid_state_distribution": "same_held_out_broad_states_as_all_methods",
+            "oracle_peid_target_distribution": "true_deterministic_I1_impulse",
+            "peid_synergy_estimator": "transport_map",
+            "method_data_contract": {
+                "model_training": "one_shared_broad_training_pool",
+                "model_based_methods": ["MLP+SHAP interaction", "MLP+PEID synergy"],
+                "model_reuse": "same_fitted_mlp_for_shap_and_peid",
+                "observational_readout": "one_shared_broad_held_out_pool",
+                "observational_methods": ["WMS", "SURD synergy", "MLP+SHAP interaction"],
+                "peid_interventions": "same_broad_held_out_pool",
+                "seed_usage": "same_seed_set_for_all_methods_at_each_coupling",
+            },
+            "broad_one_step_pool": {
+                "training_samples": train_samples,
+                "validation_samples": validation_sample_count,
+                "readout_samples": readout_samples,
+                "state_bounds": {name: [-math.pi, math.pi] for name in STATE_NAMES},
+                "legacy_natural_trajectory_args_ignored": {
+                    "trajectory_count": int(trajectory_count),
+                    "steps_per_trajectory": int(steps_per_trajectory),
+                },
+            },
+            "seed_usage": {
+                "seed_set": [int(value) for value in seeds],
+                "seed_count": int(len(tuple(seeds))),
+                "applies_to_methods": ["WMS", "SURD synergy", "MLP+SHAP interaction", "MLP+PEID synergy"],
+            },
+            "fairness": "WMS, SURD, MLP+SHAP, MLP+PEID, and Oracle PEID all use the same held-out broad one-step states for each coupling and seed; MLP+SHAP and MLP+PEID share one fitted MLP.",
+            "uncertainty": "mean ± population standard deviation across seeds",
+            "bins": int(bins),
+            "permutation_count": int(permutation_count),
+        },
+        "summary": summary,
+        "trends": trends,
+        "runs": runs,
+        "result_path": str(result_path),
+        "figure_path": str(figure_path),
+    }
+    _plot_part1_four_method_synergy(summary, Path(figure_path))
+    Path(result_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(result_path).write_text(json.dumps(result, indent=2), encoding="utf-8")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("smoke", "full"), default="full")
     parser.add_argument("--natural-peid-only", action="store_true")
+    parser.add_argument("--part1-four-method", action="store_true")
     args = parser.parse_args()
+    if args.part1_four_method:
+        result = run_part1_four_method_comparison()
+        print(json.dumps({"result_path": result["result_path"], "figure_path": result["figure_path"]}, indent=2))
+        return
     if args.natural_peid_only:
         result = run_natural_peid_experiment()
         print(json.dumps({"result_path": result["result_path"]}, indent=2))

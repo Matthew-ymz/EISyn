@@ -17,6 +17,7 @@ from scripts.compare_granger_peid_mlp import (
     _observational_wms,
     _plot_sine_alpha_neural_granger_sweep,
     _plot_sine_alpha_sweep,
+    _plot_sine_beta_combined_readout_sweep,
     _plot_sine_beta_single_source_sweep,
     _plot_sine_beta_synergy_sweep,
     _proxy_y_readout_values,
@@ -536,6 +537,24 @@ def test_alpha_sweep_reports_transport_map_peid_for_sine_synergy() -> None:
         assert "tm_peid_y_to_z" in row
 
 
+def test_alpha_sweep_aggregates_multiple_seeds() -> None:
+    rows = run_sine_alpha_sweep(
+        alpha_values=(0.0,),
+        n_samples=180,
+        noise=0.05,
+        seeds=(0, 1),
+        mlp_epochs=1,
+        intervention_samples=64,
+        bins=4,
+        neural_granger_epochs=1,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["n_seeds"] == 2
+    assert "shap_xy_mean_abs_interaction_std" in rows[0]
+    assert "tm_peid_xy_synergy_std" in rows[0]
+
+
 def test_alpha_sweep_plot_combines_shap_without_product_r2(tmp_path: Path, monkeypatch) -> None:
     import matplotlib.axes
 
@@ -705,6 +724,8 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert Path(summary["beta_sweep_figure_path"]).exists()
     assert Path(summary["beta_synergy_figure_path"]).name == "sine_beta_synergy_readout_sweep.png"
     assert Path(summary["beta_synergy_figure_path"]).exists()
+    assert Path(summary["beta_combined_figure_path"]).name == "sine_beta_combined_readout_sweep.png"
+    assert Path(summary["beta_combined_figure_path"]).exists()
     assert Path(summary["beta_validation_figure_path"]).exists()
 
     report_text = Path(summary["report_markdown_path"]).read_text(encoding="utf-8")
@@ -740,11 +761,48 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
     assert "observational_wms_slope" in trend
 
 
+def test_beta_sweep_oracle_uses_one_fixed_intervention_protocol() -> None:
+    result = run_sine_beta_common_driver_sweep(
+        beta_values=(0.0, 1.0),
+        seeds=(0, 1),
+        n_samples=180,
+        mlp_epochs=1,
+        intervention_samples=640,
+        bins=4,
+        neural_granger_epochs=1,
+        pcmci_cmiknn_sig_samples=2,
+    )
+
+    oracle_values = {
+        (
+            row["oracle_peid_unique_x"],
+            row["oracle_peid_unique_y"],
+            row["oracle_peid_xy_synergy"],
+            row["oracle_peid_xy_joint"],
+        )
+        for row in result["runs"]
+    }
+    assert len(oracle_values) == 1
+    assert all(row["oracle_peid_xy_synergy_std"] == 0.0 for row in result["summary"])
+    assert result["config"]["oracle_intervention_support"] == {
+        "x": [-1.8, 1.8],
+        "y": [-1.8, 1.8],
+        "z": [-1.25, 1.25],
+    }
+    assert result["config"]["oracle_intervention_seed"] == 17021
+    assert np.isclose(
+        result["summary"][0]["oracle_peid_unique_x_mean"],
+        result["summary"][0]["oracle_peid_unique_y_mean"],
+    )
+    assert 0.50 < result["summary"][0]["oracle_peid_xy_synergy_mean"] < 0.65
+
+
 def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path, monkeypatch) -> None:
     import matplotlib.axes
 
     plotted_labels: list[str] = []
     plotted_colors: dict[str, str] = {}
+    plotted_alphas: dict[str, float] = {}
     bar_calls: list[object] = []
     errorbar_calls: list[object] = []
     fill_between_calls: list[object] = []
@@ -760,6 +818,7 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
         if label:
             plotted_labels.append(str(label))
             plotted_colors[str(label)] = str(kwargs.get("color"))
+            plotted_alphas[str(label)] = float(kwargs.get("alpha", 1.0))
         return original_plot(self, *args, **kwargs)
 
     def capture_bar(self, *args, **kwargs):
@@ -891,18 +950,36 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     }
     single_path = _plot_sine_beta_single_source_sweep(beta_result, tmp_path)
     synergy_path = _plot_sine_beta_synergy_sweep(beta_result, tmp_path)
+    combined_path = _plot_sine_beta_combined_readout_sweep(beta_result, tmp_path)
 
     assert single_path is not None and single_path.exists()
     assert single_path.name == "sine_beta_single_source_readout_sweep.png"
     assert synergy_path is not None and synergy_path.exists()
     assert synergy_path.name == "sine_beta_synergy_readout_sweep.png"
+    assert combined_path is not None and combined_path.exists()
+    assert combined_path.name == "sine_beta_combined_readout_sweep.png"
     assert "observational WMS" in plotted_labels
     assert "observed corr(x,y)" not in plotted_labels
     assert r"Oracle+PEID $U_x$" in plotted_labels
     assert r"Oracle+PEID $S_{xy}$" in plotted_labels
     assert not any(label.startswith("GT ") for label in plotted_labels)
-    assert plotted_colors[r"MLP+PEID $U_x$"] == "#009e73"
-    assert plotted_colors[r"MLP+PEID $U_y$"] == "#7e57c2"
+    assert plotted_colors[r"MLP+PEID $U_x$"] == "#009E73"
+    assert plotted_colors[r"Oracle+PEID $U_x$"] == "#7E57C2"
+    assert plotted_colors["SHAP x->z"] == "#E68613"
+    assert plotted_colors[r"MLP+PEID $S_{xy}$"] == "#009E73"
+    assert plotted_colors[r"Oracle+PEID $S_{xy}$"] == "#7E57C2"
+    assert plotted_colors["observational WMS"] == "#4C78A8"
+    assert plotted_colors[r"SURD $S_{xy}$"] == "#8C8C8C"
+    assert plotted_colors["SHAP interaction x:y->z"] == "#E68613"
+    assert plotted_alphas[r"MLP+PEID $U_x$"] == 1.0
+    assert plotted_alphas[r"Oracle+PEID $U_x$"] == 1.0
+    assert plotted_alphas[r"MLP+PEID $S_{xy}$"] == 1.0
+    assert plotted_alphas[r"Oracle+PEID $S_{xy}$"] == 1.0
+    assert plotted_alphas["SHAP x->z"] < 1.0
+    assert plotted_alphas["NG x->z"] < 1.0
+    assert plotted_alphas["observational WMS"] < 1.0
+    assert plotted_alphas[r"SURD $S_{xy}$"] < 1.0
+    assert plotted_alphas["SHAP interaction x:y->z"] < 1.0
     assert "PCMCI w->z" not in plotted_labels
     assert "NG x->z" in plotted_labels
     assert "NG y->z" in plotted_labels

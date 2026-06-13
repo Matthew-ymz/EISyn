@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="Page-1">
+    <mxGraphModel dx="1400" dy="820" grid="1" gridSize="10" page="1" pageWidth="1400" pageHeight="820">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="跨平台注意力迁移与招募双层模型" style="text;html=1;align=center;fontSize=26;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="400" y="20" width="600" height="40" as="geometry"/></mxCell>
+        <mxCell id="3" value="迁移层 P：已有注意力移动、循环与耗散" style="swimlane;startSize=40;rounded=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontStyle=1;fontSize=18;" vertex="1" parent="1"><mxGeometry x="150" y="100" width="1100" height="240" as="geometry"/></mxCell>
+        <mxCell id="4" value="新闻平台 N" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=18;fontStyle=1;" vertex="1" parent="3"><mxGeometry x="90" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="5" value="社交平台 S" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=18;fontStyle=1;" vertex="1" parent="3"><mxGeometry x="445" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="6" value="视频平台 V" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=18;fontStyle=1;" vertex="1" parent="3"><mxGeometry x="800" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="7" value="跨平台迁移" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=3;endArrow=classic;" edge="1" parent="3" source="4" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="8" value="跨平台迁移" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=3;endArrow=classic;" edge="1" parent="3" source="5" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="9" value="招募层 B：转发、推荐和转载产生新的注意力" style="swimlane;startSize=40;rounded=1;fillColor=#fff7ed;strokeColor=#e67e22;fontStyle=1;fontSize=18;" vertex="1" parent="1"><mxGeometry x="150" y="390" width="1100" height="240" as="geometry"/></mxCell>
+        <mxCell id="10" value="新闻平台 N&#xa;新招募受众" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=17;fontStyle=1;" vertex="1" parent="9"><mxGeometry x="90" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="11" value="社交平台 S&#xa;新招募受众" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=17;fontStyle=1;" vertex="1" parent="9"><mxGeometry x="445" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="12" value="视频平台 V&#xa;新招募受众" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;fontSize=17;fontStyle=1;" vertex="1" parent="9"><mxGeometry x="800" y="95" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="13" value="转载招募" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#e67e22;strokeWidth=3;dashed=1;endArrow=classic;" edge="1" parent="9" source="10" target="11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="14" value="推荐招募" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#e67e22;strokeWidth=3;dashed=1;endArrow=classic;" edge="1" parent="9" source="11" target="12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="15" value="a(t+1) = Pᵀa(t) + Bᵀa(t) + s(t)&#xa;K = P + B；传播早期临界倾向由 ρ(K) 判断" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontSize=19;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="690" width="800" height="80" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

@@ -15,11 +15,28 @@ from scripts.coupled_standard_map_peid import (
     analytic_pairwise_strengths,
     build_trajectory_dataset,
     coupled_impulses,
+    evaluate_peid,
     evaluate_trajectory_gate,
     periodic_features,
     run_experiment,
     wrap_angle,
 )
+
+
+def test_peid_source_synergy_is_nonnegative_under_independent_intervention() -> None:
+    rng = np.random.default_rng(12)
+    states = rng.uniform(-np.pi, np.pi, size=(4000, 4))
+    targets = np.column_stack([np.sin(states[:, 0]), np.sin(states[:, 2])])
+
+    result = evaluate_peid(
+        states=states,
+        targets=targets,
+        bins=8,
+        permutation_count=3,
+        seed=13,
+    )
+
+    assert all(float(row["syn"]) >= 0.0 for row in result["hyperedges"])
 
 
 def test_wrap_angle_and_periodic_features_are_periodic() -> None:

@@ -360,6 +360,41 @@ def _bias_corrected_mi(
     return float(max(0.0, observed - null))
 
 
+def _conditional_mutual_information(
+    left_codes: np.ndarray,
+    right_codes: np.ndarray,
+    target_codes: np.ndarray,
+) -> float:
+    left = np.asarray(left_codes).reshape(-1, 1)
+    right = np.asarray(right_codes).reshape(-1, 1)
+    target = np.asarray(target_codes).reshape(-1, 1)
+    value = (
+        _entropy(np.column_stack([left, target]))
+        + _entropy(np.column_stack([right, target]))
+        - _entropy(target)
+        - _entropy(np.column_stack([left, right, target]))
+    )
+    return float(max(0.0, value))
+
+
+def _bias_corrected_conditional_mutual_information(
+    left_codes: np.ndarray,
+    right_codes: np.ndarray,
+    target_codes: np.ndarray,
+    *,
+    permutations: np.ndarray,
+) -> float:
+    observed = _conditional_mutual_information(left_codes, right_codes, target_codes)
+    null = np.mean(
+        [
+            _conditional_mutual_information(left_codes, right_codes, target_codes[index])
+            for index in permutations
+        ],
+        dtype=float,
+    )
+    return float(max(0.0, observed - null))
+
+
 def _array_digest(values: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(values).view(np.uint8)).hexdigest()[:16]
 
@@ -398,6 +433,12 @@ def evaluate_peid(
             joint = _bias_corrected_mi(joint_codes, target_codes[target_idx], permutations=permutations)
             left = single_lookup[(left_idx, target_idx)]
             right = single_lookup[(right_idx, target_idx)]
+            synergy = _bias_corrected_conditional_mutual_information(
+                source_codes[left_idx],
+                source_codes[right_idx],
+                target_codes[target_idx],
+                permutations=permutations,
+            )
             hyperedges.append(
                 {
                     "sources": pair_name,
@@ -405,7 +446,7 @@ def evaluate_peid(
                     "joint_ei": joint,
                     "left_ei": left,
                     "right_ei": right,
-                    "syn": float(joint - left - right),
+                    "syn": synergy,
                 }
             )
     return {

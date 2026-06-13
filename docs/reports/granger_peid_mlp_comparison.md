@@ -250,22 +250,20 @@ $$
 
 其中 `beta=0` 时，`x` 与 `y` 主要由各自私有扰动驱动；`beta=1` 时，它们的新增驱动完全共享同一个 `w_t`。`\sqrt{1-\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。
 
-![beta 扫描单边作用曲线](../../fig/granger_peid_mlp_comparison/sine_beta_single_source_readout_sweep.png)
+![beta 扫描单源与高阶协同组合曲线](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep.png)
 
-![beta 扫描高阶协同曲线](../../fig/granger_peid_mlp_comparison/sine_beta_synergy_readout_sweep.png)
+| beta | corr(`x`,`y`) | observational WMS | SHAP `x` | SHAP `y` | SHAP `x:y` | Neural Granger `x/y->z` | PCMCI-CMIknn `x/y->z` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S | Oracle+PEID S |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | ---: |
+| 0.00 | 0.01436 | 0.5862 | 0.09309 | 0.0856 | 0.1803 | 1.636/1.627 | 0.2242/0.2299 | 0.003486/0.003278/0.007816/0.1935 | 0.0126/0.009989/0.5657 | 0.6027 |
+| 0.20 | 0.1014 | 0.5943 | 0.09906 | 0.09415 | 0.2094 | 1.535/1.582 | 0.1556/0.1642 | 0.004451/0.001839/0.008352/0.2037 | 0.01241/0.01089/0.5624 | 0.6027 |
+| 0.40 | 0.3089 | 0.5903 | 0.1177 | 0.1171 | 0.2919 | 1.623/1.584 | 0.1403/0.1564 | 0.002588/0.002315/0.005618/0.302 | 0.007841/0.006555/0.5812 | 0.6027 |
+| 0.60 | 0.5427 | 0.4562 | 0.1435 | 0.1429 | 0.4229 | 0.9167/0.9461 | 0.1144/0.1353 | 0.001861/0.002627/0.004727/0.3991 | 0.01201/0.01212/0.5859 | 0.6027 |
+| 0.80 | 0.7463 | 0.2195 | 0.1519 | 0.1581 | 0.538 | 1.061/1.107 | 0.08539/0.1027 | 0.007804/0.002845/0.007263/0.1592 | 0.01808/0.01729/0.5971 | 0.6027 |
+| 1.00 | 0.9052 | -0.05886 | 0.167 | 0.175 | 0.4702 | 1.547/1.558 | 0.04799/0.0593 | 0.004404/0.004633/0.004019/0.02776 | 0.03436/0.03172/0.5977 | 0.6027 |
 
-| beta | corr(`x`,`y`) | observational WMS | SHAP `x` | SHAP `y` | SHAP `x:y` | Neural Granger `x/y->z` | PCMCI-CMIknn `x/y->z` | SURD R/Ux/Uy/S | MLP+PEID Ux/Uy/S |
-| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- |
-| 0.00 | 0.01436 | 0.5862 | 0.09309 | 0.0856 | 0.1803 | 1.636/1.627 | 0.2242/0.2299 | 0.003486/0.003278/0.007816/0.1935 | 0.0126/0.009989/0.5657 |
-| 0.20 | 0.1014 | 0.5943 | 0.09906 | 0.09415 | 0.2094 | 1.535/1.582 | 0.1556/0.1642 | 0.004451/0.001839/0.008352/0.2037 | 0.01241/0.01089/0.5624 |
-| 0.40 | 0.3089 | 0.5903 | 0.1177 | 0.1171 | 0.2919 | 1.623/1.584 | 0.1403/0.1564 | 0.002588/0.002315/0.005618/0.302 | 0.007841/0.006555/0.5812 |
-| 0.60 | 0.5427 | 0.4562 | 0.1435 | 0.1429 | 0.4229 | 0.9167/0.9461 | 0.1144/0.1353 | 0.001861/0.002627/0.004727/0.3991 | 0.01201/0.01212/0.5859 |
-| 0.80 | 0.7463 | 0.2195 | 0.1519 | 0.1581 | 0.538 | 1.061/1.107 | 0.08539/0.1027 | 0.007804/0.002845/0.007263/0.1592 | 0.01808/0.01729/0.5971 |
-| 1.00 | 0.9052 | -0.05886 | 0.167 | 0.175 | 0.4702 | 1.547/1.558 | 0.04799/0.0593 | 0.004404/0.004633/0.004019/0.02776 | 0.03436/0.03172/0.5977 |
+每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；左上角 WMS 也直接使用该自然轨迹上对齐的 `(x_t,y_t,z_{t+1})`，计算 `I([x_t,y_t];z_{t+1}) - I(x_t;z_{t+1}) - I(y_t;z_{t+1})`。三个 MI 均由相同的四分位离散经验联合分布直接计算，并保留 WMS 负值；MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，MLP+PEID 使用该轨迹分位数定义的独立干预样本。Oracle+PEID 不再使用自然轨迹或 learned MLP，而是在固定盒 `x,y∈[-1.8,1.8]`, `z∈[-1.25,1.25]` 上复用同一批对称独立干预样本：每个 `(x,y,z)` 都同时加入交换后的 `(y,x,z)`，再直接评估真实转移方程 `z_next=0.22*z+sin(x*y)`；因此它的 beta 曲线是固定支持下的真实方程基准，跨 seed 标准差为零，且 Oracle 的 `U_x/U_y` 单源读数对称。Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。单边作用图中的 ground truth 是真实转移方程上的 Oracle+PEID `U_x/U_y` 曲线；高阶作用图中的 ground truth 是 Oracle+PEID `S_{xy}` 曲线。单边合并图不显示 `w->z`，只比较对目标 `z` 的 `x` 与 `y` 单源投影。
 
-每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；左上角 WMS 也直接使用该自然轨迹上对齐的 `(x_t,y_t,z_{t+1})`，计算 `I([x_t,y_t];z_{t+1}) - I(x_t;z_{t+1}) - I(y_t;z_{t+1})`。三个 MI 均由相同的四分位离散经验联合分布直接计算，并保留 WMS 负值；MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，PEID 与 Oracle+PEID 共享同一组独立干预源样本。Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。单边作用图中的 ground truth 是真实转移方程上的 Oracle+PEID `U_x/U_y` 曲线；高阶作用图中的 ground truth 是 Oracle+PEID `S_{xy}` 曲线。单边合并图不显示 `w->z`，只比较对目标 `z` 的 `x` 与 `y` 单源投影。
-
-线性趋势读数显示，observational WMS 的 beta 斜率为 -0.6405 (bootstrap 95% CI [-0.7826, -0.4787])；SHAP interaction 的 beta 斜率为 0.3666 (bootstrap 95% CI [0.2956, 0.4617])；Observational SURD synergy 的 beta 斜率为 -0.1236 (bootstrap 95% CI [-0.249, 0.04224])；PCMCI-CMIknn `x/y->z` 合计强度的 beta 斜率为 -0.3108 (bootstrap 95% CI [-0.3379, -0.2695])；MLP+PEID synergy 的 beta 斜率为 0.03836 (bootstrap 95% CI [-0.01003, 0.08451])。
+线性趋势读数显示，observational WMS 的 beta 斜率为 -0.6405 (bootstrap 95% CI [-0.7826, -0.4787])；SHAP interaction 的 beta 斜率为 0.3666 (bootstrap 95% CI [0.2956, 0.4617])；Observational SURD synergy 的 beta 斜率为 -0.1236 (bootstrap 95% CI [-0.249, 0.04224])；PCMCI-CMIknn `x/y->z` 合计强度的 beta 斜率为 -0.3108 (bootstrap 95% CI [-0.3379, -0.2695])；MLP+PEID synergy 的 beta 斜率为 0.03836 (bootstrap 95% CI [-0.01003, 0.08451])；固定支持 Oracle+PEID synergy 的 beta 斜率为 -5.334e-19。
 
 另存的验证图中，Oracle+PEID 只用于检查 learned MLP 的 PEID 趋势是否偏离真实转移方程；SURD Q1 原子用于确认原论文 specific-MI transport-map 复现入口。二者都不进入主方法排名。
 

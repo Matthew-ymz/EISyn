@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#475569"/></marker>
+    <style>
+      text{font-family:Arial,"PingFang SC","Microsoft YaHei",sans-serif;fill:#172033}
+      .title{font-size:30px;font-weight:700}.sub{font-size:17px;fill:#475569}.head{font-size:21px;font-weight:700}.body{font-size:16px}
+      .box{fill:#fff;stroke:#475569;stroke-width:2}.full{fill:#eff6ff;stroke:#3b82f6;stroke-width:2}.counter{fill:#fff7ed;stroke:#e67e22;stroke-width:2}
+      .result{fill:#f0fdf4;stroke:#16a34a;stroke-width:2}.arrow{stroke:#475569;stroke-width:3;fill:none;marker-end:url(#arr)}
+    </style>
+  </defs>
+  <rect width="1500" height="860" fill="#fff"/>
+  <text x="750" y="48" text-anchor="middle" class="title">跨平台 Synergy 的反事实估计与 Toy Example</text>
+  <text x="750" y="80" text-anchor="middle" class="sub">相同最终累计注意力，不代表相同的跨平台结构价值</text>
+
+  <rect x="60" y="140" width="260" height="115" rx="16" class="box"/>
+  <text x="190" y="176" text-anchor="middle" class="head">1. 观测数据</text>
+  <text x="190" y="207" text-anchor="middle" class="body">小时级注意力、跳转、转载</text>
+  <text x="190" y="232" text-anchor="middle" class="body">外部冲击与初始投放</text>
+
+  <rect x="410" y="140" width="280" height="115" rx="16" class="box"/>
+  <text x="550" y="176" text-anchor="middle" class="head">2. 估计传播矩阵</text>
+  <text x="550" y="207" text-anchor="middle" class="body">K = K₀ + K×</text>
+  <text x="550" y="232" text-anchor="middle" class="body">内部传播 + 跨平台传播</text>
+
+  <path d="M320 198 L410 198" class="arrow"/>
+  <path d="M690 198 L770 198" class="arrow"/>
+
+  <rect x="770" y="110" width="320" height="145" rx="16" class="full"/>
+  <text x="930" y="148" text-anchor="middle" class="head">3A. 完整网络</text>
+  <text x="930" y="183" text-anchor="middle" class="body">T_coupled = sᵀ(I-K)⁻¹1</text>
+  <text x="930" y="215" text-anchor="middle" class="body">保留所有跨平台导流、接力与反馈</text>
+
+  <path d="M690 220 C730 320 740 360 770 420" class="arrow"/>
+  <rect x="770" y="370" width="320" height="145" rx="16" class="counter"/>
+  <text x="930" y="408" text-anchor="middle" class="head">3B. 关闭跨平台边</text>
+  <text x="930" y="443" text-anchor="middle" class="body">T_isolated = sᵀ(I-K₀)⁻¹1</text>
+  <text x="930" y="475" text-anchor="middle" class="body">保持相同初始流入与平台内部机制</text>
+
+  <path d="M1090 183 L1180 270" class="arrow"/>
+  <path d="M1090 443 L1180 350" class="arrow"/>
+  <rect x="1180" y="245" width="260" height="150" rx="18" class="result"/>
+  <text x="1310" y="285" text-anchor="middle" class="head">4. Synergy</text>
+  <text x="1310" y="325" text-anchor="middle" class="head">T_coupled / T_isolated</text>
+  <text x="1310" y="360" text-anchor="middle" class="body">识别跨平台结构性增益</text>
+
+  <rect x="85" y="590" width="570" height="190" rx="18" class="full"/>
+  <text x="370" y="630" text-anchor="middle" class="head">事件 A：跨平台接力</text>
+  <text x="370" y="670" text-anchor="middle" class="body">初始流入 100　→　最终累计注意力 231.88</text>
+  <text x="370" y="705" text-anchor="middle" class="body">关闭跨平台边后仅有 125.00</text>
+  <text x="370" y="748" text-anchor="middle" class="head">Synergy = 1.855　|　结构增益 = 85.5%</text>
+
+  <rect x="845" y="590" width="570" height="190" rx="18" class="counter"/>
+  <text x="1130" y="630" text-anchor="middle" class="head">事件 B：扩大初始投放</text>
+  <text x="1130" y="670" text-anchor="middle" class="body">初始流入 185.51　→　最终累计注意力 231.88</text>
+  <text x="1130" y="705" text-anchor="middle" class="body">没有跨平台边，反事实仍为 231.88</text>
+  <text x="1130" y="748" text-anchor="middle" class="head">Synergy = 1.000　|　结构增益 = 0%</text>
+
+  <path d="M655 685 L845 685" class="arrow"/>
+  <text x="750" y="665" text-anchor="middle" class="body">简单总量相同</text>
+  <text x="750" y="720" text-anchor="middle" class="body">结构价值不同</text>
+</svg>
+

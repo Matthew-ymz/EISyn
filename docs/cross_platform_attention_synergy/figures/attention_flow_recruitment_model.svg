@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#3b82f6"/></marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#e67e22"/></marker>
+    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#64748b"/></marker>
+    <style>
+      text{font-family:Arial,"PingFang SC","Microsoft YaHei",sans-serif;fill:#172033}
+      .title{font-size:30px;font-weight:700}.subtitle{font-size:17px;fill:#475569}
+      .lane{fill:#f8fafc;stroke:#94a3b8;stroke-width:2}.node{fill:#fff;stroke:#334155;stroke-width:2}
+      .label{font-size:20px;font-weight:700}.small{font-size:16px}.formula{font-size:21px;font-weight:700}
+      .blue{stroke:#3b82f6;stroke-width:4;fill:none;marker-end:url(#arrowBlue)}
+      .orange{stroke:#e67e22;stroke-width:4;fill:none;stroke-dasharray:10 7;marker-end:url(#arrowOrange)}
+      .gray{stroke:#64748b;stroke-width:3;fill:none;marker-end:url(#arrowGray)}
+    </style>
+  </defs>
+  <rect width="1400" height="820" fill="#ffffff"/>
+  <text x="700" y="48" text-anchor="middle" class="title">跨平台注意力迁移与招募双层模型</text>
+  <text x="700" y="78" text-anchor="middle" class="subtitle">蓝色实线：已有注意力迁移 P　橙色虚线：新注意力招募 B　灰色：外部流入与耗散</text>
+
+  <rect x="150" y="125" width="1100" height="230" rx="18" class="lane"/>
+  <text x="180" y="162" class="label">迁移层 P：已有注意力移动、循环与耗散</text>
+  <rect x="240" y="215" width="210" height="78" rx="14" class="node"/><text x="345" y="248" text-anchor="middle" class="label">新闻平台 N</text><text x="345" y="272" text-anchor="middle" class="small">已有注意力</text>
+  <rect x="595" y="215" width="210" height="78" rx="14" class="node"/><text x="700" y="248" text-anchor="middle" class="label">社交平台 S</text><text x="700" y="272" text-anchor="middle" class="small">已有注意力</text>
+  <rect x="950" y="215" width="210" height="78" rx="14" class="node"/><text x="1055" y="248" text-anchor="middle" class="label">视频平台 V</text><text x="1055" y="272" text-anchor="middle" class="small">已有注意力</text>
+  <path d="M450 238 L595 238" class="blue"/><text x="522" y="226" text-anchor="middle" class="small">跨平台迁移</text>
+  <path d="M805 270 L950 270" class="blue"/><text x="877" y="307" text-anchor="middle" class="small">跨平台迁移</text>
+  <path d="M950 232 C870 160 790 160 725 215" class="blue"/><text x="850" y="168" text-anchor="middle" class="small">反馈迁移</text>
+  <rect x="1270" y="225" width="95" height="60" rx="30" fill="#e2e8f0" stroke="#64748b" stroke-width="2"/><text x="1318" y="262" text-anchor="middle" class="label">汇点</text>
+  <path d="M1160 254 L1270 254" class="gray"/><text x="1215" y="242" text-anchor="middle" class="small">耗散 δ</text>
+
+  <rect x="150" y="410" width="1100" height="230" rx="18" fill="#fff7ed" stroke="#e67e22" stroke-width="2"/>
+  <text x="180" y="447" class="label">招募层 B：转发、推荐和转载产生新的注意力</text>
+  <rect x="240" y="500" width="210" height="78" rx="14" class="node"/><text x="345" y="533" text-anchor="middle" class="label">新闻平台 N</text><text x="345" y="557" text-anchor="middle" class="small">新招募受众</text>
+  <rect x="595" y="500" width="210" height="78" rx="14" class="node"/><text x="700" y="533" text-anchor="middle" class="label">社交平台 S</text><text x="700" y="557" text-anchor="middle" class="small">新招募受众</text>
+  <rect x="950" y="500" width="210" height="78" rx="14" class="node"/><text x="1055" y="533" text-anchor="middle" class="label">视频平台 V</text><text x="1055" y="557" text-anchor="middle" class="small">新招募受众</text>
+  <path d="M450 525 L595 525" class="orange"/><text x="522" y="510" text-anchor="middle" class="small">转载招募</text>
+  <path d="M805 555 L950 555" class="orange"/><text x="877" y="592" text-anchor="middle" class="small">推荐招募</text>
+  <path d="M240 548 C170 548 170 300 240 278" class="orange"/><text x="170" y="414" text-anchor="middle" class="small">新注意力进入传播</text>
+
+  <rect x="25" y="215" width="95" height="70" rx="14" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/><text x="73" y="245" text-anchor="middle" class="label">外部源</text><text x="73" y="268" text-anchor="middle" class="small">s(t)</text>
+  <path d="M120 250 L240 250" class="gray"/>
+  <rect x="260" y="690" width="880" height="82" rx="16" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="700" y="725" text-anchor="middle" class="formula">a(t+1) = Pᵀa(t) + Bᵀa(t) + s(t)</text>
+  <text x="700" y="753" text-anchor="middle" class="small">综合传播算子 K = P + B；传播早期的临界倾向由谱半径 ρ(K) 判断</text>
+</svg>
+
