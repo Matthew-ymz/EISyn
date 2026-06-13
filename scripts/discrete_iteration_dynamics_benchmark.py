@@ -272,10 +272,17 @@ def build_rulkov_spec(alpha: float) -> MapSpec:
     mu = 0.001
     sigma = -1.0
     bounds = np.array([[-6.0, 6.0], [-5.0, 2.0]], dtype=float)
+    intervention_sample_bounds = np.array([[-1.5, 1.5], [-1.5, 1.5]], dtype=float)
 
     def transition(values: Array) -> Array:
         x, y = values.T
         return np.column_stack([alpha / (1.0 + x * x) + y, y - mu * (x - sigma)])
+
+    def sample_intervention(samples: int, seed: int) -> Array:
+        rng = np.random.default_rng(int(seed))
+        return np.column_stack(
+            [rng.uniform(low, high, size=int(samples)) for low, high in intervention_sample_bounds]
+        )
 
     return MapSpec(
         name="rulkov",
@@ -291,6 +298,7 @@ def build_rulkov_spec(alpha: float) -> MapSpec:
         _transition=transition,
         _project=_clip_project(bounds),
         _initial_state=lambda rng: np.array([rng.uniform(-1.5, 1.5), rng.uniform(-3.2, -1.2)]),
+        _sample_intervention=sample_intervention,
         burnin_steps=120,
     )
 
@@ -825,6 +833,25 @@ def _broad_one_step_distribution_metadata() -> dict[str, object]:
     }
 
 
+def _coupled_henon_broad_distribution_metadata() -> dict[str, object]:
+    return {
+        "training_distribution": "broad_initial_condition_one_step_map_pool",
+        "natural_readout_state_distribution": "not_used_for_broad_one_step_protocol",
+        "shared_readout_state_distribution": "held_out_broad_initial_condition_one_step_map_pool",
+        "peid_readout_state_distribution": "same_held_out_broad_states_as_wms_surd_shap",
+        "peid_target_distribution": "mlp_predicted_one_step_next_state_on_shared_broad_states",
+        "oracle_readout_state_distribution": "same_held_out_broad_states_as_all_methods",
+        "model_training": "one_shared_broad_training_pool",
+        "observational_readout": "one_shared_held_out_broad_pool",
+        "peid_interventions": "same_broad_held_out_pool",
+        "fairness": (
+            "For each parameter and seed, WMS, SURD, SHAP, MLP+PEID, and Oracle PEID use "
+            "held-out broad initial-condition one-step map states drawn from the same state-box "
+            "distribution as the MLP training pool; MLP+SHAP and MLP+PEID share one fitted MLP."
+        ),
+    }
+
+
 def _broad_one_step_sample_count(params: Mapping[str, int | float | str]) -> int:
     return int(params["trajectories"]) * int(params["samples_per_trajectory"])
 
@@ -1327,11 +1354,14 @@ def run_coupled_henon_sweep(
             mode=mode,
             config=selected_config,
         ),
+        readout_factory=_broad_one_step_readout_factory,
+        peid_uses_readout_states=True,
+        distribution_metadata=_coupled_henon_broad_distribution_metadata(),
     )
     rows = list(result["rows"])
     summary = list(result["summary"])
     sample_count = int(params["peid_samples"])
-    oracle_by_parameter: dict[float, float] = {}
+    fixed_intervention_oracle_by_parameter: dict[float, float] = {}
     diagnostics: list[dict[str, float]] = []
     for parameter_value in parameter_values:
         value = float(parameter_value)
@@ -1350,7 +1380,7 @@ def run_coupled_henon_sweep(
             oracle["hyperedges"],
             spec.truth_hyperedges,
         )
-        oracle_by_parameter[value] = float(oracle_score)
+        fixed_intervention_oracle_by_parameter[value] = float(oracle_score)
         diagnostics.append(
             {
                 "kappa": value,
@@ -1363,20 +1393,15 @@ def run_coupled_henon_sweep(
                 ),
             }
         )
-    for row in rows:
-        row["oracle_peid_synergy"] = oracle_by_parameter[float(row["kappa"])]
-    for row in summary:
-        row["oracle_peid_synergy_mean"] = oracle_by_parameter[float(row["kappa"])]
-        row["oracle_peid_synergy_std"] = 0.0
     result.update(
         {
             "rows": rows,
             "summary": summary,
             "chaos_diagnostics": diagnostics,
-            "oracle_readout_state_distribution": "independent_intervention_domain",
-            "oracle_target_distribution": "true_one_step_coupled_henon_map",
+            "fixed_intervention_oracle_synergy_by_parameter": {
+                f"{key:g}": value for key, value in fixed_intervention_oracle_by_parameter.items()
+            },
             "replacement_candidate_for": "lorenz3d_next_state",
-            "training_distribution": "broad_initial_condition_one_step_natural_map_pool",
             "prediction_selection_objective": "weighted_validation_prediction_nrmse",
             "oracle_used_for_model_selection": False,
             "peid_used_for_model_selection": False,
