@@ -38,6 +38,14 @@ from scripts.classic_network_dynamics_benchmark import (
     simulate_finite_time_next_states,
     simulate_sis_gate_next_states,
 )
+from scripts.discrete_iteration_dynamics_benchmark import (
+    _broad_one_step_distribution_metadata,
+    _broad_one_step_readout_factory,
+    _broad_one_step_surrogate_factory,
+    _broad_one_step_sweep_parameters,
+    _run_map_sweep,
+    build_wilson_cowan_refractory_spec,
+)
 
 
 def test_model_specs_expose_distinct_source_and_derivative_target_names() -> None:
@@ -162,14 +170,41 @@ def test_wilson_cowan_has_zero_structural_interaction_but_nonzero_joint_peid() -
     assert float(pairwise.loc[("w", "dy"), "score"]) > 0.02
 
 
+def test_discrete_wilson_cowan_refractory_sweeps_sigmoid_gain() -> None:
+    zero_gain = build_wilson_cowan_refractory_spec(0.0)
+    active_gain = build_wilson_cowan_refractory_spec(4.0)
+
+    assert zero_gain.parameter_key == "gain"
+    assert zero_gain.parameter_values == (0.0, 0.4, 0.7, 1.0, 1.4, 2.0, 3.2, 4.0, 6.0)
+
+    baseline = np.array([[0.30, 0.40]])
+    left = np.array([[0.36, 0.40]])
+    right = np.array([[0.30, 0.46]])
+    both = np.array([[0.36, 0.46]])
+    zero_mixed_difference = (
+        zero_gain.transition(both)[0, 0]
+        - zero_gain.transition(left)[0, 0]
+        - zero_gain.transition(right)[0, 0]
+        + zero_gain.transition(baseline)[0, 0]
+    )
+    active_mixed_difference = (
+        active_gain.transition(both)[0, 0]
+        - active_gain.transition(left)[0, 0]
+        - active_gain.transition(right)[0, 0]
+        + active_gain.transition(baseline)[0, 0]
+    )
+
+    assert abs(float(zero_mixed_difference)) < 1e-12
+    assert abs(float(active_mixed_difference)) > 1e-5
+
+
 def test_histogram_peid_treats_near_constant_targets_as_degenerate() -> None:
     spec = build_kuramoto_coupling_spec(0.0)
     rng = np.random.default_rng(7)
-    states = rng.uniform(-np.pi, np.pi, size=(700, 3))
+    states = rng.uniform(-np.pi, np.pi, size=(700, 2))
     targets = np.column_stack(
         [
             np.full(len(states), 1.0) + rng.normal(0.0, 1e-8, len(states)),
-            np.full(len(states), 1.1) + rng.normal(0.0, 1e-8, len(states)),
             np.full(len(states), 0.9) + rng.normal(0.0, 1e-8, len(states)),
         ]
     )
@@ -198,17 +233,22 @@ def test_sis_gate_parameter_controls_state_dependent_infection() -> None:
 
 
 def test_kuramoto_coupling_parameter_controls_phase_gate() -> None:
-    state = np.array([[0.2, -0.4, 0.7]])
+    state = np.array([[0.2, 0.7]])
     inactive = build_kuramoto_coupling_spec(0.0)
     active = build_kuramoto_coupling_spec(0.2)
 
     inactive_field = inactive.vector_field(state)[0]
     active_field = active.vector_field(state)[0]
-    assert np.allclose(inactive_field, np.array([1.0, 1.1, 0.9]))
-    assert np.isclose(active_field[0], 1.0 + 0.2 * np.sin(0.7 - 0.2))
-    assert np.isclose(active_field[1], 1.1 + 0.2 * np.sin(0.7 - (-0.4)))
+    assert inactive.state_names == ("theta1", "theta2")
+    assert inactive.target_names == ("dtheta1", "dtheta2")
+    assert inactive.truth_hyperedges == (("theta1", "theta2", "dtheta1"),)
+    assert inactive.truth_pairwise == (("theta1", "dtheta1"), ("theta2", "dtheta1"))
+    assert np.isclose(inactive_field[0], 1.0 + 0.2 * np.sin(0.2))
+    assert np.isclose(inactive_field[1], 0.9 + 0.2 * np.sin(0.7))
+    assert np.isclose(active_field[0], 1.0 + 0.2 * np.sin(0.2) + 0.2 * np.sin(0.7 - 0.2))
+    assert np.isclose(active_field[1], inactive_field[1])
     assert active_field[0] != inactive_field[0]
-    assert active_field[1] != inactive_field[1]
+    assert active_field[1] == inactive_field[1]
 
 
 def test_parameterized_rossler_and_wilson_cowan_specs_control_their_sweep_terms() -> None:
@@ -232,9 +272,9 @@ def test_parameterized_rossler_and_wilson_cowan_specs_control_their_sweep_terms(
 
 def test_future_state_spec_retargets_derivative_relations_to_state_targets() -> None:
     kuramoto = build_future_state_spec(build_kuramoto_coupling_spec(0.2))
-    assert kuramoto.target_names == ("x_tau", "y_tau", "w_tau")
-    assert kuramoto.truth_hyperedges == (("w", "x", "x_tau"), ("w", "y", "y_tau"))
-    assert kuramoto.truth_pairwise == (("w", "x_tau"), ("w", "y_tau"))
+    assert kuramoto.target_names == ("theta1_tau", "theta2_tau")
+    assert kuramoto.truth_hyperedges == (("theta1", "theta2", "theta1_tau"),)
+    assert kuramoto.truth_pairwise == (("theta1", "theta1_tau"), ("theta2", "theta1_tau"))
 
     rossler = build_future_state_spec(build_coupled_rossler_spec(0.5))
     assert rossler.target_names == ("x0_tau", "y0_tau", "z0_tau", "x1_tau", "y1_tau", "z1_tau")
@@ -243,7 +283,7 @@ def test_future_state_spec_retargets_derivative_relations_to_state_targets() -> 
 
 def test_kuramoto_finite_time_next_states_wrap_to_phase_domain() -> None:
     spec = build_kuramoto_coupling_spec(0.2)
-    states = np.array([[3.13, 3.12, 3.11]])
+    states = np.array([[3.13, 3.11]])
     next_states = simulate_finite_time_next_states(spec, states, tau=0.2, process_noise=0.0, seed=7)
     assert np.min(next_states) >= -np.pi
     assert np.max(next_states) <= np.pi
@@ -298,17 +338,35 @@ def test_kuramoto_coupling_sweep_smoke_writes_json_and_png(tmp_path: Path) -> No
     assert figure_path.exists()
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     assert payload["system"] == "kuramoto_phase_coupling"
-    assert payload["training_distribution"] == "equal_natural_and_uniform_intervention"
+    assert payload["training_distribution"] == "same_natural_trajectory_pool_as_observational_readout"
     assert payload["shared_readout_state_distribution"] == "natural_trajectory_for_wms_surd_shap"
     assert payload["peid_readout_state_distribution"] == "independent_uniform_intervention"
+    assert payload["mlp_error_evaluation"] == "in_sample_on_shared_natural_training_and_observational_readout_pool"
+    assert payload["target_relation"] == "theta1+theta2->dtheta1"
+    assert payload["frequency_detuning"] == 0.1
+    assert payload["phase_potential_strength"] == 0.2
+    assert payload["figure_contract"] == {
+        "panel_a": "phase_locking_value",
+        "panel_b": ["wms", "peid_synergy", "oracle_peid_synergy"],
+        "y_axis_label": "Synergy / Interaction",
+    }
     assert [row["coupling"] for row in payload["summary"]] == [0.0, 0.2]
     assert "readout_state_digest" in payload["rows"][0]
+    assert payload["rows"][0]["train_state_digest"] == payload["rows"][0]["readout_state_digest"]
+    assert payload["rows"][0]["train_target_digest"] == payload["rows"][0]["observed_target_digest"]
     assert "peid_readout_state_digest" in payload["rows"][0]
+    assert "phase_locking_value" in payload["rows"][0]
+    assert "oracle_peid_synergy" in payload["rows"][0]
+    assert "wms_joint_mi" in payload["rows"][0]
+    assert "wms_left_mi" in payload["rows"][0]
+    assert "wms_right_mi" in payload["rows"][0]
+    assert payload["rows"][0]["peid_readout_state_digest"] == payload["rows"][0]["oracle_peid_readout_state_digest"]
+    assert payload["rows"][0]["shap_mlp_model_digest"] == payload["rows"][0]["peid_mlp_model_digest"]
     assert abs(float(payload["summary"][0]["peid_synergy_mean"])) < 0.35
     assert float(payload["summary"][1]["peid_synergy_mean"]) > float(payload["summary"][0]["peid_synergy_mean"])
 
 
-def test_kuramoto_peid_detail_sweep_exposes_scale_invariant_oracle_components(tmp_path: Path) -> None:
+def test_kuramoto_peid_detail_sweep_exposes_active_rotator_coupling_components(tmp_path: Path) -> None:
     result = run_kuramoto_peid_detail_sweep(
         mode="smoke",
         couplings=(0.0, 0.01, 0.1),
@@ -321,6 +379,8 @@ def test_kuramoto_peid_detail_sweep_exposes_scale_invariant_oracle_components(tm
     assert Path(result["figure_path"]).exists()
     assert payload["system"] == "kuramoto_phase_coupling_peid_detail"
     assert payload["sampling_distribution"] == "independent_uniform_intervention"
+    assert payload["truth_hyperedges"] == ["theta1+theta2->dtheta1"]
+    assert payload["phase_potential_strength"] == 0.2
     assert [row["coupling"] for row in payload["summary"]] == [0.0, 0.01, 0.1]
     assert {
         "mlp_syn_mean",
@@ -333,8 +393,12 @@ def test_kuramoto_peid_detail_sweep_exposes_scale_invariant_oracle_components(tm
     } <= set(payload["summary"][0])
     positive = payload["summary"][1:]
     assert payload["summary"][0]["mlp_syn_mean"] == 0.0
-    assert np.isclose(positive[0]["oracle_syn_mean"], positive[1]["oracle_syn_mean"])
-    assert np.isclose(positive[0]["oracle_joint_ei_mean"], positive[1]["oracle_joint_ei_mean"])
+    assert positive[1]["oracle_syn_mean"] > positive[0]["oracle_syn_mean"]
+    for row in positive:
+        assert np.isclose(
+            row["oracle_joint_ei_mean"] - row["oracle_single_ei_sum_mean"],
+            row["oracle_syn_mean"],
+        )
     assert positive[1]["signal_rms_mean"] > positive[0]["signal_rms_mean"]
 
 
@@ -561,7 +625,7 @@ def test_peid_hyperedge_score_keeps_signed_transport_syn(monkeypatch) -> None:
     assert float(hyperedges["raw_syn"].min()) == -0.1
 
 
-def test_zero_control_readouts_report_raw_estimates() -> None:
+def test_zero_control_readouts_report_fitted_estimates_and_keep_raw_values() -> None:
     readouts = _zero_control_synergy_readouts(
         inactive=True,
         wms=0.1,
@@ -574,7 +638,42 @@ def test_zero_control_readouts_report_raw_estimates() -> None:
     assert readouts["surd_synergy"] == 0.2
     assert readouts["shap_interaction"] == 0.3
     assert readouts["peid_synergy"] == 0.4
+    assert readouts["raw_wms"] == 0.1
+    assert readouts["raw_surd_synergy"] == 0.2
+    assert readouts["raw_shap_interaction"] == 0.3
     assert readouts["raw_peid_synergy"] == 0.4
+
+
+def test_part1_discrete_zero_and_active_points_emit_passing_fairness_audit(tmp_path: Path) -> None:
+    payload = _run_map_sweep(
+        system="wilson_cowan_refractory",
+        mode="smoke",
+        parameter_values=(0.0, 0.4),
+        seeds=(0,),
+        result_path=tmp_path / "result.json",
+        figure_path=tmp_path / "figure.png",
+        structural_zero_values=(0.0,),
+        params_override=_broad_one_step_sweep_parameters(
+            "smoke", system="wilson_cowan_refractory"
+        ),
+        surrogate_factory=_broad_one_step_surrogate_factory,
+        readout_factory=_broad_one_step_readout_factory,
+        peid_uses_readout_states=True,
+        distribution_metadata=_broad_one_step_distribution_metadata(),
+    )
+
+    assert payload["fairness_audit"]["passed"]
+    assert payload["fairness_audit"]["zero_parameter_uses_same_pipeline"]
+    assert payload["fairness_audit"]["parameter_matched_train_states"]
+    assert payload["fairness_audit"]["parameter_matched_readout_states"]
+    zero, active = payload["rows"]
+    assert zero["train_state_digest"] == active["train_state_digest"]
+    assert zero["readout_state_digest"] == active["readout_state_digest"]
+    assert zero["readout_state_digest"] == zero["peid_readout_state_digest"]
+    assert zero["shap_mlp_model_digest"] == zero["peid_mlp_model_digest"]
+    assert zero["wms_estimator"] == active["wms_estimator"] == "transport_map"
+    assert zero["surd_estimator"] == active["surd_estimator"] == "transport_map"
+    assert zero["peid_estimator"] == active["peid_estimator"] == "transport_map"
 
 
 def test_plot_panel_can_use_symlog_to_keep_small_curves_visible() -> None:
@@ -674,7 +773,47 @@ def test_plot_panel_can_hide_oracle_peid_when_requested() -> None:
     plt.close(fig)
 
 
-def test_part1_combined_figure_uses_rulkov_henon_cournot_ikeda_and_nicholson_bailey(tmp_path: Path) -> None:
+def test_plot_panel_can_put_surd_on_a_separate_right_axis() -> None:
+    import matplotlib.pyplot as plt
+
+    summary = [
+        {
+            "coupling": coupling,
+            "wms_mean": coupling,
+            "wms_std": 0.0,
+            "surd_synergy_mean": 10.0 * coupling,
+            "surd_synergy_std": 0.0,
+            "shap_interaction_mean": coupling,
+            "shap_interaction_std": 0.0,
+            "peid_synergy_mean": coupling,
+            "peid_synergy_std": 0.0,
+        }
+        for coupling in (0.0, 1.0)
+    ]
+    fig, axis = plt.subplots()
+
+    _plot_panel(
+        axis,
+        summary,
+        parameter_key="coupling",
+        xlabel="Coupling",
+        label="Panel",
+        include_oracle_peid=False,
+        separate_surd_axis=True,
+    )
+
+    assert len(fig.axes) == 2
+    assert fig.axes[1].get_ylabel() == "SURD synergy (bits)"
+    assert [line.get_label() for line in axis.lines if not line.get_label().startswith("_")] == [
+        "WMS",
+        "MLP+SHAP interaction",
+        "MLP+PEID synergy",
+    ]
+    assert [line.get_label() for line in fig.axes[1].lines] == ["SURD synergy"]
+    plt.close(fig)
+
+
+def test_part1_combined_figure_uses_refractory_wilson_cowan_kuramoto_henon_ikeda_and_nicholson_bailey(tmp_path: Path) -> None:
     standard = {
         "summary": [
             {
@@ -701,14 +840,17 @@ def test_part1_combined_figure_uses_rulkov_henon_cournot_ikeda_and_nicholson_bai
             },
         ]
     }
-    rulkov = {
-        "parameter_key": "alpha",
-        "summary": [{**row, "alpha": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
+    wilson_cowan_refractory = {
+        "parameter_key": "gain",
+        "summary": [{**row, "gain": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
     }
-    henon = {"summary": [{**row, "kappa": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))]}
-    cournot = {
-        "parameter_key": "lambda",
-        "summary": [{**row, "lambda": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
+    kuramoto = {
+        "parameter_key": "coupling",
+        "summary": json.loads(json.dumps(standard["summary"])),
+    }
+    coupled_henon = {
+        "parameter_key": "kappa",
+        "summary": [{**row, "kappa": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
     }
     ikeda = {
         "parameter_key": "u",
@@ -719,23 +861,23 @@ def test_part1_combined_figure_uses_rulkov_henon_cournot_ikeda_and_nicholson_bai
         "summary": [{**row, "a": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
     }
     standard_path = tmp_path / "standard.json"
-    rulkov_path = tmp_path / "rulkov.json"
-    henon_path = tmp_path / "henon.json"
-    cournot_path = tmp_path / "cournot.json"
+    wilson_cowan_refractory_path = tmp_path / "wilson_cowan_refractory.json"
+    kuramoto_path = tmp_path / "kuramoto.json"
+    coupled_henon_path = tmp_path / "coupled_henon.json"
     ikeda_path = tmp_path / "ikeda_y_tau.json"
     nicholson_bailey_path = tmp_path / "nicholson_bailey.json"
     standard_path.write_text(json.dumps(standard), encoding="utf-8")
-    rulkov_path.write_text(json.dumps(rulkov), encoding="utf-8")
-    henon_path.write_text(json.dumps(henon), encoding="utf-8")
-    cournot_path.write_text(json.dumps(cournot), encoding="utf-8")
+    wilson_cowan_refractory_path.write_text(json.dumps(wilson_cowan_refractory), encoding="utf-8")
+    kuramoto_path.write_text(json.dumps(kuramoto), encoding="utf-8")
+    coupled_henon_path.write_text(json.dumps(coupled_henon), encoding="utf-8")
     ikeda_path.write_text(json.dumps(ikeda), encoding="utf-8")
     nicholson_bailey_path.write_text(json.dumps(nicholson_bailey), encoding="utf-8")
 
     result = run_part1_combined_synergy_figure(
         standard_result_path=standard_path,
-        rulkov_result_path=rulkov_path,
-        henon_result_path=henon_path,
-        cournot_result_path=cournot_path,
+        wilson_cowan_refractory_result_path=wilson_cowan_refractory_path,
+        kuramoto_result_path=kuramoto_path,
+        coupled_henon_result_path=coupled_henon_path,
         ikeda_result_path=ikeda_path,
         nicholson_bailey_result_path=nicholson_bailey_path,
         figure_path=tmp_path / "combined.png",
@@ -744,12 +886,13 @@ def test_part1_combined_figure_uses_rulkov_henon_cournot_ikeda_and_nicholson_bai
     assert Path(result["figure_path"]).exists()
     assert result["panels"] == {
         "standard_map": str(standard_path),
-        "rulkov": str(rulkov_path),
-        "coupled_henon": str(henon_path),
-        "cournot": str(cournot_path),
+        "wilson_cowan_refractory": str(wilson_cowan_refractory_path),
+        "kuramoto_phase_coupling": str(kuramoto_path),
+        "coupled_henon": str(coupled_henon_path),
         "ikeda_y_tau": str(ikeda_path),
         "nicholson_bailey": str(nicholson_bailey_path),
     }
+    assert result["y_axis_label"] == "Synergy / Interaction"
 
 
 def test_smoke_benchmark_writes_json_png_and_report(tmp_path: Path) -> None:

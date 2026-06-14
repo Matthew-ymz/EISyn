@@ -50,6 +50,10 @@ DEFAULT_FIGURE_DIR = ROOT / "fig" / "coupled_standard_map_method_comparison"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "coupled_standard_map_method_comparison.md"
 PART1_FIGURE_PATH = DEFAULT_FIGURE_DIR / "coupled_standard_map_four_method_synergy_comparison.png"
 PART1_RESULT_PATH = DEFAULT_RESULT_DIR / "part1_four_method_synergy.json"
+TRANSPORT_MAP_DEGREE = 3
+TRANSPORT_MAP_JITTER = 1e-6
+SURD_TM_TARGET_ANCHORS = 96
+SURD_TM_CONDITIONAL_SAMPLES = 48
 
 
 def build_periodic_source_groups() -> dict[str, tuple[int, int]]:
@@ -112,6 +116,50 @@ def _wms(left: np.ndarray, right: np.ndarray, target: np.ndarray, bins: int) -> 
     }
 
 
+def _transport_wms(left: np.ndarray, right: np.ndarray, target: np.ndarray) -> dict[str, float]:
+    from yrd import clip_nonnegative_ei, estimate_mutual_information_transport_map
+
+    left_array = np.asarray(left, dtype=float).reshape(len(left), -1)
+    right_array = np.asarray(right, dtype=float).reshape(len(right), -1)
+    target_array = np.asarray(target, dtype=float).reshape(len(target), -1)
+    left_mi = float(
+        estimate_mutual_information_transport_map(
+            left_array,
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    right_mi = float(
+        estimate_mutual_information_transport_map(
+            right_array,
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    joint_mi = float(
+        estimate_mutual_information_transport_map(
+            np.column_stack([left_array, right_array]),
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    left_mi = clip_nonnegative_ei(left_mi)
+    right_mi = clip_nonnegative_ei(right_mi)
+    joint_mi = clip_nonnegative_ei(joint_mi)
+    syn = float(joint_mi - left_mi - right_mi)
+    return {
+        "own_mi": float(left_mi),
+        "cross_mi": float(right_mi),
+        "joint_mi": float(joint_mi),
+        "wms": syn,
+        "syn": syn,
+        "estimator": "transport_map",
+    }
+
+
 def _target_sources(target_index: int) -> tuple[str, str]:
     return ("q1", "q2") if target_index == 0 else ("q2", "q1")
 
@@ -132,6 +180,7 @@ def _mean_dict(rows: Sequence[dict[str, float]]) -> dict[str, float]:
 def _observational_readouts(split: DatasetSplit, *, bins: int, seed: int) -> tuple[dict, dict]:
     from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
 
+    del bins
     rng = np.random.default_rng(int(seed) + 1901)
     count = min(len(split.states), 1200)
     indices = rng.choice(len(split.states), size=count, replace=False)
@@ -141,18 +190,18 @@ def _observational_readouts(split: DatasetSplit, *, bins: int, seed: int) -> tup
     surd_rows: list[dict[str, float]] = []
     for target_index, target in enumerate(TARGET_NAMES):
         own, cross = _target_sources(target_index)
-        left = states[:, _state_column(own)]
-        right = states[:, _state_column(cross)]
-        output = impulses[:, target_index]
-        wms_row = _wms(left, right, output, bins)
+        left = states[:, [_state_column(own)]]
+        right = states[:, [_state_column(cross)]]
+        output = impulses[:, [target_index]]
+        wms_row = _transport_wms(left, right, output)
         wms_rows.append({"target": target, **wms_row})
         surd = decompose_surd_2source_transport_map(
             left,
             right,
             output,
-            degree=3,
-            target_anchors=min(96, count),
-            conditional_samples=min(48, count),
+            degree=TRANSPORT_MAP_DEGREE,
+            target_anchors=min(SURD_TM_TARGET_ANCHORS, count),
+            conditional_samples=min(SURD_TM_CONDITIONAL_SAMPLES, count),
             seed=int(seed) + target_index,
         )
         surd_rows.append(
@@ -1160,10 +1209,7 @@ def _fitted_mlp_digest(model: FittedImpulseMLP) -> str:
 
 
 def _part1_transport_synergy(states: np.ndarray, targets: np.ndarray) -> float:
-    from yrd import summarize_two_source_synergy_transport_map
-
-    tm = summarize_two_source_synergy_transport_map(states[:, [0]], states[:, [2]], targets[:, [0]])
-    return float(tm["syn"])
+    return float(_transport_wms(states[:, [0]], states[:, [2]], targets[:, [0]])["syn"])
 
 
 def _run_part1_broad_one(payload: dict[str, object]) -> dict[str, object]:
@@ -1208,10 +1254,23 @@ def _run_part1_broad_one(payload: dict[str, object]) -> dict[str, object]:
         "seed": seed,
         "relation": "q1+q2->I1",
         "wms": float(wms["targets"][0]["wms"]),
+        "wms_estimator": "transport_map",
         "surd_synergy": float(surd["targets"][0]["synergy"]),
+        "surd_estimator": "transport_map",
         "shap_interaction": float(shap["targets"][0]["interaction"]),
         "peid_synergy": peid_synergy,
+        "raw_wms": float(wms["targets"][0]["wms"]),
+        "raw_surd_synergy": float(surd["targets"][0]["synergy"]),
+        "raw_shap_interaction": float(shap["targets"][0]["interaction"]),
+        "raw_peid_synergy": peid_synergy,
         "peid_raw_syn": peid_synergy,
+        "peid_estimator": "transport_map",
+        "transport_map": {
+            "degree": TRANSPORT_MAP_DEGREE,
+            "jitter": TRANSPORT_MAP_JITTER,
+            "surd_target_anchors": SURD_TM_TARGET_ANCHORS,
+            "surd_conditional_samples": SURD_TM_CONDITIONAL_SAMPLES,
+        },
         "oracle_peid_synergy": oracle_peid_synergy,
         "prediction": prediction_metrics(model, readout),
         "train_state_digest": _digest(train.states),
@@ -1401,6 +1460,21 @@ def run_part1_four_method_comparison(
         key: _spearman(truth, [row[f"{key}_mean"] for row in summary])
         for key in ("wms", "surd_synergy", "shap_interaction", "peid_synergy", "oracle_peid_synergy")
     }
+    from scripts.classic_network_dynamics_benchmark import _part1_fairness_audit
+
+    audit_rows = [
+        {
+            **run,
+            "peid_readout_state_digest": run["peid_state_digest"],
+        }
+        for run in runs
+    ]
+    fairness_audit = _part1_fairness_audit(
+        audit_rows,
+        parameter_key="coupling",
+        estimator="transport",
+        zero_values=(0.0,),
+    )
     result = {
         "protocol": {
             "couplings": [float(value) for value in couplings],
@@ -1414,6 +1488,14 @@ def run_part1_four_method_comparison(
             "oracle_peid_state_distribution": "same_held_out_broad_states_as_all_methods",
             "oracle_peid_target_distribution": "true_deterministic_I1_impulse",
             "peid_synergy_estimator": "transport_map",
+            "wms_synergy_estimator": "transport_map",
+            "surd_synergy_estimator": "transport_map",
+            "transport_map": {
+                "degree": TRANSPORT_MAP_DEGREE,
+                "jitter": TRANSPORT_MAP_JITTER,
+                "surd_target_anchors": SURD_TM_TARGET_ANCHORS,
+                "surd_conditional_samples": SURD_TM_CONDITIONAL_SAMPLES,
+            },
             "method_data_contract": {
                 "model_training": "one_shared_broad_training_pool",
                 "model_based_methods": ["MLP+SHAP interaction", "MLP+PEID synergy"],
@@ -1445,6 +1527,7 @@ def run_part1_four_method_comparison(
         },
         "summary": summary,
         "trends": trends,
+        "fairness_audit": fairness_audit,
         "runs": runs,
         "result_path": str(result_path),
         "figure_path": str(figure_path),

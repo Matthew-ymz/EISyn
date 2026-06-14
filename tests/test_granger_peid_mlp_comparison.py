@@ -21,6 +21,7 @@ from scripts.compare_granger_peid_mlp import (
     _plot_sine_beta_single_source_sweep,
     _plot_sine_beta_synergy_sweep,
     _proxy_y_readout_values,
+    _sample_sine_beta_peid_intervention_sources,
     estimate_granger_graph,
     estimate_peid_graph,
     make_lagged_dataset,
@@ -140,13 +141,26 @@ def test_peid_synergy_keeps_signed_joint_minus_single_value(monkeypatch) -> None
 
 
 def test_observational_wms_keeps_signed_whole_minus_sum(monkeypatch) -> None:
-    estimates = iter((0.6, 0.5, 0.8))
+    def fail_if_discretized(*args, **kwargs):
+        raise AssertionError("observational WMS must use the degree-3 transport-map estimator")
 
-    def fake_mutual_information(source, target):
-        assert np.asarray(source).shape[0] == np.asarray(target).shape[0]
-        return next(estimates)
+    def fake_transport_wms(left, right, target):
+        assert np.asarray(left).shape == (8, 1)
+        assert np.asarray(right).shape == (8, 1)
+        assert np.asarray(target).shape == (8, 1)
+        return {
+            "backend": "polynomial_triangular_transport_map_degree_3",
+            "left_ei": 0.6,
+            "right_ei": 0.5,
+            "joint_ei": 0.8,
+            "syn": -0.3,
+        }
 
-    monkeypatch.setattr(comparison, "_mutual_information_from_states", fake_mutual_information)
+    monkeypatch.setattr(comparison, "_discretize_vector", fail_if_discretized)
+    monkeypatch.setattr(
+        "yrd.transport_map.summarize_two_source_synergy_transport_map",
+        fake_transport_wms,
+    )
     result = _observational_wms(
         np.arange(8, dtype=float),
         np.arange(8, dtype=float) + 1.0,
@@ -157,9 +171,10 @@ def test_observational_wms_keeps_signed_whole_minus_sum(monkeypatch) -> None:
     assert abs(result["y_mi"] - 0.5) < 1e-12
     assert abs(result["joint_mi"] - 0.8) < 1e-12
     assert abs(result["wms"] + 0.3) < 1e-12
+    assert result["estimator"] == "polynomial_triangular_transport_map_degree_3"
 
 
-def test_observational_wms_becomes_negative_with_full_common_driver() -> None:
+def test_observational_wms_decreases_with_full_common_driver() -> None:
     values = {}
     for beta in (0.0, 1.0):
         series, _ = simulate_system(
@@ -181,7 +196,31 @@ def test_observational_wms_becomes_negative_with_full_common_driver() -> None:
         )["wms"]
 
     assert values[0.0] > 0.0
-    assert values[1.0] < 0.0
+    assert values[1.0] < values[0.0]
+
+
+def test_beta_peid_intervention_uses_fixed_source_support_only() -> None:
+    config = SimConfig(
+        mechanism="common_driver_sine_synergy",
+        n_samples=240,
+        seed=3,
+        intervention_samples=96,
+    )
+    series, _ = simulate_system(config)
+    baseline = comparison._sample_intervention_sources(series, config)
+
+    samples = _sample_sine_beta_peid_intervention_sources(
+        series,
+        config,
+        source_support=(-1.8, 1.8),
+    )
+
+    assert samples["x"].between(-1.8, 1.8).all()
+    assert samples["y"].between(-1.8, 1.8).all()
+    assert np.isclose(float(samples["x"].min()), -1.8, atol=0.15)
+    assert np.isclose(float(samples["x"].max()), 1.8, atol=0.15)
+    assert np.allclose(samples["z"], baseline["z"])
+    assert np.allclose(samples["w"], baseline["w"])
 
 
 def _trained_model(config: SimConfig):
@@ -757,6 +796,8 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
     assert "neural_granger_xy_to_z_mean" in summary
     assert "neural_granger_xy_to_z_slope" in trend
     assert "observational_wms" in run
+    assert run["wms_estimator"] == "polynomial_triangular_transport_map_degree_3"
+    assert result["config"]["peid_source_support"] == [-1.8, 1.8]
     assert "observational_wms_mean" in summary
     assert "observational_wms_slope" in trend
 

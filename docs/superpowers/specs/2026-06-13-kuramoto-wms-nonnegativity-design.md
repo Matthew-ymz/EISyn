@@ -4,22 +4,24 @@
 
 Use a physically meaningful classical dynamical system to demonstrate that WMS is a signed
 net quantity rather than a nonnegative synergy atom. In the synchronized regime of a
-two-oscillator Kuramoto model, observational source redundancy can drive WMS below zero,
-while PEID evaluated under independent maximum-entropy phase interventions remains
+two-active-rotator Kuramoto phase model, observational source redundancy can drive WMS below
+zero, while PEID evaluated under independent maximum-entropy phase interventions remains
 nonnegative and recovers the joint phase mechanism.
 
 ## Model
 
-Use the driver-response Kuramoto phase equations
+Use the driver-response active-rotator equations
 
 $$
-\dot{\theta}_1=\omega_1+K\sin(\theta_2-\theta_1),\qquad
-\dot{\theta}_2=\omega_2,
+\dot{\theta}_1=\omega_1+A\sin\theta_1+K\sin(\theta_2-\theta_1),\qquad
+\dot{\theta}_2=\omega_2+A\sin\theta_2,
 $$
 
-with $\omega_1=1.0$, $\omega_2=0.9$, and coupling scan
-$K\in\{0,0.05,0.10,0.15,0.20,0.30\}$. The deterministic locking threshold is
-$K_c=|\omega_1-\omega_2|=0.1$.
+with $\omega_1=1.0$, $\omega_2=0.9$, $A=0.2$, and coupling scan
+$K\in\{0,0.05,0.10,0.15,0.20,0.30,0.50\}$. The active-rotator term is the
+standard periodic phase potential used for excitable and driven phase oscillators. The
+frequency detuning $|\Delta\omega|=|\omega_1-\omega_2|=0.1$ is plotted as a reference scale,
+not asserted to be the exact locking threshold once $A\ne0$.
 
 The registered source-target relation is identical for every method:
 
@@ -33,8 +35,8 @@ with a future phase.
 
 ## Data Protocol
 
-For each coupling and seed, generate one natural post-burn-in trajectory and one independent
-uniform phase pool on $[-\pi,\pi)^2$.
+For each coupling and seed, generate multiple natural post-burn-in trajectories and one
+independent uniform phase pool on $[-\pi,\pi)^2$.
 
 - Train one MLP on an equal mixture of natural and uniform one-step phase states, with target
   $\dot{\theta}_1$.
@@ -60,7 +62,7 @@ $$
 e^{i(\theta_{2,t}-\theta_{1,t})}\right|
 $$
 
-from the natural trajectory. PLV supplies the physical link between crossing $K_c$, source
+from the natural trajectory. PLV supplies the physical link between phase locking, source
 redundancy, and negative WMS.
 
 For WMS, also retain its components
@@ -78,7 +80,8 @@ information rather than by a negative mutual information estimate.
 
 Create a two-panel Python figure.
 
-- Panel a: PLV versus $K$, with a vertical line at $K_c=0.1$.
+- Panel a: PLV versus $K$, with a vertical line at the detuning scale
+  $|\Delta\omega|=0.1$.
 - Panel b: WMS, MLP+PEID, and Oracle PEID versus $K$, with a horizontal zero line.
 - Use `Synergy / Interaction` as the panel-b y-axis label and update the existing Part1
   comparison y-axis to the same label.
@@ -91,8 +94,8 @@ MLP+PEID, rather than adding an unrelated synthetic common-driver panel.
 ## Success Criteria
 
 - The source and target variables are identical across every compared method.
-- At two or more points above $K_c$, the WMS confidence interval lies below zero.
-- At the same points, MLP+PEID and Oracle PEID confidence intervals lie above zero.
+- At two or more strongly phase-locked points, the WMS uncertainty interval lies below zero.
+- At the same points, MLP+PEID and Oracle PEID uncertainty intervals lie above zero.
 - MLP+PEID follows the Oracle PEID trend within estimator uncertainty.
 - PLV rises across the locking transition, supporting the redundancy interpretation.
 - The MLP prediction error is reported and low enough that the PEID result is not explained

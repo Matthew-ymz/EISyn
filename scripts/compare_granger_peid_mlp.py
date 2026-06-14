@@ -419,6 +419,24 @@ def _sample_intervention_sources(series: pd.DataFrame, config: SimConfig) -> pd.
     return pd.DataFrame(rows)
 
 
+def _sample_sine_beta_peid_intervention_sources(
+    series: pd.DataFrame,
+    config: SimConfig,
+    *,
+    source_support: tuple[float, float],
+) -> pd.DataFrame:
+    """Sample PEID states with fixed uniform x/y support and empirical context support."""
+
+    low, high = (float(bound) for bound in source_support)
+    if not np.isfinite(low) or not np.isfinite(high) or high <= low:
+        raise ValueError("source_support must contain finite low < high.")
+    samples = _sample_intervention_sources(series, config)
+    rng = np.random.default_rng(int(config.seed) + 1009)
+    for name in ("x", "y"):
+        samples[name] = rng.uniform(low, high, size=int(config.intervention_samples))
+    return samples
+
+
 def _intervention_features(samples: pd.DataFrame, config: SimConfig) -> np.ndarray:
     current = samples[list(config.variable_names)].to_numpy(dtype=float)
     return np.tile(current, (1, int(config.lag)))
@@ -428,10 +446,18 @@ def estimate_peid_graph(
     model: TrainedMLPTransition,
     series: pd.DataFrame,
     config: SimConfig,
+    *,
+    intervention_states: pd.DataFrame | None = None,
 ) -> PeidGraph:
     """Estimate PEID pairwise edges and second-order synergy hyperedges from MLP interventions."""
 
-    samples = _sample_intervention_sources(series, config)
+    samples = (
+        intervention_states.loc[:, config.variable_names].copy()
+        if intervention_states is not None
+        else _sample_intervention_sources(series, config)
+    )
+    if len(samples) != int(config.intervention_samples):
+        raise ValueError("intervention_states must match config.intervention_samples.")
     predictions = model.predict(_intervention_features(samples, config))
     names = tuple(config.variable_names)
 
@@ -2192,23 +2218,25 @@ def _observational_wms(
     target: np.ndarray,
     *,
     bins: int = 4,
-) -> dict[str, float]:
-    """Compute signed whole-minus-sum information on aligned observational samples."""
+) -> dict[str, object]:
+    """Compute signed whole-minus-sum information with the shared degree-3 TM."""
 
-    left_array = _discretize_vector(left, int(bins)).reshape(-1, 1)
-    right_array = _discretize_vector(right, int(bins)).reshape(-1, 1)
-    target_array = _discretize_vector(target, int(bins)).reshape(-1, 1)
+    from yrd.transport_map import summarize_two_source_synergy_transport_map
+
+    del bins  # Retained for compatibility with existing callers.
+    left_array = np.asarray(left, dtype=float).reshape(-1, 1)
+    right_array = np.asarray(right, dtype=float).reshape(-1, 1)
+    target_array = np.asarray(target, dtype=float).reshape(-1, 1)
     if not (len(left_array) == len(right_array) == len(target_array)):
         raise ValueError("left, right, and target must have matching sample counts.")
 
-    x_mi = _mutual_information_from_states(left_array, target_array)
-    y_mi = _mutual_information_from_states(right_array, target_array)
-    joint_mi = _mutual_information_from_states(np.column_stack([left_array, right_array]), target_array)
+    estimate = summarize_two_source_synergy_transport_map(left_array, right_array, target_array)
     return {
-        "x_mi": x_mi,
-        "y_mi": y_mi,
-        "joint_mi": joint_mi,
-        "wms": float(joint_mi - x_mi - y_mi),
+        "estimator": str(estimate["backend"]),
+        "x_mi": float(estimate["left_ei"]),
+        "y_mi": float(estimate["right_ei"]),
+        "joint_mi": float(estimate["joint_ei"]),
+        "wms": float(estimate["syn"]),
     }
 
 
@@ -2225,6 +2253,7 @@ def run_sine_beta_common_driver_sweep(
     neural_granger_epochs: int = 120,
     pcmci_cmiknn_sig_samples: int = 30,
     pcmci_cmiknn_knn: float = 0.10,
+    peid_source_support: tuple[float, float] = (-1.8, 1.8),
     oracle_intervention_support: Mapping[str, tuple[float, float]] | None = None,
     oracle_intervention_seed: int = 17021,
 ) -> dict[str, object]:
@@ -2292,7 +2321,17 @@ def run_sine_beta_common_driver_sweep(
             )
             features, targets = make_lagged_dataset(series, lag=config.lag)
             model = train_mlp_transition_model(features, targets, config)
-            peid = estimate_peid_graph(model, series, config)
+            intervention_samples_frame = _sample_sine_beta_peid_intervention_sources(
+                series,
+                config,
+                source_support=peid_source_support,
+            )
+            peid = estimate_peid_graph(
+                model,
+                series,
+                config,
+                intervention_states=intervention_samples_frame,
+            )
             neural_granger = run_neural_granger_readout(
                 features,
                 targets,
@@ -2309,7 +2348,6 @@ def run_sine_beta_common_driver_sweep(
                 foreground_samples=64,
                 background_samples=64,
             )
-            intervention_samples_frame = _sample_intervention_sources(series, config)
             intervention_predictions = model.predict(
                 _intervention_features(intervention_samples_frame, config)
             )
@@ -2376,6 +2414,7 @@ def run_sine_beta_common_driver_sweep(
                     "observational_y_to_z_mi": float(observational_wms["y_mi"]),
                     "observational_xy_to_z_joint_mi": float(observational_wms["joint_mi"]),
                     "observational_wms": float(observational_wms["wms"]),
+                    "wms_estimator": str(observational_wms["estimator"]),
                     "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
                     "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
                     "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
@@ -2534,6 +2573,7 @@ def run_sine_beta_common_driver_sweep(
             "neural_granger_epochs": int(neural_granger_epochs),
             "pcmci_cmiknn_sig_samples": int(pcmci_cmiknn_sig_samples),
             "pcmci_cmiknn_knn": float(pcmci_cmiknn_knn),
+            "peid_source_support": [float(bound) for bound in peid_source_support],
             "oracle_intervention_support": {
                 name: [float(bound) for bound in fixed_oracle_support[name]]
                 for name in ("x", "y", "z")

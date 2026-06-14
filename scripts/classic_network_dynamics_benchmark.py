@@ -30,7 +30,9 @@ PART1_COMBINED_FIGURE_PATH = ROOT / "fig" / "part1_synergy_comparison" / "six_sy
 BENCHMARK_MODEL_NAMES = ("kuramoto", "coupled_rossler", "sis", "wilson_cowan")
 LEGACY_MARKER = "## 附录：原共同驱动 sine 基准"
 SIS_GATE_SWEEP_BETAS = (0.0, 0.25, 0.5, 0.75, 1.0)
-KURAMOTO_COUPLING_VALUES = (0.0, 0.05, 0.1, 0.2, 0.3)
+KURAMOTO_COUPLING_VALUES = (0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5)
+KURAMOTO_FREQUENCY_DETUNING = 0.1
+KURAMOTO_PHASE_POTENTIAL_STRENGTH = 0.2
 KURAMOTO_PEID_DETAIL_COUPLINGS = (
     0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.045, 0.05, 0.055, 0.06, 0.07, 0.08, 0.1,
     0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0,
@@ -39,6 +41,20 @@ LORENZ_RHO_VALUES = (10.0, 15.0, 20.0, 24.0, 28.0)
 LORENZ_UNIFORM_TAU_VALUES = (0.01, 0.02, 0.05, 0.1, 0.2)
 ROSSLER_COUPLING_VALUES = (0.0, 0.1, 0.25, 0.5, 0.75)
 WILSON_COWAN_GAIN_VALUES = (1.0, 2.0, 3.5, 5.1, 7.5)
+TRANSPORT_MAP_DEGREE = 3
+TRANSPORT_MAP_JITTER = 1e-6
+SURD_TM_TARGET_ANCHORS = 128
+SURD_TM_CONDITIONAL_SAMPLES = 64
+
+
+def _transport_map_config() -> dict[str, object]:
+    return {
+        "degree": TRANSPORT_MAP_DEGREE,
+        "jitter": TRANSPORT_MAP_JITTER,
+        "surd_target_anchors": SURD_TM_TARGET_ANCHORS,
+        "surd_conditional_samples": SURD_TM_CONDITIONAL_SAMPLES,
+        "applies_to": ["WMS", "SURD synergy", "MLP+PEID synergy", "Oracle PEID synergy"],
+    }
 
 
 @dataclass(frozen=True)
@@ -227,28 +243,32 @@ def build_kuramoto_coupling_spec(coupling: float) -> ModelSpec:
     coupling = float(coupling)
 
     def kuramoto_field(values: np.ndarray) -> np.ndarray:
-        x, y, w = values.T
+        theta1, theta2 = values.T
         return np.column_stack(
             [
-                1.0 + coupling * np.sin(w - x),
-                1.1 + coupling * np.sin(w - y),
-                np.full(len(values), 0.9),
+                1.0
+                + KURAMOTO_PHASE_POTENTIAL_STRENGTH * np.sin(theta1)
+                + coupling * np.sin(theta2 - theta1),
+                0.9 + KURAMOTO_PHASE_POTENTIAL_STRENGTH * np.sin(theta2),
             ]
         )
 
     return ModelSpec(
         name="kuramoto_phase_coupling",
         display_name=f"Kuramoto kappa={coupling:g}",
-        state_names=("x", "y", "w"),
-        target_names=("dx", "dy", "dw"),
-        equation=rf"\dot x=1+{coupling:g}\sin(w-x),\;\dot y=1.1+{coupling:g}\sin(w-y),\;\dot w=0.9",
+        state_names=("theta1", "theta2"),
+        target_names=("dtheta1", "dtheta2"),
+        equation=(
+            rf"\dot\theta_1=1+0.2\sin\theta_1+{coupling:g}\sin(\theta_2-\theta_1),\;"
+            r"\dot\theta_2=0.9+0.2\sin\theta_2"
+        ),
         dt=0.02,
         warmup_steps=400,
-        intervention_bounds=np.array([[-np.pi, np.pi]] * 3),
-        truth_pairwise=(("w", "dx"), ("w", "dy")),
-        truth_hyperedges=(("w", "x", "dx"), ("w", "y", "dy")),
+        intervention_bounds=np.array([[-np.pi, np.pi]] * 2),
+        truth_pairwise=(("theta1", "dtheta1"), ("theta2", "dtheta1")),
+        truth_hyperedges=(("theta1", "theta2", "dtheta1"),),
         _vector_field=kuramoto_field,
-        _initial_state=lambda rng: rng.uniform(-np.pi, np.pi, size=3),
+        _initial_state=lambda rng: rng.uniform(-np.pi, np.pi, size=2),
     )
 
 
@@ -592,21 +612,128 @@ def _histogram_synergy(left: np.ndarray, right: np.ndarray, target: np.ndarray, 
 
 
 def _transport_synergy(left: np.ndarray, right: np.ndarray, target: np.ndarray) -> dict[str, float]:
-    from yrd import summarize_two_source_synergy_transport_map
+    from yrd import clip_nonnegative_ei, estimate_mutual_information_transport_map
 
-    result = summarize_two_source_synergy_transport_map(left, right, target)
-    return {key: float(result[key]) for key in ("left_ei", "right_ei", "joint_ei", "syn") if key in result}
+    left_array = np.asarray(left, dtype=float).reshape(len(left), -1)
+    right_array = np.asarray(right, dtype=float).reshape(len(right), -1)
+    target_array = np.asarray(target, dtype=float).reshape(len(target), -1)
+    left_ei = float(
+        estimate_mutual_information_transport_map(
+            left_array,
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    right_ei = float(
+        estimate_mutual_information_transport_map(
+            right_array,
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    joint_ei = float(
+        estimate_mutual_information_transport_map(
+            np.column_stack([left_array, right_array]),
+            target_array,
+            jitter=TRANSPORT_MAP_JITTER,
+            degree=TRANSPORT_MAP_DEGREE,
+        )["mi_hat"]
+    )
+    left_ei = clip_nonnegative_ei(left_ei)
+    right_ei = clip_nonnegative_ei(right_ei)
+    joint_ei = clip_nonnegative_ei(joint_ei)
+    return {
+        "left_ei": float(left_ei),
+        "right_ei": float(right_ei),
+        "joint_ei": float(joint_ei),
+        "syn": float(joint_ei - left_ei - right_ei),
+    }
 
 
 def _transport_single(source: np.ndarray, target: np.ndarray) -> float:
-    from yrd import clip_nonnegative_ei, estimate_mutual_information_transport_map, lift_transport_source_features
+    from yrd import clip_nonnegative_ei, estimate_mutual_information_transport_map
 
-    estimate = estimate_mutual_information_transport_map(lift_transport_source_features(source), target)
+    estimate = estimate_mutual_information_transport_map(
+        np.asarray(source, dtype=float).reshape(len(source), -1),
+        np.asarray(target, dtype=float).reshape(len(target), -1),
+        jitter=TRANSPORT_MAP_JITTER,
+        degree=TRANSPORT_MAP_DEGREE,
+    )
     return float(clip_nonnegative_ei(float(estimate["mi_hat"])))
 
 
 def _digest(values: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(values).view(np.uint8)).hexdigest()[:16]
+
+
+def _fitted_model_digest(model: object) -> str:
+    digest = hashlib.sha256()
+    net = getattr(model, "net")
+    for name, value in sorted(net.state_dict().items()):
+        digest.update(name.encode("utf-8"))
+        tensor_values = np.asarray(value.detach().cpu().reshape(-1).tolist(), dtype=np.float32)
+        digest.update(np.ascontiguousarray(tensor_values).view(np.uint8))
+    for name in ("x_mean", "x_std", "y_mean", "y_std"):
+        digest.update(np.ascontiguousarray(np.asarray(getattr(model, name), dtype=float)).view(np.uint8))
+    return digest.hexdigest()[:16]
+
+
+def _part1_fairness_audit(
+    rows: Sequence[dict[str, object]],
+    *,
+    parameter_key: str,
+    estimator: str,
+    zero_values: Sequence[float] = (0.0,),
+) -> dict[str, object]:
+    expected_estimator = "transport_map" if estimator == "transport" else "histogram"
+
+    def parameter_matched(field: str) -> bool:
+        by_seed: dict[int, set[str]] = {}
+        for row in rows:
+            by_seed.setdefault(int(row["seed"]), set()).add(str(row[field]))
+        return all(len(values) == 1 for values in by_seed.values())
+
+    shared_readout = all(
+        str(row["readout_state_digest"]) == str(row["peid_readout_state_digest"])
+        for row in rows
+    )
+    shared_model = all(
+        str(row["shap_mlp_model_digest"]) == str(row["peid_mlp_model_digest"])
+        for row in rows
+    )
+    estimator_consistent = all(
+        str(row[key]) == expected_estimator
+        for row in rows
+        for key in ("wms_estimator", "surd_estimator", "peid_estimator")
+    )
+    raw_fields_match = all(
+        float(row[key]) == float(row[f"raw_{key}"])
+        for row in rows
+        for key in ("wms", "surd_synergy", "shap_interaction", "peid_synergy")
+    )
+    zero_rows = [
+        row
+        for row in rows
+        if any(np.isclose(float(row[parameter_key]), float(value)) for value in zero_values)
+    ]
+    zero_parameter_uses_same_pipeline = bool(zero_rows) and raw_fields_match and estimator_consistent
+    checks = {
+        "zero_parameter_uses_same_pipeline": zero_parameter_uses_same_pipeline,
+        "parameter_matched_train_states": parameter_matched("train_state_digest"),
+        "parameter_matched_readout_states": parameter_matched("readout_state_digest"),
+        "shared_readout_states_for_wms_surd_shap_peid": shared_readout,
+        "same_fitted_mlp_for_shap_and_peid": shared_model,
+        "information_estimator_consistent": estimator_consistent,
+        "reported_zero_residuals_equal_raw_estimates": raw_fields_match,
+    }
+    return {
+        "passed": bool(all(checks.values())),
+        "expected_information_estimator": expected_estimator,
+        "training_vs_readout": "same_registered_distribution_with_held_out_readout_samples",
+        **checks,
+    }
 
 
 def _sample_intervention_states(spec: ModelSpec, *, samples: int, seed: int) -> np.ndarray:
@@ -678,7 +805,10 @@ def estimate_peid_from_samples(
                     "score": float(values["syn"]),
                     "raw_syn": float(values["syn"]),
                     "joint_ei": float(values["joint_ei"]),
-                    "single_ei_sum": float(pair_lookup[(left_idx, target_idx)] + pair_lookup[(right_idx, target_idx)]),
+                    "single_ei_sum": float(
+                        values.get("left_ei", pair_lookup[(left_idx, target_idx)])
+                        + values.get("right_ei", pair_lookup[(right_idx, target_idx)])
+                    ),
                     "signed_residual": float(
                         values.get(
                             "signed_residual",
@@ -865,7 +995,13 @@ def estimate_shap_readout(
 
 
 def observational_wms_surd(
-    states: np.ndarray, targets: np.ndarray, spec: ModelSpec, *, bins: int = 6
+    states: np.ndarray,
+    targets: np.ndarray,
+    spec: ModelSpec,
+    *,
+    bins: int = 6,
+    estimator: str = "transport",
+    seed: int = 0,
 ) -> pd.DataFrame:
     source_index = {name: idx for idx, name in enumerate(spec.state_names)}
     target_index = {name: idx for idx, name in enumerate(spec.target_names)}
@@ -874,17 +1010,49 @@ def observational_wms_surd(
     if spec.name == "wilson_cowan":
         relations = [("w", "x", "dx"), ("w", "y", "dy")]
     for left, right, target in relations:
-        a = _discretize(states[:, source_index[left]], bins)
-        b = _discretize(states[:, source_index[right]], bins)
-        t = _discretize(targets[:, target_index[target]], bins)
-        values = _histogram_synergy(a, b, t, bins)
-        surd = _specific_information_surd(a, b, t)
+        if estimator == "transport":
+            left_values = states[:, [source_index[left]]]
+            right_values = states[:, [source_index[right]]]
+            target_values = targets[:, [target_index[target]]]
+            values = _transport_synergy(left_values, right_values, target_values)
+            from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
+
+            surd = decompose_surd_2source_transport_map(
+                left_values,
+                right_values,
+                target_values,
+                degree=TRANSPORT_MAP_DEGREE,
+                target_anchors=SURD_TM_TARGET_ANCHORS,
+                conditional_samples=SURD_TM_CONDITIONAL_SAMPLES,
+                seed=int(seed),
+            )
+            wms = float(values["syn"])
+            row_extra = {
+                "tm_degree": TRANSPORT_MAP_DEGREE,
+                "tm_jitter": TRANSPORT_MAP_JITTER,
+                "surd_target_anchors": min(SURD_TM_TARGET_ANCHORS, len(target_values)),
+                "surd_conditional_samples": SURD_TM_CONDITIONAL_SAMPLES,
+            }
+        elif estimator == "histogram":
+            a = _discretize(states[:, source_index[left]], bins)
+            b = _discretize(states[:, source_index[right]], bins)
+            t = _discretize(targets[:, target_index[target]], bins)
+            values = _histogram_synergy(a, b, t, bins)
+            surd = _specific_information_surd(a, b, t)
+            wms = float(values["syn"])
+            row_extra = {"bins": int(bins)}
+        else:
+            raise ValueError("estimator must be 'transport' or 'histogram'.")
         rows.append(
             {
                 "sources": "+".join(sorted((left, right))),
                 "target": target,
-                "wms": float(values["syn"]),
+                "wms": wms,
+                "left_mi": float(values["left_ei"]),
+                "right_mi": float(values["right_ei"]),
+                "joint_mi": float(values["joint_ei"]),
                 **surd,
+                **row_extra,
             }
         )
     return pd.DataFrame(rows)
@@ -1199,7 +1367,7 @@ $$
 - Neural Granger：逐目标 cMLP 第一层 source-group norm，仍是 pairwise 预测结构。
 - SHAP：独立背景替换下的单源贡献和二源 inclusion–exclusion interaction。
 - Observational WMS/SURD：直接基于自然轨迹的状态与导数经验分布。
-- PEID：对源状态做独立最大熵干预，再比较联合 EI 与单源 EI；主结果使用 transport-map 估计，smoke 测试使用离散估计。
+- PEID：对源状态做独立最大熵干预，再比较联合 EI 与单源 EI；正式 sweep 和 smoke sweep 均使用 transport-map 估计。
 
 {LEGACY_MARKER}
 
@@ -1231,7 +1399,7 @@ def run_benchmark(
     intervention_samples = 700 if mode == "smoke" else 1800
     epochs = 35 if mode == "smoke" else 180
     neural_epochs = 20 if mode == "smoke" else 100
-    estimator = "histogram" if mode == "smoke" else "transport"
+    estimator = "transport"
     payloads: dict[str, dict[str, object]] = {}
     model_figure_paths: dict[str, Path] = {}
 
@@ -1266,10 +1434,14 @@ def run_benchmark(
                         estimate_neural_granger(states, targets, spec, seed=seed + 4001, epochs=neural_epochs)
                     ),
                     "shap": {key: _frame_records(value) for key, value in shap.items()},
-                    "observational": _frame_records(observational_wms_surd(states, targets, spec)),
+                    "observational": _frame_records(
+                        observational_wms_surd(states, targets, spec, estimator=estimator, seed=seed + 2001)
+                    ),
                 }
             )
         payload = _aggregate_seed_payloads(seed_payloads)
+        payload["estimator"] = estimator
+        payload["transport_map"] = _transport_map_config() if estimator == "transport" else None
         payloads[model_name] = payload
         model_path = figure_dir / f"{model_name}_readout.png"
         _plot_model_result(spec, payload, model_path)
@@ -1286,6 +1458,7 @@ def run_benchmark(
         "models": list(specs),
         "seeds": [int(seed) for seed in seeds],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "summary_figure_path": str(summary_figure_path),
         "model_figure_paths": {key: str(value) for key, value in model_figure_paths.items()},
         "report_path": str(report_path),
@@ -1403,7 +1576,41 @@ def _aggregate_sis_gate_rows(rows: list[dict[str, object]]) -> list[dict[str, ob
 
 
 def _aggregate_kuramoto_coupling_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return _aggregate_sweep_rows(rows, parameter_key="coupling")
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "wms",
+        "surd_synergy",
+        "shap_interaction",
+        "peid_synergy",
+        "oracle_peid_synergy",
+        "phase_locking_value",
+        "wms_left_mi",
+        "wms_right_mi",
+        "wms_joint_mi",
+        "mlp_test_mse",
+        "mlp_baseline_mse",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {
+            "coupling": float(coupling),
+            "n_seeds": int(group["seed"].nunique()),
+        }
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=1) / math.sqrt(len(values))) if len(values) > 1 else 0.0
+        summaries.append(row)
+    return summaries
+
+
+def _phase_locking_value(states: np.ndarray) -> float:
+    values = np.asarray(states, dtype=float)
+    if values.ndim != 2 or values.shape[1] != 2:
+        raise ValueError("Kuramoto states must have shape (n, 2).")
+    phase_difference = values[:, 1] - values[:, 0]
+    return float(np.abs(np.mean(np.exp(1j * phase_difference))))
 
 
 def _aggregate_lorenz_rho_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -1497,7 +1704,7 @@ def _plot_four_method_sweep(
         ax.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
     ax.axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Native synergy readout")
+    ax.set_ylabel("Synergy / Interaction")
     ax.grid(True, alpha=0.22, linewidth=0.8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1517,12 +1724,43 @@ def _plot_sis_gate_sweep(summary: list[dict[str, object]], path: Path) -> None:
 
 
 def _plot_kuramoto_coupling_sweep(summary: list[dict[str, object]], path: Path) -> None:
-    _plot_four_method_sweep(
-        summary,
-        path,
-        parameter_key="coupling",
-        xlabel="Kuramoto phase coupling kappa",
-    )
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.9), constrained_layout=True)
+
+    plv_mean = np.asarray([float(row["phase_locking_value_mean"]) for row in summary])
+    plv_std = np.asarray([float(row["phase_locking_value_std"]) for row in summary])
+    axes[0].plot(couplings, plv_mean, color="#4C78A8", marker="o", linewidth=2.1, label="PLV")
+    axes[0].fill_between(couplings, plv_mean - plv_std, plv_mean + plv_std, color="#4C78A8", alpha=0.14)
+    axes[0].axvline(KURAMOTO_FREQUENCY_DETUNING, color="#777777", linestyle="--", linewidth=1.0, label=r"$|\Delta\omega|=0.1$")
+    axes[0].set_ylabel("Phase-locking value")
+    axes[0].set_title("a  Synchronization", loc="left", fontweight="bold")
+    axes[0].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    for key, label, color, marker in (
+        ("wms", "WMS", "#9C6B5A", "o"),
+        ("peid_synergy", "MLP+PEID synergy", "#2F7D5A", "D"),
+        ("oracle_peid_synergy", "Oracle PEID", "#3D3D3D", "P"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary])
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary])
+        axes[1].plot(couplings, mean, color=color, marker=marker, linewidth=2.1, markersize=5.0, label=label)
+        axes[1].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].axvline(KURAMOTO_FREQUENCY_DETUNING, color="#777777", linestyle="--", linewidth=1.0)
+    axes[1].set_ylabel("Synergy / Interaction")
+    axes[1].set_title("b  Observational vs intervention readout", loc="left", fontweight="bold")
+    axes[1].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    for axis in axes:
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def _plot_kuramoto_peid_detail_sweep(summary: list[dict[str, object]], path: Path) -> None:
@@ -1554,7 +1792,7 @@ def _plot_kuramoto_peid_detail_sweep(summary: list[dict[str, object]], path: Pat
         axes[0, 1].fill_between(
             couplings[zoom], mean[zoom] - std[zoom], mean[zoom] + std[zoom], color=color, alpha=0.14, linewidth=0
         )
-    axes[0, 1].set_title("b  Syn near kappa=0.05", loc="left", fontweight="bold")
+    axes[0, 1].set_title("b  Syn near K=0.05", loc="left", fontweight="bold")
 
     for prefix, label, color, marker, linestyle in (
         ("mlp_joint_ei", "MLP joint EI", colors["mlp"], "D", "-"),
@@ -1622,7 +1860,7 @@ def _run_natural_trajectory_sweep(
     epochs = 35 if mode == "smoke" else 180
     shap_samples = 24 if mode == "smoke" else 72
     noise = 0.01
-    estimator = "histogram"
+    estimator = "transport"
     rows: list[dict[str, object]] = []
 
     for parameter_value in parameter_values:
@@ -1660,7 +1898,7 @@ def _run_natural_trajectory_sweep(
                 spec, peid_states, peid_targets, estimator=estimator
             )
             peid_components = _mean_truth_hyperedge_components(learned["hyperedges"], relations)
-            observational = observational_wms_surd(readout_states, readout_targets, spec)
+            observational = observational_wms_surd(readout_states, readout_targets, spec, estimator=estimator, seed=seed + 6000)
             rows.append(
                 {
                     parameter_key: float(parameter_value),
@@ -1689,6 +1927,7 @@ def _run_natural_trajectory_sweep(
         "seeds": [int(seed) for seed in seeds],
         f"{parameter_key}s": [float(value) for value in parameter_values],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "training_distribution": "multi_initial_condition_natural_trajectory_pool",
         "natural_readout_state_distribution": "held_out_multi_initial_condition_natural_trajectory_pool",
         "peid_readout_state_distribution": "independent_uniform_intervention",
@@ -1726,7 +1965,7 @@ def _run_kuramoto_future_state_sweep(
     peid_samples = 700 if mode == "smoke" else 1400
     shap_samples = 24 if mode == "smoke" else 72
     epochs = 35 if mode == "smoke" else 180
-    estimator = "histogram"
+    estimator = "transport"
     rows: list[dict[str, object]] = []
 
     for coupling in couplings:
@@ -1754,7 +1993,7 @@ def _run_kuramoto_future_state_sweep(
             peid_targets = fitted.predict(peid_states)
             learned = estimate_peid_from_samples(spec, peid_states, peid_targets, estimator=estimator)
             peid_components = _mean_truth_hyperedge_components(learned["hyperedges"], relations)
-            observational = observational_wms_surd(natural_states, natural_targets, spec)
+            observational = observational_wms_surd(natural_states, natural_targets, spec, estimator=estimator, seed=seed + 6000)
             rows.append(
                 {
                     "coupling": float(coupling),
@@ -1783,6 +2022,7 @@ def _run_kuramoto_future_state_sweep(
         "seeds": [int(seed) for seed in seeds],
         "couplings": [float(coupling) for coupling in couplings],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "training_distribution": "equal_natural_and_uniform_intervention",
         "natural_readout_state_distribution": "natural_trajectory",
         "peid_readout_state_distribution": "independent_uniform_intervention",
@@ -1821,7 +2061,7 @@ def _run_natural_trajectory_future_state_sweep(
     epochs = 35 if mode == "smoke" else 180
     shap_samples = 24 if mode == "smoke" else 72
     noise = 0.01
-    estimator = "histogram"
+    estimator = "transport"
     rows: list[dict[str, object]] = []
 
     for parameter_value in parameter_values:
@@ -1864,7 +2104,7 @@ def _run_natural_trajectory_future_state_sweep(
             peid_targets = fitted.predict(peid_states)
             learned = estimate_peid_from_samples(spec, peid_states, peid_targets, estimator=estimator)
             peid_components = _mean_truth_hyperedge_components(learned["hyperedges"], relations)
-            observational = observational_wms_surd(readout_states, readout_targets, spec)
+            observational = observational_wms_surd(readout_states, readout_targets, spec, estimator=estimator, seed=seed + 6000)
             rows.append(
                 {
                     parameter_key: float(parameter_value),
@@ -1894,6 +2134,7 @@ def _run_natural_trajectory_future_state_sweep(
         "seeds": [int(seed) for seed in seeds],
         f"{parameter_key}s": [float(value) for value in parameter_values],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "training_distribution": "multi_initial_condition_natural_trajectory_pool",
         "natural_readout_state_distribution": "held_out_multi_initial_condition_natural_trajectory_pool",
         "peid_readout_state_distribution": "independent_uniform_intervention",
@@ -1932,7 +2173,7 @@ def _plot_ode_future_state_combined(
         xlabel="Kuramoto coupling kappa",
         label=f"Kuramoto future state tau={float(systems['kuramoto']['tau']):g}",
     )
-    axes[0].set_ylabel("Native synergy readout")
+    axes[0].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[1],
         systems["wilson_cowan"]["summary"],
@@ -2070,14 +2311,15 @@ def run_kuramoto_coupling_sweep(
 ) -> dict[str, object]:
     if mode not in {"smoke", "full"}:
         raise ValueError("mode must be 'smoke' or 'full'.")
-    trajectory_samples = 260 if mode == "smoke" else 1000
-    intervention_train_samples = 260 if mode == "smoke" else 1000
+    natural_trajectories = 4 if mode == "smoke" else 12
+    samples_per_trajectory = 65 if mode == "smoke" else 100
+    natural_burnin_steps = 1200 if mode == "smoke" else 2400
     peid_samples = 700 if mode == "smoke" else 1400
     shap_samples = 24 if mode == "smoke" else 72
-    epochs = 35 if mode == "smoke" else 180
-    peid_estimator = "histogram"
+    epochs = 120 if mode == "smoke" else 180
+    peid_estimator = "transport"
+    phase_velocity_noise = 0.01
     rows: list[dict[str, object]] = []
-    train_seed_offset = 991
     peid_seed_offset = 1991
 
     for coupling in couplings:
@@ -2085,13 +2327,16 @@ def run_kuramoto_coupling_sweep(
         relation_key = list(spec.truth_hyperedges)
         for seed in seeds:
             seed = int(seed)
-            natural_states, natural_targets = spec.simulate(seed=seed, samples=trajectory_samples, noise=0.0)
-            uniform_states = _sample_intervention_states(
-                spec, samples=intervention_train_samples, seed=seed + train_seed_offset
+            natural_states, natural_targets = simulate_natural_trajectory_pool(
+                spec,
+                seed=seed,
+                trajectories=natural_trajectories,
+                samples_per_trajectory=samples_per_trajectory,
+                burnin_steps=natural_burnin_steps,
+                noise=phase_velocity_noise,
             )
-            uniform_targets = spec.vector_field(uniform_states)
-            train_states = np.vstack([natural_states, uniform_states])
-            train_targets = np.vstack([natural_targets, uniform_targets])
+            train_states = natural_states
+            train_targets = natural_targets
             fitted = fit_mlp(train_states, train_targets, seed=seed + 300, epochs=epochs)
             shap = estimate_shap_readout(fitted, natural_states, spec, samples=shap_samples, seed=seed + 400)
             natural_learned_targets = fitted.predict(natural_states)
@@ -2100,14 +2345,35 @@ def run_kuramoto_coupling_sweep(
                 samples=peid_samples,
                 seed=peid_seed_offset + int(round(float(coupling) * 10000)),
             )
+            intervention_noise = np.random.default_rng(seed + 5000).normal(
+                0.0,
+                phase_velocity_noise,
+                size=(len(peid_states), 1),
+            )
             peid_targets = fitted.predict(peid_states)
+            peid_targets[:, [0]] += intervention_noise
             learned = estimate_peid_from_samples(
                 spec,
                 peid_states,
                 peid_targets,
                 estimator=peid_estimator,
             )
-            observational = observational_wms_surd(natural_states, natural_targets, spec)
+            oracle_targets = spec.vector_field(peid_states)
+            oracle_targets[:, [0]] += intervention_noise
+            oracle = estimate_peid_from_samples(
+                spec,
+                peid_states,
+                oracle_targets,
+                estimator=peid_estimator,
+            )
+            observational = observational_wms_surd(natural_states, natural_targets, spec, estimator=peid_estimator, seed=seed + 6000)
+            relation = relation_key[0]
+            source_key = "+".join(sorted(relation[:2]))
+            target_key = relation[2]
+            observed_relation = observational[
+                (observational["sources"] == source_key) & (observational["target"] == target_key)
+            ].iloc[0]
+            model_digest = _fitted_model_digest(fitted)
             rows.append(
                 {
                     "coupling": float(coupling),
@@ -2116,13 +2382,24 @@ def run_kuramoto_coupling_sweep(
                     "surd_synergy": _mean_truth_hyperedge_score(observational, relation_key, column="synergy"),
                     "shap_interaction": _mean_truth_hyperedge_score(shap["interactions"], relation_key),
                     "peid_synergy": _mean_truth_hyperedge_score(learned["hyperedges"], relation_key),
+                    "oracle_peid_synergy": _mean_truth_hyperedge_score(oracle["hyperedges"], relation_key),
+                    "phase_locking_value": _phase_locking_value(natural_states),
+                    "wms_left_mi": float(observed_relation["left_mi"]),
+                    "wms_right_mi": float(observed_relation["right_mi"]),
+                    "wms_joint_mi": float(observed_relation["joint_mi"]),
                     "mlp_test_mse": float(fitted.train_mse),
                     "mlp_baseline_mse": float(fitted.baseline_mse),
+                    "train_state_digest": _digest(train_states),
+                    "train_target_digest": _digest(train_targets),
                     "readout_state_digest": _digest(natural_states),
                     "peid_readout_state_digest": _digest(peid_states),
                     "observed_target_digest": _digest(natural_targets),
                     "mlp_target_digest": _digest(natural_learned_targets),
                     "peid_target_digest": _digest(peid_targets),
+                    "oracle_peid_target_digest": _digest(oracle_targets),
+                    "oracle_peid_readout_state_digest": _digest(peid_states),
+                    "shap_mlp_model_digest": model_digest,
+                    "peid_mlp_model_digest": model_digest,
                 }
             )
 
@@ -2134,14 +2411,37 @@ def run_kuramoto_coupling_sweep(
         "couplings": [float(coupling) for coupling in couplings],
         "estimator": peid_estimator,
         "peid_estimator": peid_estimator,
-        "training_distribution": "equal_natural_and_uniform_intervention",
+        "transport_map": _transport_map_config() if peid_estimator == "transport" else None,
+        "training_distribution": "same_natural_trajectory_pool_as_observational_readout",
         "natural_readout_state_distribution": "natural_trajectory",
         "peid_readout_state_distribution": "independent_uniform_intervention",
         "shared_readout_state_distribution": "natural_trajectory_for_wms_surd_shap",
         "peid_target_distribution": "mlp_predicted_vector_field_on_independent_intervention_states",
-        "truth_hyperedges": ["w+x->dx", "w+y->dy"],
-        "fairness": "For each coupling and seed, WMS/SURD and SHAP use the same natural readout states; MLP+PEID uses the same fitted MLP but reads it on independent uniform phase intervention states to preserve mechanism semantics.",
-        "target": "instantaneous_vector_field",
+        "natural_trajectory_protocol": {
+            "trajectories": natural_trajectories,
+            "samples_per_trajectory": samples_per_trajectory,
+            "burnin_steps": natural_burnin_steps,
+        },
+        "phase_velocity_noise_std": phase_velocity_noise,
+        "parameter_key": "coupling",
+        "target_relation": "theta1+theta2->dtheta1",
+        "frequency_detuning": KURAMOTO_FREQUENCY_DETUNING,
+        "phase_potential_strength": KURAMOTO_PHASE_POTENTIAL_STRENGTH,
+        "truth_hyperedges": ["theta1+theta2->dtheta1"],
+        "uncertainty": "mean ± population standard deviation across seeds",
+        "figure_contract": {
+            "panel_a": "phase_locking_value",
+            "panel_b": ["wms", "peid_synergy", "oracle_peid_synergy"],
+            "y_axis_label": "Synergy / Interaction",
+        },
+        "method_data_contract": {
+            "model_training": "same_natural_states_and_targets_as_observational_readout",
+            "observational_readout": "same_natural_states_and_targets_as_model_training",
+            "peid_readout": "independent_uniform_intervention_states",
+        },
+        "mlp_error_evaluation": "in_sample_on_shared_natural_training_and_observational_readout_pool",
+        "fairness": "For each coupling and seed, the MLP is trained on exactly the same natural states and targets used by WMS/SURD and SHAP; MLP+PEID reads that fitted MLP on independent uniform phase intervention states to preserve mechanism semantics.",
+        "target": "instantaneous_phase_velocity_dtheta1",
         "rows": rows,
         "summary": summary,
         "figure_path": str(figure_path),
@@ -2166,7 +2466,7 @@ def run_kuramoto_peid_detail_sweep(
     intervention_train_samples = 260 if mode == "smoke" else 1000
     readout_samples = 700 if mode == "smoke" else 2000
     epochs = 35 if mode == "smoke" else 180
-    estimator = "histogram"
+    estimator = "transport"
     rows: list[dict[str, object]] = []
 
     for coupling in couplings:
@@ -2191,7 +2491,7 @@ def run_kuramoto_peid_detail_sweep(
                 learned["hyperedges"].loc[:, ["score", "raw_syn", "joint_ei", "single_ei_sum", "signed_residual"]] = 0.0
             oracle_components = _mean_truth_hyperedge_components(oracle["hyperedges"], relations)
             mlp_components = _mean_truth_hyperedge_components(learned["hyperedges"], relations)
-            coupling_signal = np.column_stack([oracle_targets[:, 0] - 1.0, oracle_targets[:, 1] - 1.1])
+            coupling_signal = np.column_stack([oracle_targets[:, 0] - 1.0, oracle_targets[:, 1] - 0.9])
             rows.append(
                 {
                     "coupling": float(coupling),
@@ -2218,9 +2518,11 @@ def run_kuramoto_peid_detail_sweep(
         "couplings": [float(coupling) for coupling in couplings],
         "seeds": [int(seed) for seed in seeds],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "target": "instantaneous_vector_field",
-        "truth_hyperedges": ["w+x->dx", "w+y->dy"],
-        "scale_invariance_hypothesis": "For every positive kappa, the coupling target is a nonzero invertible rescaling of the same sine signal, so exact mutual information and quantile-histogram PEID are invariant to kappa.",
+        "truth_hyperedges": ["theta1+theta2->dtheta1"],
+        "phase_potential_strength": KURAMOTO_PHASE_POTENTIAL_STRENGTH,
+        "coupling_weight_hypothesis": "Increasing K strengthens the phase-difference term relative to the fixed active-rotator potential, so intervention PEID need not be scale invariant and should expose the changing joint mechanism.",
         "rows": rows,
         "summary": summary,
         "figure_path": str(figure_path),
@@ -2246,7 +2548,7 @@ def run_sis_gate_sweep(
     peid_samples = 800 if mode == "smoke" else 1800
     shap_samples = 24 if mode == "smoke" else 72
     epochs = 100 if mode == "smoke" else 300
-    peid_estimator = "histogram" if mode == "smoke" else "transport"
+    peid_estimator = "transport"
     tau = 1.0
     rows: list[dict[str, object]] = []
     peid_seed_offset = 1991
@@ -2293,7 +2595,7 @@ def run_sis_gate_sweep(
                 peid_targets,
                 estimator=peid_estimator,
             )
-            observational = observational_wms_surd(natural_states, natural_targets, spec)
+            observational = observational_wms_surd(natural_states, natural_targets, spec, estimator=peid_estimator, seed=seed + 6000)
             readouts = _zero_control_synergy_readouts(
                 inactive=np.isclose(float(beta), 0.0),
                 wms=_mean_truth_hyperedge_score(observational, relation_key, column="wms"),
@@ -2326,6 +2628,7 @@ def run_sis_gate_sweep(
         "betas": [float(beta) for beta in betas],
         "estimator": peid_estimator,
         "peid_estimator": peid_estimator,
+        "transport_map": _transport_map_config() if peid_estimator == "transport" else None,
         "training_distribution": "multi_initial_condition_natural_trajectory_pool",
         "natural_readout_state_distribution": "held_out_multi_initial_condition_natural_trajectory_pool",
         "peid_readout_state_distribution": "independent_uniform_intervention",
@@ -2336,9 +2639,9 @@ def run_sis_gate_sweep(
         "zero_control": {
             "parameter": "beta",
             "value": 0.0,
-            "reported_readouts": "exact_structural_zero",
+            "reported_readouts": "estimated_zero_point_residuals",
             "raw_fields": ["raw_wms", "raw_surd_synergy", "raw_shap_interaction", "raw_peid_synergy"],
-            "reason": "At beta=0 the w-dependent infection gate is absent; raw learned-model values are retained only as surrogate extrapolation diagnostics.",
+            "reason": "At beta=0 the w-dependent infection gate is absent; reported readouts still come from the same fitted-model and transport-map pipeline, while raw_* fields duplicate them for auditability.",
         },
         "fairness": "For each beta and seed, WMS/SURD and SHAP use the same held-out natural readout states; MLP+PEID uses independent uniform intervention states and the same MLP trained only on a separate multi-initial-condition natural pool.",
         "target": "finite_time_next_state",
@@ -2367,7 +2670,7 @@ def run_lorenz_rho_sweep(
     peid_samples = trajectories * samples_per_trajectory
     shap_samples = 24 if mode == "smoke" else 72
     epochs = 35 if mode == "smoke" else 180
-    estimator = "histogram" if mode == "smoke" else "transport"
+    estimator = "transport"
     tau = 0.05
     rows: list[dict[str, object]] = []
 
@@ -2408,7 +2711,7 @@ def run_lorenz_rho_sweep(
             )
             peid_targets = fitted.predict(peid_states)
             learned = estimate_peid_from_samples(spec, peid_states, peid_targets, estimator=estimator)
-            observational = observational_wms_surd(natural_states, natural_targets, spec)
+            observational = observational_wms_surd(natural_states, natural_targets, spec, estimator=estimator, seed=seed + 6000)
             rows.append(
                 {
                     "rho": float(rho),
@@ -2436,6 +2739,7 @@ def run_lorenz_rho_sweep(
         "seeds": [int(seed) for seed in seeds],
         "rhos": [float(rho) for rho in rhos],
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "training_distribution": "multi_initial_condition_natural_trajectory_pool",
         "shared_readout_state_distribution": "held_out_multi_initial_condition_natural_trajectory_pool",
         "peid_readout_state_distribution": "independent_uniform_intervention",
@@ -2470,7 +2774,7 @@ def run_lorenz_uniform_tau_sweep(
     peid_samples = 260 if mode == "smoke" else 1400
     shap_samples = 24 if mode == "smoke" else 72
     epochs = 35 if mode == "smoke" else 180
-    estimator = "histogram" if mode == "smoke" else "transport"
+    estimator = "transport"
     rows: list[dict[str, object]] = []
 
     for tau in taus:
@@ -2498,7 +2802,7 @@ def run_lorenz_uniform_tau_sweep(
                     learned_targets[:peid_samples],
                     estimator=estimator,
                 )
-                observational = observational_wms_surd(readout_states, readout_targets, spec)
+                observational = observational_wms_surd(readout_states, readout_targets, spec, estimator=estimator, seed=base_seed + 6000)
                 rows.append(
                     {
                         "tau": tau,
@@ -2535,6 +2839,7 @@ def run_lorenz_uniform_tau_sweep(
         "tau_selection_rule": "minimize PEID relative range across rho, with penalties for seed variance and nonpositive values",
         "tau_scores": tau_scores,
         "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
         "training_distribution": "independent_uniform",
         "shared_readout_state_distribution": "independent_uniform",
         "peid_target_distribution": "mlp_predicted_next_state_on_shared_uniform_states",
@@ -2565,20 +2870,28 @@ def _plot_panel(
     label: str,
     symlog_linthresh: float | None = None,
     include_oracle_peid: bool = True,
+    separate_surd_axis: bool = False,
 ) -> None:
     x_values = np.asarray([float(row[parameter_key]) for row in summary], dtype=float)
     specs = _available_method_plot_specs(summary) if include_oracle_peid else _method_plot_specs()
+    surd_axis = axis.twinx() if separate_surd_axis else axis
     for key, method_label, color, marker in specs:
+        plot_axis = surd_axis if separate_surd_axis and key == "surd_synergy" else axis
         mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
         std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
-        axis.plot(x_values, mean, marker=marker, linewidth=1.6, markersize=4.0, label=method_label, color=color)
-        axis.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.13, linewidth=0)
+        plot_axis.plot(x_values, mean, marker=marker, linewidth=1.6, markersize=4.0, label=method_label, color=color)
+        plot_axis.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.13, linewidth=0)
     axis.axhline(0.0, color="#888888", linewidth=0.8, linestyle="--")
     axis.set_xlabel(xlabel)
     axis.set_title(label, loc="left", fontsize=9, fontweight="bold")
     axis.grid(True, axis="y", alpha=0.20, linewidth=0.6)
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
+    if separate_surd_axis:
+        surd_axis.set_ylabel("SURD synergy (bits)", color="#E3A13D")
+        surd_axis.tick_params(axis="y", colors="#E3A13D")
+        surd_axis.spines["top"].set_visible(False)
+        surd_axis.spines["right"].set_color("#E3A13D")
     if symlog_linthresh is not None:
         axis.set_yscale("symlog", linthresh=float(symlog_linthresh))
         axis.text(
@@ -2596,9 +2909,9 @@ def _plot_panel(
 def run_part1_combined_synergy_figure(
     *,
     standard_result_path: Path = ROOT / "results" / "coupled_standard_map_method_comparison" / "part1_four_method_synergy.json",
-    rulkov_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "rulkov_synergy_sweep.json",
-    henon_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "coupled_henon_synergy_sweep.json",
-    cournot_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "cournot_synergy_sweep.json",
+    wilson_cowan_refractory_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "wilson_cowan_refractory_synergy_sweep.json",
+    kuramoto_result_path: Path = ROOT / "results" / "classic_network_dynamics_benchmark" / "kuramoto_coupling_synergy_sweep.json",
+    coupled_henon_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "coupled_henon_synergy_sweep.json",
     ikeda_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "ikeda_y_tau_synergy_sweep.json",
     nicholson_bailey_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "nicholson_bailey_synergy_sweep.json",
     figure_path: Path = PART1_COMBINED_FIGURE_PATH,
@@ -2617,9 +2930,9 @@ def run_part1_combined_synergy_figure(
         }
     )
     standard = _load_json(standard_result_path)
-    rulkov = _load_json(rulkov_result_path)
-    henon = _load_json(henon_result_path)
-    cournot = _load_json(cournot_result_path)
+    wilson_cowan_refractory = _load_json(wilson_cowan_refractory_result_path)
+    kuramoto = _load_json(kuramoto_result_path)
+    coupled_henon = _load_json(coupled_henon_result_path)
     ikeda = _load_json(ikeda_result_path)
     nicholson_bailey = _load_json(nicholson_bailey_result_path)
     fig, axes = plt.subplots(2, 3, figsize=(14.8, 7.2), constrained_layout=True)
@@ -2633,32 +2946,33 @@ def run_part1_combined_synergy_figure(
         symlog_linthresh=0.2,
         include_oracle_peid=False,
     )
-    axes[0].set_ylabel("Native synergy readout")
+    axes[0].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[1],
-        rulkov["summary"],
-        parameter_key=str(rulkov.get("parameter_key", "alpha")),
-        xlabel="Rulkov alpha",
-        label="b  Rulkov neuron map",
+        wilson_cowan_refractory["summary"],
+        parameter_key=str(wilson_cowan_refractory.get("parameter_key", "gain")),
+        xlabel="Wilson-Cowan sigmoid gain g",
+        label="b  Wilson-Cowan gain",
         include_oracle_peid=False,
     )
     _plot_panel(
         axes[2],
-        henon["summary"],
-        parameter_key="kappa",
-        xlabel="Coupled Henon kappa",
-        label="c  Coupled Henon map",
+        kuramoto["summary"],
+        parameter_key=str(kuramoto.get("parameter_key", "coupling")),
+        xlabel="Kuramoto coupling K",
+        label="c  Kuramoto phase locking",
         include_oracle_peid=False,
+        separate_surd_axis=True,
     )
     _plot_panel(
         axes[3],
-        cournot["summary"],
-        parameter_key=str(cournot.get("parameter_key", "lambda")),
-        xlabel="Cournot adjustment lambda",
-        label="d  Cournot duopoly",
+        coupled_henon["summary"],
+        parameter_key=str(coupled_henon.get("parameter_key", "kappa")),
+        xlabel="Coupled Henon interaction kappa",
+        label="d  Coupled Henon map",
         include_oracle_peid=False,
     )
-    axes[3].set_ylabel("Native synergy readout")
+    axes[3].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[4],
         ikeda["summary"],
@@ -2682,11 +2996,12 @@ def run_part1_combined_synergy_figure(
     plt.close(fig)
     result = {
         "figure_path": str(figure_path),
+        "y_axis_label": "Synergy / Interaction",
         "panels": {
-            "standard_map": str(standard_result_path),
-            "rulkov": str(rulkov_result_path),
-            "coupled_henon": str(henon_result_path),
-            "cournot": str(cournot_result_path),
+        "standard_map": str(standard_result_path),
+        "wilson_cowan_refractory": str(wilson_cowan_refractory_result_path),
+        "kuramoto_phase_coupling": str(kuramoto_result_path),
+        "coupled_henon": str(coupled_henon_result_path),
             "ikeda_y_tau": str(ikeda_result_path),
             "nicholson_bailey": str(nicholson_bailey_result_path),
         },

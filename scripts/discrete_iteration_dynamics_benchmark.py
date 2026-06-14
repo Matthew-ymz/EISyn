@@ -25,9 +25,11 @@ if str(ROOT) not in sys.path:
 from scripts.classic_network_dynamics_benchmark import (
     _aggregate_sweep_rows,
     _digest,
+    _fitted_model_digest,
     _mean_truth_hyperedge_components,
     _mean_truth_hyperedge_score,
     _method_plot_specs,
+    _part1_fairness_audit,
     _plot_four_method_sweep,
     _plot_panel,
     _zero_control_synergy_readouts,
@@ -35,6 +37,10 @@ from scripts.classic_network_dynamics_benchmark import (
     estimate_shap_readout,
     fit_mlp,
     observational_wms_surd,
+    SURD_TM_CONDITIONAL_SAMPLES,
+    SURD_TM_TARGET_ANCHORS,
+    TRANSPORT_MAP_DEGREE,
+    TRANSPORT_MAP_JITTER,
 )
 
 
@@ -60,13 +66,15 @@ DEFAULT_LORENZ_RESULT_PATH = (
     ROOT / "results" / "classic_network_dynamics_benchmark" / "lorenz_rho_synergy_sweep.json"
 )
 
-IKEDA_U_VALUES = (0.0, 0.40, 0.60, 0.75, 0.85, 0.90)
-NICHOLSON_A_VALUES = (0.0, 0.1, 0.2, 0.35, 0.5)
-RULKOV_ALPHA_VALUES = (0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 4.1, 4.2, 4.3)
+IKEDA_U_VALUES = (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+NICHOLSON_A_VALUES = (0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50)
+WILSON_COWAN_REFRACTORY_GAIN_VALUES = (0.0, 0.4, 0.7, 1.0, 1.4, 2.0, 3.2, 4.0, 6.0)
 REPLICATOR_GAMMA_VALUES = (0.0, 0.25, 0.5, 0.75, 1.0)
 COURNOT_LAMBDA_VALUES = (0.0, 0.05, 0.10, 0.15, 0.20)
-COUPLED_HENON_KAPPA_VALUES = (0.0, 0.02, 0.04, 0.05, 0.06, 0.08)
-BROAD_ONE_STEP_SYSTEMS = frozenset({"ikeda", "nicholson_bailey", "rulkov", "cournot"})
+COUPLED_HENON_KAPPA_VALUES = (0.0, 0.04, 0.08, 0.12, 0.16, 0.20)
+COUPLED_HENON_HISTOGRAM_BINS = 6
+COUPLED_HENON_HISTOGRAM_SENSITIVITY_BINS = (4, 6, 8)
+BROAD_ONE_STEP_SYSTEMS = frozenset({"ikeda", "nicholson_bailey", "wilson_cowan_refractory", "cournot"})
 
 
 Array = np.ndarray
@@ -267,39 +275,54 @@ def build_nicholson_bailey_spec(a: float) -> MapSpec:
     )
 
 
-def build_rulkov_spec(alpha: float) -> MapSpec:
-    alpha = float(alpha)
-    mu = 0.001
-    sigma = -1.0
-    bounds = np.array([[-6.0, 6.0], [-5.0, 2.0]], dtype=float)
-    intervention_sample_bounds = np.array([[-1.5, 1.5], [-1.5, 1.5]], dtype=float)
+def build_wilson_cowan_refractory_spec(gain: float) -> MapSpec:
+    gain = float(gain)
+    dt = 0.05
+    rho = 0.5
+    w_ee = 3.2
+    w_ei = 2.6
+    w_ie = 2.4
+    w_ii = 1.7
+    p_e = 0.35
+    p_i = -0.20
+    bounds = np.array([[0.0, 1.0], [0.0, 1.0]], dtype=float)
+
+    def sigmoid(values: Array) -> Array:
+        return 1.0 / (1.0 + np.exp(-np.clip(values, -60.0, 60.0)))
 
     def transition(values: Array) -> Array:
-        x, y = values.T
-        return np.column_stack([alpha / (1.0 + x * x) + y, y - mu * (x - sigma)])
+        e, i = values.T
+        drive_e = gain * (w_ee * e - w_ei * i + p_e)
+        drive_i = gain * (w_ie * e - w_ii * i + p_i)
+        d_e = -e + (1.0 - rho * e) * sigmoid(drive_e)
+        d_i = -i + (1.0 - rho * i) * sigmoid(drive_i)
+        return np.column_stack([e + dt * d_e, i + dt * d_i])
 
     def sample_intervention(samples: int, seed: int) -> Array:
         rng = np.random.default_rng(int(seed))
-        return np.column_stack(
-            [rng.uniform(low, high, size=int(samples)) for low, high in intervention_sample_bounds]
-        )
+        return rng.uniform(bounds[:, 0], bounds[:, 1], size=(int(samples), 2))
 
     return MapSpec(
-        name="rulkov",
-        display_name="Rulkov",
-        state_names=("x", "y"),
-        target_names=("x_tau", "y_tau"),
-        equation=r"x_{t+1}=\frac{\alpha}{1+x_t^2}+y_t,\;y_{t+1}=y_t-\mu(x_t-\sigma)",
-        parameter_key="alpha",
-        parameter_value=alpha,
-        parameter_values=RULKOV_ALPHA_VALUES,
+        name="wilson_cowan_refractory",
+        display_name="Wilson-Cowan gain",
+        state_names=("E", "I"),
+        target_names=("E_tau", "I_tau"),
+        equation=(
+            r"E_{t+\Delta t}=E_t+\Delta t[-E_t+(1-\rho E_t)"
+            r"S(g(w_{EE}E_t-w_{EI}I_t+P_E))],\;"
+            r"I_{t+\Delta t}=I_t+\Delta t[-I_t+(1-\rho I_t)"
+            r"S(g(w_{IE}E_t-w_{II}I_t+P_I))]"
+        ),
+        parameter_key="gain",
+        parameter_value=gain,
+        parameter_values=WILSON_COWAN_REFRACTORY_GAIN_VALUES,
         intervention_bounds=bounds,
-        truth_hyperedges=(("x", "y", "x_tau"),),
+        truth_hyperedges=(("E", "I", "E_tau"),),
         _transition=transition,
         _project=_clip_project(bounds),
-        _initial_state=lambda rng: np.array([rng.uniform(-1.5, 1.5), rng.uniform(-3.2, -1.2)]),
+        _initial_state=lambda rng: rng.uniform(0.05, 0.85, size=2),
         _sample_intervention=sample_intervention,
-        burnin_steps=120,
+        burnin_steps=40,
     )
 
 
@@ -450,7 +473,7 @@ MAP_BUILDERS: "OrderedDict[str, BuildSpec]" = OrderedDict(
     [
         ("ikeda", build_ikeda_spec),
         ("nicholson_bailey", build_nicholson_bailey_spec),
-        ("rulkov", build_rulkov_spec),
+        ("wilson_cowan_refractory", build_wilson_cowan_refractory_spec),
         ("replicator", build_replicator_spec),
         ("cournot", build_cournot_spec),
     ]
@@ -460,7 +483,7 @@ MAP_BUILDERS: "OrderedDict[str, BuildSpec]" = OrderedDict(
 PANEL_META = {
     "ikeda": ("b  Ikeda optical cavity", "Ikeda parameter u"),
     "nicholson_bailey": ("c  Nicholson-Bailey host-parasitoid", "Attack rate a"),
-    "rulkov": ("d  Rulkov neuron map", "Rulkov alpha"),
+    "wilson_cowan_refractory": ("d  Wilson-Cowan gain", "Sigmoid gain g"),
     "replicator": ("e  Discrete replicator", "Payoff intensity gamma"),
     "cournot": ("f  Cournot duopoly", "Adjustment lambda"),
 }
@@ -769,7 +792,7 @@ def _sweep_parameters(mode: str) -> dict[str, int | float | str]:
             "samples_per_trajectory": 25,
             "epochs": 25,
             "shap_samples": 18,
-            "estimator": "histogram",
+            "estimator": "transport",
         }
     return {
         "trajectories": 12,
@@ -782,6 +805,12 @@ def _sweep_parameters(mode: str) -> dict[str, int | float | str]:
 
 def _coupled_henon_sweep_parameters(mode: str) -> dict[str, int | float | str]:
     params = dict(_sweep_parameters(mode))
+    params.update(
+        {
+            "estimator": "histogram",
+            "bins": COUPLED_HENON_HISTOGRAM_BINS,
+        }
+    )
     if mode == "full":
         params.update(
             {
@@ -799,15 +828,15 @@ def _coupled_henon_sweep_parameters(mode: str) -> dict[str, int | float | str]:
     return params
 
 
-def _rulkov_sweep_parameters(mode: str) -> dict[str, int | float | str]:
+def _wilson_cowan_refractory_sweep_parameters(mode: str) -> dict[str, int | float | str]:
     params = dict(_sweep_parameters(mode))
-    params["epochs"] = 120 if mode == "smoke" else 2400
+    params["epochs"] = 120 if mode == "smoke" else 1200
     return params
 
 
 def _broad_one_step_sweep_parameters(mode: str, *, system: str) -> dict[str, int | float | str]:
-    if system == "rulkov":
-        return _rulkov_sweep_parameters(mode)
+    if system == "wilson_cowan_refractory":
+        return _wilson_cowan_refractory_sweep_parameters(mode)
     params = dict(_sweep_parameters(mode))
     if mode == "full":
         params["epochs"] = max(int(params["epochs"]), 600)
@@ -929,6 +958,7 @@ def _run_map_sweep(
     readout_factory: ReadoutFactory | None = None,
     peid_uses_readout_states: bool = False,
     distribution_metadata: Mapping[str, object] | None = None,
+    histogram_sensitivity_bins: Sequence[int] = (),
 ) -> dict[str, object]:
     params = {**_sweep_parameters(mode), **(params_override or {})}
     builder = builder_override or MAP_BUILDERS[system]
@@ -973,6 +1003,7 @@ def _run_map_sweep(
                     spec, seed, params
                 )
             learned_readout_targets = fitted.predict(readout_states)
+            model_digest = _fitted_model_digest(fitted)
             shap = estimate_shap_readout(
                 fitted,
                 readout_states,
@@ -999,6 +1030,7 @@ def _run_map_sweep(
                 peid_states,
                 peid_targets,
                 estimator=str(params["estimator"]),
+                bins=int(params.get("bins", 6)),
             )
             peid_components = _mean_truth_hyperedge_components(learned["hyperedges"], relations)
             oracle = estimate_peid_from_samples(
@@ -1006,9 +1038,64 @@ def _run_map_sweep(
                 peid_states,
                 peid_observed_targets,
                 estimator=str(params["estimator"]),
+                bins=int(params.get("bins", 6)),
             )
             oracle_components = _mean_truth_hyperedge_components(oracle["hyperedges"], relations)
-            observational = observational_wms_surd(readout_states, readout_targets, spec)
+            observational = observational_wms_surd(
+                readout_states,
+                readout_targets,
+                spec,
+                bins=int(params.get("bins", 6)),
+                estimator=str(params["estimator"]),
+                seed=seed + 6000,
+            )
+            histogram_sensitivity: list[dict[str, float | int]] = []
+            for sensitivity_bins in histogram_sensitivity_bins:
+                sensitivity_learned = estimate_peid_from_samples(
+                    spec,
+                    peid_states,
+                    peid_targets,
+                    estimator="histogram",
+                    bins=int(sensitivity_bins),
+                )
+                sensitivity_oracle = estimate_peid_from_samples(
+                    spec,
+                    peid_states,
+                    peid_observed_targets,
+                    estimator="histogram",
+                    bins=int(sensitivity_bins),
+                )
+                sensitivity_observational = observational_wms_surd(
+                    readout_states,
+                    readout_targets,
+                    spec,
+                    bins=int(sensitivity_bins),
+                    estimator="histogram",
+                    seed=seed + 6000,
+                )
+                histogram_sensitivity.append(
+                    {
+                        "bins": int(sensitivity_bins),
+                        "wms": _mean_truth_hyperedge_score(
+                            sensitivity_observational,
+                            relations,
+                            column="wms",
+                        ),
+                        "surd_synergy": _mean_truth_hyperedge_score(
+                            sensitivity_observational,
+                            relations,
+                            column="synergy",
+                        ),
+                        "peid_synergy": _mean_truth_hyperedge_score(
+                            sensitivity_learned["hyperedges"],
+                            relations,
+                        ),
+                        "oracle_peid_synergy": _mean_truth_hyperedge_score(
+                            sensitivity_oracle["hyperedges"],
+                            relations,
+                        ),
+                    }
+                )
             inactive = any(np.isclose(float(parameter_value), float(value)) for value in structural_zero_values)
             inactive = inactive or (
                 system in {"cournot", "nicholson_bailey"} and np.isclose(float(parameter_value), 0.0)
@@ -1019,6 +1106,9 @@ def _run_map_sweep(
                 surd_synergy=_mean_truth_hyperedge_score(observational, relations, column="synergy"),
                 shap_interaction=_mean_truth_hyperedge_score(shap["interactions"], relations),
                 peid_synergy=_mean_truth_hyperedge_score(learned["hyperedges"], relations),
+            )
+            estimator_label = (
+                "transport_map" if str(params["estimator"]) == "transport" else "histogram"
             )
             rows.append(
                 {
@@ -1039,6 +1129,17 @@ def _run_map_sweep(
                     "mlp_target_digest": _digest(learned_readout_targets),
                     "peid_target_digest": _digest(peid_targets),
                     "peid_observed_target_digest": _digest(peid_observed_targets),
+                    "wms_estimator": estimator_label,
+                    "surd_estimator": estimator_label,
+                    "peid_estimator": estimator_label,
+                    "shap_mlp_model_digest": model_digest,
+                    "peid_mlp_model_digest": model_digest,
+                    "mlp_model_digest": model_digest,
+                    **(
+                        {"histogram_sensitivity": histogram_sensitivity}
+                        if histogram_sensitivity
+                        else {}
+                    ),
                     **model_metadata,
                     **readout_metadata,
                 }
@@ -1046,7 +1147,42 @@ def _run_map_sweep(
 
     template_spec = builder(float(parameter_values[0]))
     summary = _aggregate_sweep_rows(rows, parameter_key=template_spec.parameter_key)
+    sensitivity_summary: list[dict[str, object]] = []
+    if histogram_sensitivity_bins:
+        sensitivity_rows = [
+            {
+                template_spec.parameter_key: row[template_spec.parameter_key],
+                "seed": row["seed"],
+                **item,
+            }
+            for row in rows
+            for item in row["histogram_sensitivity"]  # type: ignore[index]
+        ]
+        sensitivity_frame = pd.DataFrame(sensitivity_rows)
+        for (parameter_value, bins), group in sensitivity_frame.groupby(
+            [template_spec.parameter_key, "bins"],
+            sort=True,
+        ):
+            sensitivity_row: dict[str, object] = {
+                template_spec.parameter_key: float(parameter_value),
+                "bins": int(bins),
+                "n_seeds": int(group["seed"].nunique()),
+            }
+            for metric in ("wms", "surd_synergy", "peid_synergy", "oracle_peid_synergy"):
+                values = group[metric].astype(float)
+                sensitivity_row[f"{metric}_mean"] = float(values.mean())
+                sensitivity_row[f"{metric}_std"] = float(values.std(ddof=0))
+            sensitivity_summary.append(sensitivity_row)
     metadata = dict(distribution_metadata or {})
+    fairness_audit = _part1_fairness_audit(
+        rows,
+        parameter_key=template_spec.parameter_key,
+        estimator=str(params["estimator"]),
+        zero_values=(
+            tuple(float(value) for value in structural_zero_values)
+            or ((0.0,) if any(np.isclose(float(value), 0.0) for value in parameter_values) else ())
+        ),
+    )
     result = {
         "mode": mode,
         "system": result_system or system,
@@ -1055,6 +1191,36 @@ def _run_map_sweep(
         "parameter_values": [float(value) for value in parameter_values],
         "seeds": [int(seed) for seed in seeds],
         "estimator": params["estimator"],
+        "transport_map": (
+            {
+                "degree": TRANSPORT_MAP_DEGREE,
+                "jitter": TRANSPORT_MAP_JITTER,
+                "surd_target_anchors": SURD_TM_TARGET_ANCHORS,
+                "surd_conditional_samples": SURD_TM_CONDITIONAL_SAMPLES,
+                "applies_to": ["WMS", "SURD synergy", "MLP+PEID synergy", "Oracle PEID synergy"],
+            }
+            if str(params["estimator"]) == "transport"
+            else None
+        ),
+        "histogram": (
+            {
+                "main_bins": int(params.get("bins", 6)),
+                "sensitivity_bins": [int(value) for value in histogram_sensitivity_bins],
+                "binning": "uniform_width_per_variable",
+                "applies_to": ["WMS", "SURD synergy", "MLP+PEID synergy", "Oracle PEID synergy"],
+                "shap_scale": "continuous_model_response",
+            }
+            if str(params["estimator"]) == "histogram"
+            else None
+        ),
+        "histogram_sensitivity": (
+            {
+                "bins": [int(value) for value in histogram_sensitivity_bins],
+                "summary": sensitivity_summary,
+            }
+            if histogram_sensitivity_bins
+            else None
+        ),
         "training_distribution": metadata.get(
             "training_distribution",
             "multi_initial_condition_natural_trajectory_pool",
@@ -1109,7 +1275,7 @@ def _run_map_sweep(
                 "value": float(structural_zero_values[0]) if structural_zero_values else 0.0,
                 "reported_readouts": "estimated_zero_point_residuals",
                 "raw_fields": ["raw_wms", "raw_surd_synergy", "raw_shap_interaction", "raw_peid_synergy"],
-                "reason": "At the registered zero-control parameter the target interaction is absent; raw learned-model values are retained as the reported readouts so zero-point residuals remain auditable.",
+                "reason": "At the registered zero-control parameter the target interaction is absent; reported readouts still come from the same fitted-model and configured estimator pipeline, while raw_* fields duplicate them for auditability.",
             }
             if structural_zero_values or system in {"cournot", "nicholson_bailey"}
             else None
@@ -1120,6 +1286,7 @@ def _run_map_sweep(
             or "For each parameter and seed, WMS/SURD and SHAP use the same held-out natural map states; "
             "MLP+PEID uses independent intervention-domain states and the same MLP trained on a separate natural pool."
         ),
+        "fairness_audit": fairness_audit,
         "rows": rows,
         "summary": summary,
         "figure_path": str(figure_path),
@@ -1357,6 +1524,7 @@ def run_coupled_henon_sweep(
         readout_factory=_broad_one_step_readout_factory,
         peid_uses_readout_states=True,
         distribution_metadata=_coupled_henon_broad_distribution_metadata(),
+        histogram_sensitivity_bins=COUPLED_HENON_HISTOGRAM_SENSITIVITY_BINS,
     )
     rows = list(result["rows"])
     summary = list(result["summary"])
@@ -1375,6 +1543,7 @@ def run_coupled_henon_sweep(
             interventions,
             spec.transition(interventions),
             estimator=str(params["estimator"]),
+            bins=int(params.get("bins", 6)),
         )
         oracle_score = _mean_truth_hyperedge_score(
             oracle["hyperedges"],
@@ -1824,12 +1993,11 @@ def _peid_note(system: str, payload: Mapping[str, object], parameter_key: str) -
         return prefix + "读数持续为正是合理的，因为 Ikeda 相位项由 `x,y` 的联合半径和旋转共同决定；但它不必随 `u` 单调，因为信息读数不是幅值计。"
     if system == "nicholson_bailey":
         return prefix + "高攻击率区间转正符合 `H_t e^{-aP_t}` 与 `H_t(1-e^{-aP_t})` 的乘性结构；低攻击率处的正值应主要看作有限样本和 MLP 读出的零点残差。"
-    if system == "rulkov":
+    if system == "wilson_cowan_refractory":
         return (
             prefix
-            + "`alpha=0` 时真实映射退化为 `x_tau=y`，Oracle TM Syn 近似为零；"
-            "当前 broad one-step 训练与共享 broad readout 后，MLP+PEID 的零点残差也接近零。"
-            "正 `alpha` 区间的读数与 Oracle 接近，对应快变量非线性项与慢变量 `y` 对 `x_tau` 的共同约束。"
+            + "`gain=0` 时 sigmoid input 退化为常数，`I` 不再影响 `E_tau`；"
+            "正 `gain` 后，`E` 和 `I` 通过 sigmoid population input 共同改变 `E_tau` 的局部响应面。"
         )
     if system == "replicator":
         return prefix + "当前 `score` 为非负条件总相关；旧的负 residual 来自 simplex 约束下源策略频率不独立，不应解释为 PEID 协同为负。"
@@ -1857,10 +2025,10 @@ def write_report(
         "## 读图口径",
         "",
         "- 目标统一为一步映射 `s_t -> s_{t+1}`，不再预测 ODE 导数或 RK4 有限时间流。",
-        "- Standard Map、Ikeda、Nicholson-Bailey、Rulkov 和 Cournot 使用覆盖注册干预域的 broad one-step train/readout pools；WMS/SURD/SHAP、MLP+PEID 和 Oracle PEID 共享同一批 held-out broad readout states。",
+        "- Standard Map、Ikeda、Nicholson-Bailey、Wilson-Cowan refractory 和 Cournot 使用覆盖注册干预域的 broad one-step train/readout pools；WMS/SURD/SHAP、MLP+PEID 和 Oracle PEID 共享同一批 held-out broad readout states。",
         "- 同一系统、参数和 seed 下，SHAP 与 PEID 使用同一个 fitted MLP；PEID states 与 WMS/SURD/SHAP readout states 的 digest 在 JSON 中一致。",
         "- Replicator 仍保留 simplex 约束下的专用读出口径；histogram `score` 使用非负条件总相关，`signed_residual` 只作为源侧相关诊断。",
-        "- 对由扫描参数显式关闭的结构交互，展示曲线使用同一流程的估计值，不再替换成结构零；`raw_*` 字段保留为同值审计列。",
+        "- 对由扫描参数显式关闭的结构交互，展示曲线仍使用同一 fitted MLP 与 transport-map 流程的估计值；`raw_*` 字段保留为同值审计列。",
         "- 曲线为 seeds 的算术均值，阴影为 population standard deviation。",
         "- Standard map panel 使用 `symlog` 纵轴，以免 SURD 极端误差带压扁较小的 PEID 趋势；原始数值没有改变。",
         f"- Standard map panel 读取既有结果：`{_relative(standard_result_path, base)}`。",
@@ -1947,6 +2115,7 @@ def run_discrete_iteration_benchmark(
             seeds=seeds,
             result_path=result_path,
             figure_path=figure_path,
+            structural_zero_values=(0.0,) if name == "wilson_cowan_refractory" else (),
             params_override=_broad_one_step_sweep_parameters(mode, system=name) if broad_protocol else None,
             surrogate_factory=_broad_one_step_surrogate_factory if broad_protocol else None,
             readout_factory=_broad_one_step_readout_factory if broad_protocol else None,

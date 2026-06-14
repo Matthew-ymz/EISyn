@@ -103,23 +103,55 @@ def test_part1_four_method_protocol_records_shared_training_contract(tmp_path: P
     assert result["protocol"]["shared_readout_state_distribution"] == "held_out_broad_intervention_domain_one_step_pool"
     assert result["protocol"]["peid_state_distribution"] == "same_held_out_broad_states_as_wms_surd_shap"
     assert result["protocol"]["oracle_peid_state_distribution"] == "same_held_out_broad_states_as_all_methods"
+    assert result["protocol"]["wms_synergy_estimator"] == "transport_map"
+    assert result["protocol"]["surd_synergy_estimator"] == "transport_map"
+    assert result["protocol"]["peid_synergy_estimator"] == "transport_map"
+    assert result["protocol"]["transport_map"]["degree"] == 3
     assert contract["model_training"] == "one_shared_broad_training_pool"
     assert contract["observational_readout"] == "one_shared_broad_held_out_pool"
     assert contract["model_reuse"] == "same_fitted_mlp_for_shap_and_peid"
     assert contract["peid_interventions"] == "same_broad_held_out_pool"
     assert contract["seed_usage"] == "same_seed_set_for_all_methods_at_each_coupling"
     assert result["protocol"]["seed_usage"]["seed_set"] == [0, 1, 2]
+    assert result["fairness_audit"]["passed"]
+    assert result["fairness_audit"]["zero_parameter_uses_same_pipeline"]
+    assert result["fairness_audit"]["parameter_matched_train_states"]
+    assert result["fairness_audit"]["parameter_matched_readout_states"]
     assert result["summary"][0]["n_seeds"] == 3
     for row in result["runs"]:
         assert row["readout_state_digest"] == row["peid_state_digest"]
         assert row["readout_state_digest"] == row["oracle_peid_state_digest"]
         assert row["shap_mlp_model_digest"] == row["peid_mlp_model_digest"]
+        assert row["wms_estimator"] == "transport_map"
+        assert row["surd_estimator"] == "transport_map"
+        assert row["peid_estimator"] == "transport_map"
+        assert row["transport_map"]["degree"] == result["protocol"]["transport_map"]["degree"]
         assert {
             "train_state_digest",
             "validation_state_digest",
             "readout_state_digest",
             "readout_target_digest",
         } <= set(row)
+
+
+def test_part1_zero_and_active_couplings_use_parameter_matched_input_pools(tmp_path: Path) -> None:
+    result = run_part1_four_method_comparison(
+        result_path=tmp_path / "part1.json",
+        figure_path=tmp_path / "part1.png",
+        couplings=(0.0, 0.2),
+        seeds=(0,),
+        epochs=1,
+        hidden_width=4,
+        intervention_samples=30,
+    )
+
+    zero, active = result["runs"]
+    assert zero["train_state_digest"] == active["train_state_digest"]
+    assert zero["validation_state_digest"] == active["validation_state_digest"]
+    assert zero["readout_state_digest"] == active["readout_state_digest"]
+    assert zero["wms_estimator"] == active["wms_estimator"] == "transport_map"
+    assert zero["surd_estimator"] == active["surd_estimator"] == "transport_map"
+    assert zero["peid_estimator"] == active["peid_estimator"] == "transport_map"
 
 
 def test_smoke_run_emits_all_methods_and_matched_interventions(tmp_path: Path) -> None:
