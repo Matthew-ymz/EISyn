@@ -27,6 +27,8 @@ DEFAULT_RESULT_DIR = ROOT / "results" / "granger_peid_mlp_comparison"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "granger_peid_mlp_comparison"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "granger_peid_mlp_comparison.md"
 VARIABLE_NAMES = ("x", "y", "z", "w")
+COMMON_DRIVER_TARGET_COEFFICIENT = 0.15
+BETA_COMMON_DRIVER_SWEEP_VALUES = tuple(round(value, 2) for value in np.linspace(0.0, 1.0, 21))
 
 
 @dataclass(frozen=True)
@@ -187,9 +189,12 @@ def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]
             data[t + 1, 2] = (
                 0.22 * data[t, 2]
                 + sine_signal
+                + COMMON_DRIVER_TARGET_COEFFICIENT * beta * data[t, 3]
                 + rng.normal(0.0, config.noise)
             )
         truth_pairwise.update({("w", "x"), ("w", "y")})
+        if beta > 0.0:
+            truth_pairwise.add(("w", "z"))
         truth_hyperedges.add(("x", "y", "z"))
 
     elif config.mechanism == "linear_additive":
@@ -2242,7 +2247,7 @@ def _observational_wms(
 
 def run_sine_beta_common_driver_sweep(
     *,
-    beta_values: Sequence[float] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+    beta_values: Sequence[float] = BETA_COMMON_DRIVER_SWEEP_VALUES,
     seeds: Sequence[int] = (0, 1, 2, 3),
     n_samples: int = 1100,
     alpha: float = 1.0,
@@ -2567,6 +2572,7 @@ def run_sine_beta_common_driver_sweep(
             "seeds": [int(value) for value in seeds],
             "n_samples": int(n_samples),
             "alpha": float(alpha),
+            "common_driver_target_coefficient": float(COMMON_DRIVER_TARGET_COEFFICIENT),
             "noise": float(noise),
             "mlp_epochs": int(mlp_epochs),
             "intervention_samples": int(intervention_samples),
@@ -2677,6 +2683,101 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     }
 
 
+_BETA_NCS_METHOD_STYLES = {
+    "observational": {"color": "#4C78A8", "alpha": 0.62, "linewidth": 1.15},
+    "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 1.65},
+    "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 1.65},
+    "surd": {"color": "#8C8C8C", "alpha": 0.62, "linewidth": 1.15},
+    "shap": {"color": "#E68613", "alpha": 0.62, "linewidth": 1.15},
+    "pcmci": {"color": "#D65F8F", "alpha": 0.62, "linewidth": 1.15},
+    "neural_granger": {"color": "#27A6B8", "alpha": 0.62, "linewidth": 1.15},
+}
+
+
+def _configure_beta_ncs_style() -> None:
+    import matplotlib as mpl
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 6.5,
+            "axes.labelsize": 6.5,
+            "axes.titlesize": 7.0,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.65,
+            "xtick.labelsize": 6.0,
+            "ytick.labelsize": 6.0,
+            "xtick.major.width": 0.65,
+            "ytick.major.width": 0.65,
+            "legend.frameon": False,
+            "legend.fontsize": 5.8,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+            "savefig.facecolor": "white",
+        }
+    )
+
+
+def _plot_beta_mean_line(
+    ax,
+    frame: pd.DataFrame,
+    y_col: str,
+    *,
+    label: str,
+    color: str,
+    marker: str = "o",
+    alpha: float = 1.0,
+    linewidth: float = 1.2,
+    zorder: float = 2,
+) -> None:
+    ax.plot(
+        frame["beta"].to_numpy(dtype=float),
+        frame[y_col].to_numpy(dtype=float),
+        marker=marker,
+        markevery=max(1, (len(frame) - 1) // 5),
+        color=color,
+        linestyle="-",
+        linewidth=linewidth,
+        markersize=3.2,
+        markeredgecolor="white",
+        markeredgewidth=0.35,
+        alpha=alpha,
+        label=label,
+        zorder=zorder,
+    )
+
+
+def _set_beta_axis_ticks(*axes) -> None:
+    major_ticks = np.linspace(0.0, 1.0, 6)
+    for ax in axes:
+        ax.set_xlim(-0.01, 1.01)
+        ax.set_xticks(major_ticks)
+        ax.set_xticklabels([f"{value:.1f}" for value in major_ticks])
+
+
+def _add_ncs_panel_label(ax, label: str) -> None:
+    ax.text(
+        -0.085,
+        1.02,
+        label,
+        transform=ax.transAxes,
+        fontsize=8,
+        fontweight="bold",
+        ha="left",
+        va="bottom",
+    )
+
+
+def _save_beta_figure(fig, figure_dir: Path, stem: str) -> Path:
+    png_path = figure_dir / f"{stem}.png"
+    fig.savefig(png_path, dpi=600, bbox_inches="tight")
+    fig.savefig(figure_dir / f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(figure_dir / f"{stem}.svg", bbox_inches="tight")
+    return png_path
+
+
 def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
     summary_rows = beta_result.get("summary", [])
     if not summary_rows:
@@ -2686,39 +2787,20 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
     from matplotlib.lines import Line2D
 
     matplotlib.use("Agg")
-    import matplotlib as mpl
     import matplotlib.pyplot as plt
 
     frame = pd.DataFrame(summary_rows).sort_values("beta")
-    mpl.rcParams.update(
-        {
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
-            "font.size": 8,
-            "axes.spines.right": False,
-            "axes.spines.top": False,
-            "axes.linewidth": 0.8,
-            "legend.frameon": False,
-        }
-    )
+    _configure_beta_ncs_style()
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig, ax_bits = plt.subplots(figsize=(13.2, 5.4), constrained_layout=True)
+    fig, ax_bits = plt.subplots(figsize=(7.2, 3.55), constrained_layout=True)
     ax_native = ax_bits.twinx()
     ax_ng = ax_bits.twinx()
-    ax_ng.spines.right.set_position(("axes", 1.14))
+    ax_ng.spines.right.set_position(("axes", 1.10))
     ax_ng.spines.right.set_visible(True)
     source_markers = {"x": "^", "y": "v"}
-    method_styles = {
-        "observational": {"color": "#4C78A8", "alpha": 0.50, "linewidth": 1.8},
-        "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 2.5},
-        "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 2.5},
-        "surd": {"color": "#8C8C8C", "alpha": 0.48, "linewidth": 1.8},
-        "shap": {"color": "#E68613", "alpha": 0.50, "linewidth": 1.8},
-        "pcmci": {"color": "#D65F8F", "alpha": 0.48, "linewidth": 1.8},
-        "neural_granger": {"color": "#27A6B8", "alpha": 0.50, "linewidth": 1.8},
-    }
+    method_styles = _BETA_NCS_METHOD_STYLES
 
-    def line_with_errorbar(
+    def line_mean(
         ax,
         y_col: str,
         std_col: str,
@@ -2730,34 +2812,16 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
         linewidth: float = 2.0,
         zorder: float = 2,
     ) -> None:
-        x = frame["beta"].to_numpy(dtype=float)
-        y = frame[y_col].to_numpy(dtype=float)
-        std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
-        ax.plot(
-            x,
-            y,
+        _plot_beta_mean_line(
+            ax,
+            frame,
+            y_col,
+            label=label,
             marker=marker,
             color=color,
-            linestyle="-",
             linewidth=linewidth,
-            markersize=6.8,
-            markeredgecolor="white",
-            markeredgewidth=0.65,
             alpha=alpha,
-            label=label,
             zorder=zorder,
-        )
-        ax.errorbar(
-            x,
-            y,
-            yerr=std,
-            fmt="none",
-            ecolor=color,
-            elinewidth=0.75,
-            capsize=2.2,
-            capthick=0.75,
-            alpha=alpha * 0.55,
-            zorder=1,
         )
 
     for y_col, std_col, label, source, method in [
@@ -2771,7 +2835,7 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
         ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "y", "surd"),
     ]:
         style = method_styles[method]
-        line_with_errorbar(
+        line_mean(
             ax_bits,
             y_col,
             std_col,
@@ -2783,7 +2847,6 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
             zorder=3 if "peid" in method else 2,
         )
     ax_bits.set_ylabel("Information (bits)")
-    ax_bits.set_title("Single-source effects")
 
     for y_col, std_col, label, source, method in [
         ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "x", "shap"),
@@ -2793,7 +2856,7 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
     ]:
         if y_col in frame and std_col in frame:
             style = method_styles[method]
-            line_with_errorbar(
+            line_mean(
                 ax_native,
                 y_col,
                 std_col,
@@ -2811,7 +2874,7 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
     ]:
         if y_col in frame and std_col in frame:
             style = method_styles[method]
-            line_with_errorbar(
+            line_mean(
                 ax_ng,
                 y_col,
                 std_col,
@@ -2823,13 +2886,11 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
             )
     ax_ng.set_ylabel("Neural Granger group norm")
 
-    for ax in [ax_bits, ax_native, ax_ng]:
-        ax.set_xlabel("beta: common-driver strength")
-        ax.set_xticks(frame["beta"].to_numpy(dtype=float))
-    ax_bits.grid(alpha=0.18, linewidth=0.5)
+    ax_bits.set_xlabel(r"$\beta$: common-driver strength")
+    _set_beta_axis_ticks(ax_bits, ax_native, ax_ng)
     source_handles = [
-        Line2D([], [], color="#374151", marker=source_markers["x"], linestyle="none", markersize=8, label=r"$x \to z$"),
-        Line2D([], [], color="#374151", marker=source_markers["y"], linestyle="none", markersize=8, label=r"$y \to z$"),
+        Line2D([], [], color="#374151", marker=source_markers["x"], linestyle="none", markersize=4.2, label=r"$x \to z$"),
+        Line2D([], [], color="#374151", marker=source_markers["y"], linestyle="none", markersize=4.2, label=r"$y \to z$"),
     ]
     method_specs = [
         ("Obs. MI (bits)", "observational"),
@@ -2852,35 +2913,16 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
         )
         for label, method in method_specs
     ]
-    source_legend = ax_bits.legend(
-        handles=source_handles,
-        title="Source marker",
-        loc="upper left",
-        bbox_to_anchor=(1.23, 1.0),
-        fontsize=9.2,
-        title_fontsize=9.6,
-        handlelength=3.2,
-        labelspacing=0.8,
-        borderaxespad=0.0,
-        frameon=False,
-    )
-    ax_bits.add_artist(source_legend)
-    ax_bits.legend(
-        handles=method_handles,
-        title="Method color / opacity",
-        loc="upper left",
-        bbox_to_anchor=(1.23, 0.72),
-        fontsize=9.2,
-        title_fontsize=9.6,
-        handlelength=3.2,
-        handletextpad=0.9,
-        labelspacing=0.85,
-        borderaxespad=0.0,
-        frameon=False,
+    fig.legend(
+        handles=source_handles + method_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.04),
+        ncol=5,
+        handlelength=2.2,
+        columnspacing=1.1,
     )
 
-    path = figure_dir / "sine_beta_single_source_readout_sweep.png"
-    fig.savefig(path, dpi=300, bbox_inches="tight")
+    path = _save_beta_figure(fig, figure_dir, "sine_beta_single_source_readout_sweep")
     plt.close(fig)
     return path
 
@@ -2893,33 +2935,16 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib as mpl
     import matplotlib.pyplot as plt
 
     frame = pd.DataFrame(summary_rows).sort_values("beta")
-    mpl.rcParams.update(
-        {
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
-            "font.size": 8,
-            "axes.spines.right": False,
-            "axes.spines.top": False,
-            "axes.linewidth": 0.8,
-            "legend.frameon": False,
-        }
-    )
+    _configure_beta_ncs_style()
     figure_dir.mkdir(parents=True, exist_ok=True)
-    fig, ax_bits = plt.subplots(figsize=(8.9, 4.2), constrained_layout=True)
+    fig, ax_bits = plt.subplots(figsize=(7.2, 3.15), constrained_layout=True)
     ax_shap = ax_bits.twinx()
-    method_styles = {
-        "observational": {"color": "#4C78A8", "alpha": 0.50, "linewidth": 1.8},
-        "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 2.5},
-        "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 2.5},
-        "surd": {"color": "#8C8C8C", "alpha": 0.48, "linewidth": 1.8},
-        "shap": {"color": "#E68613", "alpha": 0.50, "linewidth": 1.8},
-    }
+    method_styles = _BETA_NCS_METHOD_STYLES
 
-    def line_with_errorbar(
+    def line_mean(
         ax,
         y_col: str,
         std_col: str,
@@ -2931,35 +2956,17 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
         linewidth: float = 2.0,
         zorder: float = 2,
     ) -> None:
-        x = frame["beta"].to_numpy(dtype=float)
-        y = frame[y_col].to_numpy(dtype=float)
-        std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
-        ax.plot(
-            x,
-            y,
+        _plot_beta_mean_line(
+            ax,
+            frame,
+            y_col,
+            label=label,
             marker=marker,
             color=color,
             linewidth=linewidth,
-            markersize=6.5,
-            markeredgecolor="white",
-            markeredgewidth=0.65,
             alpha=alpha,
-            label=label,
             zorder=zorder,
         )
-        if np.any(std > 0.0):
-            ax.errorbar(
-                x,
-                y,
-                yerr=std,
-                fmt="none",
-                ecolor=color,
-                elinewidth=0.85,
-                capsize=2.4,
-                capthick=0.85,
-                alpha=alpha * 0.55,
-                zorder=1,
-            )
 
     for y_col, std_col, label, method, marker in [
         ("observational_wms_mean", "observational_wms_std", "observational WMS", "observational", "D"),
@@ -2968,7 +2975,7 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
         ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "oracle_peid", "s"),
     ]:
         style = method_styles[method]
-        line_with_errorbar(
+        line_mean(
             ax_bits,
             y_col,
             std_col,
@@ -2981,7 +2988,6 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
         )
     ax_bits.axhline(0.0, color="#6b7280", linestyle="--", linewidth=0.9)
     ax_bits.set_ylabel("Information (bits)")
-    ax_bits.set_title("Higher-order interaction / Syn")
 
     for y_col, std_col, label, method, marker in [
         (
@@ -2994,7 +3000,7 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
     ]:
         if y_col in frame and std_col in frame:
             style = method_styles[method]
-            line_with_errorbar(
+            line_mean(
                 ax_shap,
                 y_col,
                 std_col,
@@ -3006,28 +3012,24 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
             )
     ax_shap.set_ylabel("SHAP interaction readout")
 
-    for ax in [ax_bits, ax_shap]:
-        ax.set_xlabel("beta: common-driver strength")
-        ax.set_xticks(frame["beta"].to_numpy(dtype=float))
-    ax_bits.grid(alpha=0.18, linewidth=0.5)
+    ax_bits.set_xlabel(r"$\beta$: common-driver strength")
+    _set_beta_axis_ticks(ax_bits, ax_shap)
     handles, labels = [], []
     for ax in [ax_bits, ax_shap]:
         ax_handles, ax_labels = ax.get_legend_handles_labels()
         handles.extend(ax_handles)
         labels.extend(ax_labels)
-    ax_bits.legend(
+    fig.legend(
         handles,
         labels,
-        loc="center left",
-        bbox_to_anchor=(1.15, 0.5),
-        frameon=False,
-        fontsize=9.2,
-        handlelength=3.0,
-        labelspacing=0.8,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.03),
+        ncol=5,
+        handlelength=2.2,
+        columnspacing=1.1,
     )
 
-    path = figure_dir / "sine_beta_synergy_readout_sweep.png"
-    fig.savefig(path, dpi=300, bbox_inches="tight")
+    path = _save_beta_figure(fig, figure_dir, "sine_beta_synergy_readout_sweep")
     plt.close(fig)
     return path
 
@@ -3041,26 +3043,15 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     from matplotlib.lines import Line2D
 
     matplotlib.use("Agg")
-    import matplotlib as mpl
     import matplotlib.pyplot as plt
 
     frame = pd.DataFrame(summary_rows).sort_values("beta")
-    mpl.rcParams.update(
-        {
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
-            "font.size": 8,
-            "axes.spines.right": False,
-            "axes.spines.top": False,
-            "axes.linewidth": 0.8,
-            "legend.frameon": False,
-        }
-    )
+    _configure_beta_ncs_style()
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
         2,
         1,
-        figsize=(13.2, 8.2),
+        figsize=(7.2, 5.65),
         sharex=True,
         constrained_layout=True,
         gridspec_kw={"height_ratios": [1.05, 1.0]},
@@ -3068,22 +3059,14 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     single_bits, synergy_bits = axes
     single_native = single_bits.twinx()
     single_ng = single_bits.twinx()
-    single_ng.spines.right.set_position(("axes", 1.14))
+    single_ng.spines.right.set_position(("axes", 1.10))
     single_ng.spines.right.set_visible(True)
     synergy_shap = synergy_bits.twinx()
 
     source_markers = {"x": "^", "y": "v"}
-    method_styles = {
-        "observational": {"color": "#4C78A8", "alpha": 0.50, "linewidth": 1.8},
-        "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 2.5},
-        "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 2.5},
-        "surd": {"color": "#8C8C8C", "alpha": 0.48, "linewidth": 1.8},
-        "shap": {"color": "#E68613", "alpha": 0.50, "linewidth": 1.8},
-        "pcmci": {"color": "#D65F8F", "alpha": 0.48, "linewidth": 1.8},
-        "neural_granger": {"color": "#27A6B8", "alpha": 0.50, "linewidth": 1.8},
-    }
+    method_styles = _BETA_NCS_METHOD_STYLES
 
-    def line_with_errorbar(
+    def line_mean(
         ax,
         y_col: str,
         std_col: str,
@@ -3094,38 +3077,18 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         alpha: float = 1.0,
         linewidth: float = 2.0,
         zorder: float = 2,
-        markersize: float = 6.6,
     ) -> None:
-        x = frame["beta"].to_numpy(dtype=float)
-        y = frame[y_col].to_numpy(dtype=float)
-        std = frame[std_col].fillna(0.0).to_numpy(dtype=float)
-        ax.plot(
-            x,
-            y,
+        _plot_beta_mean_line(
+            ax,
+            frame,
+            y_col,
+            label=label,
             marker=marker,
             color=color,
-            linestyle="-",
             linewidth=linewidth,
-            markersize=markersize,
-            markeredgecolor="white",
-            markeredgewidth=0.65,
             alpha=alpha,
-            label=label,
             zorder=zorder,
         )
-        if np.any(std > 0.0):
-            ax.errorbar(
-                x,
-                y,
-                yerr=std,
-                fmt="none",
-                ecolor=color,
-                elinewidth=0.8,
-                capsize=2.3,
-                capthick=0.8,
-                alpha=alpha * 0.55,
-                zorder=1,
-            )
 
     for y_col, std_col, label, source, method in [
         ("observational_x_to_z_mi_mean", "observational_x_to_z_mi_std", r"Obs. MI $x \to z$", "x", "observational"),
@@ -3138,7 +3101,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "y", "surd"),
     ]:
         style = method_styles[method]
-        line_with_errorbar(
+        line_mean(
             single_bits,
             y_col,
             std_col,
@@ -3159,7 +3122,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     ]:
         if y_col in frame and std_col in frame:
             style = method_styles[method]
-            line_with_errorbar(
+            line_mean(
                 single_native,
                 y_col,
                 std_col,
@@ -3177,7 +3140,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     ]:
         if y_col in frame and std_col in frame:
             style = method_styles[method]
-            line_with_errorbar(
+            line_mean(
                 single_ng,
                 y_col,
                 std_col,
@@ -3196,7 +3159,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "oracle_peid", "s"),
     ]:
         style = method_styles[method]
-        line_with_errorbar(
+        line_mean(
             synergy_bits,
             y_col,
             std_col,
@@ -3212,7 +3175,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
 
     if "shap_xy_mean_abs_interaction_mean" in frame and "shap_xy_mean_abs_interaction_std" in frame:
         style = method_styles["shap"]
-        line_with_errorbar(
+        line_mean(
             synergy_shap,
             "shap_xy_mean_abs_interaction_mean",
             "shap_xy_mean_abs_interaction_std",
@@ -3224,16 +3187,14 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         )
     synergy_shap.set_ylabel("SHAP interaction readout")
 
-    x_ticks = frame["beta"].to_numpy(dtype=float)
-    for ax in [single_bits, single_native, single_ng, synergy_bits, synergy_shap]:
-        ax.set_xticks(x_ticks)
-    synergy_bits.set_xlabel("beta: common-driver strength")
-    single_bits.grid(alpha=0.18, linewidth=0.5)
-    synergy_bits.grid(alpha=0.18, linewidth=0.5)
+    _set_beta_axis_ticks(single_bits, single_native, single_ng, synergy_bits, synergy_shap)
+    synergy_bits.set_xlabel(r"$\beta$: common-driver strength")
+    _add_ncs_panel_label(single_bits, "a")
+    _add_ncs_panel_label(synergy_bits, "b")
 
     source_handles = [
-        Line2D([], [], color="#374151", marker=source_markers["x"], linestyle="none", markersize=8, label=r"$x \to z$"),
-        Line2D([], [], color="#374151", marker=source_markers["y"], linestyle="none", markersize=8, label=r"$y \to z$"),
+        Line2D([], [], color="#374151", marker=source_markers["x"], linestyle="none", markersize=4.2, label=r"$x \to z$"),
+        Line2D([], [], color="#374151", marker=source_markers["y"], linestyle="none", markersize=4.2, label=r"$y \to z$"),
     ]
     method_specs = [
         ("Obs. MI / WMS (bits)", "observational"),
@@ -3256,34 +3217,17 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         )
         for label, method in method_specs
     ]
-    single_bits.legend(
-        handles=source_handles,
-        title="Source marker",
-        loc="upper left",
-        bbox_to_anchor=(1.23, 1.0),
-        fontsize=9.2,
-        title_fontsize=9.6,
-        handlelength=3.2,
-        labelspacing=0.8,
-        borderaxespad=0.0,
-        frameon=False,
-    )
-    synergy_bits.legend(
-        handles=method_handles,
-        title="Method color / opacity",
-        loc="center left",
-        bbox_to_anchor=(1.23, 0.5),
-        fontsize=9.2,
-        title_fontsize=9.6,
-        handlelength=3.2,
-        handletextpad=0.9,
-        labelspacing=0.85,
-        borderaxespad=0.0,
-        frameon=False,
+    fig.legend(
+        handles=source_handles + method_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.045),
+        ncol=5,
+        handlelength=2.0,
+        handletextpad=0.6,
+        columnspacing=1.0,
     )
 
-    path = figure_dir / "sine_beta_combined_readout_sweep.png"
-    fig.savefig(path, dpi=300, bbox_inches="tight")
+    path = _save_beta_figure(fig, figure_dir, "sine_beta_combined_readout_sweep")
     plt.close(fig)
     return path
 
@@ -4381,22 +4325,23 @@ def _write_chinese_report(
                 )
             )
         beta_sweep_block = (
-            "### beta 扫描：共同驱动增强但结构协同固定\n\n"
-            "这里固定 `alpha=1`，只改变 `x,y` 的共同驱动强度 `beta`。生成式中 `beta` 增大只让 `x` 与 `y` 在观测轨迹上更相关，"
-            "并没有增强 `z_{t+1}` 中的 `sin(x_t y_t)` 结构项。因此理论预期是：`{x,y}->z` 的 PEID 协同不应因为 `beta` 增大而单调增加。\n\n"
+            "### beta 扫描：共同驱动冗余增强且二源结构协同固定\n\n"
+            "这里固定 `alpha=1`，用 `beta` 同时增强 `x,y` 的共同驱动以及弱直接边 `w->z`。"
+            "`z_{t+1}` 中的 `sin(x_t y_t)` 二源结构项保持不变；新增的 `0.15 beta w_t` 使高 beta 自然轨迹中的共同驱动信息可通过 `x,y` 重复投影到目标，"
+            "用于检验 observational WMS 是否转为冗余占优。\n\n"
             "beta 扫描对应的动力学为\n\n"
             "$$\n"
             "\\begin{aligned}\n"
             "w_{t+1} &= 0.78w_t + \\eta^w_t,\\\\\n"
             "x_{t+1} &= 0.42x_t + 0.82\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^x_t\\right) + \\eta^x_t,\\\\\n"
             "y_{t+1} &= 0.38y_t + 0.76\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^y_t\\right) + \\eta^y_t,\\\\\n"
-            "z_{t+1} &= 0.22z_t + \\sin\\left(x_t y_t\\right) + \\eta^z_t.\n"
+            "z_{t+1} &= 0.22z_t + \\sin\\left(x_t y_t\\right) + 0.15\\beta w_t + \\eta^z_t.\n"
             "\\end{aligned}\n"
             "$$\n\n"
             "其中 `beta=0` 时，`x` 与 `y` 主要由各自私有扰动驱动；`beta=1` 时，它们的新增驱动完全共享同一个 `w_t`。"
             "`\\sqrt{1-\\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；"
-            "这样 beta 扫描主要改变源变量之间的观测相关性，而不是简单放大或缩小 `x,y` 的总驱动强度。"
-            "`z` 的结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变二源机制本身。\n\n"
+            "这样 beta 扫描不简单放大或缩小 `x,y` 的总驱动强度，但会同时增强源相关性和真实弱边 `w->z`。"
+            "`z` 的二源结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变待比较的二源机制本身。\n\n"
             + (
                 f"![beta 扫描单源与高阶协同组合曲线]({beta_combined_rel})\n\n"
                 if beta_combined_rel
@@ -4408,16 +4353,16 @@ def _write_chinese_report(
             "每个 `beta × seed` 只生成一次轨迹并训练一个 MLP。Observational SURD 直接作用于这条自然轨迹；"
             "左上角 WMS 也直接使用该自然轨迹上对齐的 `(x_t,y_t,z_{t+1})`，计算 "
             "`I([x_t,y_t];z_{t+1}) - I(x_t;z_{t+1}) - I(y_t;z_{t+1})`。"
-            "三个 MI 均由相同的四分位离散经验联合分布直接计算，并保留 WMS 负值；"
-            "MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP，MLP+PEID 使用该轨迹分位数定义的独立干预样本。"
+            "三个 MI 均由共享的三阶 transport-map 估计器计算，并保留 WMS 负值；"
+            "MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP；MLP+PEID 独立均匀采样固定源支持 `x,y∈[-1.8,1.8]`，上下文 `z,w` 使用对应轨迹分位数支持。"
             "Oracle+PEID 不再使用自然轨迹或 learned MLP，而是在固定盒 `x,y∈[-1.8,1.8]`, `z∈[-1.25,1.25]` 上复用同一批对称独立干预样本："
             "每个 `(x,y,z)` 都同时加入交换后的 `(y,x,z)`，再直接评估真实转移方程 "
-            "`z_next=0.22*z+sin(x*y)`；因此它的 beta 曲线是固定支持下的真实方程基准，跨 seed 标准差为零，且 Oracle 的 `U_x/U_y` 单源读数对称。"
+            "`z_next=0.22*z+sin(x*y)`；因此它是隔离掉 `w` 主效应后的固定二源结构参照，跨 seed 标准差为零，且 Oracle 的 `U_x/U_y` 单源读数对称。"
             "Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。"
             "PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。"
             "SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。"
             "SHAP、Neural Granger 与 PCMCI-CMIknn 保留自身原始读出尺度，不与信息量绝对值直接比较。"
-            "单边作用图中的 ground truth 是真实转移方程上的 Oracle+PEID `U_x/U_y` 曲线；"
+            "单边作用图中的 ground truth 是隔离后二源结构的 Oracle+PEID `U_x/U_y` 曲线；"
             "高阶作用图中的 ground truth 是 Oracle+PEID `S_{xy}` 曲线。"
             "单边合并图不显示 `w->z`，只比较对目标 `z` 的 `x` 与 `y` 单源投影。\n\n"
             "线性趋势读数显示，observational WMS 的 beta 斜率为 "

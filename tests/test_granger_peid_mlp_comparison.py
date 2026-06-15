@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import sys
 from pathlib import Path
 
@@ -196,7 +197,37 @@ def test_observational_wms_decreases_with_full_common_driver() -> None:
         )["wms"]
 
     assert values[0.0] > 0.0
-    assert values[1.0] < values[0.0]
+    assert values[1.0] < 0.0
+
+
+def test_common_driver_sine_synergy_adds_beta_scaled_driver_to_target() -> None:
+    beta = 1.0
+    series, truth = simulate_system(
+        SimConfig(
+            mechanism="common_driver_sine_synergy",
+            n_samples=120,
+            noise=0.0,
+            seed=7,
+            synergy_strength=1.0,
+            common_driver_strength=beta,
+        )
+    )
+
+    expected_target = (
+        0.22 * series["z"].to_numpy(dtype=float)[:-1]
+        + np.sin(
+            series["x"].to_numpy(dtype=float)[:-1]
+            * series["y"].to_numpy(dtype=float)[:-1]
+        )
+        + 0.15 * beta * series["w"].to_numpy(dtype=float)[:-1]
+    )
+
+    np.testing.assert_allclose(
+        series["z"].to_numpy(dtype=float)[1:],
+        expected_target,
+        atol=1e-12,
+    )
+    assert ("w", "z") in truth["pairwise_edges"]
 
 
 def test_beta_peid_intervention_uses_fixed_source_support_only() -> None:
@@ -353,12 +384,12 @@ def test_common_driver_sine_synergy_separates_driver_and_hyperedge() -> None:
         (peid.pairwise_edges["source"] == "w") & (peid.pairwise_edges["target"] == "z")
     ].iloc[0]
 
-    assert {("w", "x"), ("w", "y")} == set(truth["pairwise_edges"])
+    assert {("w", "x"), ("w", "y"), ("w", "z")} == set(truth["pairwise_edges"])
     assert ("x", "y", "z") in truth["hyperedges"]
     assert float(granger_w_to_x["score"]) > 0.2
     assert float(granger_w_to_y["score"]) > 0.2
-    assert float(granger_w_to_z["score"]) < 0.05
-    assert float(peid_w_to_z["ei"]) < 0.08
+    assert float(granger_w_to_z["score"]) > 0.01
+    assert float(peid_w_to_z["ei"]) > 0.01
     assert float(edge["joint_ei"]) > 1.0
     assert float(edge["synergy"]) > 0.5
     assert float(edge["synergy"]) > float(edge["best_single_ei"])
@@ -754,6 +785,7 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert "surd_xy_synergy_mean" in beta_sweep["summary"][0]
     assert "observational_wms_mean" in beta_sweep["summary"][0]
     assert "observational_wms_slope" in beta_sweep["trend"]
+    assert beta_sweep["config"]["common_driver_target_coefficient"] == 0.15
     assert "tm_peid_synergy_slope" in beta_sweep["trend"]
     assert "surd_synergy_slope" in beta_sweep["trend"]
     assert "oracle_peid_synergy_slope" in beta_sweep["trend"]
@@ -800,6 +832,13 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
     assert result["config"]["peid_source_support"] == [-1.8, 1.8]
     assert "observational_wms_mean" in summary
     assert "observational_wms_slope" in trend
+
+
+def test_beta_sweep_default_grid_has_twenty_one_evenly_spaced_values() -> None:
+    beta_values = inspect.signature(run_sine_beta_common_driver_sweep).parameters["beta_values"].default
+
+    assert len(beta_values) == 21
+    np.testing.assert_allclose(beta_values, np.linspace(0.0, 1.0, 21))
 
 
 def test_beta_sweep_oracle_uses_one_fixed_intervention_protocol() -> None:
@@ -999,6 +1038,14 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     assert synergy_path.name == "sine_beta_synergy_readout_sweep.png"
     assert combined_path is not None and combined_path.exists()
     assert combined_path.name == "sine_beta_combined_readout_sweep.png"
+    for stem in (
+        "sine_beta_single_source_readout_sweep",
+        "sine_beta_synergy_readout_sweep",
+        "sine_beta_combined_readout_sweep",
+    ):
+        assert (tmp_path / f"{stem}.png").exists()
+        assert (tmp_path / f"{stem}.pdf").exists()
+        assert (tmp_path / f"{stem}.svg").exists()
     assert "observational WMS" in plotted_labels
     assert "observed corr(x,y)" not in plotted_labels
     assert r"Oracle+PEID $U_x$" in plotted_labels
@@ -1029,5 +1076,5 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     assert r"Product probe $R^2$" not in plotted_labels
     assert 0.0 in horizontal_lines
     assert not bar_calls
-    assert errorbar_calls
+    assert not errorbar_calls
     assert not fill_between_calls

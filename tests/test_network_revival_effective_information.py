@@ -911,3 +911,189 @@ def test_multi_node_synergy_experiment_scores_embedded_pairs_and_writes_cache():
         cached_ignition = build_multi_node_pair_ignition_table(config, force=False)
         assert len(cached_synergy) == 10
         assert len(cached_ignition) == len(ignition)
+
+
+def test_joint_required_latch_critical_input_matches_saddle_node():
+    from exp.network_revival.joint_required_ignition import critical_saddle_input
+
+    theta = 0.4
+    critical = critical_saddle_input(theta)
+    z_minus = (1.0 + theta - np.sqrt(1.0 - theta + theta**2)) / 3.0
+    drift = z_minus * (1.0 - z_minus) * (z_minus - theta)
+    derivative = -3.0 * z_minus**2 + 2.0 * (1.0 + theta) * z_minus - theta
+
+    assert critical > 0.0
+    assert np.isclose(drift + critical, 0.0, atol=1e-12)
+    assert np.isclose(derivative, 0.0, atol=1e-12)
+
+
+def test_joint_required_instance_makes_singletons_fail_and_only_valid_pairs_switch():
+    from exp.network_revival.joint_required_ignition import (
+        JointRequiredIgnitionConfig,
+        build_threshold_latch_instance,
+        simulate_isolated_pair_intervention,
+    )
+
+    config = JointRequiredIgnitionConfig(source_count=8, amplitude_levels=8, dt=0.04)
+    instance = build_threshold_latch_instance(config, seed=19)
+    critical = float(instance["critical_input"])
+    weights = np.asarray(instance["weights"], dtype=float)
+
+    assert np.all(weights < critical)
+    positive_pairs = [tuple(pair) for pair in instance["switchable_pairs"]]
+    negative_pairs = [tuple(pair) for pair in instance["nonswitchable_pairs"]]
+    assert positive_pairs
+    assert negative_pairs
+    for seed in range(50):
+        generated = build_threshold_latch_instance(config, seed=seed)
+        generated_weights = np.asarray(generated["weights"], dtype=float)
+        generated_ratios = np.asarray(generated["pair_input_ratios"], dtype=float)
+        assert np.all(generated_weights < generated["critical_input"])
+        assert np.all(np.abs(generated_ratios - 1.0) >= config.pair_margin)
+        assert generated["switchable_pairs"]
+        assert generated["nonswitchable_pairs"]
+
+    for node in range(config.source_count):
+        single = simulate_isolated_pair_intervention(
+            instance,
+            pair=(node, (node + 1) % config.source_count),
+            delta_i=1e6,
+            delta_j=0.0,
+            t_force=50.0,
+            release_time=20.0,
+            dt=config.dt,
+        )
+        assert single["basin_label"] == 0
+
+    valid = simulate_isolated_pair_intervention(
+        instance,
+        pair=positive_pairs[0],
+        delta_i=1e6,
+        delta_j=1e6,
+        t_force=50.0,
+        release_time=20.0,
+        dt=config.dt,
+    )
+    invalid = simulate_isolated_pair_intervention(
+        instance,
+        pair=negative_pairs[0],
+        delta_i=1e6,
+        delta_j=1e6,
+        t_force=50.0,
+        release_time=20.0,
+        dt=config.dt,
+    )
+    assert valid["basin_label"] == 1
+    assert invalid["basin_label"] == 0
+
+
+def test_joint_required_basin_peid_matches_conditional_mi_and_separates_pairs():
+    from exp.network_revival.joint_required_ignition import (
+        JointRequiredIgnitionConfig,
+        build_threshold_latch_instance,
+        compute_pair_basin_peid,
+    )
+
+    config = JointRequiredIgnitionConfig(source_count=8, amplitude_levels=12, dt=0.04)
+    instance = build_threshold_latch_instance(config, seed=23)
+    pairs = compute_pair_basin_peid(instance, config)
+
+    assert len(pairs) == 28
+    assert set(pairs["max_pair_basin_label"].unique()) <= {0, 1}
+    assert np.array_equal(
+        pairs["max_pair_basin_label"].to_numpy(dtype=int),
+        pairs["analytic_switchable"].to_numpy(dtype=int),
+    )
+    assert np.array_equal(
+        pairs["max_pair_basin_label"].to_numpy(dtype=int),
+        (pairs["synergy"].to_numpy() > 1e-12).astype(int),
+    )
+    np.testing.assert_allclose(pairs["synergy"], pairs["conditional_mi"], atol=1e-10)
+    assert np.all(pairs["synergy"] >= -1e-10)
+    assert pairs.loc[pairs["analytic_switchable"], "synergy"].max() > 0.0
+    assert np.allclose(pairs.loc[~pairs["analytic_switchable"], "synergy"], 0.0, atol=1e-10)
+    assert bool(pairs.sort_values("synergy", ascending=False).iloc[0]["analytic_switchable"])
+
+
+def test_joint_required_and_gate_control_ranks_true_pair_first():
+    from exp.network_revival.joint_required_ignition import (
+        JointRequiredIgnitionConfig,
+        compute_and_gate_control_peid,
+    )
+
+    config = JointRequiredIgnitionConfig(source_count=6, amplitude_levels=12, dt=0.04)
+    control = compute_and_gate_control_peid(config, true_pair=(1, 4))
+    top = control.sort_values("synergy", ascending=False).iloc[0]
+
+    assert (int(top["pair_i"]), int(top["pair_j"])) == (1, 4)
+    assert top["synergy"] > 0.0
+    assert np.allclose(
+        control.loc[~control["is_true_pair"], "synergy"],
+        0.0,
+        atol=1e-10,
+    )
+
+
+def test_joint_required_ensemble_writes_cache_and_reloads_reproducibly():
+    from exp.network_revival.joint_required_ignition import (
+        JointRequiredIgnitionConfig,
+        run_joint_required_ensemble,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        config = JointRequiredIgnitionConfig(
+            output_dir=Path(tmpdir),
+            source_count=6,
+            amplitude_levels=8,
+            ensemble_size=3,
+            sample_sizes=(64,),
+            label_noise_levels=(0.0,),
+            dt=0.04,
+        )
+        first = run_joint_required_ensemble(config, force=True)
+        second = run_joint_required_ensemble(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert len(first["representative_pairs"]) == 15
+        assert not first["metrics"].empty
+        assert first["metrics"].equals(second["metrics"])
+        assert first["summary"]["support_correspondence"]["all_instances_exact_match"]
+
+        manifest = json.loads(first["cache_paths"]["manifest_json"].read_text())
+        assert manifest["config"]["seed"] == config.seed
+        assert manifest["config"]["t_force"] == config.t_force
+        assert manifest["config"]["amplitude_levels"] == config.amplitude_levels
+        assert "w_i + w_j > u_SN" in manifest["analytic_truth"]
+        assert "I(delta_i,delta_j; basin)" in manifest["peid_definition"]
+
+
+def test_joint_required_notebook_and_part3_reference_persisted_figures():
+    root = Path(__file__).resolve().parents[1]
+    notebook_path = root / "exp" / "network_revival" / "notebook_joint_required_ignition.ipynb"
+    report_path = root / "docs" / "reports" / "Part3.md"
+    assets = (
+        "part3_joint_required_mechanism.png",
+        "part3_joint_required_pair_screening.png",
+        "part3_joint_required_ensemble_performance.png",
+    )
+
+    notebook = json.loads(notebook_path.read_text())
+    notebook_text = json.dumps(notebook, ensure_ascii=False)
+    report_text = report_path.read_text()
+
+    assert "run_joint_required_ensemble" in notebook_text
+    assert "plot_joint_required_results" in notebook_text
+    assert "最终 basin 标签" in notebook_text
+    assert "claim_gate_passed" in notebook_text
+    assert all("execution_count" in cell for cell in notebook["cells"] if cell["cell_type"] == "code")
+    assert not any(
+        output.get("output_type") == "error"
+        for cell in notebook["cells"]
+        for output in cell.get("outputs", [])
+    )
+    for asset in assets:
+        assert f"assets/{asset}" in report_text
+        assert (root / "docs" / "reports" / "assets" / asset).exists()
