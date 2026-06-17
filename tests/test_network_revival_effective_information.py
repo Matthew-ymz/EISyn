@@ -1097,3 +1097,511 @@ def test_joint_required_notebook_and_part3_reference_persisted_figures():
     for asset in assets:
         assert f"assets/{asset}" in report_text
         assert (root / "docs" / "reports" / "assets" / asset).exists()
+
+
+def test_domain_pair_models_have_physical_saddle_node_thresholds():
+    from exp.network_revival.domain_pair_ignition import iter_domain_models
+
+    models = list(iter_domain_models())
+    assert [model.key for model in models] == ["wilson_cowan", "allee", "schlogl"]
+    for model in models:
+        critical = model.critical_input()
+        saddle = model.saddle_state
+        assert critical > 0.0
+        assert np.isfinite(saddle)
+        assert np.isclose(model.drift(saddle) + critical, 0.0, atol=1e-7)
+        assert np.isclose(model.drift_derivative(saddle), 0.0, atol=1e-6)
+        assert model.physical_meaning
+
+
+def test_domain_pair_instance_makes_singletons_fail_and_pairs_follow_threshold():
+    from exp.network_revival.domain_pair_ignition import (
+        DomainPairIgnitionConfig,
+        build_domain_pair_instance,
+        iter_domain_models,
+        simulate_domain_pair_intervention,
+    )
+
+    config = DomainPairIgnitionConfig(source_count=8, amplitude_levels=8, dt=0.04)
+    for model in iter_domain_models():
+        instance = build_domain_pair_instance(model, config, seed=31)
+        critical = float(instance["critical_input"])
+        weights = np.asarray(instance["weights"], dtype=float)
+        ratios = np.asarray(instance["pair_input_ratios"], dtype=float)
+
+        assert np.all(weights < critical)
+        assert np.all(np.abs(ratios - 1.0) >= config.pair_margin)
+        assert instance["switchable_pairs"]
+        assert instance["nonswitchable_pairs"]
+
+        for node in range(config.source_count):
+            single = simulate_domain_pair_intervention(
+                model,
+                instance,
+                pair=(node, (node + 1) % config.source_count),
+                delta_i=1e6,
+                delta_j=0.0,
+                t_force=20.0,
+                release_time=20.0,
+                dt=config.dt,
+            )
+            assert single["basin_label"] == 0
+
+        valid = simulate_domain_pair_intervention(
+            model,
+            instance,
+            pair=tuple(instance["switchable_pairs"][0]),
+            delta_i=1e6,
+            delta_j=1e6,
+            t_force=20.0,
+            release_time=20.0,
+            dt=config.dt,
+        )
+        invalid = simulate_domain_pair_intervention(
+            model,
+            instance,
+            pair=tuple(instance["nonswitchable_pairs"][0]),
+            delta_i=1e6,
+            delta_j=1e6,
+            t_force=20.0,
+            release_time=20.0,
+            dt=config.dt,
+        )
+        assert valid["basin_label"] == 1
+        assert invalid["basin_label"] == 0
+
+
+def test_domain_pair_single_node_total_strength_labels_fill_diagonal_truth():
+    from exp.network_revival.domain_pair_ignition import (
+        DomainPairIgnitionConfig,
+        _single_node_total_strength_labels,
+        build_domain_pair_instance,
+        get_domain_model,
+    )
+
+    config = DomainPairIgnitionConfig(source_count=8, amplitude_levels=8, dt=0.04)
+    model = get_domain_model("wilson_cowan")
+    instance = build_domain_pair_instance(model, config, seed=31)
+
+    labels = _single_node_total_strength_labels(model, instance, config)
+    total_drive = 2.0 * (config.amplitude_max**config.hill_coefficient) / (
+        config.half_saturation**config.hill_coefficient + config.amplitude_max**config.hill_coefficient + 1e-15
+    )
+    expected = (total_drive * np.asarray(instance["weights"]) > float(instance["critical_input"])).astype(int)
+
+    assert labels.shape == (config.source_count,)
+    np.testing.assert_array_equal(labels, expected)
+    assert np.any(labels == 1)
+    assert np.any(labels == 0)
+
+
+def test_domain_pair_peid_and_ensemble_cache_cover_three_models():
+    from exp.network_revival.domain_pair_ignition import (
+        DomainPairIgnitionConfig,
+        build_domain_pair_instance,
+        compute_domain_pair_basin_peid,
+        get_domain_model,
+        run_domain_pair_ensemble,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        config = DomainPairIgnitionConfig(
+            output_dir=Path(tmpdir),
+            source_count=6,
+            amplitude_levels=8,
+            ensemble_size=2,
+            sample_sizes=(64,),
+            label_noise_levels=(0.0,),
+            dt=0.04,
+        )
+        model = get_domain_model("wilson_cowan")
+        instance = build_domain_pair_instance(model, config, seed=41)
+        pairs = compute_domain_pair_basin_peid(model, instance, config)
+
+        assert len(pairs) == 15
+        assert np.array_equal(
+            pairs["max_pair_basin_label"].to_numpy(dtype=int),
+            pairs["analytic_switchable"].to_numpy(dtype=int),
+        )
+        assert np.array_equal(
+            pairs["max_pair_basin_label"].to_numpy(dtype=int),
+            (pairs["synergy"].to_numpy() > 1e-12).astype(int),
+        )
+        np.testing.assert_allclose(pairs["synergy"], pairs["conditional_mi"], atol=1e-10)
+
+        first = run_domain_pair_ensemble(config, force=True)
+        second = run_domain_pair_ensemble(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert first["metrics"].equals(second["metrics"])
+        assert set(first["summary"]["models"].keys()) == {"wilson_cowan", "allee", "schlogl"}
+        assert all(
+            item["support_correspondence"]["all_instances_exact_match"]
+            for item in first["summary"]["models"].values()
+        )
+
+        manifest = json.loads(first["cache_paths"]["manifest_json"].read_text())
+        assert manifest["experiment"] == "domain_pair_ignition"
+        assert manifest["model_keys"] == ["wilson_cowan", "allee", "schlogl"]
+        assert "saddle-node" in manifest["analytic_truth"]
+        assert "I(delta_i,delta_j; basin)" in manifest["peid_definition"]
+
+
+def test_domain_pair_part3_references_persisted_figures():
+    root = Path(__file__).resolve().parents[1]
+    report_path = root / "docs" / "reports" / "Part3.md"
+    report_text = report_path.read_text()
+    assets = (
+        "part3_domain_pair_control_structure.png",
+        "part3_domain_pair_screening.png",
+        "part3_domain_pair_success_vs_synergy.png",
+    )
+
+    assert "三个典型动力学正对照" in report_text
+    for asset in assets:
+        assert f"assets/{asset}" in report_text
+        assert (root / "docs" / "reports" / "assets" / asset).exists()
+
+
+def test_network_basin_builders_return_connected_normalized_networks():
+    from exp.network_revival.network_basin_pair_ignition import (
+        NetworkBasinPairIgnitionConfig,
+        build_candidate_network,
+    )
+
+    config = NetworkBasinPairIgnitionConfig(node_count=14, accepted_instances_per_group=1)
+    for kind in ("ER", "WS"):
+        adjacency, meta = build_candidate_network(kind, config, seed=11, coupling_scale=2.5)
+        assert adjacency.shape == (14, 14)
+        assert np.allclose(adjacency, adjacency.T)
+        assert np.all(np.diag(adjacency) == 0.0)
+        assert np.all(adjacency.sum(axis=1) > 0.0)
+        assert np.isclose(adjacency.sum(axis=1).mean(), 2.5)
+        assert meta["network_kind"] == kind
+        assert meta["node_count"] == 14
+
+
+def test_network_basin_batch_released_ignition_matches_solve_odes():
+    from exp.network_revival.network_basin_pair_ignition import simulate_released_ignition_batch
+
+    adjacency = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=float)
+    model = get_model("Neural", mu=2.0, delta=1.0)
+    fixed_mask = np.array([[True, False]], dtype=bool)
+    fixed_values = np.array([[2.0, 0.0]], dtype=float)
+
+    batched = simulate_released_ignition_batch(
+        adjacency,
+        model,
+        fixed_mask,
+        fixed_values,
+        t_force=0.4,
+        t_free=0.3,
+        dt=0.1,
+        state_clip=20.0,
+    )
+
+    manual_fixed = np.array([True, False], dtype=bool)
+    manual_x0 = np.array([2.0, 0.0], dtype=float)
+    from exp.network_revival.simulate import solve_odes
+
+    manual = solve_odes(
+        manual_x0,
+        adjacency,
+        model,
+        mode="BC",
+        fixed_mask=manual_fixed,
+        free_init=0.0,
+        release=True,
+        T_force=0.4,
+        T_free=0.3,
+        dt=0.1,
+        tol_ss=-1.0,
+    )
+    np.testing.assert_allclose(batched["final_states"][0], manual["x_ss"], atol=1e-10)
+    assert batched["valid"][0]
+
+
+def test_network_basin_label_peid_is_positive_for_and_gate_and_zero_for_constant():
+    from exp.network_revival.network_basin_pair_ignition import _peid_from_grid_labels
+
+    left, right = np.meshgrid(np.arange(4), np.arange(4), indexing="ij")
+    and_labels = ((left.ravel() >= 2) & (right.ravel() >= 2)).astype(int)
+    constant_labels = np.zeros_like(and_labels)
+
+    and_row = _peid_from_grid_labels(left.ravel(), right.ravel(), and_labels)
+    constant_row = _peid_from_grid_labels(left.ravel(), right.ravel(), constant_labels)
+
+    assert and_row["synergy"] > 0.0
+    assert np.isclose(and_row["synergy"], and_row["conditional_mi"])
+    assert np.isclose(constant_row["synergy"], 0.0)
+    assert np.isclose(constant_row["conditional_mi"], 0.0)
+
+
+def test_initial_state_equal_frequency_bins_cover_requested_labels_and_reject_constants():
+    from exp.network_revival.network_basin_pair_ignition import _equal_frequency_bins
+
+    values = np.linspace(0.0, 1.0, 12)
+    labels = _equal_frequency_bins(values, bin_count=4)
+
+    assert labels.shape == values.shape
+    assert set(labels.tolist()) == {0, 1, 2, 3}
+    assert labels.dtype.kind in {"i", "u"}
+    assert _equal_frequency_bins(np.ones(8), bin_count=4) is None
+
+
+def test_initial_state_syn_proxy_runner_writes_cache_and_figures(monkeypatch):
+    from exp.network_revival import network_basin_pair_ignition as module
+    from exp.network_revival.network_basin_pair_ignition import (
+        InitialStateSynProxyConfig,
+        plot_initial_state_syn_proxy_results,
+        run_initial_state_syn_proxy_experiment,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        source_dir = Path(tmpdir) / "source"
+        output_dir = Path(tmpdir) / "proxy"
+        source_dir.mkdir()
+        adjacency = np.ones((4, 4), dtype=float) - np.eye(4)
+        left, right = np.meshgrid(np.arange(4), np.arange(4), indexing="ij")
+        success = ((left + right) >= 4).astype(float)
+        np.savez_compressed(
+            source_dir / "representative_arrays.npz",
+            neural_er_adjacency=adjacency,
+            neural_er_success_rate_matrix=success,
+            neural_er_max_basin_matrix=(success > 0.0).astype(float),
+            neural_er_synergy_matrix=success / 10.0,
+        )
+
+        def fake_batch(adjacency, model, fixed_mask, fixed_values, *, t_force, t_free, dt, state_clip, initial_states=None):
+            initial_states = np.asarray(initial_states, dtype=float)
+            response = initial_states.copy()
+            response[:, 0] += 2.0 * ((initial_states[:, 1] > 0.5) & (initial_states[:, 2] > 0.5))
+            return {
+                "final_states": response,
+                "final_mean": response.mean(axis=1),
+                "valid": np.ones(initial_states.shape[0], dtype=bool),
+            }
+
+        monkeypatch.setattr(module, "simulate_released_ignition_batch", fake_batch)
+        config = InitialStateSynProxyConfig(
+            source_arrays_npz=source_dir / "representative_arrays.npz",
+            output_dir=output_dir,
+            model_names=("Neural",),
+            network_kinds=("ER",),
+            sample_count=64,
+            source_bins=4,
+            seed=5,
+        )
+
+        first = run_initial_state_syn_proxy_experiment(config, force=True)
+        second = run_initial_state_syn_proxy_experiment(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert first["summary"]["groups"]["Neural|ER"]["valid"] is True
+        assert first["summary"]["groups"]["Neural|ER"]["pair_count"] == 6
+        assert np.isfinite(first["summary"]["groups"]["Neural|ER"]["spearman_proxy_success"])
+        assert len(first["pair_rows"]) == len(second["pair_rows"])
+
+        paths = plot_initial_state_syn_proxy_results(first, config, report_asset_dir=Path(tmpdir) / "assets")
+        assert {"heatmaps", "success_scatter", "summary"} <= set(paths)
+        assert all(item["png"].exists() for item in paths.values())
+
+
+def test_transport_map_initial_state_syn_runner_writes_lightweight_cache(monkeypatch):
+    from exp.network_revival import network_basin_pair_ignition as module
+    from exp.network_revival.network_basin_pair_ignition import (
+        TransportMapInitialStateSynConfig,
+        plot_transport_map_initial_state_syn_results,
+        run_transport_map_initial_state_syn_experiment,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        source_dir = Path(tmpdir) / "source"
+        output_dir = Path(tmpdir) / "tm_proxy"
+        source_dir.mkdir()
+        adjacency = np.ones((5, 5), dtype=float) - np.eye(5)
+        left, right = np.meshgrid(np.arange(5), np.arange(5), indexing="ij")
+        success = ((left + right) / 8.0).astype(float)
+        np.fill_diagonal(success, 0.0)
+        np.savez_compressed(
+            source_dir / "representative_arrays.npz",
+            neural_er_adjacency=adjacency,
+            neural_er_success_rate_matrix=success,
+            neural_er_max_basin_matrix=(success > 0.5).astype(float),
+            neural_er_synergy_matrix=success / 10.0,
+        )
+
+        def fake_batch(adjacency, model, fixed_mask, fixed_values, *, t_force, t_free, dt, state_clip, initial_states=None):
+            initial_states = np.asarray(initial_states, dtype=float)
+            final_mean = initial_states.mean(axis=1) + initial_states[:, 0] * initial_states[:, 1]
+            return {
+                "final_states": initial_states,
+                "final_mean": final_mean,
+                "valid": np.ones(initial_states.shape[0], dtype=bool),
+            }
+
+        def fake_tm(source, target, **kwargs):
+            source = np.asarray(source, dtype=float)
+            target = np.asarray(target, dtype=float).reshape(source.shape[0], -1)
+            value = float(np.var(source.mean(axis=1) * target[:, 0]))
+            return {
+                "mi_hat": value,
+                "bias_correction": 0.0,
+                "backend": "fake_transport_map",
+                "pointwise_mi": np.full(source.shape[0], value),
+            }
+
+        monkeypatch.setattr(module, "simulate_released_ignition_batch", fake_batch)
+        monkeypatch.setattr(module, "estimate_mutual_information_transport_map", fake_tm)
+        config = TransportMapInitialStateSynConfig(
+            source_arrays_npz=source_dir / "representative_arrays.npz",
+            output_dir=output_dir,
+            model_names=("Neural",),
+            network_kinds=("ER",),
+            sample_count=64,
+            pair_count_per_group=4,
+            seed=7,
+        )
+
+        first = run_transport_map_initial_state_syn_experiment(config, force=True)
+        second = run_transport_map_initial_state_syn_experiment(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert first["summary"]["groups"]["Neural|ER"]["valid"] is True
+        assert first["summary"]["groups"]["Neural|ER"]["pair_count"] == 4
+        assert len(first["pair_rows"]) == len(second["pair_rows"]) == 4
+
+        paths = plot_transport_map_initial_state_syn_results(first, config, report_asset_dir=Path(tmpdir) / "assets")
+        assert {"success_scatter", "summary"} <= set(paths)
+        assert all(item["png"].exists() for item in paths.values())
+
+
+def test_network_basin_runner_writes_cache_and_summary(monkeypatch):
+    from exp.network_revival import network_basin_pair_ignition as module
+    from exp.network_revival.network_basin_pair_ignition import (
+        NetworkBasinPairIgnitionConfig,
+        plot_network_basin_results,
+        run_network_basin_pair_ensemble,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        config = NetworkBasinPairIgnitionConfig(
+            output_dir=Path(tmpdir),
+            node_count=6,
+            model_names=("Neural",),
+            network_kinds=("ER",),
+            accepted_instances_per_group=1,
+            delta_levels=4,
+            candidate_seed_count=1,
+            coupling_scales=(1.0,),
+            delta_max_values=(1.0,),
+        )
+
+        def fake_screen(model_name, network_kind, seed, config):
+            adjacency = np.ones((config.node_count, config.node_count), dtype=float) - np.eye(config.node_count)
+            pairs = [(i, j) for i in range(config.node_count) for j in range(i + 1, config.node_count)]
+            successful_pairs = {(0, 1), (0, 2), (1, 2)}
+            single_labels = np.zeros(config.node_count, dtype=int)
+            max_pair_labels = np.array([pair in successful_pairs for pair in pairs], dtype=int)
+            return {
+                "instance": {
+                    "model_name": model_name,
+                    "network_kind": network_kind,
+                    "seed": seed,
+                    "adjacency": adjacency,
+                    "coupling_scale": 1.0,
+                    "delta_max": 1.0,
+                    "basin_threshold": 0.5,
+                    "low_mean": 0.0,
+                    "high_mean": 1.0,
+                },
+                "pairs": pairs,
+                "single_labels": single_labels,
+                "max_pair_labels": max_pair_labels,
+            }
+
+        def fake_pair_grid(model, instance, pair, config):
+            amplitudes = np.linspace(0.0, 1.0, config.delta_levels)
+            left, right = np.meshgrid(np.arange(config.delta_levels), np.arange(config.delta_levels), indexing="ij")
+            labels = ((left.ravel() >= 2) & (right.ravel() >= 2)).astype(int)
+            if tuple(pair) not in {(0, 1), (0, 2), (1, 2)}:
+                labels[:] = 0
+            return {
+                "amplitudes": amplitudes,
+                "source_i": left.ravel(),
+                "source_j": right.ravel(),
+                "delta_i": amplitudes[left.ravel()],
+                "delta_j": amplitudes[right.ravel()],
+                "labels": labels,
+                "final_mean": labels.astype(float),
+            }
+
+        monkeypatch.setattr(module, "_screen_candidate_instance", fake_screen)
+        monkeypatch.setattr(module, "_pair_response_grid", fake_pair_grid)
+
+        first = run_network_basin_pair_ensemble(config, force=True)
+        second = run_network_basin_pair_ensemble(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert first["summary"]["groups"]["Neural|ER"]["accepted_instances"] == 1
+        assert first["summary"]["groups"]["Neural|ER"]["single_failure_rate"] == 1.0
+        assert first["summary"]["groups"]["Neural|ER"]["successful_pair_count"] >= 3
+        assert len(first["pair_rows"]) == len(second["pair_rows"])
+
+        paths = plot_network_basin_results(first, config, report_asset_dir=Path(tmpdir) / "assets")
+        assert {"network_structure", "representative_heatmaps", "success_scatter", "summary_metrics"} <= set(paths)
+        assert all(item["png"].exists() for item in paths.values())
+
+
+def test_part3_references_network_basin_pair_assets():
+    root = Path(__file__).resolve().parents[1]
+    report_text = (root / "docs" / "reports" / "Part3.md").read_text()
+    assets = (
+        "part3_network_basin_network_structure.png",
+        "part3_network_basin_representative_heatmaps.png",
+        "part3_network_basin_success_scatter.png",
+        "part3_network_basin_summary_metrics.png",
+    )
+    assert "随机/小世界全网 basin 转移" in report_text
+    for asset in assets:
+        assert f"assets/{asset}" in report_text
+        assert (root / "docs" / "reports" / "assets" / asset).exists()
+
+
+def test_part3_references_initial_state_syn_proxy_assets():
+    root = Path(__file__).resolve().parents[1]
+    report_text = (root / "docs" / "reports" / "Part3.md").read_text()
+    assets = (
+        "part3_initial_state_syn_heatmaps.png",
+        "part3_initial_state_syn_vs_success.png",
+        "part3_initial_state_syn_summary.png",
+    )
+    assert "初态源变量的低成本 Syn 代理" in report_text
+    for asset in assets:
+        assert f"assets/{asset}" in report_text
+        assert (root / "docs" / "reports" / "assets" / asset).exists()
+
+
+def test_part3_references_transport_map_initial_state_syn_assets():
+    root = Path(__file__).resolve().parents[1]
+    report_text = (root / "docs" / "reports" / "Part3.md").read_text()
+    assets = (
+        "part3_transport_map_initial_state_syn_vs_success.png",
+        "part3_transport_map_initial_state_syn_summary.png",
+    )
+    assert "transport-map 初态 Syn 探索" in report_text
+    for asset in assets:
+        assert f"assets/{asset}" in report_text
+        assert (root / "docs" / "reports" / "assets" / asset).exists()

@@ -13,7 +13,7 @@ import warnings
 from dataclasses import dataclass, replace
 from itertools import combinations
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,7 @@ if str(ROOT) not in sys.path:
 DEFAULT_RESULT_DIR = ROOT / "results" / "classic_network_dynamics_benchmark"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "classic_network_dynamics_benchmark"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "granger_peid_mlp_comparison.md"
-PART1_COMBINED_FIGURE_PATH = ROOT / "fig" / "part1_synergy_comparison" / "six_system_four_method_synergy_panels.png"
+PART1_COMBINED_FIGURE_PATH = ROOT / "fig" / "part1_synergy_comparison" / "six_system_five_method_synergy_panels.png"
 BENCHMARK_MODEL_NAMES = ("kuramoto", "coupled_rossler", "sis", "wilson_cowan")
 LEGACY_MARKER = "## 附录：原共同驱动 sine 基准"
 SIS_GATE_SWEEP_BETAS = (0.0, 0.25, 0.5, 0.75, 1.0)
@@ -1677,12 +1677,20 @@ def _oracle_peid_plot_spec() -> tuple[str, str, str, str]:
     return ("oracle_peid_synergy", "Oracle PEID", "#3D3D3D", "P")
 
 
+def _mmi_pid_plot_spec() -> tuple[str, str, str, str]:
+    return ("mmi_pid_synergy", "MMI-PID synergy", "#4C78A8", "P")
+
+
 def _available_method_plot_specs(
     summary: Sequence[dict[str, object]],
+    *,
+    include_oracle_peid: bool = True,
 ) -> list[tuple[str, str, str, str]]:
     specs = list(_method_plot_specs())
-    if summary and f"{_oracle_peid_plot_spec()[0]}_mean" in summary[0]:
+    if include_oracle_peid and summary and f"{_oracle_peid_plot_spec()[0]}_mean" in summary[0]:
         specs.append(_oracle_peid_plot_spec())
+    if summary and f"{_mmi_pid_plot_spec()[0]}_mean" in summary[0]:
+        specs.append(_mmi_pid_plot_spec())
     return specs
 
 
@@ -2873,7 +2881,7 @@ def _plot_panel(
     separate_surd_axis: bool = False,
 ) -> None:
     x_values = np.asarray([float(row[parameter_key]) for row in summary], dtype=float)
-    specs = _available_method_plot_specs(summary) if include_oracle_peid else _method_plot_specs()
+    specs = _available_method_plot_specs(summary, include_oracle_peid=include_oracle_peid)
     surd_axis = axis.twinx() if separate_surd_axis else axis
     for key, method_label, color, marker in specs:
         plot_axis = surd_axis if separate_surd_axis and key == "surd_synergy" else axis
@@ -2906,14 +2914,52 @@ def _plot_panel(
         )
 
 
+def _merge_mmi_pid_summary(
+    summary: Sequence[dict[str, object]],
+    mmi_payload: Mapping[str, object],
+    *,
+    system_key: str,
+    parameter_key: str,
+) -> list[dict[str, object]]:
+    systems = mmi_payload.get("systems")
+    if not isinstance(systems, Mapping) or system_key not in systems:
+        raise KeyError(f"Missing MMI-PID summary for {system_key}.")
+    mmi_system = systems[system_key]
+    if not isinstance(mmi_system, Mapping):
+        raise TypeError(f"MMI-PID summary for {system_key} must be a mapping.")
+    mmi_parameter_key = str(mmi_system.get("parameter_key", parameter_key))
+    mmi_rows = list(mmi_system.get("summary", []))  # type: ignore[arg-type]
+    if len(mmi_rows) != len(summary):
+        raise ValueError(f"MMI-PID summary length mismatch for {system_key}.")
+    merged: list[dict[str, object]] = []
+    for row, mmi_row in zip(summary, mmi_rows):
+        parameter_value = float(row[parameter_key])
+        mmi_parameter_value = float(mmi_row[mmi_parameter_key])  # type: ignore[index]
+        if not np.isclose(parameter_value, mmi_parameter_value):
+            raise ValueError(
+                f"MMI-PID parameter mismatch for {system_key}: {parameter_value} != {mmi_parameter_value}."
+            )
+        updated = dict(row)
+        updated["mmi_pid_synergy_mean"] = float(mmi_row["mmi_pid_synergy_mean"])  # type: ignore[index]
+        updated["mmi_pid_synergy_std"] = float(mmi_row["mmi_pid_synergy_std"])  # type: ignore[index]
+        merged.append(updated)
+    return merged
+
+
+def _method_count(summary: Sequence[dict[str, object]]) -> int:
+    return len(_available_method_plot_specs(summary, include_oracle_peid=False))
+
+
 def run_part1_combined_synergy_figure(
     *,
     standard_result_path: Path = ROOT / "results" / "coupled_standard_map_method_comparison" / "part1_four_method_synergy.json",
     wilson_cowan_refractory_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "wilson_cowan_refractory_synergy_sweep.json",
     kuramoto_result_path: Path = ROOT / "results" / "classic_network_dynamics_benchmark" / "kuramoto_coupling_synergy_sweep.json",
-    coupled_henon_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "coupled_henon_synergy_sweep.json",
+    controlled_henon_result_path: Path = ROOT / "results" / "henon_unique_five_method_synergy" / "summary.json",
+    coupled_henon_result_path: Path | None = None,
     ikeda_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "ikeda_y_tau_synergy_sweep.json",
     nicholson_bailey_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "nicholson_bailey_synergy_sweep.json",
+    mmi_pid_result_path: Path = ROOT / "results" / "part1_mmi_pid_synergy_report" / "summary.json",
     figure_path: Path = PART1_COMBINED_FIGURE_PATH,
 ) -> dict[str, object]:
     import matplotlib as mpl
@@ -2932,14 +2978,56 @@ def run_part1_combined_synergy_figure(
     standard = _load_json(standard_result_path)
     wilson_cowan_refractory = _load_json(wilson_cowan_refractory_result_path)
     kuramoto = _load_json(kuramoto_result_path)
-    coupled_henon = _load_json(coupled_henon_result_path)
+    controlled_henon = _load_json(controlled_henon_result_path)
     ikeda = _load_json(ikeda_result_path)
     nicholson_bailey = _load_json(nicholson_bailey_result_path)
+    mmi_pid = _load_json(mmi_pid_result_path)
+    standard_summary = _merge_mmi_pid_summary(
+        standard["summary"],
+        mmi_pid,
+        system_key="standard_map",
+        parameter_key="coupling",
+    )
+    wilson_cowan_refractory_parameter_key = str(wilson_cowan_refractory.get("parameter_key", "gain"))
+    wilson_cowan_refractory_summary = _merge_mmi_pid_summary(
+        wilson_cowan_refractory["summary"],
+        mmi_pid,
+        system_key="wilson_cowan_refractory",
+        parameter_key=wilson_cowan_refractory_parameter_key,
+    )
+    kuramoto_parameter_key = str(kuramoto.get("parameter_key", "coupling"))
+    kuramoto_summary = _merge_mmi_pid_summary(
+        kuramoto["summary"],
+        mmi_pid,
+        system_key="kuramoto",
+        parameter_key=kuramoto_parameter_key,
+    )
+    ikeda_parameter_key = str(ikeda.get("parameter_key", "u"))
+    ikeda_summary = _merge_mmi_pid_summary(
+        ikeda["summary"],
+        mmi_pid,
+        system_key="ikeda_y_tau",
+        parameter_key=ikeda_parameter_key,
+    )
+    nicholson_bailey_parameter_key = str(nicholson_bailey.get("parameter_key", "a"))
+    nicholson_bailey_summary = _merge_mmi_pid_summary(
+        nicholson_bailey["summary"],
+        mmi_pid,
+        system_key="nicholson_bailey",
+        parameter_key=nicholson_bailey_parameter_key,
+    )
+    controlled_henon_parameter_key = str(controlled_henon.get("parameter_key", "gamma"))
+    controlled_henon_summary = list(controlled_henon["summary"])
+    controlled_henon_xlabel = (
+        "Hénon control parameter lambda"
+        if controlled_henon_parameter_key == "lambda"
+        else "Hénon unique channel gamma"
+    )
     fig, axes = plt.subplots(2, 3, figsize=(14.8, 7.2), constrained_layout=True)
     axes = axes.flat
     _plot_panel(
         axes[0],
-        standard["summary"],
+        standard_summary,
         parameter_key="coupling",
         xlabel="Standard map coupling J",
         label="a  Coupled standard map",
@@ -2949,16 +3037,16 @@ def run_part1_combined_synergy_figure(
     axes[0].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[1],
-        wilson_cowan_refractory["summary"],
-        parameter_key=str(wilson_cowan_refractory.get("parameter_key", "gain")),
+        wilson_cowan_refractory_summary,
+        parameter_key=wilson_cowan_refractory_parameter_key,
         xlabel="Wilson-Cowan sigmoid gain g",
         label="b  Wilson-Cowan gain",
         include_oracle_peid=False,
     )
     _plot_panel(
         axes[2],
-        kuramoto["summary"],
-        parameter_key=str(kuramoto.get("parameter_key", "coupling")),
+        kuramoto_summary,
+        parameter_key=kuramoto_parameter_key,
         xlabel="Kuramoto coupling K",
         label="c  Kuramoto phase locking",
         include_oracle_peid=False,
@@ -2966,25 +3054,25 @@ def run_part1_combined_synergy_figure(
     )
     _plot_panel(
         axes[3],
-        coupled_henon["summary"],
-        parameter_key=str(coupled_henon.get("parameter_key", "kappa")),
-        xlabel="Coupled Henon interaction kappa",
-        label="d  Coupled Henon map",
+        controlled_henon_summary,
+        parameter_key=controlled_henon_parameter_key,
+        xlabel=controlled_henon_xlabel,
+        label="d  Controlled Hénon unique sweep",
         include_oracle_peid=False,
     )
     axes[3].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[4],
-        ikeda["summary"],
-        parameter_key=str(ikeda.get("parameter_key", "u")),
+        ikeda_summary,
+        parameter_key=ikeda_parameter_key,
         xlabel="Ikeda parameter u",
         label="e  Ikeda optical cavity",
         include_oracle_peid=False,
     )
     _plot_panel(
         axes[5],
-        nicholson_bailey["summary"],
-        parameter_key=str(nicholson_bailey.get("parameter_key", "a")),
+        nicholson_bailey_summary,
+        parameter_key=nicholson_bailey_parameter_key,
         xlabel="Nicholson-Bailey attack rate a",
         label="f  Nicholson-Bailey",
         include_oracle_peid=False,
@@ -2998,12 +3086,38 @@ def run_part1_combined_synergy_figure(
         "figure_path": str(figure_path),
         "y_axis_label": "Synergy / Interaction",
         "panels": {
-        "standard_map": str(standard_result_path),
-        "wilson_cowan_refractory": str(wilson_cowan_refractory_result_path),
-        "kuramoto_phase_coupling": str(kuramoto_result_path),
-        "coupled_henon": str(coupled_henon_result_path),
+            "standard_map": str(standard_result_path),
+            "wilson_cowan_refractory": str(wilson_cowan_refractory_result_path),
+            "kuramoto_phase_coupling": str(kuramoto_result_path),
+            "controlled_henon_unique_information": str(controlled_henon_result_path),
             "ikeda_y_tau": str(ikeda_result_path),
             "nicholson_bailey": str(nicholson_bailey_result_path),
+        },
+        "mmi_pid_result_path": str(mmi_pid_result_path),
+        "legacy_coupled_henon_result_path": str(coupled_henon_result_path) if coupled_henon_result_path else None,
+        "panel_method_counts": {
+            "standard_map": _method_count(standard_summary),
+            "wilson_cowan_refractory": _method_count(wilson_cowan_refractory_summary),
+            "kuramoto_phase_coupling": _method_count(kuramoto_summary),
+            "controlled_henon_unique_information": _method_count(controlled_henon_summary),
+            "ikeda_y_tau": _method_count(ikeda_summary),
+            "nicholson_bailey": _method_count(nicholson_bailey_summary),
+        },
+        "panel_parameter_keys": {
+            "standard_map": "coupling",
+            "wilson_cowan_refractory": wilson_cowan_refractory_parameter_key,
+            "kuramoto_phase_coupling": kuramoto_parameter_key,
+            "controlled_henon_unique_information": controlled_henon_parameter_key,
+            "ikeda_y_tau": ikeda_parameter_key,
+            "nicholson_bailey": nicholson_bailey_parameter_key,
+        },
+        "panel_xlabels": {
+            "standard_map": "Standard map coupling J",
+            "wilson_cowan_refractory": "Wilson-Cowan sigmoid gain g",
+            "kuramoto_phase_coupling": "Kuramoto coupling K",
+            "controlled_henon_unique_information": controlled_henon_xlabel,
+            "ikeda_y_tau": "Ikeda parameter u",
+            "nicholson_bailey": "Nicholson-Bailey attack rate a",
         },
     }
     return result

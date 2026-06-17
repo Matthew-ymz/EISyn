@@ -848,9 +848,20 @@ def test_part1_combined_figure_uses_refractory_wilson_cowan_kuramoto_henon_ikeda
         "parameter_key": "coupling",
         "summary": json.loads(json.dumps(standard["summary"])),
     }
-    coupled_henon = {
-        "parameter_key": "kappa",
-        "summary": [{**row, "kappa": row.pop("coupling")} for row in json.loads(json.dumps(standard["summary"]))],
+    controlled_henon = {
+        "system": "controlled_henon_unique_information_five_method",
+        "parameter_key": "lambda",
+        "summary": [
+            {
+                **row,
+                "lambda": row.pop("coupling"),
+                "gamma": 0.3,
+                "kappa": 0.5,
+                "mmi_pid_synergy_mean": 0.5,
+                "mmi_pid_synergy_std": 0.0,
+            }
+            for row in json.loads(json.dumps(standard["summary"]))
+        ],
     }
     ikeda = {
         "parameter_key": "u",
@@ -863,23 +874,48 @@ def test_part1_combined_figure_uses_refractory_wilson_cowan_kuramoto_henon_ikeda
     standard_path = tmp_path / "standard.json"
     wilson_cowan_refractory_path = tmp_path / "wilson_cowan_refractory.json"
     kuramoto_path = tmp_path / "kuramoto.json"
-    coupled_henon_path = tmp_path / "coupled_henon.json"
+    controlled_henon_path = tmp_path / "controlled_henon.json"
     ikeda_path = tmp_path / "ikeda_y_tau.json"
     nicholson_bailey_path = tmp_path / "nicholson_bailey.json"
     standard_path.write_text(json.dumps(standard), encoding="utf-8")
     wilson_cowan_refractory_path.write_text(json.dumps(wilson_cowan_refractory), encoding="utf-8")
     kuramoto_path.write_text(json.dumps(kuramoto), encoding="utf-8")
-    coupled_henon_path.write_text(json.dumps(coupled_henon), encoding="utf-8")
+    controlled_henon_path.write_text(json.dumps(controlled_henon), encoding="utf-8")
     ikeda_path.write_text(json.dumps(ikeda), encoding="utf-8")
     nicholson_bailey_path.write_text(json.dumps(nicholson_bailey), encoding="utf-8")
+    mmi_summary = {
+        "systems": {
+            system_key: {
+                "parameter_key": parameter_key,
+                "summary": [
+                    {
+                        parameter_key: value,
+                        "mmi_pid_synergy_mean": 0.05 + value,
+                        "mmi_pid_synergy_std": 0.0,
+                    }
+                    for value in (0.0, 1.0)
+                ],
+            }
+            for system_key, parameter_key in {
+                "standard_map": "coupling",
+                "wilson_cowan_refractory": "gain",
+                "kuramoto": "coupling",
+                "ikeda_y_tau": "u",
+                "nicholson_bailey": "a",
+            }.items()
+        }
+    }
+    mmi_summary_path = tmp_path / "mmi_summary.json"
+    mmi_summary_path.write_text(json.dumps(mmi_summary), encoding="utf-8")
 
     result = run_part1_combined_synergy_figure(
         standard_result_path=standard_path,
         wilson_cowan_refractory_result_path=wilson_cowan_refractory_path,
         kuramoto_result_path=kuramoto_path,
-        coupled_henon_result_path=coupled_henon_path,
+        controlled_henon_result_path=controlled_henon_path,
         ikeda_result_path=ikeda_path,
         nicholson_bailey_result_path=nicholson_bailey_path,
+        mmi_pid_result_path=mmi_summary_path,
         figure_path=tmp_path / "combined.png",
     )
 
@@ -888,11 +924,21 @@ def test_part1_combined_figure_uses_refractory_wilson_cowan_kuramoto_henon_ikeda
         "standard_map": str(standard_path),
         "wilson_cowan_refractory": str(wilson_cowan_refractory_path),
         "kuramoto_phase_coupling": str(kuramoto_path),
-        "coupled_henon": str(coupled_henon_path),
+        "controlled_henon_unique_information": str(controlled_henon_path),
         "ikeda_y_tau": str(ikeda_path),
         "nicholson_bailey": str(nicholson_bailey_path),
     }
     assert result["y_axis_label"] == "Synergy / Interaction"
+    assert result["panel_method_counts"] == {
+        "standard_map": 5,
+        "wilson_cowan_refractory": 5,
+        "kuramoto_phase_coupling": 5,
+        "controlled_henon_unique_information": 5,
+        "ikeda_y_tau": 5,
+        "nicholson_bailey": 5,
+    }
+    assert result["panel_parameter_keys"]["controlled_henon_unique_information"] == "lambda"
+    assert result["panel_xlabels"]["controlled_henon_unique_information"] == "Hénon control parameter lambda"
 
 
 def test_smoke_benchmark_writes_json_png_and_report(tmp_path: Path) -> None:

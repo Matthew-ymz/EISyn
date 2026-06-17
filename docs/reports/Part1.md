@@ -11,6 +11,10 @@ $$
 $$
   正值表示协同占优，负值表示冗余占优。
 - **MLP+PEID**：在 MLP 近似的动力学机制上计算干预语义下的不可约联合约束。
+- **MMI-PID**：在同一观测上使用
+$$
+S_{\mathrm{MMI}}(X,Y;Z)=I(\{X,Y\};Z)-\max\{I(X;Z),I(Y;Z)\}.
+$$
 - **SURD**：按目标状态分解冗余、独有信息与协同：
 
 $$
@@ -41,7 +45,7 @@ $$
 
 对应的因果结构：
 
-![案例因果图](../../fig/granger_peid_mlp_comparison/causal_graph2.png)
+![案例因果图](../../fig/granger_peid_mlp_comparison/causal_graph3.png)
 
 随着 `beta` 增大，观测冗余增强，但待比较的二源机制不变。Oracle+PEID `x+y` 曲线作为固定二源结构参照。
 
@@ -49,12 +53,12 @@ $$
 
 正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。
 
-# 四方法协同比较
+# 五方法协同比较
 
-每个系统比较 WMS、SURD synergy、SHAP interaction 和 MLP+PEID synergy。各 panel 内四种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。
+每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
 
 
-![Six-system four-method synergy comparison](../../fig/part1_synergy_comparison/six_system_four_method_synergy_panels.png)
+![Six-system five-method synergy comparison](../../fig/part1_synergy_comparison/six_system_five_method_synergy_panels.png)
 
 
 
@@ -139,20 +143,23 @@ $$
 
 目标是第一振子的瞬时速度。随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
 
-## Coupled Hénon Map
+## Controlled Hénon Unique-Information Sweep
 
-**领域背景**：Hénon 映射是经典二维耗散混沌模型。$\kappa$ 控制两个 Hénon 子系统之间的乘积耦合。
+**领域背景**：Hénon 映射是经典二维耗散混沌模型。这里使用受控 Hénon-style 读出，把显式二源交互项和单源观测通道分开。
 
-离散时间耦合 Hénon 映射为
+读出定义为
 
 $$
-\begin{aligned}
-x_{t+1}&=(1-\kappa)(1-1.4x_t^2+y_t)+\kappa x_tz_t, & y_{t+1}&=0.3x_t,\\
-z_{t+1}&=(1-\kappa)(1-1.4z_t^2+w_t)+\kappa z_tx_t, & w_{t+1}&=0.3z_t.
-\end{aligned}
+\mathbf{z}_{t+1}
+=\left[
+1-1.4x_t^2+\kappa(\lambda) x_ty_t,\;
+\gamma(\lambda) y_t+\epsilon_t
+\right],
+\qquad
+\gamma:0.3\to2.0,\quad \kappa:0.5\to0.1,\quad \sigma_\epsilon=0.5 .
 $$
 
-**协同源和目标**：计算 `x+z->x_tau`。乘积项 $\kappa x_tz_t$ 引入显式二源机制，因此各方法均显示协同随 $\kappa$ 增强。
+**协同源和目标**：计算 `x+y->z_tau`。扫描参数为 `lambda`，令单源通道 $\gamma(\lambda)y_t+\epsilon_t$ 增强，同时令显式交互项 $\kappa(\lambda)x_ty_t$ 减弱。因此该 panel 用来展示：PEID 可随真实交互减弱而下降，而 MMI-PID 仍会因为弱源单源信息增加而上升；MI 本身仍只作为诊断保存在 JSON 中，不在图中绘制。
 
 ## Ikeda Optical Cavity
 
