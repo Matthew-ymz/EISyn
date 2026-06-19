@@ -30,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_network_basin_pair_ignition"
 DEFAULT_INITIAL_STATE_PROXY_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_initial_state_syn_proxy"
 DEFAULT_TM_INITIAL_STATE_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_transport_map_initial_state_syn"
+DEFAULT_MLP_BASIN_SURROGATE_OUTPUT_DIR = REPO_ROOT / "results" / "network_revival_mlp_basin_surrogate"
 
 __all__ = [
     "NetworkBasinPairIgnitionConfig",
@@ -43,6 +44,11 @@ __all__ = [
     "plot_initial_state_syn_proxy_results",
     "run_transport_map_initial_state_syn_experiment",
     "plot_transport_map_initial_state_syn_results",
+    "MLPBasinSurrogateConfig",
+    "FittedBasinTransitionMLP",
+    "simulate_released_ignition_batch_transition",
+    "run_mlp_basin_surrogate_experiment",
+    "plot_mlp_basin_surrogate_results",
 ]
 
 
@@ -160,6 +166,85 @@ class TransportMapInitialStateSynConfig:
             raise ValueError("min_valid_fraction must lie in (0, 1].")
         if not self.model_names or not self.network_kinds:
             raise ValueError("model_names and network_kinds must be nonempty.")
+
+
+@dataclass(frozen=True)
+class MLPBasinSurrogateConfig:
+    output_dir: Path = field(default_factory=lambda: DEFAULT_MLP_BASIN_SURROGATE_OUTPUT_DIR)
+    source_result_dir: Path = field(default_factory=lambda: DEFAULT_OUTPUT_DIR)
+    model_names: tuple[str, ...] = ("Neural",)
+    network_kinds: tuple[str, ...] = ("ER",)
+    instance_index: int = 0
+    train_sample_count: int = 12000
+    validation_sample_count: int = 3000
+    test_sample_count: int = 3000
+    state_low: float = 0.0
+    state_high: float = 12.0
+    hidden_widths: tuple[int, ...] = (128, 128)
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-5
+    max_epochs: int = 300
+    patience: int = 30
+    batch_size: int = 256
+    min_delta: float = 1e-6
+    delta_levels: int = 8
+    t_force: float = 4.0
+    t_free: float = 12.0
+    dt: float = 0.08
+    state_clip: float = 50.0
+    seed: int = 20260616
+    neural_parameters: dict[str, float] = field(default_factory=lambda: {"mu": 3.0, "delta": 1.0})
+    eco_parameters: dict[str, float] = field(default_factory=dict)
+    syn_spearman_threshold: float = 0.70
+    success_spearman_threshold: float = 0.80
+    support_f1_threshold: float = 0.80
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "output_dir", Path(self.output_dir))
+        object.__setattr__(self, "source_result_dir", Path(self.source_result_dir))
+        if self.instance_index < 0:
+            raise ValueError("instance_index must be nonnegative.")
+        if self.train_sample_count < 8 or self.validation_sample_count < 4 or self.test_sample_count < 4:
+            raise ValueError("MLP sample counts are too small.")
+        if self.state_high <= self.state_low:
+            raise ValueError("state_high must exceed state_low.")
+        if not self.hidden_widths or any(int(width) <= 0 for width in self.hidden_widths):
+            raise ValueError("hidden_widths must contain positive integers.")
+        if self.learning_rate <= 0.0 or self.weight_decay < 0.0:
+            raise ValueError("learning_rate must be positive and weight_decay nonnegative.")
+        if self.max_epochs <= 0 or self.patience <= 0 or self.batch_size <= 0:
+            raise ValueError("epoch, patience, and batch-size values must be positive.")
+        if self.delta_levels < 3:
+            raise ValueError("delta_levels must be at least three.")
+        if self.t_force < 0.0 or self.t_free < 0.0 or self.dt <= 0.0:
+            raise ValueError("time parameters must be nonnegative and dt must be positive.")
+        if self.state_clip <= 0.0:
+            raise ValueError("state_clip must be positive.")
+        if not self.model_names or not self.network_kinds:
+            raise ValueError("model_names and network_kinds must be nonempty.")
+
+
+@dataclass
+class FittedBasinTransitionMLP:
+    model: Any
+    x_mean: np.ndarray
+    x_std: np.ndarray
+    y_mean: np.ndarray
+    y_std: np.ndarray
+    metrics: dict[str, float]
+    loss_history: list[float]
+
+    def predict(self, states: np.ndarray) -> np.ndarray:
+        import torch
+
+        values = np.asarray(states, dtype=np.float32)
+        if values.ndim == 1:
+            values = values[None, :]
+        scaled = (values - self.x_mean) / self.x_std
+        self.model.eval()
+        with torch.no_grad():
+            output = np.asarray(self.model(torch.tensor(scaled, dtype=torch.float32)).cpu().tolist(), dtype=np.float32)
+        return output * self.y_std + self.y_mean
 
 
 def _model_for_name(model_name: str, config: NetworkBasinPairIgnitionConfig) -> dict[str, Any]:
@@ -325,6 +410,216 @@ def simulate_released_ignition_batch(
     }
 
 
+def simulate_released_ignition_batch_transition(
+    transition_predict: Any,
+    fixed_mask: np.ndarray,
+    fixed_values: np.ndarray,
+    *,
+    t_force: float,
+    t_free: float,
+    dt: float,
+    state_clip: float,
+    initial_states: np.ndarray | None = None,
+) -> dict[str, np.ndarray]:
+    """Batch simulate fixed ignition and release using a learned one-step transition."""
+
+    fixed_mask = np.asarray(fixed_mask, dtype=bool)
+    fixed_values = np.asarray(fixed_values, dtype=float)
+    if fixed_mask.shape != fixed_values.shape:
+        raise ValueError("fixed_mask and fixed_values must have matching shape.")
+    if fixed_mask.ndim != 2:
+        raise ValueError("fixed arrays must have shape [condition, node].")
+    batch_count, node_count = fixed_mask.shape
+    if initial_states is None:
+        x = np.zeros((batch_count, node_count), dtype=float)
+    else:
+        x = np.asarray(initial_states, dtype=float).copy()
+        if x.shape == (node_count,):
+            x = np.repeat(x[None, :], batch_count, axis=0)
+        if x.shape != fixed_mask.shape:
+            raise ValueError("initial_states must have shape [condition, node] or [node].")
+
+    valid = np.ones(batch_count, dtype=bool)
+
+    def _mark_and_clip(states: np.ndarray) -> np.ndarray:
+        nonlocal valid
+        states = np.asarray(states, dtype=float)
+        if states.shape != fixed_mask.shape:
+            raise ValueError("transition_predict must return shape [condition, node].")
+        finite = np.isfinite(states).all(axis=1)
+        bounded = np.nanmax(np.abs(np.nan_to_num(states, nan=0.0, posinf=np.inf, neginf=np.inf)), axis=1) <= float(state_clip)
+        valid &= finite & bounded
+        return np.clip(np.nan_to_num(states, nan=0.0, posinf=float(state_clip), neginf=0.0), 0.0, float(state_clip))
+
+    force_steps = int(round(float(t_force) / float(dt)))
+    free_steps = int(round(float(t_free) / float(dt)))
+    for _ in range(max(0, force_steps)):
+        x = np.where(fixed_mask, fixed_values, x)
+        x = _mark_and_clip(transition_predict(x))
+        x = np.where(fixed_mask, fixed_values, x)
+    for _ in range(max(0, free_steps)):
+        x = _mark_and_clip(transition_predict(x))
+
+    return {
+        "final_states": x,
+        "final_mean": x.mean(axis=1),
+        "valid": valid,
+    }
+
+
+def _oracle_one_step_transition(
+    states: np.ndarray,
+    adjacency: np.ndarray,
+    model: dict[str, Any],
+    *,
+    dt: float,
+    state_clip: float,
+) -> np.ndarray:
+    adjacency = np.asarray(adjacency, dtype=float)
+    states = np.asarray(states, dtype=float)
+    m0 = model["M0"]
+    m1 = model["M1"]
+    m2 = model["M2"]
+
+    def rhs(_, values: np.ndarray) -> np.ndarray:
+        return m0(values) + m1(values) * (m2(values) @ adjacency.T)
+
+    next_states = _rk4_step(rhs, 0.0, states, float(dt))
+    return np.clip(np.nan_to_num(next_states, nan=0.0, posinf=float(state_clip), neginf=0.0), 0.0, float(state_clip))
+
+
+def _sample_basin_transition_data(
+    adjacency: np.ndarray,
+    model: dict[str, Any],
+    config: MLPBasinSurrogateConfig,
+    *,
+    count: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(int(seed))
+    node_count = int(np.asarray(adjacency).shape[0])
+    states = rng.uniform(float(config.state_low), float(config.state_high), size=(int(count), node_count))
+    targets = _oracle_one_step_transition(
+        states,
+        adjacency,
+        model,
+        dt=float(config.dt),
+        state_clip=float(config.state_clip),
+    )
+    return states.astype(np.float32), targets.astype(np.float32)
+
+
+def _fit_basin_transition_mlp(
+    adjacency: np.ndarray,
+    model: dict[str, Any],
+    config: MLPBasinSurrogateConfig,
+) -> FittedBasinTransitionMLP:
+    import torch
+
+    torch.manual_seed(int(config.seed))
+    torch.set_num_threads(1)
+    train_x, train_y = _sample_basin_transition_data(
+        adjacency,
+        model,
+        config,
+        count=int(config.train_sample_count),
+        seed=int(config.seed) + 101,
+    )
+    validation_x, validation_y = _sample_basin_transition_data(
+        adjacency,
+        model,
+        config,
+        count=int(config.validation_sample_count),
+        seed=int(config.seed) + 202,
+    )
+    test_x, test_y = _sample_basin_transition_data(
+        adjacency,
+        model,
+        config,
+        count=int(config.test_sample_count),
+        seed=int(config.seed) + 303,
+    )
+
+    x_mean = train_x.mean(axis=0, keepdims=True)
+    x_std = np.maximum(train_x.std(axis=0, keepdims=True), 1e-6)
+    y_mean = train_y.mean(axis=0, keepdims=True)
+    y_std = np.maximum(train_y.std(axis=0, keepdims=True), 1e-6)
+    x_train_scaled = (train_x - x_mean) / x_std
+    y_train_scaled = (train_y - y_mean) / y_std
+    x_validation_scaled = (validation_x - x_mean) / x_std
+    y_validation_scaled = (validation_y - y_mean) / y_std
+
+    layers: list[Any] = []
+    width = train_x.shape[1]
+    for hidden in config.hidden_widths:
+        layers.extend([torch.nn.Linear(width, int(hidden)), torch.nn.SiLU()])
+        width = int(hidden)
+    layers.append(torch.nn.Linear(width, train_y.shape[1]))
+    net = torch.nn.Sequential(*layers)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=float(config.learning_rate), weight_decay=float(config.weight_decay))
+    train_x_tensor = torch.tensor(x_train_scaled, dtype=torch.float32)
+    train_y_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
+    validation_x_tensor = torch.tensor(x_validation_scaled, dtype=torch.float32)
+    validation_y_tensor = torch.tensor(y_validation_scaled, dtype=torch.float32)
+    generator = torch.Generator().manual_seed(int(config.seed) + 404)
+    best_state: dict[str, Any] | None = None
+    best_val = float("inf")
+    patience_left = int(config.patience)
+    loss_history: list[float] = []
+
+    for _ in range(int(config.max_epochs)):
+        net.train()
+        order = torch.randperm(len(train_x_tensor), generator=generator)
+        losses: list[float] = []
+        for start in range(0, len(order), int(config.batch_size)):
+            indices = order[start : start + int(config.batch_size)]
+            optimizer.zero_grad(set_to_none=True)
+            loss = torch.mean((net(train_x_tensor[indices]) - train_y_tensor[indices]) ** 2)
+            loss.backward()
+            optimizer.step()
+            losses.append(float(loss.detach()))
+        loss_history.append(float(np.mean(losses)))
+        net.eval()
+        with torch.no_grad():
+            validation_loss = torch.mean((net(validation_x_tensor) - validation_y_tensor) ** 2)
+        val = float(validation_loss)
+        if val < best_val - float(config.min_delta):
+            best_val = val
+            best_state = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
+            patience_left = int(config.patience)
+        else:
+            patience_left -= 1
+            if patience_left <= 0:
+                break
+    if best_state is None:
+        raise RuntimeError("MLP basin transition training failed to produce a validation checkpoint.")
+    net.load_state_dict(best_state)
+    fitted = FittedBasinTransitionMLP(
+        model=net,
+        x_mean=x_mean,
+        x_std=x_std,
+        y_mean=y_mean,
+        y_std=y_std,
+        metrics={},
+        loss_history=loss_history,
+    )
+    test_prediction = fitted.predict(test_x)
+    test_rmse = float(np.sqrt(np.mean((test_prediction - test_y) ** 2)))
+    persistence_rmse = float(np.sqrt(np.mean((test_x - test_y) ** 2)))
+    target_var = float(np.sum((test_y - test_y.mean(axis=0, keepdims=True)) ** 2))
+    residual = float(np.sum((test_prediction - test_y) ** 2))
+    fitted.metrics = {
+        "train_rmse": float(np.sqrt(np.mean((fitted.predict(train_x) - train_y) ** 2))),
+        "validation_rmse": float(np.sqrt(np.mean((fitted.predict(validation_x) - validation_y) ** 2))),
+        "test_rmse": test_rmse,
+        "test_r2": float(1.0 - residual / target_var) if target_var > 1e-12 else float("nan"),
+        "persistence_rmse": persistence_rmse,
+        "best_validation_scaled_mse": float(best_val),
+        "epochs": float(len(loss_history)),
+    }
+    return fitted
+
+
 def _free_attractor_means(
     adjacency: np.ndarray,
     model: dict[str, Any],
@@ -468,6 +763,39 @@ def _pair_response_grid(
     }
 
 
+def _mlp_pair_response_grid(
+    fitted: FittedBasinTransitionMLP,
+    instance: dict[str, Any],
+    pair: tuple[int, int],
+    config: MLPBasinSurrogateConfig,
+) -> dict[str, np.ndarray]:
+    amplitudes = np.linspace(0.0, float(instance["delta_max"]), int(config.delta_levels))
+    left_index, right_index = np.meshgrid(np.arange(config.delta_levels), np.arange(config.delta_levels), indexing="ij")
+    left, right = int(pair[0]), int(pair[1])
+    sources = [(left, right)] * left_index.size
+    values = [(float(amplitudes[i]), float(amplitudes[j])) for i, j in zip(left_index.ravel(), right_index.ravel(), strict=True)]
+    masks, fixed_values = _fixed_conditions(int(instance["node_count"]), sources, values)
+    result = simulate_released_ignition_batch_transition(
+        fitted.predict,
+        masks,
+        fixed_values,
+        t_force=config.t_force,
+        t_free=config.t_free,
+        dt=config.dt,
+        state_clip=config.state_clip,
+    )
+    labels = (result["valid"] & (result["final_mean"] > float(instance["basin_threshold"]))).astype(int)
+    return {
+        "amplitudes": amplitudes,
+        "source_i": left_index.ravel(),
+        "source_j": right_index.ravel(),
+        "delta_i": amplitudes[left_index.ravel()],
+        "delta_j": amplitudes[right_index.ravel()],
+        "labels": labels,
+        "final_mean": np.asarray(result["final_mean"], dtype=float),
+    }
+
+
 def _peid_from_grid_labels(source_i: np.ndarray, source_j: np.ndarray, labels: np.ndarray) -> dict[str, float]:
     left_ei = _mutual_information(source_i, labels)
     right_ei = _mutual_information(source_j, labels)
@@ -569,6 +897,15 @@ def _tm_initial_state_cache_paths(config: TransportMapInitialStateSynConfig) -> 
     }
 
 
+def _mlp_basin_surrogate_cache_paths(config: MLPBasinSurrogateConfig) -> dict[str, Path]:
+    return {
+        "summary_json": config.output_dir / "summary.json",
+        "pairs_jsonl": config.output_dir / "pair_scores.jsonl",
+        "arrays_npz": config.output_dir / "representative_arrays.npz",
+        "manifest_json": config.output_dir / "manifest.json",
+    }
+
+
 def _equal_frequency_bins(values: np.ndarray, *, bin_count: int) -> np.ndarray | None:
     values = np.asarray(values, dtype=float)
     if values.ndim != 1:
@@ -624,6 +961,39 @@ def _load_tm_initial_state_cache(paths: dict[str, Path]) -> dict[str, Any]:
     }
 
 
+def _load_mlp_basin_surrogate_cache(paths: dict[str, Path]) -> dict[str, Any]:
+    summary = json.loads(paths["summary_json"].read_text())
+    pair_rows = _read_jsonl(paths["pairs_jsonl"])
+    arrays = dict(np.load(paths["arrays_npz"], allow_pickle=False))
+    manifest = json.loads(paths["manifest_json"].read_text())
+    return {
+        "summary": summary,
+        "pair_rows": pair_rows,
+        "representative_arrays": arrays,
+        "manifest": manifest,
+        "cache_paths": paths,
+    }
+
+
+def _binary_support_metrics(truth: np.ndarray, prediction: np.ndarray) -> dict[str, float]:
+    truth = np.asarray(truth, dtype=bool)
+    prediction = np.asarray(prediction, dtype=bool)
+    if truth.shape != prediction.shape:
+        raise ValueError("truth and prediction must have matching shapes.")
+    tp = int(np.sum(truth & prediction))
+    fp = int(np.sum(~truth & prediction))
+    fn = int(np.sum(truth & ~prediction))
+    precision = float(tp / (tp + fp)) if tp + fp > 0 else 0.0
+    recall = float(tp / (tp + fn)) if tp + fn > 0 else 0.0
+    f1 = float(2.0 * precision * recall / (precision + recall)) if precision + recall > 0.0 else 0.0
+    return {
+        "support_accuracy": float(np.mean(truth == prediction)) if truth.size else float("nan"),
+        "support_precision": precision,
+        "support_recall": recall,
+        "support_f1": f1,
+    }
+
+
 def _source_array_key(prefix: str, suffix: str) -> str:
     return f"{prefix}_{suffix}"
 
@@ -645,6 +1015,160 @@ def _stratified_pairs_from_matrix(success_rate_matrix: np.ndarray, *, pair_count
     indices = np.linspace(0, len(rows) - 1, int(pair_count), dtype=int)
     selected = [rows[int(index)] for index in indices]
     return [(left, right) for left, right, _ in selected]
+
+
+def run_mlp_basin_surrogate_experiment(
+    config: MLPBasinSurrogateConfig,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
+    paths = _mlp_basin_surrogate_cache_paths(config)
+    if not force and all(path.exists() for path in paths.values()):
+        return _load_mlp_basin_surrogate_cache(paths)
+
+    source_pair_path = config.source_result_dir / "pair_scores.jsonl"
+    source_arrays_path = config.source_result_dir / "representative_arrays.npz"
+    if not source_pair_path.exists() or not source_arrays_path.exists():
+        raise FileNotFoundError("MLP basin surrogate requires source pair_scores.jsonl and representative_arrays.npz.")
+
+    source_pairs = _read_jsonl(source_pair_path)
+    source_arrays = dict(np.load(source_arrays_path, allow_pickle=False))
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    all_rows: list[dict[str, Any]] = []
+    arrays: dict[str, np.ndarray] = {}
+    groups: dict[str, dict[str, Any]] = {}
+    training_metrics: dict[str, dict[str, float]] = {}
+
+    for model_name in config.model_names:
+        model = _model_for_name(model_name, config)  # type: ignore[arg-type]
+        for network_kind in config.network_kinds:
+            group = f"{model_name}|{network_kind}"
+            prefix = _group_prefix(model_name, network_kind)
+            adjacency_key = _source_array_key(prefix, "adjacency")
+            if adjacency_key not in source_arrays:
+                groups[group] = {"valid": False, "reason": "missing source adjacency", "pair_count": 0}
+                continue
+            oracle = source_pairs.loc[
+                source_pairs["group"].eq(group) & source_pairs["instance"].eq(int(config.instance_index))
+            ].copy()
+            if oracle.empty:
+                groups[group] = {"valid": False, "reason": "missing source pair rows", "pair_count": 0}
+                continue
+
+            adjacency = np.asarray(source_arrays[adjacency_key], dtype=float)
+            node_count = int(adjacency.shape[0])
+            first = oracle.iloc[0]
+            instance = {
+                "model_name": model_name,
+                "network_kind": network_kind,
+                "group": group,
+                "instance": int(config.instance_index),
+                "instance_seed": int(first.get("instance_seed", config.seed)),
+                "adjacency": adjacency,
+                "node_count": node_count,
+                "coupling_scale": float(first["coupling_scale"]),
+                "delta_max": float(first["delta_max"]),
+                "basin_threshold": float(first["basin_threshold"]),
+            }
+            fitted = _fit_basin_transition_mlp(adjacency, model, config)
+            training_metrics[group] = {key: float(value) for key, value in fitted.metrics.items()}
+
+            pair_rows: list[dict[str, Any]] = []
+            for _, oracle_row in oracle.sort_values(["pair_i", "pair_j"]).iterrows():
+                pair = (int(oracle_row["pair_i"]), int(oracle_row["pair_j"]))
+                response = _mlp_pair_response_grid(fitted, instance, pair, config)
+                labels = np.asarray(response["labels"], dtype=int)
+                peid = _peid_from_grid_labels(response["source_i"], response["source_j"], labels)
+                row = {
+                    "model_name": model_name,
+                    "network_kind": network_kind,
+                    "group": group,
+                    "instance": int(config.instance_index),
+                    "instance_seed": int(instance["instance_seed"]),
+                    "pair_i": pair[0],
+                    "pair_j": pair[1],
+                    "max_pair_basin_label": int(oracle_row["max_pair_basin_label"]),
+                    "oracle_success_rate": float(oracle_row["success_rate"]),
+                    "oracle_synergy": float(oracle_row["synergy"]),
+                    "mlp_max_pair_basin_label": int(labels[-1]),
+                    "mlp_success_rate": float(labels.mean()),
+                    "mlp_mean_final_mean": float(np.mean(response["final_mean"])),
+                    "coupling_scale": float(instance["coupling_scale"]),
+                    "delta_max": float(instance["delta_max"]),
+                    "basin_threshold": float(instance["basin_threshold"]),
+                    "mlp_left_ei": float(peid["left_ei"]),
+                    "mlp_right_ei": float(peid["right_ei"]),
+                    "mlp_single_ei_sum": float(peid["single_ei_sum"]),
+                    "mlp_joint_ei": float(peid["joint_ei"]),
+                    "mlp_synergy": float(peid["synergy"]),
+                    "mlp_conditional_mi": float(peid["conditional_mi"]),
+                    "mlp_synergy_ratio": float(peid["synergy_ratio"]),
+                }
+                pair_rows.append(row)
+            frame = pd.DataFrame(pair_rows)
+            support = _binary_support_metrics(frame["max_pair_basin_label"].to_numpy(), frame["mlp_max_pair_basin_label"].to_numpy())
+            syn_spearman = _safe_spearman(frame["oracle_synergy"], frame["mlp_synergy"])
+            success_spearman = _safe_spearman(frame["oracle_success_rate"], frame["mlp_success_rate"])
+            group_summary = {
+                "valid": True,
+                "model_name": model_name,
+                "network_kind": network_kind,
+                "instance": int(config.instance_index),
+                "pair_count": int(len(frame)),
+                "oracle_positive_pair_count": int(frame["max_pair_basin_label"].sum()),
+                "mlp_positive_pair_count": int(frame["mlp_max_pair_basin_label"].sum()),
+                "spearman_oracle_mlp_synergy": syn_spearman,
+                "spearman_oracle_mlp_success_rate": success_spearman,
+                "top_k_recall_by_mlp_synergy": _top_k_recall_by_score(frame, "mlp_synergy"),
+                "passes_thresholds": bool(
+                    np.isfinite(syn_spearman)
+                    and syn_spearman >= float(config.syn_spearman_threshold)
+                    and np.isfinite(success_spearman)
+                    and success_spearman >= float(config.success_spearman_threshold)
+                    and support["support_f1"] >= float(config.support_f1_threshold)
+                ),
+                **support,
+                **{f"mlp_{key}": float(value) for key, value in fitted.metrics.items()},
+            }
+            groups[group] = group_summary
+            all_rows.extend(frame.to_dict("records"))
+            arrays[f"{prefix}_adjacency"] = adjacency
+            arrays[f"{prefix}_oracle_synergy_matrix"] = _matrix_with_diagonal(frame, "oracle_synergy", node_count)
+            arrays[f"{prefix}_oracle_success_rate_matrix"] = _matrix_with_diagonal(frame, "oracle_success_rate", node_count)
+            arrays[f"{prefix}_oracle_max_basin_matrix"] = _matrix_with_diagonal(frame, "max_pair_basin_label", node_count)
+            arrays[f"{prefix}_mlp_synergy_matrix"] = _matrix_with_diagonal(frame, "mlp_synergy", node_count)
+            arrays[f"{prefix}_mlp_success_rate_matrix"] = _matrix_with_diagonal(frame, "mlp_success_rate", node_count)
+            arrays[f"{prefix}_mlp_max_basin_matrix"] = _matrix_with_diagonal(frame, "mlp_max_pair_basin_label", node_count)
+
+    pair_frame = pd.DataFrame(all_rows)
+    summary = {
+        "experiment": "network_basin_mlp_surrogate",
+        "target": "released whole-network final mean basin label under learned one-step MLP transition",
+        "groups": groups,
+    }
+    manifest = {
+        "experiment": "network_basin_mlp_surrogate",
+        "config": _jsonable_config(config),  # type: ignore[arg-type]
+        "source_result_dir": str(config.source_result_dir),
+        "source_instance_index": int(config.instance_index),
+        "peid_definition": "I(delta_i,delta_j; learned released whole-network basin)-I(delta_i; basin)-I(delta_j; basin)",
+        "interpretation": "MLP surrogate under the same intervention protocol, not direct evidence of the original physical dynamics.",
+        "training_metrics": training_metrics,
+        "cache_paths": {key: str(path) for key, path in paths.items()},
+    }
+    paths["summary_json"].write_text(json.dumps(summary, indent=2, allow_nan=True) + "\n")
+    paths["manifest_json"].write_text(json.dumps(manifest, indent=2, allow_nan=True) + "\n")
+    with paths["pairs_jsonl"].open("w") as handle:
+        for row in pair_frame.to_dict("records"):
+            handle.write(json.dumps(row, allow_nan=True) + "\n")
+    np.savez_compressed(paths["arrays_npz"], **arrays)
+    return {
+        "summary": summary,
+        "pair_rows": pair_frame,
+        "representative_arrays": arrays,
+        "manifest": manifest,
+        "cache_paths": paths,
+    }
 
 
 def _transport_map_mi(source: np.ndarray, target: np.ndarray, *, degree: int, clip_negative: bool) -> tuple[float, str]:
@@ -1290,9 +1814,27 @@ def plot_network_basin_results(
                 color=palette.get(group, "0.4"),
                 label=group,
             )
+        x_values = pair_rows["synergy"].to_numpy(dtype=float)
+        y_values = pair_rows["success_rate"].to_numpy(dtype=float)
+        finite_x = x_values[np.isfinite(x_values)]
+        finite_y = y_values[np.isfinite(y_values)]
+        if finite_x.size and finite_y.size:
+            x_span = max(float(finite_x.max() - finite_x.min()), 0.05)
+            y_span = max(float(finite_y.max() - finite_y.min()), 0.05)
+            axis.set_xlim(max(0.0, float(finite_x.min()) - 0.08 * x_span), float(finite_x.max()) + 0.08 * x_span)
+            axis.set_ylim(max(0.0, float(finite_y.min()) - 0.12 * y_span), min(1.0, float(finite_y.max()) + 0.14 * y_span))
+            slope, intercept = np.polyfit(finite_x, finite_y, deg=1)
+            line_x = np.asarray(axis.get_xlim(), dtype=float)
+            axis.plot(
+                line_x,
+                intercept + slope * line_x,
+                color="0.72",
+                linewidth=0.9,
+                linestyle="--",
+                zorder=0,
+            )
     axis.set_xlabel("PEID Syn (bits)")
     axis.set_ylabel("Grid ignition success rate")
-    axis.set_ylim(-0.04, 1.04)
     axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
     paths["success_scatter"] = _save_figure(fig, figure_dir, "network_basin_success_scatter")
 
@@ -1316,6 +1858,112 @@ def plot_network_basin_results(
     axis.set_ylabel("Metric")
     axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
     paths["summary_metrics"] = _save_figure(fig, figure_dir, "network_basin_summary_metrics")
+
+    if report_asset_dir is not None:
+        report_asset_dir = Path(report_asset_dir)
+        report_asset_dir.mkdir(parents=True, exist_ok=True)
+        for item in paths.values():
+            target = report_asset_dir / f"part3_{item['png'].name}"
+            shutil.copyfile(item["png"], target)
+            item["report_png"] = target
+    return paths
+
+
+def plot_mlp_basin_surrogate_results(
+    results: dict[str, Any],
+    config: MLPBasinSurrogateConfig,
+    *,
+    figure_dir: Path | None = None,
+    report_asset_dir: Path | None = None,
+) -> dict[str, dict[str, Path]]:
+    figure_dir = config.output_dir / "figures" if figure_dir is None else Path(figure_dir)
+    arrays = results.get("representative_arrays", {})
+    pair_rows = results["pair_rows"].copy()
+    summary = results["summary"]
+    paths: dict[str, dict[str, Path]] = {}
+
+    valid_groups = [
+        group
+        for group, values in summary["groups"].items()
+        if bool(values.get("valid", False)) and f"{_group_prefix(*group.split('|'))}_mlp_synergy_matrix" in arrays
+    ]
+    valid_groups = valid_groups[: max(1, min(4, len(valid_groups)))]
+    if valid_groups:
+        fig, axes = plt.subplots(len(valid_groups), 3, figsize=(10.2, 3.0 * len(valid_groups)), constrained_layout=True)
+        axes = np.asarray(axes).reshape(len(valid_groups), 3)
+        for row, group in enumerate(valid_groups):
+            model_name, network_kind = group.split("|")
+            prefix = _group_prefix(model_name, network_kind)
+            oracle_syn = np.asarray(arrays[f"{prefix}_oracle_synergy_matrix"], dtype=float)
+            mlp_syn = np.asarray(arrays[f"{prefix}_mlp_synergy_matrix"], dtype=float)
+            matrices = [
+                (oracle_syn, "Oracle Syn", "YlOrBr"),
+                (mlp_syn, "MLP Syn", "YlOrBr"),
+                (np.abs(mlp_syn - oracle_syn), "|MLP - Oracle|", "magma"),
+            ]
+            node_count = int(oracle_syn.shape[0])
+            for col, (matrix, label, cmap) in enumerate(matrices):
+                image = axes[row, col].imshow(matrix, cmap=cmap, vmin=0.0)
+                axes[row, col].set_title(f"{model_name} {network_kind}: {label}", fontsize=8)
+                axes[row, col].set_xlabel("Source node")
+                axes[row, col].set_ylabel("Source node")
+                axes[row, col].set_xticks(range(node_count))
+                axes[row, col].set_yticks(range(node_count))
+                fig.colorbar(image, ax=axes[row, col], shrink=0.74)
+    else:
+        fig, axis = plt.subplots(figsize=(5.0, 3.2), constrained_layout=True)
+        axis.axis("off")
+        axis.text(0.5, 0.5, "no valid MLP surrogate group", ha="center", va="center")
+    paths["heatmaps"] = _save_figure(fig, figure_dir, "mlp_basin_surrogate_heatmaps")
+
+    palette = {"Neural|ER": "#4C78A8", "Neural|WS": "#72B7B2", "Eco|ER": "#59A14F", "Eco|WS": "#F28E2B"}
+    fig, axis = plt.subplots(figsize=(5.8, 4.2), constrained_layout=True)
+    finite_values: list[float] = []
+    if not pair_rows.empty:
+        for group, subset in pair_rows.groupby("group"):
+            axis.scatter(
+                subset["oracle_synergy"],
+                subset["mlp_synergy"],
+                s=32,
+                alpha=0.75,
+                edgecolor="white",
+                linewidth=0.3,
+                color=palette.get(group, "0.4"),
+                label=group,
+            )
+            finite_values.extend(np.asarray(subset[["oracle_synergy", "mlp_synergy"]], dtype=float).ravel().tolist())
+    finite = np.asarray([value for value in finite_values if np.isfinite(value)], dtype=float)
+    if finite.size:
+        low = min(0.0, float(finite.min()))
+        high = float(finite.max()) * 1.05 + 1e-12
+        axis.plot([low, high], [low, high], color="0.35", linewidth=1.0, linestyle="--")
+    axis.set_xlabel("Oracle PEID Syn (bits)")
+    axis.set_ylabel("MLP-surrogate PEID Syn (bits)")
+    if not pair_rows.empty:
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    paths["syn_scatter"] = _save_figure(fig, figure_dir, "mlp_basin_surrogate_syn_scatter")
+
+    fig, axis = plt.subplots(figsize=(5.8, 4.2), constrained_layout=True)
+    if not pair_rows.empty:
+        for group, subset in pair_rows.groupby("group"):
+            axis.scatter(
+                subset["oracle_success_rate"],
+                subset["mlp_success_rate"],
+                s=32,
+                alpha=0.75,
+                edgecolor="white",
+                linewidth=0.3,
+                color=palette.get(group, "0.4"),
+                label=group,
+            )
+    axis.plot([0.0, 1.0], [0.0, 1.0], color="0.35", linewidth=1.0, linestyle="--")
+    axis.set_xlabel("Oracle grid success rate")
+    axis.set_ylabel("MLP-surrogate grid success rate")
+    axis.set_xlim(-0.04, 1.04)
+    axis.set_ylim(-0.04, 1.04)
+    if not pair_rows.empty:
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    paths["success_scatter"] = _save_figure(fig, figure_dir, "mlp_basin_surrogate_success_scatter")
 
     if report_asset_dir is not None:
         report_asset_dir = Path(report_asset_dir)

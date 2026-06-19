@@ -1565,6 +1565,131 @@ def test_network_basin_runner_writes_cache_and_summary(monkeypatch):
         assert all(item["png"].exists() for item in paths.values())
 
 
+def test_mlp_basin_surrogate_transition_rollout_forces_then_releases():
+    from exp.network_revival.network_basin_pair_ignition import simulate_released_ignition_batch_transition
+
+    def predict(states):
+        return np.asarray(states, dtype=float) + 1.0
+
+    fixed_mask = np.array([[True, False]], dtype=bool)
+    fixed_values = np.array([[5.0, 0.0]], dtype=float)
+
+    result = simulate_released_ignition_batch_transition(
+        predict,
+        fixed_mask,
+        fixed_values,
+        t_force=2.0,
+        t_free=1.0,
+        dt=1.0,
+        state_clip=20.0,
+        initial_states=np.zeros((1, 2), dtype=float),
+    )
+
+    np.testing.assert_allclose(result["final_states"], np.array([[6.0, 3.0]]))
+    np.testing.assert_allclose(result["final_mean"], np.array([4.5]))
+    assert result["valid"].tolist() == [True]
+
+
+def test_mlp_basin_surrogate_runner_writes_cache_and_figures(monkeypatch):
+    from exp.network_revival import network_basin_pair_ignition as module
+    from exp.network_revival.network_basin_pair_ignition import (
+        MLPBasinSurrogateConfig,
+        plot_mlp_basin_surrogate_results,
+        run_mlp_basin_surrogate_experiment,
+    )
+
+    with TemporaryDirectory() as tmpdir:
+        source_dir = Path(tmpdir) / "source"
+        output_dir = Path(tmpdir) / "mlp"
+        source_dir.mkdir()
+        adjacency = np.ones((4, 4), dtype=float) - np.eye(4)
+        oracle_syn = np.zeros((4, 4), dtype=float)
+        oracle_success = np.zeros((4, 4), dtype=float)
+        oracle_basin = np.zeros((4, 4), dtype=float)
+        oracle_syn[0, 1] = oracle_syn[1, 0] = 0.2
+        oracle_success[0, 1] = oracle_success[1, 0] = 1.0
+        oracle_basin[0, 1] = oracle_basin[1, 0] = 1.0
+        np.savez_compressed(
+            source_dir / "representative_arrays.npz",
+            neural_er_adjacency=adjacency,
+            neural_er_success_rate_matrix=oracle_success,
+            neural_er_max_basin_matrix=oracle_basin,
+            neural_er_synergy_matrix=oracle_syn,
+            neural_er_single_labels=np.zeros(4, dtype=int),
+        )
+        rows = []
+        for left in range(4):
+            for right in range(left + 1, 4):
+                positive = int((left, right) == (0, 1))
+                rows.append(
+                    {
+                        "model_name": "Neural",
+                        "network_kind": "ER",
+                        "group": "Neural|ER",
+                        "instance": 0,
+                        "instance_seed": 11,
+                        "pair_i": left,
+                        "pair_j": right,
+                        "max_pair_basin_label": positive,
+                        "success_rate": float(positive),
+                        "synergy": 0.2 if positive else 0.0,
+                        "coupling_scale": 1.0,
+                        "delta_max": 1.0,
+                        "basin_threshold": 0.5,
+                    }
+                )
+        (source_dir / "pair_scores.jsonl").write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+
+        class FakeFitted:
+            metrics = {"test_rmse": 0.0, "test_r2": 1.0, "persistence_rmse": 0.0}
+
+            def predict(self, states):
+                return np.asarray(states, dtype=float)
+
+        def fake_fit(adjacency, model, config):
+            return FakeFitted()
+
+        def fake_rollout(predict, fixed_mask, fixed_values, *, t_force, t_free, dt, state_clip, initial_states=None):
+            active = tuple(np.flatnonzero(np.asarray(fixed_mask, dtype=bool).any(axis=0)).tolist())
+            if active == (0, 1):
+                labels = (np.asarray(fixed_values, dtype=float).sum(axis=1) >= 1.5).astype(float)
+            else:
+                labels = np.zeros(fixed_mask.shape[0], dtype=float)
+            return {
+                "final_states": np.repeat(labels[:, None], fixed_mask.shape[1], axis=1),
+                "final_mean": labels,
+                "valid": np.ones(fixed_mask.shape[0], dtype=bool),
+            }
+
+        monkeypatch.setattr(module, "_fit_basin_transition_mlp", fake_fit)
+        monkeypatch.setattr(module, "simulate_released_ignition_batch_transition", fake_rollout)
+
+        config = MLPBasinSurrogateConfig(
+            source_result_dir=source_dir,
+            output_dir=output_dir,
+            model_names=("Neural",),
+            network_kinds=("ER",),
+            train_sample_count=16,
+            validation_sample_count=8,
+            test_sample_count=8,
+            delta_levels=4,
+        )
+        first = run_mlp_basin_surrogate_experiment(config, force=True)
+        second = run_mlp_basin_surrogate_experiment(config, force=False)
+
+        assert first["cache_paths"]["summary_json"].exists()
+        assert first["cache_paths"]["pairs_jsonl"].exists()
+        assert first["cache_paths"]["arrays_npz"].exists()
+        assert first["cache_paths"]["manifest_json"].exists()
+        assert first["summary"]["groups"]["Neural|ER"]["pair_count"] == 6
+        assert np.isfinite(first["summary"]["groups"]["Neural|ER"]["spearman_oracle_mlp_synergy"])
+        assert len(first["pair_rows"]) == len(second["pair_rows"]) == 6
+
+        paths = plot_mlp_basin_surrogate_results(first, config, report_asset_dir=Path(tmpdir) / "assets")
+        assert {"heatmaps", "syn_scatter", "success_scatter"} <= set(paths)
+        assert all(item["png"].exists() for item in paths.values())
+
+
 def test_part3_references_network_basin_pair_assets():
     root = Path(__file__).resolve().parents[1]
     report_text = (root / "docs" / "reports" / "Part3.md").read_text()
