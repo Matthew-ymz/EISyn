@@ -1,140 +1,204 @@
-# Part 2：全脑 DMF 相变中的 $\Phi^R$ 与 whole-system $\Phi^{EID}$
+# Part 2：Runge 时空因果网关中的 EI、PEID 与预测读出
+核心问题是：在同一组 Runge-NCEP 60 维周尺度分量上，线性滞后因果递归、非线性 effective information 读出、以及 PEID 二阶协同是否指向一致的 gateway / mediator 结构；如果引入 Transformer 预测器，这些结构性读出是否仍能恢复 Runge 原文 Fig. 3 中的关键链路。
 
-本部分回顾全脑 Dynamic Mean Field（DMF）模型的全局耦合扫描实验。实验问题是：经验状态分布上计算的 $\Phi^R$ 能否稳定定位 firing-rate 转变区，以及采用最大熵干预口径的 whole-system $\Phi^{EID}$ 能否提供更接近机制层面的对照。
+高分节点首先要经得起地理检验。当前复现中，最强的线性 gateway / mediator 仍集中在 Runge 等人讨论过的 Indo-Pacific、东太平洋 ENSO、热带大西洋以及印度洋-西非季风相关区域 [1]。
 
-![DMF 全局耦合扫描中的 firing rate、PhiR、whole-system PhiEID 与 PhiR 峰值敏感性](assets/part2_dmf_phi_comparison.png)
+![Runge 复现的 gateway 与 mediator 地理节点图](assets/part2_runge_gateway_mediator_map.png)
 
-*图 1. 全局耦合 $G$ 扫描结果。A：平均放电率；B：不同经验采样方案下的 $\Phi^R$；C：最大熵源干预下的 whole-system $\Phi^{EID}$；D：各 $\Phi^R$ 曲线识别出的峰值位置 $G^*$。峰值分析统一排除扫描边界 $G=1.0$。*
+*图 1. 线性 Runge 复现中的 60 个空间模态。A：ACE/ACS；B：AMCE。节点位置来自对应 Varimax loading 的高载荷中心。*
 
-## 1. 实验与数据口径
+图 1 的关键信息很直接：No.0、No.1、No.2 仍是最稳的核心节点。No.0 位于海洋大陆/东印度洋附近，可理解为 Walker 环流西侧上升支和 Indo-Pacific 暖池对流区；No.1 对应东太平洋 ENSO 区；No.2 对应热带大西洋相关模态。ENSO 与 Walker 环流本来就是全球遥相关的经典源区 [2]，热带热源激发的大尺度罗斯贝波响应也为“热带异常影响远端中高纬”的解释提供了动力学背景 [3]。因此，这些节点进入高 ACE、AMCE 排名，不只是统计编号上的巧合。
 
-实验以 Lausanne2008-33 count 数据派生的 83 脑区**经验代理耦合矩阵**近似复现 Mediano et al. (2025) 的 DMF Fig. 6 设置，并扫描
+也要保留一个边界：这些 No. 节点是旋转 PCA/Varimax 空间模态，不是地面站点或单一气候指数。原文重点讨论过的节点可以做较强物理解释；低排名或未标注节点只能先按其空间载荷位置理解，不能直接命名成某个确定气候过程。
 
-$$
-G=1.0,1.1,\ldots,3.0.
-$$
+二阶 PEID 进一步问一个更强的问题：目标模态的变化，是否需要两个源模态一起看才解释得更好。图 2 中的紫色超边表示这种 source-pair-target 协同；它不是风场轨迹，也不是能量沿线传播路径，而是“两个空间模态联合起来比两个单独模态之和提供更多信息”的统计关系。
 
-### 1.1 真实数据、脑区划分与动力学出处
+![Runge PEID 协同 gateway 地理示意图](assets/part2_runge_peid_synergy_map.png)
 
-原论文与当前近似复现使用了相同的 83 节点尺度，但二者的连接数据并不相同，不能都笼统称为“结构连接矩阵”。
+*图 2. No.0 与 No.1 附近的二阶 PEID 协同关系。节点外圈表示 hyper-ACE，内圈表示 hyper-ACS；紫色汇合箭头表示显著正二阶协同超边。灰色小点只提供空间参照。*
 
-- **原论文的数据来源。** Mediano et al. (2025) 的补充材料说明，其 DMF 使用 Human Connectome Project（HCP）900 subjects release 的扩散 MRI 数据，经 Luppi and Stamatakis (2020) 的代表性脑网络流程预处理后，得到 Lausanne-83 分区下的 $83\times83$ 结构连接矩阵 $\mathbf{C}$。Lausanne 多尺度解剖分区最初由 Cammoun et al. (2012) 基于 diffusion spectrum MRI 提出。
-- **当前复现的数据来源。** 当前使用的 `Lausanne2008-33.zip` 来自 F-TRACT 人脑连接图谱。F-TRACT 基于癫痫患者立体脑电（SEEG）期间的直接电刺激和 cortico-cortical evoked potentials（CCEP）汇总跨脑区响应；公开记录说明该版本汇集了 780 名患者，并提供 Lausanne2008 多种分辨率。归档中的 Lausanne2008-33 含 84 个标签；移除 `Unknown` 后保留 83 个节点，包括双侧皮层区、皮层下区和脑干。
-- **当前矩阵的实际含义。** 代码读取归档内 19 个条目的 `count` 字段；该字段是刺激区—记录区组合的观测计数，矩阵非对称，并不是纤维数或 HCP diffusion-MRI 结构连接。复现取第一个 `count` 矩阵，移除 `Unknown`，再按最大值归一化并乘以 $0.2$，最后将所得矩阵作为 DMF 的 $\mathbf{C}$。因此，本实验保留了真实脑区划分和经验跨区覆盖模式，但 $\mathbf{C}$ 只能解释为用于近似复现的代理耦合权重。
+从地球科学背景看，图 2 的超边更适合被称为 **teleconnection candidates**，而不是已确认的物理通道。No.0 相关超边有较强可读性：海洋大陆位于 Indo-Pacific 暖池和 Walker 环流上升支附近，这一区域的深对流和潜热释放本来就容易影响大尺度环流 [5]；ENSO 影响全球海气相互作用的“atmospheric bridge”也说明热带太平洋异常可以通过大气桥传到远端海盆 [4]。因此，\(\{No.0,No.18\}\to No.8\)、\(\{No.0,No.14\}\to No.1\) 这类关系可以被看作 Indo-Pacific 背景态与远端模态共同调制目标区域的候选信号。
 
-脑区之间的时间演化不是直接从 F-TRACT 数据估计，而是由 Deco et al. (2014, 2018) 的 E-I Dynamic Mean Field 模型生成；Mediano et al. (2025) 按 Herzog et al. (2020) 的配置使用该模型。每个脑区 $j$ 包含相互耦合的兴奋性与抑制性神经群体，跨脑区作用只通过兴奋性 NMDA 门控变量传播。原模型为
+但这还不是机制证明。地球系统里确实存在非加性调制的例子，例如印度洋偶极子会改变 ENSO 与印度夏季风之间的关系 [6]，IOD 本身也对应热带印度洋的东西向异常模态 [7]；ENSO 与年循环的相互作用还可以产生 combination mode [8]。这些文献支持“两个气候模态联合影响第三个响应”的物理可能性，但不能自动证明每一条 PEID 超边都是真实大气过程。本文因此只把这些超边解释为可验证假说：它们提示哪些源对值得继续做季节分层、ENSO/IOD 位相分层和响应面检验。
 
-$$
-I_j^{(E)}
-=W_E I_0+w_+J_{\mathrm{NMDA}}S_j^{(E)}
-+GJ_{\mathrm{NMDA}}\sum_{k=1}^{N}C_{jk}S_k^{(E)}
--J_j^{\mathrm{FIC}}S_j^{(I)},
-$$
+图 3 展示这些关键节点的完整空间载荷。它比单个圆点更重要，因为一个 Varimax 分量常常有多个正负 lobe；地理命名应来自整张载荷图，而不是只看最大值所在位置。
 
-$$
-I_j^{(I)}=W_I I_0+J_{\mathrm{NMDA}}S_j^{(E)}-S_j^{(I)},
-$$
+![Runge ACE 与 ACS 高排名 No 节点的全球 Varimax loading 区域](assets/part2_runge_component_regions.png)
+
+*图 3. ACE、ACS、AMCE 前五节点并集的全球 SLP Varimax loading。红色方向经过符号统一；黑色半透明区域标出高正载荷核心区。*
+
+这张图给后文的 No. 标签定下解释口径：No.0、No.1、No.2、No.26、No.48 可以结合 Runge 原文和载荷位置做气候解释；No.3、No.6 等高 ACE 节点则先作为强传播空间模态处理。除非经过季节、相位和独立资料验证，本文不把低排名或未标注分量解释成确定的气候指数。
+
+## 1. 数据与指标口径
+
+实验对象是 NCEP/NCAR sea-level pressure 场经 Varimax 旋转后得到的 60 个周尺度分量。记第 \(t\) 周状态为
 
 $$
-r_j^{(E)}=F_E\!\left(I_j^{(E)}\right)
-=\frac{g_E\!\left(I_j^{(E)}-I_{\mathrm{thr}}^{(E)}\right)}
-{1-\exp\!\left[-d_Eg_E\!\left(I_j^{(E)}-I_{\mathrm{thr}}^{(E)}\right)\right]},
+\mathbf{x}_t=(x_{1,t},\ldots,x_{60,t})^\top .
+\tag{1}
 $$
 
-$$
-r_j^{(I)}=F_I\!\left(I_j^{(I)}\right)
-=\frac{g_I\!\left(I_j^{(I)}-I_{\mathrm{thr}}^{(I)}\right)}
-{1-\exp\!\left[-d_Ig_I\!\left(I_j^{(I)}-I_{\mathrm{thr}}^{(I)}\right)\right]},
-$$
+线性复现使用最大周滞后 \(\tau_{\max}=4\)，以稀疏滞后回归描述目标分量：
 
 $$
-\frac{\mathrm{d}S_j^{(E)}}{\mathrm{d}t}
-=-\frac{S_j^{(E)}}{\tau_{\mathrm{NMDA}}}
-+\left(1-S_j^{(E)}\right)\gamma r_j^{(E)}
-+\sigma v_j^{(E)}(t),
+x_{j,t}
+=\sum_{\tau=1}^{4}\sum_i A_{ji}^{(\tau)}x_{i,t-\tau}+\varepsilon_{j,t}.
+\tag{2}
 $$
 
+其中 \(\mathbf{A}^{(\tau)}\) 是滞后 \(\tau\) 的线性因果系数矩阵。Runge 式 total causal effect 由滞后递归得到，并据此计算平均因果效应 ACE、平均因果易感性 ACS，以及阻断候选中介后的 AMCE。
+
+非线性 EI 实验改用学习到的一步转移 \(f_\theta\)。对源分量 \(i\) 和目标分量 \(j\)，在最大熵干预样本下估计
+
 $$
-\frac{\mathrm{d}S_j^{(I)}}{\mathrm{d}t}
-=-\frac{S_j^{(I)}}{\tau_{\mathrm{GABA}}}
-+r_j^{(I)}
-+\sigma v_j^{(I)}(t).
+\mathrm{EI}_{i\to j}=I_{\mathrm{do}}\!\left(X_i;\widehat{X}_{j,t+1}\right).
+\tag{3}
 $$
 
-其中，$S_j^{(E)}$ 与 $S_j^{(I)}$ 分别为第 $j$ 个脑区的兴奋性 NMDA 和抑制性 GABA 门控变量，$r_j^{(E)}$ 与 $r_j^{(I)}$ 为对应放电率，$C_{jk}$ 为从脑区 $k$ 到脑区 $j$ 的代理耦合权重，$G$ 是本实验扫描的全局耦合强度，$J_j^{\mathrm{FIC}}$ 是将低耦合基线平均放电率校准至约 $3\ \mathrm{Hz}$ 的反馈抑制控制参数，$v_j^{(E)}(t)$ 与 $v_j^{(I)}(t)$ 为相互独立的 Gaussian 白噪声。当前实现使用 Euler–Maruyama 积分，并与原模型一致地采用 $W_E=1$、$W_I=0.7$、$I_0=0.382\ \mathrm{nA}$、$w_+=1.4$、$J_{\mathrm{NMDA}}=0.15\ \mathrm{nA}$、$\tau_{\mathrm{NMDA}}=100\ \mathrm{ms}$、$\tau_{\mathrm{GABA}}=10\ \mathrm{ms}$、$\gamma=0.641$ 和 $\sigma=0.01$。
+Pairwise EI 图只能描述单源贡献。PEID 二阶扩展进一步计算源对 \(\{i,j\}\) 对目标 \(T\) 的 Mobius interaction：
 
-每个耦合点记录全脑平均兴奋性放电率，并基于滞后一步的区域状态 $(\mathbf{X}_t,\mathbf{X}_{t+1})$ 计算两类信息指标：
+$$
+\Delta_{\{i,j\}}(T)
+=\mathrm{EI}(X_i,X_j\to T)
+-\mathrm{EI}(X_i\to T)
+-\mathrm{EI}(X_j\to T).
+\tag{4}
+$$
 
-- **$\Phi^R$**：在经验 lagged Gaussian distribution 上计算脑区对的 whole-minus-sum，并加回 double-redundancy 修正后对全部脑区对求平均。该指标描述当前经验状态分布中的信息动力学，因此可能随采样窗口和状态权重变化。
-- **whole-system $\Phi^{EID}$**：先拟合标准化线性 Gaussian 转移
-  $$
-  \mathbf{X}_{t+1}=\mathbf{A}\mathbf{X}_t+\boldsymbol{\varepsilon},
-  $$
-  再在独立的标准化最大熵源干预下计算
-  $$
-  \Phi^{EID}=I_{\mathrm{do}}(\mathbf{X}_t;\mathbf{X}_{t+1})-
-  \sum_i I_{\mathrm{do}}(X_t^i;\mathbf{X}_{t+1}).
-  $$
-  该量对应系统级源侧协同；在当前 Gaussian 构造下等价于条件 total correlation，因此保持非负。
+本轮 PEID hypergraph 只估计到二阶，因此正的 \(\Delta_{\{i,j\}}(T)\) 被解释为两个源分量在该目标上的超加性协同。
 
-为检验 $\Phi^R$ 对经验状态分布的敏感性，图 B 比较四种曲线：缓存中的全部脑区对结果、uniform pilot、靠近中位 activity 的 middle-state rows，以及偏离中位 activity 较远的 tail-biased rows。后三者使用同一 DMF 状态序列，仅改变进入估计器的时间行。
+## 2. 线性 Runge 复现：No.0/1/2 是最稳定的经典网关组
 
-## 2. 关键数值
+线性复现覆盖 1948-2011 年，共 3339 个周样本，最终保留 837 条滞后因果边。当前分量编号已按本地 orthomax / Varimax 路径和原文重点空间模式做 paper-label 校准：特别是本地 No.7、No.8、No.21 分别映射到原文 No.18、No.26、No.48。
 
-| 观测量 | 结果 | 数值解释 |
-|---|---:|---|
-| 最大 firing-rate 离散斜率 | $G=1.8$，约 $13.060\ \mathrm{Hz}/G$ | 与 $G=1.9$ 的 $13.027$ 很接近，单点临界值不稳定 |
-| Full-pair $\Phi^R$ 峰值 | $G^*=1.8$，$\Phi^R=0.02168$ | 位于放电率快速上升区 |
-| Uniform pilot 峰值 | $G^*=1.6$ | 改变经验采样后峰值提前 |
-| Middle-state rows 峰值 | $G^*=1.7$ | 更接近快速上升区左侧 |
-| Tail-biased rows 峰值 | $G^*=1.8$ | 与 full-pair 结果一致 |
-| whole-system $\Phi^{EID}$ 峰值 | $G^*=1.7$，$\Phi^{EID}=19.636$ | 在快速上升区内达到最大值 |
-| $G>1.0$ 范围内最小 $\Phi^{EID}$ | $4.927$，位于 $G=2.9$ | 全扫描分析区间内保持非负 |
+![线性 Runge 复现中的 gateway 与 mediator 排序](assets/part2_runge_linear_rankings.png)
 
-平均放电率从 $G=1.6$ 的 $4.727\ \mathrm{Hz}$ 上升到 $G=1.9$ 的 $8.195\ \mathrm{Hz}$，随后继续单调增加。因 $G=1.8$ 与 $G=1.9$ 的离散斜率几乎相同，本实验只把 $G\approx1.7\text{-}1.9$ 解释为快速转变区，而不把某一个网格点当作精确相变常数。
+*图 4. 线性 Runge 复现的前十名 gateway 与 mediator。A：ACE 排序；B：AMCE 排序。*
 
-## 3. 分图解读
+| 排名 | Gateway 分量 | ACE | Mediator 分量 | AMCE |
+|---:|---|---:|---|---:|
+| 1 | No.2 | 0.072274 | No.2 | 0.002879 |
+| 2 | No.1 | 0.057493 | No.1 | 0.001859 |
+| 3 | No.0 | 0.053431 | No.0 | 0.001738 |
+| 4 | No.3 | 0.052788 | No.48 | 0.001561 |
+| 5 | No.6 | 0.051232 | No.26 | 0.001483 |
 
-### A. 动力学转变区
+线性结果给出一个清晰的复现基线：No.2、No.1、No.0 同时位于 ACE 和 AMCE 前列，是最稳定的全局传播分量。No.48 与 No.26 进入 AMCE 前五，说明原文强调的 mediator 候选在当前校准后重新出现在高 mediated-effect 区域。No.18 的 ACE 排第 9、AMCE 排第 9，仍属于较强但不是最高的线性传播节点。
 
-低耦合区的平均放电率约为 $3\text{-}5\ \mathrm{Hz}$，从 $G\approx1.7$ 开始明显加速，并在更高耦合下持续上升。这为信息指标提供了独立的动力学参照：可信的临界性信号应出现在该快速上升区附近，而不应只由信息估计器的边界峰值决定。
+这组结果回答的是“线性滞后递归下哪些分量支配全局传播”。它不等同于非线性预测贡献，也不保证 pairwise 图能捕捉所有源对协同。
 
-### B 与 D. $\Phi^R$ 能定位转变区，但峰值依赖采样分布
+## 3. MLP-TM-EI 与二阶 PEID：pairwise 结构被保留，但协同改写 gateway 优先级
 
-Full-pair $\Phi^R$ 在 $G=1.8$ 形成尖峰，和 firing-rate 快速上升区对齐，说明它确实能够描述临界区附近增强的信息整合。然而，uniform 与 middle-state 重采样把峰值分别移动到 $G=1.6$ 和 $G=1.7$。因此，$\Phi^R$ 的峰值不仅反映动力学机制，也受系统在经验轨迹中如何访问状态空间影响。
+非线性读出使用同一组 60 维周尺度分量，输入最近 4 周状态，预测下一周状态。保存运行中的 MLP/Ridge 融合模型 test RMSE 为 0.714863、MAE 为 0.569984、相关系数为 0.450806；相对 tuned Ridge 的 RMSE 改进为 0.001376，block bootstrap 95% CI 为 [0.000893, 0.001825]，单侧 \(p=0.0002\)。该提升很小，但足以支持把模型作为结构读出的非线性预测器。
 
-该结果不意味着 $\Phi^R$ 无效。更准确的结论是：它适合作为经验状态分布下的信息动力学描述量，但由其峰值给出的 $G^*$ 不是采样分布不变的机制参数。
+![MLP-TM-EI path-effect 与 PEID hypergraph 排序对比](assets/part2_runge_ei_peid_rankings.png)
 
-### C. whole-system $\Phi^{EID}$ 提供机制干预口径的对照
+*图 5. Pairwise MLP-TM-EI 与二阶 PEID 的 gateway / mediator 排序。A、C 为 pairwise path-effect；B、D 为加入二阶协同后的 Hyper-ACE 与 Hyper-AMCE。*
 
-$\Phi^{EID}$ 在 $G=1.7$ 达到 $19.636$，随后在 $G=1.8$ 降至 $10.110$，表明系统级不可约联合约束在 firing-rate 转变区左侧最强。它使用统一的最大熵源干预分布，不继承 full、middle 或 tail 经验采样权重的差异，因此回答的是“拟合动力学机制在统一干预下产生多少系统级协同”，而不是“当前轨迹中出现了多少协同”。
+| 口径 | 前五名 | 主要解释 |
+|---|---|---|
+| MLP-TM-EI gateway | No.0, No.13, No.18, No.7, No.29 | No.0 仍是最强 outgoing source；No.18 在非线性 EI path-effect 中升至第 3。 |
+| MLP-TM-EI mediator | No.7, No.13, No.29, No.18, No.43 | mediator 更偏稀疏 EI 图中的 path product，数值量级小于线性 AMCE。 |
+| PEID Hyper-ACE | No.0, No.3, No.24, No.15, No.4 | 二阶协同把部分 pairwise 非前列分量推到 gateway 前列。 |
+| PEID Hyper-AMCE | No.18, No.13, No.0, No.7, No.6 | mediator 解释转向“作为协同源成员的强度”；No.18 成为最高 Hyper-AMCE 节点。 |
 
-需要注意，$\Phi^{EID}$ 峰值与 full-pair $\Phi^R$ 峰值相差一个扫描步长（$0.1$）。在当前离散网格和代理耦合矩阵下，这支持二者共同指向同一宽转变区，但不足以声称两种指标识别了完全相同的临界点。
+Pairwise 与 PEID 的 gateway 排序 Spearman 相关为 0.7663、Kendall 相关为 0.5797；top-5 gateway 只有 No.0 重合，top-10 有 7 个重合。Mediator 排序更稳定：Spearman 0.9530、Kendall 0.8915，top-5 重合 No.18、No.13、No.7 三个节点。
 
-## 4. $G=1.0$ 边界值为何不作为相变证据
+因此，PEID 没有推翻 pairwise path-effect，而是改变了源侧输出能力的优先级。最稳健的解释是：No.0 是跨口径稳定 gateway；No.18 和 No.13 是 pairwise path 与二阶协同都支持的传播/协同节点；二阶 PEID 对 gateway 的影响大于对 mediator 的影响。
 
-缓存中 $G=1.0$ 的 $\Phi^{EID}=14.102$，部分 $\Phi^R$ 重采样曲线在该点也偏高，但它没有对应 firing-rate 的快速上升。低耦合、低放电率状态下，lagged dynamics 更接近自保持且残差协方差较小，线性 Gaussian EI 因而可能升高。该现象更应视为扫描边界和估计口径效应，而不是第二个物理相变。因此图 B、C 及峰值识别统一使用 $G>1.0$，同时保留原始边界值供审计。
+## 4. Transformer 预测：平均 RMSE 略优，但 horizon 4 是明确例外
 
-## 5. 实验结论
+最新 Transformer 预测调参完成 338 个候选，无失败候选。最终报告采用 TransformerHorizonSelector：每个 horizon 只按 validation RMSE 选择一个 Transformer 候选，不用 test split 做选择。
 
-1. firing-rate 曲线把主要动力学转变限定在 $G\approx1.7\text{-}1.9$，但当前网格不足以确定唯一临界点。
-2. Full-pair $\Phi^R$ 在 $G=1.8$ 给出清晰峰值，能够标记转变区；但重采样使峰值移动到 $1.6$ 或 $1.7$，说明该判据依赖经验状态分布。
-3. whole-system $\Phi^{EID}$ 在统一最大熵干预下于 $G=1.7$ 达峰，并在分析区间内保持非负，为经验 $\Phi^R$ 提供了机制归一化的系统级协同对照。
-4. 最稳健的表述不是“某个指标精确找到了相变点”，而是两类指标与 firing-rate 曲线共同把增强区定位在 $G\approx1.7\text{-}1.9$，其中 $\Phi^R$ 更偏行为分布描述，$\Phi^{EID}$ 更偏干预机制描述。
+![TransformerHorizonSelector 与最强 baseline 的 test RMSE](assets/part2_runge_transformer_forecast.png)
 
-## 6. 局限与复现信息
+*图 6. TransformerHorizonSelector 与 validation-selected best baseline 在 held-out test split 上的多步 RMSE。*
 
-- 当前使用 F-TRACT Lausanne2008-33 的非对称观测 `count` 派生代理耦合矩阵，而不是原论文未随数据包公开的 HCP Lausanne-83 diffusion-MRI 结构连接矩阵，因此只能视为 Fig. 6 的近似复现，不能将当前结果解释为对原结构连接网络的精确复现。
-- 原论文将模拟 firing rate 经血流动力学模型转换为 BOLD 后计算 $\Phi$；当前报告直接使用兴奋性 firing-rate 状态，因此信息指标的观测层也与原论文不同。
-- 主 $\Phi^R$ 曲线来自已缓存的全部脑区对计算，三条敏感性曲线来自重采样 pilot；不同曲线的计算预算并不完全等价。
-- 扫描步长为 $0.1$，相邻峰值点的差异不应被过度解释。
-- 使用兴奋性 firing-rate 状态、滞后 $\tau=1$、ridge $10^{-6}$；whole-system 估计在各 $G$ 下使用约 $249\text{-}499$ 个有效滞后样本。
+| 系统 | validation avg RMSE | test avg RMSE |
+|---|---:|---:|
+| TransformerHorizonSelector | 0.756903 | 0.764835 |
+| BestBaseline | - | 0.765801 |
+| GRU reference | - | 0.765320 |
 
-主要出处如下：
+| Horizon | Transformer RMSE | BestBaseline RMSE | RMSE 改进 | bootstrap 结论 |
+|---:|---:|---:|---:|---|
+| 1 | 0.708132 | 0.709344 | 0.001212 | 95% CI [0.000682, 0.001732] |
+| 2 | 0.772234 | 0.774436 | 0.002203 | 95% CI [0.001319, 0.003159] |
+| 4 | 0.789916 | 0.788826 | -0.001091 | 劣于 baseline |
+| 8 | 0.789059 | 0.790600 | 0.001541 | 95% CI [0.000398, 0.002649] |
+| average | 0.764835 | 0.765801 | 0.000966 | 95% CI [0.000501, 0.001448] |
 
-- Mediano et al. (2025), *Toward a unified taxonomy of information dynamics via Integrated Information Decomposition*，尤其是补充材料 Sec. VIII：给出 Fig. 6 的 HCP Lausanne-83 数据口径、完整 DMF 方程与参数。
-- Deco et al. (2014), *How local excitation-inhibition ratio impacts the whole brain dynamics*；Deco et al. (2018), *Whole-brain multimodal neuroimaging model using serotonin receptor maps explains non-linear functional effects of LSD*：DMF 动力学来源。
-- Herzog et al. (2020), *A mechanistic model of the neural entropy increase elicited by psychedelic drugs*：Mediano et al. 所沿用的模型配置。
-- Van Essen et al. (2013) 与 Glasser et al. (2013)：HCP 数据与预处理；Luppi and Stamatakis (2020)：代表性结构脑网络构建；Cammoun et al. (2012), *Mapping the human connectome at multiple scales with diffusion spectrum MRI*：Lausanne 多尺度分区。
-- F-TRACT atlas, Zenodo record [7015415](https://zenodo.org/records/7015415)；Trebaul et al. (2018), *Probabilistic functional tractography of the human cortex revisited*：当前代理矩阵所用 CCEP 图谱的数据来源与性质。
-- Yang, Wang, and Zhang (2026), *Partial Effective Information Decomposition for Synergistic Causality*：最大熵干预下 PEID 协同的机制解释。
+相对 BestBaseline，Transformer 的 average RMSE 改进为 0.000966，bootstrap 证据较强。相对 GRU reference，average RMSE 改进为 0.000485，单侧 \(p=0.042\)，但 95% CI 为 [-0.000072, 0.001016]，略跨 0。准确表述应是：Transformer 在平均 RMSE 上提供小幅正向证据，但不能声称所有 horizon 均提升；horizon 4 当前明确劣于 baseline 和 GRU。
+
+## 5. Transformer 上的 PEID 检查：Fig. 3 主链路部分恢复，二阶协同集中于少数源对
+
+在 Transformer h=1 候选上，实验检查 Runge 原文 Fig. 3 的关键链路。读出使用 4096 个独立最大熵干预样本，按 60 个可能 source 在同一目标上的 EI 排名判断支持强度。
+
+| 检查边 | 期望滞后 | 最佳滞后 | EI | source rank | 支持 |
+|---|---:|---:|---:|---:|---|
+| No.1 -> No.0 | 2 | 2 | 0.053079 | 2 | strong top-10 |
+| No.0 -> No.33 | 1 | 1 | 0.031158 | 3 | strong top-10 |
+| No.1 -> No.53 | 1-3 | 2 | 0.032475 | 2 | strong top-10 |
+| No.53 -> No.33 | 1-3 | 2 | 0.000235 | 50 | weak positive |
+| No.1 -> No.33 total effect | 3 | 3 | 0.126488 | 1 | strong top-10 |
+| No.59 -> No.1 dashed driver | 1-3 | 2 | 0.002135 | 39 | weak positive |
+| No.59 -> No.33 dashed driver | 1-3 | 1 | 0.008664 | 15 | moderate top-20 |
+
+这说明 Transformer PEID/TM-EI 对实线 mediator chain 和 total effect 有部分恢复能力：4 条关键检查达到 top-10，No.53 -> No.33 只剩弱正值。虚线 No.59 共同驱动项不应被当作必须恢复的实线路径，其中 No.59 -> No.33 只是 moderate top-20。
+
+二阶检查中，针对 Fig. 3 的 No.1+No.0 -> No.33 在 3 周滞后下 joint EI 为 0.196218，单源 EI 分别为 0.126488 和 0.054849，\(\Delta_2=0.014882\)，约占 joint EI 的 7.58%。这说明主链路并非纯 pairwise 加和；源对有可测的协同增量。
+
+![Transformer 二阶 PEID 全量源对协同排序](assets/part2_runge_transformer_synergy.png)
+
+*图 7. Transformer 全量二阶 PEID 扫描中的强正协同关系。A：所有正协同关系中的前十；B：排除部分自目标关系后的 cross-target 前十。*
+
+全量二阶扫描覆盖 106200 个 source-pair-target 关系，使用 seeds 42-46、4096 个干预样本，并对 top relations 做 permutation null 检查。最强正协同包括 \(\{No.6, No.28\}\to No.28\)、\(\{No.3, No.14\}\to No.14\)、\(\{No.0, No.28\}\to No.28\)；最强 cross-target 关系包括 \(\{No.2, No.5\}\to No.49\)、\(\{No.5, No.33\}\to No.59\)、\(\{No.1, No.4\}\to No.45\)。
+
+按源对汇总的总正协同也高度集中：\(\{No.0,No.28\}\) 的 total positive \(\Delta_2\) 为 0.074013，\(\{No.0,No.24\}\) 为 0.069249，\(\{No.0,No.4\}\) 为 0.067484。这再次强化 No.0 的 gateway 地位：它不仅在一阶/路径读出中强，也频繁参与强二阶协同源对。
+
+## 6. 综合结论
+
+1. 线性 Runge 复现把 No.2、No.1、No.0 识别为最稳定的经典 gateway / mediator 组；No.26 与 No.48 在校准后重新进入高 AMCE 区域。
+2. MLP-TM-EI 保留 No.0 的主导地位，并把 No.18、No.13 等节点提升为重要非线性传播候选。
+3. 二阶 PEID 对 gateway 排序的改变大于对 mediator 排序的改变；No.18 的 Hyper-AMCE 最高，说明其更适合解释为协同参与节点，而不只是 pairwise path mediator。
+4. Transformer 预测器在平均 RMSE 上小幅优于 BestBaseline，但改善幅度很小，且 horizon 4 是明确负例；因此结构读出不应被包装成大幅预测性能提升。
+5. Transformer 上的 PEID/TM-EI 能部分恢复 Runge Fig. 3 的关键实线路径，并在 No.1+No.0 -> No.33 上观察到正二阶协同；全量二阶扫描进一步显示 No.0 频繁参与强协同源对。
+
+最稳健的表述是：Runge 实验支持一个从线性传播到非线性 EI、再到二阶 PEID 的层级结论。No.0 是跨口径最稳定的 gateway；No.18 与 No.13 是非线性和协同口径下更突出的传播节点；Transformer 结果提供了更强模型族下的补充验证，但目前只能支持小幅预测改进和部分结构恢复，不能支持对气候机制的强因果定论。
+
+## 7. 地球科学背景文献
+
+[1] Runge, J., Petoukhov, V., Donges, J. F., Hlinka, J., Jajcay, N., Vejmelka, M., Hartman, D., Marwan, N., Palus, M., & Kurths, J. (2015). Identifying causal gateways and mediators in complex spatio-temporal systems. *Nature Communications*, 6, 8502. https://doi.org/10.1038/ncomms9502
+
+[2] Bjerknes, J. (1969). Atmospheric teleconnections from the equatorial Pacific. *Monthly Weather Review*, 97(3), 163-172. https://doi.org/10.1175/1520-0493(1969)097%3C0163:ATFTEP%3E2.3.CO;2
+
+[3] Hoskins, B. J., & Karoly, D. J. (1981). The steady linear response of a spherical atmosphere to thermal and orographic forcing. *Journal of the Atmospheric Sciences*, 38(6), 1179-1196. https://doi.org/10.1175/1520-0469(1981)038%3C1179:TSLROA%3E2.0.CO;2
+
+[4] Alexander, M. A., Bladé, I., Newman, M., Lanzante, J. R., Lau, N.-C., & Scott, J. D. (2002). The atmospheric bridge: The influence of ENSO teleconnections on air-sea interaction over the global oceans. *Journal of Climate*, 15(16), 2205-2231. https://doi.org/10.1175/1520-0442(2002)015%3C2205:TABTIO%3E2.0.CO;2
+
+[5] Neale, R., & Slingo, J. (2003). The Maritime Continent and its role in the global climate: A GCM study. *Journal of Climate*, 16(5), 834-848. https://doi.org/10.1175/1520-0442(2003)016%3C0834:TMCAIR%3E2.0.CO;2
+
+[6] Ashok, K., Guan, Z., & Yamagata, T. (2001). Impact of the Indian Ocean Dipole on the relationship between the Indian monsoon rainfall and ENSO. *Geophysical Research Letters*, 28(23), 4499-4502. https://doi.org/10.1029/2001GL013294
+
+[7] Saji, N. H., Goswami, B. N., Vinayachandran, P. N., & Yamagata, T. (1999). A dipole mode in the tropical Indian Ocean. *Nature*, 401, 360-363. https://doi.org/10.1038/43854
+
+[8] Stuecker, M. F., Timmermann, A., Jin, F.-F., McGregor, S., & Ren, H.-L. (2013). A combination mode of the annual cycle and the El Niño/Southern Oscillation. *Nature Geoscience*, 6, 540-544. https://doi.org/10.1038/ngeo1826
+
+## 8. 局限与复现信息
+
+- 60 个分量是旋转 PCA / Varimax 分量，编号依赖当前实现和校准；除原文重点分量外，低排名分量不能解释为官方逐点认证标签。
+- PEID hypergraph 只估计二阶；三阶及以上 interaction 未纳入本轮结论。
+- 二阶候选仍受 pairwise EI 预筛选和模型预测质量影响，弱 pairwise 但强纯协同的关系可能被漏掉。
+- Transformer full-pair synergy 的 permutation null 方差很小，导致 z 值很大；本文只把它用于排序和稳定性辅助，不把它解释为物理机制证明。
+- 旧版 Part2 的 DMF \(\Phi^R\) / whole-system \(\Phi^{EID}\) 内容已另存为 `docs/log/Part2_dmf_phi_original.md`。
+
+主要产物位置：
+
+- 线性 Runge 复现：`results/runge/2015_gateways/`
+- MLP-TM-EI path-effect：`results/runge/pairwise_mlp_tm_ei_path_effects/`
+- 二阶 PEID hypergraph：`results/runge/peid_hypergraph/`
+- Transformer forecast sweep：`results/runge_transformer_forecast_sweep/`
+- Transformer Fig. 3 PEID 检查：`results/runge/transformer_peid_fig3_edges/`
+- Transformer full-pair synergy：`results/runge/transformer_full_pair_synergy/`
+- 本文新增原文风格节点地图：`scripts/plot_runge_gateway_mediator_map.py`
+- 本文新增空间节点图：`scripts/plot_runge_component_regions.py`
