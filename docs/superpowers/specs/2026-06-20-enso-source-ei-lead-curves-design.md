@@ -6,7 +6,7 @@ Replace the ENSO single-source EI ranking bar chart in `Part2.md` with lead-depe
 
 ## Figure Contract
 
-- Conclusion: ENSO self-history dominates across leads, while the strongest non-self sources contribute smaller, lead-dependent EI concentrated at shorter horizons.
+- Conclusion: ENSO self-history dominates at short leads and decays rapidly, while smaller non-self contributions follow distinct lead-dependent trajectories with wider checkpoint uncertainty at long leads.
 - Role: metric comparison over forecast lead.
 - Backend: Python with the repository's existing matplotlib plotting script.
 - Outputs: overwrite the existing PNG and editable SVG assets used by `Part2.md`.

@@ -439,11 +439,67 @@ def enumerate_full_history_mode_pairs(mode_names: Sequence[str] | None = None) -
     return [(left, right) for left_index, left in enumerate(names) for right in names[left_index + 1 :]]
 
 
+def enumerate_full_history_mode_subsets(
+    mode_names: Sequence[str] | None = None,
+    *,
+    order: int,
+) -> list[tuple[str, ...]]:
+    names = list(MODE_NAMES) if mode_names is None else [str(name) for name in mode_names]
+    unknown = [name for name in names if name not in MODE_NAMES]
+    if unknown:
+        raise ValueError(f"Unknown source mode(s): {', '.join(unknown)}")
+    if len(set(names)) != len(names):
+        raise ValueError("source mode names must be unique.")
+    if int(order) < 1 or int(order) > len(names):
+        raise ValueError("order must be between 1 and the number of source modes.")
+    return [tuple(subset) for subset in itertools.combinations(names, int(order))]
+
+
 def _extract_full_history_mode_source(history_modes: np.ndarray, mode_name: str) -> np.ndarray:
     history = _validate_full_history_mode_inputs(history_modes)
     if mode_name not in MODE_NAMES:
         raise ValueError(f"Unknown mode: {mode_name}")
     return history[:, :, MODE_NAMES[mode_name]].astype(float)
+
+
+def estimate_full_history_subset_ei(
+    history_modes: np.ndarray,
+    mode_names: Sequence[str],
+    target: np.ndarray,
+) -> float:
+    subset = tuple(str(name) for name in mode_names)
+    if not subset:
+        raise ValueError("mode_names must contain at least one source mode.")
+    if len(set(subset)) != len(subset):
+        raise ValueError("mode_names must not contain duplicates.")
+    sources = [_extract_full_history_mode_source(history_modes, name) for name in subset]
+    target_array = np.asarray(target, dtype=float)
+    if target_array.ndim == 1:
+        target_array = target_array.reshape(-1, 1)
+    if target_array.ndim != 2 or target_array.shape[1] != 1:
+        raise ValueError("target must be one-dimensional or a single-column 2D array.")
+    if sources[0].shape[0] != target_array.shape[0]:
+        raise ValueError("history_modes and target must share the sample axis.")
+    return float(estimate_gaussian_mutual_information(np.concatenate(sources, axis=1), target_array))
+
+
+def mobius_ei_interaction(
+    subset: Sequence[str],
+    ei_lookup: dict[tuple[str, ...], float],
+) -> float:
+    ordered_subset = tuple(str(name) for name in subset)
+    if not ordered_subset:
+        raise ValueError("subset must contain at least one source.")
+    if len(set(ordered_subset)) != len(ordered_subset):
+        raise ValueError("subset must not contain duplicates.")
+    total = 0.0
+    for size in range(1, len(ordered_subset) + 1):
+        sign = (-1) ** (len(ordered_subset) - size)
+        for child in itertools.combinations(ordered_subset, size):
+            if child not in ei_lookup:
+                raise KeyError(f"Missing EI for source subset {child}.")
+            total += sign * float(ei_lookup[child])
+    return float(total)
 
 
 def summarize_full_history_mode_pair_syn(
