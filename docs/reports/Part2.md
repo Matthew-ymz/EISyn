@@ -1,16 +1,8 @@
-# Part 2: UniCM ENSO EI/Syn 机制证据
-
-## 结论
-
-本部分把 UniCM Modeformer 的全历史最大熵 EI、二源 Syn 和三源 interaction 结果合并为一个口径一致的 ENSO 机制报告。当前最稳妥的结论是：未来 ENSO 的主要机制读数来自 ENSO 自身历史与赤道太平洋空间结构的共同约束，而不是来自 `NPMM + TNA` 两个远程模态的直接强协同驱动。
-
-在 `8192` 个最大熵干预样本、checkpoint seeds `1,2,3` 和 `200` 次 bootstrap 下，`ENSO + nino3` 是二源 Syn 的 rank 1，平均 Syn 为 `0.005216` bits；`ENSO + nino4`、`ENSO + SPMM`、`ENSO + IOD` 和 `ENSO + NPMM` 也位于前列。`ENSO + NPMM` 为 rank `5`，平均 Syn 为 `0.002686` bits；`ENSO + TNA` 为 rank `8`，平均 Syn 为 `0.001499` bits。相比之下，`NPMM + TNA` 直接到 ENSO 的平均 Syn 为 `-0.000139` bits，不能支持“两个远程模态直接联合驱动 ENSO”的强表述。
-
-所以更合适的地球科学说法是：NPMM/TNA 可以保留为 ENSO 背景态上的弱到中等调制信号；`nino3`、`nino4`、`nino12` 则更像 ENSO 内部空间型态和东西向 SST 结构的调制因子。
+# Part 2: UniCM ENSO 与 Runge 时空因果机制证据
 
 ## 实验口径
 
-这里分析的是 frozen UniCM Modeformer learned mechanism，不是 reanalysis 预测技能评估，也不是单个历史事件归因。每个干预样本同时采样 12 个历史月份和 11 个 UniCM mode 维度，形成 `(B, 12, 11)` 的 bounded uniform 最大熵输入，历史张量写入 Modeformer encoder 的 12 个月历史段，未来 24 个月由 decoder 在 `train=False` 下自回归生成。
+这里分析的是 frozen UniCM Modeformer learned mechanism，不是 reanalysis 预测技能评估，也不是单个历史事件归因。每个干预样本同时采样 12 个历史月份和 11 个 UniCM mode 维度，形成 `(B, 12, 11)` 的 bounded uniform 最大熵输入，历史张量写入 Modeformer encoder 的 12 个月历史段，未来 24 个月由 decoder 自回归生成。
 
 核心配置如下：
 
@@ -18,15 +10,13 @@
 |---|---|
 | checkpoint seeds | `1, 2, 3` |
 | current intervention samples | `8192` |
-| pair convergence baseline | `4096` |
-| triple convergence baseline | `1024` |
 | intervention support | all 12 historical months x 11 mode dimensions sampled independently from `[-4, 4]` |
 | sampling seed | `20260619` |
 | bootstrap repeats | `200` |
 | target mode | ENSO |
 | source modes | ENSO, NPMM, SPMM, IOB, IOD, SIOD, TNA, nino12, nino3, nino4, WWV |
 
-整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的 ENSO 输出估计 `I(history; target_lead)`。先定义二源 Syn：
+整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的 ENSO 输出估计 `EI(history; target_lead)`。先定义二源 Syn：
 
 ```math
 \mathrm{Syn}_{ij}=EI_{ij}-EI_i-EI_j.
@@ -60,7 +50,7 @@
 
 这张图说明，UniCM learned mechanism 对 ENSO 的有效信息主要集中在 lead 1 到 6 个月。短 lead 的 EI 明显高于后期，符合 ENSO 预测中短期记忆强、长期不确定性上升的物理直觉。三个 checkpoint 的曲线形状相近，Pearson min 达到 `0.950`；但 Spearman min 只有 `0.482`，说明不同 checkpoint 对具体 lead 排序仍不够稳定。因此 overall EI 可以支持“短中期记忆强”的方向性判断，但不能把每个 lead 的细粒度排序解释得太重。
 
-## 单源 EI: NPMM 可见，TNA 较弱
+## 单源 EI
 
 | Target | self EI | strongest non-self sources | NPMM EI | TNA EI |
 |---|---:|---|---:|---:|
@@ -72,7 +62,7 @@
 
 单源 EI 曲线显示，ENSO 自身历史在短 lead 占绝对主导，但随后快速衰减。排除自身后，`nino3`、`nino12` 和 IOD 的 EI 随 lead 增长并在较长 lead 位于前列，NPMM 则在中期达到较高水平后回落；这些长 lead 曲线的 checkpoint 波动也明显扩大，因此不宜过度解释精细排序。TNA 的曲线始终较低，更稳妥的说法是，它可能只在 ENSO 背景态或其他太平洋/印度洋模态共同存在时提供弱增量。
 
-## 二源 Syn: 主增益来自 ENSO 历史和区域 ENSO 结构
+## 二源 Syn
 
 | Target | Source pair | rank | mean Syn 1..24 | Syn seed SD | 95% CI | seed rank range | joint EI 1..24 | left EI 1..24 | right EI 1..24 |
 |---|---|---:|---:|---:|---|---|---:|---:|---:|
@@ -87,7 +77,7 @@
 
 ![ENSO mode-pair Syn leads](assets/unicm_enso_mode_pair_syn_leads.png)
 
-*图 4. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn；黑色虚线为 `NPMM + TNA` 直接二源 Syn。*
+*图 4. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn.*
 
 这张图的核心信息很直接：模型不是只看“ENSO 现在有多强”，还在看“暖异常更偏东、偏中太平洋，还是和其他海盆背景态一起出现”。前 1 到 7 个月，`ENSO + nino3` 和 `ENSO + nino4` 的 Syn 明显更高，说明 ENSO 的短期未来演变对赤道太平洋东西向 SST 结构很敏感。同样强度的 ENSO，如果空间型态不同，后续几个月的增长、衰减和位相演变也可能不同。
 
@@ -95,19 +85,7 @@
 
 因此，`nino3` 和 `nino4` 更适合被解释为 ENSO 内部空间型态的调制因子，而不是 ENSO 之外的独立强迫源。曲线在 9 到 12 个月后整体贴近零，说明这种额外协同信息主要集中在短中期；到更长 lead，模型已经很难从这些二源组合里读出稳定的增量。
 
-## 可信度和样本收敛
 
-Top-5 pair 中 `5/5` 个在 3 个 checkpoint seed 上均为正，这支持 rank 的方向性；但 checkpoint 数只有 `n=3`，显著性检验和 CI 只能作为 sanity check。未校正 one-sample t test 中，`ENSO + nino3` 和 `ENSO + TNA` 达到 `p<0.05`；Benjamini-Hochberg 校正后没有 selected pair 达到 `q<0.05`。所以表述应以“候选机制”和“调制信号”为主，不应写成已确认的物理因果通道。
-
-| Source pair | mean Syn 4096 | mean Syn 8192 | rank 4096→8192 | checkpoint SD 4096 | checkpoint SD 8192 | SD ratio | bootstrap SD 4096 | bootstrap SD 8192 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| ENSO + SPMM | 0.005165 | 0.004559 | 2→3 | 0.004035 | 0.003349 | 0.830 | 0.001797 | 0.001157 |
-| ENSO + nino3 | 0.006120 | 0.005216 | 1→1 | 0.004711 | 0.003186 | 0.676 | 0.001988 | 0.001235 |
-| ENSO + NPMM | 0.003126 | 0.002686 | 6→5 | 0.003232 | 0.002675 | 0.828 | 0.001636 | 0.001016 |
-| ENSO + TNA | 0.001076 | 0.001499 | 10→8 | 0.000843 | 0.001332 | 1.581 | 0.001365 | 0.000877 |
-| NPMM + TNA | -0.000046 | -0.000139 | 45→55 | 0.000143 | 0.000186 | 1.302 | 0.000400 | 0.000216 |
-
-全部 55 个 pair 的 4096→8192 排名 Spearman 为 `0.878`，top-5 重合 `4/5`。固定比较的 5 个 pair 中，`3/5` 个 pair 的平均 lead-wise checkpoint SD 下降；同时这 5 个 pair 的 bootstrap SD 均下降。二源主排序总体稳定，但 checkpoint 差异并不会随干预样本数增加而必然单调下降。
 
 ## 三源 interaction: 高阶增量仍依赖 ENSO 背景态
 
@@ -123,26 +101,120 @@ Top-5 pair 中 `5/5` 个在 3 个 checkpoint seed 上均为正，这支持 rank 
 
 ![Top UniCM third-order EI interactions](assets/unicm_enso_mode_triple_interaction_leads.png)
 
-*图 5. 平均三阶 interaction 排名前五的 lead 曲线。点线和误差棒分别为三个 checkpoint seed 的均值与标准差；同色虚线为该三元组在全部 lead 和 seed 上的平均值。*
+*图 5. 平均三阶 interaction 排名前五的 lead 曲线。点线为三个 checkpoint seed 的均值；同色虚线为该三元组在全部 lead 和 seed 上的平均值。*
 
 8192 结果的 top-10 仍有 `10/10` 个三元组包含 ENSO 自身历史，因此“高阶增量依赖 ENSO 背景态”的方向未变。但是三源细排名并未收敛：1024→8192 的 165 项 rank Spearman 仅为 `0.016`，top-5 只重合 `1/5`，top-10 只重合 `2/10`；原 1024 rank 1 的 `ENSO + TNA + nino4` 在 8192 下为 rank `8`。因此三源结果只能支持背景态层面的弱结论，不能支持具体 top triple 的稳定机制排序。
 
-## 数据与归档
+## Runge 因果网
 
-当前主报告引用的核心图保留在 `docs/reports/assets/`。旧的 UniCM 单项报告已移入 `docs/reports/log/`，用于保留中间读数和早期解释上下文。
+这一组实验回答另一个问题：在同一组 Runge-NCEP 60 维周尺度分量上，线性滞后因果递归、非线性 effective information 读出和 PEID 二阶协同是否指向一致的 gateway / mediator 结构。最稳妥的结论是：No.0 是跨口径最稳定的 gateway；No.18 与 No.13 在非线性 EI 和二阶协同口径下更突出。
 
-机器可读结果保留在：
+### MLP-TM，二阶 PEID，gateway
 
-- `results/unicm_overall_ei_cpu_bound4_n4096/`
-- `results/unicm_full_history_mode_pair_syn_cpu_bound4_n4096/`
-- `results/unicm_full_history_mode_triple_syn_cpu_bound4_n1024/`
-- `results/unicm_overall_ei_cpu_bound4_n8192/`
-- `results/unicm_full_history_mode_pair_syn_cpu_bound4_n8192/`
-- `results/unicm_full_history_mode_triple_syn_cpu_bound4_n8192/`
+非线性读出使用同一组 60 维周尺度分量，输入最近 4 周状态，预测下一周状态。保存运行中的 MLP/Ridge 融合模型 test RMSE 为 `0.714863`、MAE 为 `0.569984`、相关系数为 `0.450806`；相对 tuned Ridge 的 RMSE 改进为 `0.001376`，block bootstrap 95% CI 为 `[0.000893, 0.001825]`，单侧 \(p=0.0002\)。该提升很小，但足以支持把模型作为结构读出的非线性预测器。
 
-## 解释边界
+![Runge EI and PEID rankings](assets/part2_runge_ei_peid_rankings.png)
 
-本文只分析 frozen UniCM Modeformer learned mechanism。EI/Syn 结果是机制筛查，不是预测技能评分、reanalysis 事件复现，也不是 1983 或 1997 个例归因。若要把结论推进到最终 PEID 或事件级归因，需要进一步做非线性 transport-map PEID、高样本复核，或按厄尔尼诺事件窗口构造条件化干预。
+*图 6. Pairwise MLP-TM-EI 与二阶 PEID 的 gateway / mediator 排序。A、C 为 pairwise path-effect；B、D 为加入二阶协同后的 Hyper-ACE 与 Hyper-AMCE。*
+
+| 口径 | 前五名 | 主要解释 |
+|---|---|---|
+| MLP-TM-EI gateway | No.0, No.13, No.18, No.7, No.29 | No.0 仍是最强 outgoing source；No.18 在非线性 EI path-effect 中升至第 3。 |
+| MLP-TM-EI mediator | No.7, No.13, No.29, No.18, No.43 | mediator 更偏稀疏 EI 图中的 path product，数值量级小于线性 AMCE。 |
+| PEID Hyper-ACE | No.0, No.3, No.24, No.15, No.4 | 二阶协同把部分 pairwise 非前列分量推到 gateway 前列。 |
+| PEID Hyper-AMCE | No.18, No.13, No.0, No.7, No.6 | mediator 解释转向“作为协同源成员的强度”；No.18 成为最高 Hyper-AMCE 节点。 |
+
+Pairwise 与 PEID 的 gateway 排序 Spearman 相关为 `0.7663`、Kendall 相关为 `0.5797`；top-5 gateway 只有 No.0 重合，top-10 有 7 个重合。Mediator 排序更稳定：Spearman `0.9530`、Kendall `0.8915`，top-5 重合 No.18、No.13、No.7 三个节点。
+
+因此，PEID 没有推翻 pairwise path-effect，而是改变了源侧输出能力的优先级。最稳健的解释是：No.0 是跨口径稳定 gateway；No.18 和 No.13 是 pairwise path 与二阶协同都支持的传播/协同节点；二阶 PEID 对 gateway 的影响大于对 mediator 的影响。
+
+高分节点首先要经得起地理检验。当前复现中，最强的线性 gateway / mediator 仍集中在 Runge 等人讨论过的 Indo-Pacific、东太平洋 ENSO、热带大西洋以及印度洋-西非季风相关区域 [R1]。
+
+![Runge gateway and mediator map with MLP-PEID counterpart](assets/part2_runge_linear_mlp_peid_map.png)
+
+*图 7. Runge 复现与 MLP-TM-EI + PEID 的 60 个空间模态对照。A、B：线性 Runge 复现中的 ACE/ACS 与 AMCE；C、D：MLP-TM-EI + 二阶 PEID 下的 hyper-ACE/hyper-ACS 与 hyper-AMCE。节点位置来自对应 Varimax loading 的高载荷中心。*
+
+图 7 的关键信息是：No.0、No.1、No.2 仍是最稳的核心节点。No.0 位于海洋大陆/东印度洋附近，可理解为 Walker 环流西侧上升支和 Indo-Pacific 暖池对流区；No.1 对应东太平洋 ENSO 区；No.2 对应热带大西洋相关模态。ENSO 与 Walker 环流是全球遥相关的经典源区 [R2]，热带热源激发的大尺度罗斯贝波响应也为“热带异常影响远端中高纬”的解释提供动力学背景 [R3]。下排显示，MLP+PEID 口径仍保留 No.0 的强 gateway 位置，但 hyper-ACE 更突出 No.3、No.24、No.15 等二阶协同源侧节点，hyper-AMCE 则把 No.18、No.13、No.7 抬到前列。
+
+这些 No. 节点是旋转 PCA/Varimax 空间模态，不是地面站点或单一气候指数。原文重点讨论过的节点可以做较强物理解释；低排名或未标注节点只能先按其空间载荷位置理解，不能直接命名成确定气候过程。
+
+### 二源协同超边
+
+MLP-TM-EI/PEID 的源对综合排序按显著正二阶 \(\Delta_2\) target 求和。前三个源对为 `{No.6, No.18}`、`{No.18, No.13}` 和 `{No.0, No.7}`，total positive \(\Delta_2\) 分别为 `0.013160`、`0.011660` 和 `0.009892`。
+
+![Top integrated Runge MLP-TM-EI source-pair synergy map](assets/part2_runge_mlp_top_pair_synergy_map.png)
+
+*图 8. MLP-TM-EI/PEID 中按总正二阶协同排序最高的三个源对及其各自前五个正协同 target。紫色汇合点表示二源联合读出；汇合点沿源对到目标的路径交错展开，箭头宽度和颜色深浅随 \(\Delta_2\) 增大而增强；节点位置来自对应 Varimax loading 的高载荷中心。*
+
+![Runge PEID synergy map](assets/part2_runge_peid_synergy_map.png)
+
+*图 9. No.0 与 No.1 附近的二阶 PEID 协同关系。节点外圈表示 hyper-ACE，内圈表示 hyper-ACS；紫色汇合箭头表示显著正二阶协同超边。灰色小点只提供空间参照。*
+
+二阶 PEID 进一步问一个更强的问题：目标模态的变化，是否需要两个源模态一起看才解释得更好。图 9 中的紫色超边不是风场轨迹，也不是能量沿线传播路径，而是“两个空间模态联合起来比两个单独模态之和提供更多信息”的统计关系。No.0 相关超边有较强可读性：海洋大陆位于 Indo-Pacific 暖池和 Walker 环流上升支附近，这一区域的深对流和潜热释放容易影响大尺度环流 [R5]；ENSO 的 atmospheric bridge 也说明热带太平洋异常可以通过大气桥传到远端海盆 [R4]。因此，`{No.0, No.18} -> No.8`、`{No.0, No.14} -> No.1` 这类关系更适合作为 Indo-Pacific 背景态与远端模态共同调制目标区域的候选信号。
+
+但这还不是机制证明。印度洋偶极子会改变 ENSO 与印度夏季风之间的关系 [R6]，IOD 本身也对应热带印度洋的东西向异常模态 [R7]；ENSO 与年循环的相互作用还可以产生 combination mode [R8]。这些文献支持“两个气候模态联合影响第三个响应”的物理可能性，但不能自动证明每一条 PEID 超边都是真实大气过程。本文因此只把这些超边解释为可验证假说：它们提示哪些源对值得继续做季节分层、ENSO/IOD 位相分层和响应面检验。
+
+### Runge 指标公式
+
+记 \(n=60\) 为 Runge Varimax 分量数，\(E_{ij}\) 为源分量 \(i\) 到下一步目标分量 \(j\) 的 pairwise MLP-TM-EI。先把负值和自环去掉，再按谱半径缩放得到非负路径矩阵 \(A\)。总路径效应用有限路径和表示：
+
+```math
+T=\sum_{\ell=1}^{L} A^\ell .
+```
+
+这里 \(T_{ij}\) 不是单条直接边，而是从 \(i\) 出发、经过最多 \(L\) 步传播后到达 \(j\) 的累计影响。于是三个 Runge-style 指标为：
+
+```math
+\mathrm{ACE}(i)=\frac{1}{n-1}\sum_{j\ne i}T_{ij},
+\qquad
+\mathrm{ACS}(i)=\frac{1}{n-1}\sum_{j\ne i}T_{ji}.
+```
+
+```math
+\mathrm{AMCE}(m)=\frac{1}{(n-1)(n-2)}
+\sum_{\substack{s\ne m,\ t\ne m\\ s\ne t}}
+A_{sm}T_{mt}.
+```
+
+ACE 看一个分量作为源头能往外影响多少对象，ACS 看一个分量作为目标被多少对象影响，AMCE 看一个分量是否常处在“别人先到它、再由它传出去”的中介位置。简单说，ACE 是 outgoing gateway，ACS 是 incoming susceptibility，AMCE 是 mediator。
+
+图中的 PEID Hyper-ACE / Hyper-ACS / Hyper-AMCE 是在上面 pairwise 路径口径上加入二阶协同。对源集合 \(K\) 和目标 \(t\)，协同增量用 Möbius 反演定义：
+
+```math
+\Delta_K(t)=\sum_{\emptyset\ne A\subseteq K}(-1)^{|K|-|A|}
+EI(X_A\rightarrow X_t).
+```
+
+显著的高阶超边按源成员均分后计入节点分数：
+
+```math
+\mathrm{Hyper\text{-}ACE}(i)=
+\frac{1}{n-1}\sum_{\substack{(K,t):\,i\in K}}
+\frac{|\Delta_K(t)|}{|K|}.
+```
+
+```math
+\mathrm{Hyper\text{-}ACS}(i)=
+\frac{1}{n-1}\sum_{\substack{(K,t):\,t=i}}
+|\Delta_K(i)|.
+```
+
+```math
+\mathrm{Hyper\text{-}AMCE}(m)=
+\mathrm{AMCE}(m)+
+\frac{1}{n-1}\sum_{\substack{(K,t):\,m\in K,\ |K|\ge 2}}
+\frac{|\Delta_K(t)|}{|K|}.
+```
+
+这些 Hyper 指标的意思也很直接：如果一个分量经常出现在“两个源一起看才有额外信息”的组合里，它的源侧或中介侧重要性就会被抬高；如果它经常是这种协同关系的目标，Hyper-ACS 就会更高。
+
+### 分布图
+
+![Runge component regions](assets/part2_runge_component_regions.png)
+
+*图 10. ACE、ACS、AMCE 前五节点并集的全球 SLP Varimax loading。红色方向经过符号统一；黑色半透明区域标出高正载荷核心区。*
+
+图 10 给 No. 标签定下解释口径：No.0、No.1、No.2、No.26、No.48 可以结合 Runge 原文和载荷位置做气候解释；No.3、No.6 等高 ACE 节点则先作为强传播空间模态处理。除非经过季节、相位和独立资料验证，本文不把低排名或未标注分量解释成确定的气候指数。
 
 ## 参考文献
 
@@ -155,3 +227,19 @@ Top-5 pair 中 `5/5` 个在 3 个 checkpoint seed 上均为正，这支持 rank 
 [4] Kao, H.-Y., & Yu, J.-Y. (2009). Contrasting Eastern-Pacific and Central-Pacific Types of ENSO. *Journal of Climate*, 22(3), 615-632. https://doi.org/10.1175/2008JCLI2309.1
 
 [5] Ashok, K., Behera, S. K., Rao, S. A., Weng, H., & Yamagata, T. (2007). El Niño Modoki and its possible teleconnection. *Journal of Geophysical Research: Oceans*, 112, C11007. https://doi.org/10.1029/2006JC003798
+
+[R1] Runge, J., Petoukhov, V., Donges, J. F., Hlinka, J., Jajcay, N., Vejmelka, M., Hartman, D., Marwan, N., Palus, M., & Kurths, J. (2015). Identifying causal gateways and mediators in complex spatio-temporal systems. *Nature Communications*, 6, 8502. https://doi.org/10.1038/ncomms9502
+
+[R2] Bjerknes, J. (1969). Atmospheric teleconnections from the equatorial Pacific. *Monthly Weather Review*, 97(3), 163-172. https://doi.org/10.1175/1520-0493(1969)097%3C0163:ATFTEP%3E2.3.CO;2
+
+[R3] Hoskins, B. J., & Karoly, D. J. (1981). The steady linear response of a spherical atmosphere to thermal and orographic forcing. *Journal of the Atmospheric Sciences*, 38(6), 1179-1196. https://doi.org/10.1175/1520-0469(1981)038%3C1179:TSLROA%3E2.0.CO;2
+
+[R4] Alexander, M. A., Bladé, I., Newman, M., Lanzante, J. R., Lau, N.-C., & Scott, J. D. (2002). The atmospheric bridge: The influence of ENSO teleconnections on air-sea interaction over the global oceans. *Journal of Climate*, 15(16), 2205-2231. https://doi.org/10.1175/1520-0442(2002)015%3C2205:TABTIO%3E2.0.CO;2
+
+[R5] Neale, R., & Slingo, J. (2003). The Maritime Continent and its role in the global climate: A GCM study. *Journal of Climate*, 16(5), 834-848. https://doi.org/10.1175/1520-0442(2003)016%3C0834:TMCAIR%3E2.0.CO;2
+
+[R6] Ashok, K., Guan, Z., & Yamagata, T. (2001). Impact of the Indian Ocean Dipole on the relationship between the Indian monsoon rainfall and ENSO. *Geophysical Research Letters*, 28(23), 4499-4502. https://doi.org/10.1029/2001GL013294
+
+[R7] Saji, N. H., Goswami, B. N., Vinayachandran, P. N., & Yamagata, T. (1999). A dipole mode in the tropical Indian Ocean. *Nature*, 401, 360-363. https://doi.org/10.1038/43854
+
+[R8] Stuecker, M. F., Timmermann, A., Jin, F.-F., McGregor, S., & Ren, H.-L. (2013). A combination mode of the annual cycle and the El Niño/Southern Oscillation. *Nature Geoscience*, 6, 540-544. https://doi.org/10.1038/ngeo1826

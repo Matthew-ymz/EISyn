@@ -182,18 +182,14 @@ def plot_top_triple_interactions(
         curve = lead_summary[lead_summary["triple"].astype(str) == str(row.triple)].sort_values("lead")
         x = curve["lead"].to_numpy(dtype=float)
         mean = curve["mean_delta3"].to_numpy(dtype=float)
-        std = curve["std_delta3"].to_numpy(dtype=float)
         label = str(row.triple).replace("|", " + ")
-        ax.errorbar(
+        ax.plot(
             x,
             mean,
-            yerr=std,
             color=color,
             marker="o",
             markersize=2.2,
             linewidth=1.2,
-            elinewidth=0.7,
-            capsize=1.4,
             label=label,
         )
         ax.axhline(float(row.mean_delta3), color=color, linewidth=0.7, linestyle=":", alpha=0.55)
@@ -259,7 +255,7 @@ def build_report_section(summary: pd.DataFrame, *, rows_count: int, top_k: int) 
             "",
             "![Top UniCM third-order EI interactions](assets/unicm_enso_mode_triple_interaction_leads.png)",
             "",
-            "*图 4. 平均三阶 interaction 排名前五的 lead 曲线。点线和误差棒分别为三个 checkpoint seed 的均值与标准差；同色虚线为该三元组在全部 lead 和 seed 上的平均值。*",
+            "*图 4. 平均三阶 interaction 排名前五的 lead 曲线。点线为三个 checkpoint seed 的均值；同色虚线为该三元组在全部 lead 和 seed 上的平均值。*",
             "",
             "### 最负的三阶 interaction",
             "",
