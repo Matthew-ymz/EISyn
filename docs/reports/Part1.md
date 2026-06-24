@@ -53,6 +53,16 @@ $$
 
 正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。
 
+## Liang information flow 对照
+
+Liang 对照实验使用完全相同的 `common_driver_sine_synergy` 配置：`alpha=1`、`noise=0.05`、`n_samples=1100`、`beta∈[0,1]` 步长 `0.05`、seed 为 `0,1,2,3`。输入只包含原始观测变量 `x,y,z,w`，不额外加入 `sin(x_t y_t)` 人工特征。因此这里检验的是 Liang 线性多变量信息流在同一观测序列上的 pairwise 读数，而不是给方法显式暴露二源非线性结构项。
+
+![Liang information flow beta sweep](../../fig/granger_peid_mlp_comparison/sine_beta_liang_information_flow.png)
+
+结果显示，Euler 版 Liang 信息流和有限时间 matrix-log 版读数一致地捕捉到随 `beta` 增强的 `w→z` 分量：Euler 信息流的 `w→z` 线性斜率约为 `0.0476`，归一化信息流斜率约为 `0.0629`，matrix-log 读数斜率约为 `0.0809`。相比之下，`x→z` 和 `y→z` 没有呈现固定二源结构所期望的稳定正向响应；`x→z` 在高 `beta` 区间转为负值，`y→z` 接近零且波动较大。
+
+这说明在该实验设置下，Liang 方法更像是在读出可线性投影的单源方向信息：弱边 `0.15\beta w_t` 和共同驱动诱导的线性相关会随 `beta` 被强化；固定的 `sin(x_t y_t)` 二源协同不会被标准 pairwise Liang 信息流稳定表示为 `x→z`、`y→z` 两条边。这个结果与 PEID/Oracle 曲线的解释边界不同：PEID 目标是刻画二源联合约束，Liang 信息流目标是方向性单源流量。
+
 # 五方法协同比较
 
 每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
@@ -141,7 +151,16 @@ $$
 \dot{\theta}_{1,t}.
 $$
 
-目标是第一振子的瞬时速度。随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
+目标是第一振子的瞬时速度。该 sweep 现在覆盖
+$K\in\{0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0,1.5,2.0\}$，
+使参数范围从锁相转变区延伸到高耦合的有序同步相。同步诊断同时报告相位锁定值
+$|\langle e^{i(\theta_2-\theta_1)}\rangle|$ 和 Kuramoto 序参量
+$r(t)=\left|\frac{1}{2}\sum_{j=1}^2 e^{i\theta_j(t)}\right|$ 的轨迹均值；在
+$K\ge 0.5$ 后二者均接近 1，确认系统已进入同步相。
+
+![Kuramoto synchronization diagnostic](../../fig/classic_network_dynamics_benchmark/kuramoto_coupling_synergy_sweep.png)
+
+随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
 
 ## Controlled Hénon Unique-Information Sweep
 
