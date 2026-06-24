@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.classic_network_dynamics_benchmark import (
     BENCHMARK_MODEL_NAMES,
+    KURAMOTO_COUPLING_VALUES,
     ModelSpec,
     build_coupled_rossler_spec,
     build_kuramoto_coupling_spec,
@@ -31,6 +32,7 @@ from scripts.classic_network_dynamics_benchmark import (
     run_ode_future_state_sweeps,
     run_part1_combined_synergy_figure,
     _plot_panel,
+    _kuramoto_order_parameter,
     _zero_control_synergy_readouts,
     run_sis_gate_sweep,
     run_wilson_cowan_gain_sweep,
@@ -346,7 +348,7 @@ def test_kuramoto_coupling_sweep_smoke_writes_json_and_png(tmp_path: Path) -> No
     assert payload["frequency_detuning"] == 0.1
     assert payload["phase_potential_strength"] == 0.2
     assert payload["figure_contract"] == {
-        "panel_a": "phase_locking_value",
+        "panel_a": ["phase_locking_value", "phase_order_parameter"],
         "panel_b": ["wms", "peid_synergy", "oracle_peid_synergy"],
         "y_axis_label": "Synergy / Interaction",
     }
@@ -356,6 +358,8 @@ def test_kuramoto_coupling_sweep_smoke_writes_json_and_png(tmp_path: Path) -> No
     assert payload["rows"][0]["train_target_digest"] == payload["rows"][0]["observed_target_digest"]
     assert "peid_readout_state_digest" in payload["rows"][0]
     assert "phase_locking_value" in payload["rows"][0]
+    assert "phase_order_parameter" in payload["rows"][0]
+    assert "phase_order_parameter_mean" in payload["summary"][0]
     assert "oracle_peid_synergy" in payload["rows"][0]
     assert "wms_joint_mi" in payload["rows"][0]
     assert "wms_left_mi" in payload["rows"][0]
@@ -364,6 +368,21 @@ def test_kuramoto_coupling_sweep_smoke_writes_json_and_png(tmp_path: Path) -> No
     assert payload["rows"][0]["shap_mlp_model_digest"] == payload["rows"][0]["peid_mlp_model_digest"]
     assert abs(float(payload["summary"][0]["peid_synergy_mean"])) < 0.35
     assert float(payload["summary"][1]["peid_synergy_mean"]) > float(payload["summary"][0]["peid_synergy_mean"])
+
+
+def test_default_kuramoto_couplings_extend_into_synchronized_phase() -> None:
+    assert KURAMOTO_COUPLING_VALUES[0] == 0.0
+    assert max(KURAMOTO_COUPLING_VALUES) >= 2.0
+    assert 0.5 in KURAMOTO_COUPLING_VALUES
+    assert 1.0 in KURAMOTO_COUPLING_VALUES
+
+
+def test_kuramoto_order_parameter_tracks_phase_coherence() -> None:
+    synchronized = np.array([[0.1, 0.1], [1.0, 1.0], [-2.0, -2.0]])
+    antiphase = np.array([[0.0, np.pi], [0.5, 0.5 + np.pi], [-1.0, -1.0 + np.pi]])
+
+    assert np.isclose(_kuramoto_order_parameter(synchronized), 1.0)
+    assert np.isclose(_kuramoto_order_parameter(antiphase), 0.0)
 
 
 def test_kuramoto_peid_detail_sweep_exposes_active_rotator_coupling_components(tmp_path: Path) -> None:

@@ -30,7 +30,7 @@ PART1_COMBINED_FIGURE_PATH = ROOT / "fig" / "part1_synergy_comparison" / "six_sy
 BENCHMARK_MODEL_NAMES = ("kuramoto", "coupled_rossler", "sis", "wilson_cowan")
 LEGACY_MARKER = "## 附录：原共同驱动 sine 基准"
 SIS_GATE_SWEEP_BETAS = (0.0, 0.25, 0.5, 0.75, 1.0)
-KURAMOTO_COUPLING_VALUES = (0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5)
+KURAMOTO_COUPLING_VALUES = (0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0)
 KURAMOTO_FREQUENCY_DETUNING = 0.1
 KURAMOTO_PHASE_POTENTIAL_STRENGTH = 0.2
 KURAMOTO_PEID_DETAIL_COUPLINGS = (
@@ -1585,6 +1585,7 @@ def _aggregate_kuramoto_coupling_rows(rows: list[dict[str, object]]) -> list[dic
         "peid_synergy",
         "oracle_peid_synergy",
         "phase_locking_value",
+        "phase_order_parameter",
         "wms_left_mi",
         "wms_right_mi",
         "wms_joint_mi",
@@ -1611,6 +1612,14 @@ def _phase_locking_value(states: np.ndarray) -> float:
         raise ValueError("Kuramoto states must have shape (n, 2).")
     phase_difference = values[:, 1] - values[:, 0]
     return float(np.abs(np.mean(np.exp(1j * phase_difference))))
+
+
+def _kuramoto_order_parameter(states: np.ndarray) -> float:
+    values = np.asarray(states, dtype=float)
+    if values.ndim != 2 or values.shape[1] != 2:
+        raise ValueError("Kuramoto states must have shape (n, 2).")
+    phasors = np.exp(1j * values)
+    return float(np.mean(np.abs(np.mean(phasors, axis=1))))
 
 
 def _aggregate_lorenz_rho_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -1739,10 +1748,21 @@ def _plot_kuramoto_coupling_sweep(summary: list[dict[str, object]], path: Path) 
 
     plv_mean = np.asarray([float(row["phase_locking_value_mean"]) for row in summary])
     plv_std = np.asarray([float(row["phase_locking_value_std"]) for row in summary])
+    order_mean = np.asarray([float(row["phase_order_parameter_mean"]) for row in summary])
+    order_std = np.asarray([float(row["phase_order_parameter_std"]) for row in summary])
     axes[0].plot(couplings, plv_mean, color="#4C78A8", marker="o", linewidth=2.1, label="PLV")
     axes[0].fill_between(couplings, plv_mean - plv_std, plv_mean + plv_std, color="#4C78A8", alpha=0.14)
+    axes[0].plot(couplings, order_mean, color="#2F7D5A", marker="D", linewidth=2.1, label="Order parameter r")
+    axes[0].fill_between(
+        couplings,
+        order_mean - order_std,
+        order_mean + order_std,
+        color="#2F7D5A",
+        alpha=0.14,
+        linewidth=0,
+    )
     axes[0].axvline(KURAMOTO_FREQUENCY_DETUNING, color="#777777", linestyle="--", linewidth=1.0, label=r"$|\Delta\omega|=0.1$")
-    axes[0].set_ylabel("Phase-locking value")
+    axes[0].set_ylabel("Synchronization readout")
     axes[0].set_title("a  Synchronization", loc="left", fontweight="bold")
     axes[0].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
@@ -2392,6 +2412,7 @@ def run_kuramoto_coupling_sweep(
                     "peid_synergy": _mean_truth_hyperedge_score(learned["hyperedges"], relation_key),
                     "oracle_peid_synergy": _mean_truth_hyperedge_score(oracle["hyperedges"], relation_key),
                     "phase_locking_value": _phase_locking_value(natural_states),
+                    "phase_order_parameter": _kuramoto_order_parameter(natural_states),
                     "wms_left_mi": float(observed_relation["left_mi"]),
                     "wms_right_mi": float(observed_relation["right_mi"]),
                     "wms_joint_mi": float(observed_relation["joint_mi"]),
@@ -2438,7 +2459,7 @@ def run_kuramoto_coupling_sweep(
         "truth_hyperedges": ["theta1+theta2->dtheta1"],
         "uncertainty": "mean ± population standard deviation across seeds",
         "figure_contract": {
-            "panel_a": "phase_locking_value",
+            "panel_a": ["phase_locking_value", "phase_order_parameter"],
             "panel_b": ["wms", "peid_synergy", "oracle_peid_synergy"],
             "y_axis_label": "Synergy / Interaction",
         },
