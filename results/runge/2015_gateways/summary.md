@@ -4,7 +4,7 @@ This report reproduces the core workflow from `Identifying causal gateways and m
 
 ## Method
 
-- Daily SLP fields are restricted to the configured year range, transformed to standardized daily anomalies, linearly detrended, and latitude-area weighted.
+- Daily SLP fields are restricted to the configured year range; Feb 29 is removed; each gridpoint is transformed to standardized 365-day calendar-day anomalies; the anomalies are linearly detrended and latitude-area weighted.
 - Varimax-rotated PCA components are fitted on monthly fields when enough monthly samples are available, then projected back to daily fields.
 - Component scores are aggregated to weekly resolution.
 - Tigramite/ParCorr selects candidate parents; sparse standardized OLS estimates the lagged causal regression coefficients.
@@ -18,39 +18,40 @@ This report reproduces the core workflow from `Identifying causal gateways and m
 - Weekly lag maximum: 4
 - Link density target: 0.2
 - Backend: tigramite
-- Daily samples: 23376
-- Weekly samples: 3339
-- Causal links: 837
+- Daily samples: 23360
+- Removed leap days: 16
+- Weekly samples: 3337
+- Causal links: 848
 
 ## Top causal gateways
 
 | paper_component | component | ace | acs | direct_out_strength | direct_in_strength |
 | --- | --- | --- | --- | --- | --- |
-| No.2 | No.2 | 0.0722743 | 0.0454446 | 0.0594318 | 0.0354186 |
-| No.1 | No.1 | 0.0574933 | 0.0452482 | 0.041264 | 0.0368521 |
-| No.0 | No.0 | 0.0534309 | 0.0459951 | 0.0397709 | 0.0345034 |
-| No.3 | No.3 | 0.0527876 | 0.0409589 | 0.0395466 | 0.0308168 |
-| No.6 | No.6 | 0.0512324 | 0.0289007 | 0.0337728 | 0.0216362 |
-| No.4 | No.4 | 0.0457974 | 0.0294359 | 0.0366042 | 0.0224485 |
-| No.48 | No.21 | 0.0456893 | 0.0419797 | 0.0329904 | 0.0321501 |
-| No.14 | No.14 | 0.0428531 | 0.0366292 | 0.0298344 | 0.0268801 |
-| No.18 | No.7 | 0.0410139 | 0.0361837 | 0.0296192 | 0.0275652 |
-| No.11 | No.11 | 0.0403158 | 0.0377532 | 0.0304315 | 0.0293815 |
+| No.2 | No.2 | 0.0649404 | 0.0485633 | 0.050401 | 0.0385012 |
+| No.1 | No.1 | 0.0605437 | 0.0451949 | 0.0448756 | 0.0355241 |
+| No.0 | No.0 | 0.0568999 | 0.0418528 | 0.0417109 | 0.0306984 |
+| No.6 | No.6 | 0.053712 | 0.0307023 | 0.0382532 | 0.0229468 |
+| No.3 | No.3 | 0.0480879 | 0.0452808 | 0.0339083 | 0.0344794 |
+| No.4 | No.4 | 0.0455079 | 0.0274293 | 0.0352526 | 0.0213952 |
+| No.57 | No.57 | 0.0438301 | 0.0235142 | 0.0326186 | 0.0174417 |
+| No.13 | No.13 | 0.0419835 | 0.0314331 | 0.030719 | 0.0210608 |
+| No.18 | No.7 | 0.041187 | 0.036904 | 0.0308992 | 0.0290576 |
+| No.22 | No.22 | 0.0393424 | 0.0333702 | 0.0283588 | 0.0228914 |
 
 ## Top causal mediators
 
 | paper_component | component | amce | mediated_fraction |
 | --- | --- | --- | --- |
-| No.2 | No.2 | 0.00287861 | 0.968732 |
-| No.1 | No.1 | 0.00185883 | 0.813559 |
-| No.0 | No.0 | 0.00173793 | 0.859147 |
-| No.48 | No.21 | 0.00156057 | 0.930742 |
-| No.26 | No.8 | 0.00148323 | 0.806546 |
-| No.3 | No.3 | 0.00140223 | 0.927236 |
-| No.11 | No.11 | 0.00119148 | 0.917884 |
-| No.14 | No.14 | 0.00106367 | 0.936002 |
-| No.18 | No.7 | 0.00103019 | 0.842198 |
-| No.6 | No.6 | 0.000983046 | 0.817943 |
+| No.2 | No.2 | 0.00251885 | 0.955289 |
+| No.1 | No.1 | 0.0018437 | 0.886616 |
+| No.0 | No.0 | 0.00167321 | 0.8045 |
+| No.3 | No.3 | 0.00151637 | 0.855348 |
+| No.6 | No.6 | 0.00115184 | 0.917884 |
+| No.9 | No.9 | 0.00114262 | 0.606663 |
+| No.48 | No.21 | 0.00113259 | 0.901227 |
+| No.13 | No.13 | 0.00101472 | 0.791935 |
+| No.18 | No.7 | 0.000984569 | 0.860023 |
+| No.4 | No.4 | 0.000935099 | 0.582116 |
 
 ## Artifacts
 
@@ -59,4 +60,4 @@ This report reproduces the core workflow from `Identifying causal gateways and m
 - `mediator_scores.csv`: component AMCE rankings.
 - `mediated_path_effects.csv`: source-mediator-target path effects.
 - `component_weekly_scores.csv`: weekly rotated component scores.
-- `fig/runge2015_gateways/*.png`: component maps, network, gateway ranking, and mediator ranking.
+- `fig/runge/2015_gateways/*.png`: component maps, network, gateway ranking, and mediator ranking.

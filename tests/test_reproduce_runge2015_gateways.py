@@ -19,6 +19,7 @@ from scripts.reproduce_runge2015_gateways import (
     ensure_causal_backend_available,
     rotated_component_order,
     save_ranking_figure,
+    standardize_daily_anomalies,
     varimax,
     weekly_aggregate,
 )
@@ -77,6 +78,29 @@ class Runge2015GatewaysTests(unittest.TestCase):
         matrix = detrended.values.reshape(len(times), -1)
         slopes = [np.polyfit(t, matrix[:, col], deg=1)[0] for col in range(matrix.shape[1])]
         self.assertTrue(np.allclose(slopes, 0.0, atol=1.0e-10))
+
+    def test_standardize_daily_anomalies_drops_feb29_and_aligns_365_day_calendar(self) -> None:
+        times = pd.to_datetime(
+            [
+                "2000-02-28",
+                "2000-02-29",
+                "2000-03-01",
+                "2001-02-28",
+                "2001-03-01",
+            ]
+        )
+        values = np.array([[[10.0]], [[999.0]], [[20.0]], [[14.0]], [[28.0]]])
+        field = xr.DataArray(values, coords={"time": times, "lat": [0.0], "lon": [0.0]}, dims=("time", "lat", "lon"))
+
+        standardized = standardize_daily_anomalies(field)
+
+        kept_times = pd.to_datetime(standardized["time"].values)
+        self.assertNotIn(pd.Timestamp("2000-02-29"), set(kept_times))
+        self.assertEqual(len(kept_times), 4)
+        feb28 = standardized.sel(time=["2000-02-28", "2001-02-28"]).values[:, 0, 0]
+        mar01 = standardized.sel(time=["2000-03-01", "2001-03-01"]).values[:, 0, 0]
+        np.testing.assert_allclose(feb28, np.array([-1.0, 1.0]))
+        np.testing.assert_allclose(mar01, np.array([-1.0, 1.0]))
 
     def test_sem_effects_recover_total_and_mediated_effect_on_tiny_dag(self) -> None:
         edges = [

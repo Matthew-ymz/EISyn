@@ -5,7 +5,7 @@ This experiment keeps the MLP/TM-EI intervention readout, but computes Runge-sty
 ## Run
 
 - Components: 60
-- Rows: 3339
+- Rows: 3337
 - Lag: 4
 - Horizon: 1
 - EI estimator: tm
@@ -16,46 +16,46 @@ This experiment keeps the MLP/TM-EI intervention readout, but computes Runge-sty
 - Path alpha: 0.8
 - Path scale factor: 1
 - Direct EI edges: 300
-- Total-effect paths: 3481
-- Mediated paths: 17105
-- MLP cache reused: True
-- Overall test RMSE: 0.714863
-- Overall test corr: 0.450806
+- Total-effect paths: 3540
+- Mediated paths: 17400
+- MLP cache reused: False
+- Overall test RMSE: 0.713185
+- Overall test corr: 0.461528
 
 ## Top gateways
 
 | paper_component | ace | acs | direct_out_strength | direct_in_strength |
 | --- | ---: | ---: | ---: | ---: |
-| No.0 | 0.00496352 | 0.000480063 | 0.256552 | 0.0261672 |
-| No.13 | 0.0040986 | 0.00258046 | 0.208253 | 0.144555 |
-| No.18 | 0.00370668 | 0.00179863 | 0.196691 | 0.0967358 |
-| No.7 | 0.00344251 | 0.00352354 | 0.185037 | 0.185373 |
-| No.29 | 0.00334748 | 0.00243375 | 0.180194 | 0.127612 |
-| No.24 | 0.003094 | 0.00145019 | 0.161276 | 0.080278 |
-| No.15 | 0.00262423 | 0.000670541 | 0.144387 | 0.0372208 |
-| No.12 | 0.0023969 | 0.000796534 | 0.127024 | 0.0425909 |
-| No.6 | 0.00233771 | 0.0014595 | 0.129927 | 0.0741049 |
-| No.1 | 0.00224323 | 0.00183739 | 0.119804 | 0.0984574 |
+| No.4 | 0.00521111 | 0.00150392 | 0.284866 | 0.0773915 |
+| No.2 | 0.00503596 | 0.00394063 | 0.258897 | 0.207111 |
+| No.0 | 0.0045057 | 0.00261591 | 0.229355 | 0.137451 |
+| No.1 | 0.0044806 | 0.00173307 | 0.235623 | 0.091175 |
+| No.3 | 0.00420316 | 0.0017963 | 0.219496 | 0.0951801 |
+| No.9 | 0.00393288 | 0.00318431 | 0.212258 | 0.157702 |
+| No.6 | 0.00387701 | 0.00153928 | 0.193864 | 0.0800985 |
+| No.11 | 0.00384106 | 0.00327235 | 0.198245 | 0.175156 |
+| No.22 | 0.00325219 | 0.0033044 | 0.164579 | 0.174048 |
+| No.41 | 0.00290161 | 0.00103169 | 0.147104 | 0.0511529 |
 
 ## Top mediators
 
 | paper_component | amce | mediated_fraction |
 | --- | ---: | ---: |
-| No.7 | 1.09789e-05 | 0.0789931 |
-| No.13 | 1.01959e-05 | 0.0733593 |
-| No.29 | 7.35036e-06 | 0.0528858 |
-| No.18 | 6.17258e-06 | 0.0444117 |
-| No.43 | 5.99149e-06 | 0.0431087 |
-| No.14 | 4.765e-06 | 0.0342841 |
-| No.8 | 4.53834e-06 | 0.0326533 |
-| No.24 | 3.83988e-06 | 0.0276279 |
-| No.1 | 3.8033e-06 | 0.0273647 |
-| No.56 | 3.2408e-06 | 0.0233175 |
+| No.2 | 1.791e-05 | 0.0738727 |
+| No.11 | 1.1036e-05 | 0.0455199 |
+| No.0 | 1.01606e-05 | 0.0419092 |
+| No.9 | 1.00153e-05 | 0.0413096 |
+| No.22 | 9.13716e-06 | 0.0376877 |
+| No.48 | 8.21485e-06 | 0.0338835 |
+| No.1 | 7.03851e-06 | 0.0290315 |
+| No.4 | 6.93475e-06 | 0.0286035 |
+| No.3 | 6.8769e-06 | 0.0283649 |
+| No.37 | 6.57468e-06 | 0.0271183 |
 
 ## Pairwise EI vs linear coefficient matrix
 
 - Compared elements: 3600
 - Off-diagonal elements: 3540
-- Support match fraction: 0.367778
-- Spearman(abs linear coefficient, EI): 0.516349
+- Support match fraction: 0.213333
+- Spearman(abs linear coefficient, EI): 0.485476
 - Per-element comparison: `ei_linear_coefficient_comparison.csv`.

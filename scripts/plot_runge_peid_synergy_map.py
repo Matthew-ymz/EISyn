@@ -322,6 +322,18 @@ def plot_peid_synergy_map(
         active_nodes.add(paper_to_local(int(paper_node)))
         draw_top_hyperedges(ax, nodes, panel_edges)
         draw_nodes(ax, nodes, norm, cmap, active_local_nodes=active_nodes)
+        ax.text(
+            0.02,
+            0.035,
+            f"Focus No.{int(paper_node)}; source-target interval: $X_t\\to X_{{t+1}}$ (1 wk)",
+            transform=ax.transAxes,
+            ha="left",
+            va="bottom",
+            fontsize=6.0,
+            color="#333333",
+            bbox={"boxstyle": "round,pad=0.20", "facecolor": "white", "edgecolor": "none", "alpha": 0.78},
+            zorder=7,
+        )
 
     sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
     cbar = fig.colorbar(sm, ax=axes, location="bottom", shrink=0.55, pad=0.08, aspect=24)

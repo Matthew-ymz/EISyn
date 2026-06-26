@@ -146,6 +146,28 @@ class RungePairwiseMlpEiTests(unittest.TestCase):
         )
         np.testing.assert_allclose(sparse, expected)
 
+    def test_sparsify_ei_graph_keeps_bidirectional_topk_edges(self) -> None:
+        matrix = np.array(
+            [
+                [0.9, 0.4, 0.2, 0.1],
+                [0.5, 0.8, 0.3, 0.7],
+                [0.1, 0.6, 0.9, 0.2],
+                [0.4, 0.2, 0.5, 0.7],
+            ]
+        )
+
+        sparse = sparsify_ei_graph(matrix, mode="bidirectional_topk", topk=1)
+
+        expected = np.array(
+            [
+                [0.0, 0.4, 0.0, 0.0],
+                [0.5, 0.0, 0.0, 0.7],
+                [0.0, 0.6, 0.0, 0.0],
+                [0.0, 0.0, 0.5, 0.0],
+            ]
+        )
+        np.testing.assert_allclose(sparse, expected)
+
     def test_ei_path_effects_accumulate_total_effects_and_mediator_scores(self) -> None:
         direct = np.array(
             [

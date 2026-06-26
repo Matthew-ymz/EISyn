@@ -993,14 +993,14 @@ def sparsify_ei_graph(
     values = np.asarray(matrix, dtype=float)
     if values.ndim != 2 or values.shape[0] != values.shape[1]:
         raise ValueError("matrix must be square.")
-    if mode not in {"none", "source_topk", "global_quantile"}:
-        raise ValueError("mode must be one of none, source_topk, global_quantile.")
+    if mode not in {"none", "source_topk", "target_topk", "bidirectional_topk", "global_quantile"}:
+        raise ValueError("mode must be one of none, source_topk, target_topk, bidirectional_topk, global_quantile.")
     sparse = np.nan_to_num(values, nan=0.0, posinf=0.0, neginf=0.0).copy()
     sparse = np.maximum(sparse, 0.0)
     np.fill_diagonal(sparse, 0.0)
     if mode == "none":
         return sparse
-    if mode == "source_topk":
+    if mode in {"source_topk", "bidirectional_topk"}:
         keep = np.zeros_like(sparse, dtype=bool)
         k = max(0, min(int(topk), sparse.shape[1] - 1))
         if k == 0:
@@ -1011,6 +1011,20 @@ def sparsify_ei_graph(
                 continue
             order = candidates[np.argsort(sparse[source, candidates])[::-1][:k]]
             keep[source, order] = True
+        if mode == "source_topk":
+            return np.where(keep, sparse, 0.0)
+    if mode in {"target_topk", "bidirectional_topk"}:
+        if mode == "target_topk":
+            keep = np.zeros_like(sparse, dtype=bool)
+        k = max(0, min(int(topk), sparse.shape[0] - 1))
+        if k == 0:
+            return np.zeros_like(sparse)
+        for target in range(sparse.shape[1]):
+            candidates = np.flatnonzero(sparse[:, target] > 0.0)
+            if len(candidates) == 0:
+                continue
+            order = candidates[np.argsort(sparse[candidates, target])[::-1][:k]]
+            keep[order, target] = True
         return np.where(keep, sparse, 0.0)
     off_diag = sparse[~np.eye(sparse.shape[0], dtype=bool)]
     positive = off_diag[off_diag > 0.0]
@@ -1370,8 +1384,8 @@ def run(config: PairwiseMlpEiConfig) -> dict[str, Path]:
         raise ValueError("ei_estimator must be 'discrete' or 'tm'.")
     if config.gateway_mode not in {"pairwise", "path_effect"}:
         raise ValueError("gateway_mode must be 'pairwise' or 'path_effect'.")
-    if config.graph_sparsify not in {"none", "source_topk", "global_quantile"}:
-        raise ValueError("graph_sparsify must be one of none, source_topk, global_quantile.")
+    if config.graph_sparsify not in {"none", "source_topk", "target_topk", "bidirectional_topk", "global_quantile"}:
+        raise ValueError("graph_sparsify must be one of none, source_topk, target_topk, bidirectional_topk, global_quantile.")
     if config.gateway_mode == "path_effect" and config.ei_estimator != "tm":
         raise ValueError("path_effect gateway_mode currently requires --ei-estimator tm.")
     if config.gateway_mode == "path_effect":
@@ -1642,7 +1656,11 @@ def parse_args(argv: Sequence[str] | None = None) -> PairwiseMlpEiConfig:
     parser.add_argument("--bins", type=int, default=8)
     parser.add_argument("--ei-estimator", choices=["discrete", "tm"], default="discrete")
     parser.add_argument("--gateway-mode", choices=["pairwise", "path_effect"], default="pairwise")
-    parser.add_argument("--graph-sparsify", choices=["none", "source_topk", "global_quantile"], default="source_topk")
+    parser.add_argument(
+        "--graph-sparsify",
+        choices=["none", "source_topk", "target_topk", "bidirectional_topk", "global_quantile"],
+        default="source_topk",
+    )
     parser.add_argument("--graph-topk", type=int, default=5)
     parser.add_argument("--graph-quantile", type=float, default=0.95)
     parser.add_argument("--path-alpha", type=float, default=0.8)

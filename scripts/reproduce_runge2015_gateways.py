@@ -194,18 +194,41 @@ def daily_slp_paths(data_dir: str | Path, start_year: int, end_year: int) -> lis
 
 
 def standardize_daily_anomalies(slp: xr.DataArray) -> xr.DataArray:
-    day = slp["time"].dt.dayofyear
-    counts = slp.groupby(day).count("time")
+    slp = drop_feb29(slp)
+    day = calendar_day_365_index(slp["time"])
+    field = slp.assign_coords(calendar_day=("time", day))
+    counts = field.groupby("calendar_day").count("time")
     if int(counts.max()) <= 1:
-        anomaly = slp - slp.mean("time")
-        scale = slp.std("time").where(lambda value: value > 0.0, 1.0)
+        anomaly = field - field.mean("time")
+        scale = field.std("time").where(lambda value: value > 0.0, 1.0)
         return (anomaly / scale).fillna(0.0)
-    climatology = slp.groupby(day).mean("time")
-    anomaly = slp.groupby(day) - climatology
-    scale = anomaly.groupby(day).std("time")
+    climatology = field.groupby("calendar_day").mean("time")
+    anomaly = field.groupby("calendar_day") - climatology
+    scale = anomaly.groupby("calendar_day").std("time")
     scale = scale.where(np.isfinite(scale) & (scale > 0.0), 1.0)
-    standardized = anomaly.groupby(day) / scale
-    return standardized.fillna(0.0)
+    standardized = anomaly.groupby("calendar_day") / scale
+    return standardized.fillna(0.0).drop_vars("calendar_day")
+
+
+def drop_feb29(field: xr.DataArray) -> xr.DataArray:
+    time = field["time"]
+    keep = ~((time.dt.month == 2) & (time.dt.day == 29))
+    return field.sel(time=keep)
+
+
+def count_feb29(field: xr.DataArray) -> int:
+    time = field["time"]
+    return int(((time.dt.month == 2) & (time.dt.day == 29)).sum())
+
+
+def calendar_day_365_index(time: xr.DataArray) -> np.ndarray:
+    month_lengths = np.asarray([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], dtype=int)
+    month_offsets = np.concatenate([[0], np.cumsum(month_lengths[:-1])])
+    months = np.asarray(time.dt.month, dtype=int)
+    days = np.asarray(time.dt.day, dtype=int)
+    if np.any((months == 2) & (days == 29)):
+        raise ValueError("Feb 29 must be removed before building a 365-day calendar index.")
+    return month_offsets[months - 1] + days
 
 
 def detrend_time_axis(field: xr.DataArray) -> xr.DataArray:
@@ -759,7 +782,7 @@ def write_summary_report(
         "",
         "## Method",
         "",
-        "- Daily SLP fields are restricted to the configured year range, transformed to standardized daily anomalies, linearly detrended, and latitude-area weighted.",
+        "- Daily SLP fields are restricted to the configured year range; Feb 29 is removed; each gridpoint is transformed to standardized 365-day calendar-day anomalies; the anomalies are linearly detrended and latitude-area weighted.",
         "- Varimax-rotated PCA components are fitted on monthly fields when enough monthly samples are available, then projected back to daily fields.",
         "- Component scores are aggregated to weekly resolution.",
         "- Tigramite/ParCorr selects candidate parents; sparse standardized OLS estimates the lagged causal regression coefficients.",
@@ -774,6 +797,7 @@ def write_summary_report(
         f"- Link density target: {manifest['config']['link_density']}",
         f"- Backend: {manifest['config']['causal_backend']}",
         f"- Daily samples: {manifest['n_daily_samples']}",
+        f"- Removed leap days: {manifest['preprocessing']['n_removed_leap_days']}",
         f"- Weekly samples: {manifest['n_weekly_samples']}",
         f"- Causal links: {manifest['n_edges']}",
         "",
@@ -808,6 +832,7 @@ def save_outputs(
     explained_variance_ratio: np.ndarray,
     edges: Sequence[LaggedEdge],
     effects: SemEffects,
+    preprocessing: dict[str, object],
 ) -> dict[str, object]:
     result_dir = config.output_dir / RESULT_SUBDIR
     fig_dir = config.output_dir / FIG_SUBDIR
@@ -858,6 +883,7 @@ def save_outputs(
         "config": {key: str(value) if isinstance(value, Path) else value for key, value in asdict(config).items()},
         "data_files": [str(path) for path in daily_slp_paths(config.data_dir, config.start_year, config.end_year)],
         "dependency_versions": dependency_versions(),
+        "preprocessing": preprocessing,
         "n_daily_samples": int(len(daily_scores)),
         "n_weekly_samples": int(len(weekly_scores)),
         "n_edges": int(len(edges)),
@@ -879,6 +905,7 @@ def save_outputs(
 def run_pipeline(config: RungeConfig) -> dict[str, object]:
     ensure_causal_backend_available(config.causal_backend)
     slp = load_daily_slp(config.data_dir, config.start_year, config.end_year)
+    removed_leap_days = count_feb29(slp)
     standardized = detrend_time_axis(standardize_daily_anomalies(slp))
     monthly = standardized.resample(time="MS").mean()
     fit_field = monthly if int(monthly.sizes["time"]) >= int(config.n_components) else standardized
@@ -905,6 +932,12 @@ def run_pipeline(config: RungeConfig) -> dict[str, object]:
         explained_variance_ratio=explained,
         edges=edges,
         effects=effects,
+        preprocessing={
+            "calendar_policy": "drop_feb29_365_day",
+            "standardization": "gridpoint_calendar_day_mean_std",
+            "detrending": "gridpoint_linear_time_axis",
+            "n_removed_leap_days": int(removed_leap_days),
+        },
     )
 
 

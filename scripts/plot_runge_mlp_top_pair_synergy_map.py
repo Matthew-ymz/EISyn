@@ -275,7 +275,7 @@ def draw_panel(
     draw_labels(ax, nodes, active_nodes)
     note = (
         f"{panel_label}  No.{int(pair['source_a_paper'])} + No.{int(pair['source_b_paper'])}; "
-        f"ΣΔ2+={float(pair['total_positive_delta2']):.4f}"
+        f"ΣΔ2+={float(pair['total_positive_delta2']):.4f}; $X_t\\to X_{{t+1}}$"
     )
     ax.text(
         0.02,
