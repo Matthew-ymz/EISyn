@@ -53,6 +53,7 @@ tests/*
 !tests/test_lorenz3d_multihorizon_peid.py
 !tests/test_part1_mmi_pid_synergy_report.py
 !tests/test_henon_mmi_pid_vs_mlp_peid.py
+!tests/test_runge_t2m_daily_weekmean.py
 *.pt
 *.pth
 *.ckpt
