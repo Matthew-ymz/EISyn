@@ -22,10 +22,15 @@ from scripts.classic_network_dynamics_benchmark import (
     build_future_state_spec,
     build_model_specs,
     estimate_peid_from_samples,
+    estimate_peid_for_joint_targets_from_samples,
     estimate_oracle_peid,
     run_benchmark,
     run_coupled_rossler_coupling_sweep,
     run_kuramoto_coupling_sweep,
+    run_kuramoto_joint_target_peid,
+    run_kuramoto_joint_target_peid_sweep,
+    run_large_kuramoto_phi_sweep,
+    run_kuramoto_phase_response_peid_sweep,
     run_kuramoto_peid_detail_sweep,
     run_lorenz_rho_sweep,
     run_lorenz_uniform_tau_sweep,
@@ -33,6 +38,7 @@ from scripts.classic_network_dynamics_benchmark import (
     run_part1_combined_synergy_figure,
     _plot_panel,
     _kuramoto_order_parameter,
+    _kuramoto_order_excess,
     _zero_control_synergy_readouts,
     run_sis_gate_sweep,
     run_wilson_cowan_gain_sweep,
@@ -380,9 +386,12 @@ def test_default_kuramoto_couplings_extend_into_synchronized_phase() -> None:
 def test_kuramoto_order_parameter_tracks_phase_coherence() -> None:
     synchronized = np.array([[0.1, 0.1], [1.0, 1.0], [-2.0, -2.0]])
     antiphase = np.array([[0.0, np.pi], [0.5, 0.5 + np.pi], [-1.0, -1.0 + np.pi]])
+    random_phases = np.random.default_rng(7).uniform(-np.pi, np.pi, size=(4000, 2))
 
     assert np.isclose(_kuramoto_order_parameter(synchronized), 1.0)
     assert np.isclose(_kuramoto_order_parameter(antiphase), 0.0)
+    assert _kuramoto_order_excess(random_phases) < 0.04
+    assert np.isclose(_kuramoto_order_excess(synchronized), 1.0)
 
 
 def test_kuramoto_peid_detail_sweep_exposes_active_rotator_coupling_components(tmp_path: Path) -> None:
@@ -419,6 +428,119 @@ def test_kuramoto_peid_detail_sweep_exposes_active_rotator_coupling_components(t
             row["oracle_syn_mean"],
         )
     assert positive[1]["signal_rms_mean"] > positive[0]["signal_rms_mean"]
+
+
+def test_joint_target_peid_treats_kuramoto_two_phase_velocities_as_one_target() -> None:
+    spec = build_kuramoto_coupling_spec(0.2)
+    rng = np.random.default_rng(7)
+    states = rng.uniform(-np.pi, np.pi, size=(700, 2))
+    targets = spec.vector_field(states)
+
+    graph = estimate_peid_for_joint_targets_from_samples(
+        spec,
+        states,
+        targets,
+        joint_targets={"dtheta": ("dtheta1", "dtheta2")},
+        estimator="transport",
+    )
+    hyperedges = graph["hyperedges"].set_index(["sources", "target"])
+    pairwise = graph["pairwise"].set_index(["source", "target"])
+
+    assert list(graph["target_names"]) == ["dtheta"]
+    assert ("theta1+theta2", "dtheta") in hyperedges.index
+    assert ("theta1", "dtheta") in pairwise.index
+    assert float(hyperedges.loc[("theta1+theta2", "dtheta"), "joint_ei"]) > 0.0
+    assert np.isclose(
+        float(hyperedges.loc[("theta1+theta2", "dtheta"), "score"]),
+        float(hyperedges.loc[("theta1+theta2", "dtheta"), "signed_residual"]),
+    )
+
+
+def test_kuramoto_joint_target_peid_smoke_writes_single_example_payload(tmp_path: Path) -> None:
+    result = run_kuramoto_joint_target_peid(
+        mode="smoke",
+        coupling=0.2,
+        seeds=(0,),
+        result_path=tmp_path / "kuramoto_joint_target_peid.json",
+        figure_path=tmp_path / "kuramoto_joint_target_peid.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "kuramoto_phase_coupling_joint_target"
+    assert payload["coupling"] == 0.2
+    assert payload["target_relation"] == "theta1+theta2->dtheta"
+    assert payload["joint_target"] == ["dtheta1", "dtheta2"]
+    assert payload["equation_parameters"] == {"omega1": 1.0, "omega2": 0.9, "A": 0.2, "K": 0.2}
+    assert payload["summary"]["oracle_joint_ei_mean"] > 0.0
+    assert "mlp_syn_mean" in payload["summary"]
+    assert "oracle_syn_mean" in payload["summary"]
+
+
+def test_kuramoto_joint_target_peid_sweep_tracks_syn_across_couplings(tmp_path: Path) -> None:
+    result = run_kuramoto_joint_target_peid_sweep(
+        mode="smoke",
+        couplings=(0.0, 0.2, 1.0),
+        seeds=(0,),
+        result_path=tmp_path / "kuramoto_joint_target_peid_sweep.json",
+        figure_path=tmp_path / "kuramoto_joint_target_peid_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "kuramoto_phase_coupling_joint_target_sweep"
+    assert payload["target_relation"] == "theta1+theta2->dtheta"
+    assert [row["coupling"] for row in payload["summary"]] == [0.0, 0.2, 1.0]
+    assert "oracle_syn_peak_coupling" in payload["nonmonotonic_diagnostic"]
+    assert "mlp_syn_peak_coupling" in payload["nonmonotonic_diagnostic"]
+    assert {"mlp_syn_mean", "oracle_syn_mean"} <= set(payload["summary"][0])
+
+
+def test_kuramoto_phase_response_peid_sweep_reports_transition_and_syn_peaks(tmp_path: Path) -> None:
+    result = run_kuramoto_phase_response_peid_sweep(
+        mode="smoke",
+        couplings=(0.0, 0.1, 0.3),
+        seeds=(0,),
+        tau=1.0,
+        result_path=tmp_path / "kuramoto_phase_response_peid_sweep.json",
+        figure_path=tmp_path / "kuramoto_phase_response_peid_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "kuramoto_phase_response_peid_sweep"
+    assert payload["target"] == "finite_time_phase_locking_response"
+    assert payload["phase_response_target"] == ["cos_delta_tau", "sin_delta_tau", "order_excess_tau"]
+    assert [row["coupling"] for row in payload["summary"]] == [0.0, 0.1, 0.3]
+    assert "order_transition_coupling" in payload["criticality_diagnostic"]
+    assert "oracle_syn_peak_coupling" in payload["criticality_diagnostic"]
+    assert {"natural_plv_mean", "natural_order_mean", "natural_order_raw_mean", "oracle_syn_mean"} <= set(
+        payload["summary"][0]
+    )
+
+
+def test_large_kuramoto_phi_sweep_reports_classic_transition_and_phi_peak(tmp_path: Path) -> None:
+    result = run_large_kuramoto_phi_sweep(
+        mode="smoke",
+        oscillator_count=32,
+        couplings=(0.0, 0.8, 1.6, 2.4),
+        seeds=(0,),
+        tau=3.0,
+        result_path=tmp_path / "large_kuramoto_phi_sweep.json",
+        figure_path=tmp_path / "large_kuramoto_phi_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "classic_large_n_kuramoto_phi_sweep"
+    assert payload["oscillator_count"] == 32
+    assert payload["target"] == "finite_time_global_order_response"
+    assert payload["source_partition"] == ["oscillators_0_to_15", "oscillators_16_to_31"]
+    assert [row["coupling"] for row in payload["summary"]] == [0.0, 0.8, 1.6, 2.4]
+    assert payload["critical_coupling_theory"] > 0.0
+    assert "order_transition_coupling" in payload["criticality_diagnostic"]
+    assert "phi_syn_peak_coupling" in payload["criticality_diagnostic"]
+    assert {"natural_order_mean", "phi_syn_mean", "phi_joint_ei_mean"} <= set(payload["summary"][0])
 
 
 def test_lorenz_rho_spec_matches_classic_equations() -> None:

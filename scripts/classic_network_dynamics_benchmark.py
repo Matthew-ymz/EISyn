@@ -37,6 +37,7 @@ KURAMOTO_PEID_DETAIL_COUPLINGS = (
     0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.045, 0.05, 0.055, 0.06, 0.07, 0.08, 0.1,
     0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0,
 )
+LARGE_KURAMOTO_COUPLINGS = (0.0, 0.4, 0.8, 1.1, 1.3, 1.5, 1.6, 1.7, 1.9, 2.2, 2.6, 3.2, 4.0)
 LORENZ_RHO_VALUES = (10.0, 15.0, 20.0, 24.0, 28.0)
 LORENZ_UNIFORM_TAU_VALUES = (0.01, 0.02, 0.05, 0.1, 0.2)
 ROSSLER_COUPLING_VALUES = (0.0, 0.1, 0.25, 0.5, 0.75)
@@ -582,7 +583,9 @@ def _mi_discrete(sources: np.ndarray, target: np.ndarray) -> float:
 def _conditional_mi_discrete(left: np.ndarray, right: np.ndarray, target: np.ndarray) -> float:
     a = np.asarray(left, dtype=int).reshape(-1, 1)
     b = np.asarray(right, dtype=int).reshape(-1, 1)
-    t = np.asarray(target, dtype=int).reshape(-1, 1)
+    t = np.asarray(target, dtype=int)
+    if t.ndim == 1:
+        t = t.reshape(-1, 1)
     value = (
         _entropy_discrete(np.column_stack([a, t]))
         + _entropy_discrete(np.column_stack([b, t]))
@@ -596,6 +599,32 @@ def _histogram_synergy(left: np.ndarray, right: np.ndarray, target: np.ndarray, 
     a = _discretize(left, bins)
     b = _discretize(right, bins)
     t = _discretize(target, bins)
+    left_ei = _mi_discrete(a, t)
+    right_ei = _mi_discrete(b, t)
+    joint_ei = _mi_discrete(np.column_stack([a, b]), t)
+    signed_residual = joint_ei - left_ei - right_ei
+    source_tc = _mi_discrete(a, b)
+    return {
+        "left_ei": left_ei,
+        "right_ei": right_ei,
+        "joint_ei": joint_ei,
+        "source_tc": source_tc,
+        "signed_residual": signed_residual,
+        "syn": _conditional_mi_discrete(a, b, t),
+    }
+
+
+def _discretize_columns(values: np.ndarray, bins: int) -> np.ndarray:
+    array = np.asarray(values, dtype=float)
+    if array.ndim == 1:
+        array = array.reshape(-1, 1)
+    return np.column_stack([_discretize(array[:, idx], bins) for idx in range(array.shape[1])])
+
+
+def _histogram_synergy_matrix(left: np.ndarray, right: np.ndarray, target: np.ndarray, bins: int) -> dict[str, float]:
+    a = _discretize(left, bins)
+    b = _discretize(right, bins)
+    t = _discretize_columns(target, bins)
     left_ei = _mi_discrete(a, t)
     right_ei = _mi_discrete(b, t)
     joint_ei = _mi_discrete(np.column_stack([a, b]), t)
@@ -821,6 +850,106 @@ def estimate_peid_from_samples(
                 }
             )
     return {"pairwise": pd.DataFrame(pair_rows), "hyperedges": pd.DataFrame(hyper_rows)}
+
+
+def estimate_peid_for_joint_targets_from_samples(
+    spec: ModelSpec,
+    states: np.ndarray,
+    targets: np.ndarray,
+    *,
+    joint_targets: Mapping[str, Sequence[str]],
+    estimator: str,
+    bins: int = 6,
+) -> dict[str, object]:
+    interventions = np.asarray(states, dtype=float)
+    target_values = np.asarray(targets, dtype=float)
+    if interventions.ndim != 2 or interventions.shape[1] != len(spec.state_names):
+        raise ValueError(f"states must have shape (n, {len(spec.state_names)}).")
+    if target_values.ndim != 2 or target_values.shape != (len(interventions), len(spec.target_names)):
+        raise ValueError(f"targets must have shape (n, {len(spec.target_names)}).")
+
+    target_index = {name: idx for idx, name in enumerate(spec.target_names)}
+    grouped_targets: list[tuple[str, list[int]]] = []
+    for name, members in joint_targets.items():
+        indices = [target_index[member] for member in members]
+        if not indices:
+            raise ValueError(f"joint target {name!r} must contain at least one target.")
+        grouped_targets.append((str(name), indices))
+
+    pair_rows: list[dict[str, object]] = []
+    pair_lookup: dict[tuple[int, int], float] = {}
+    for source_idx, source in enumerate(spec.state_names):
+        for group_idx, (target_name, target_indices) in enumerate(grouped_targets):
+            target_block = target_values[:, target_indices]
+            target_is_degenerate = float(np.ptp(target_block)) <= 1e-6 * max(
+                1.0, float(np.max(np.abs(target_block)))
+            )
+            if target_is_degenerate:
+                score = 0.0
+            elif estimator == "transport":
+                score = _transport_single(interventions[:, [source_idx]], target_block)
+            elif estimator == "histogram":
+                score = _mi_discrete(
+                    _discretize(interventions[:, source_idx], bins),
+                    _discretize_columns(target_block, bins),
+                )
+            else:
+                raise ValueError("estimator must be 'histogram' or 'transport'.")
+            pair_lookup[(source_idx, group_idx)] = float(score)
+            pair_rows.append({"source": source, "target": target_name, "score": float(score)})
+
+    hyper_rows: list[dict[str, object]] = []
+    for left_idx, right_idx in combinations(range(len(spec.state_names)), 2):
+        for group_idx, (target_name, target_indices) in enumerate(grouped_targets):
+            target_block = target_values[:, target_indices]
+            target_is_degenerate = float(np.ptp(target_block)) <= 1e-6 * max(
+                1.0, float(np.max(np.abs(target_block)))
+            )
+            if target_is_degenerate:
+                values = {
+                    "left_ei": 0.0,
+                    "right_ei": 0.0,
+                    "joint_ei": 0.0,
+                    "syn": 0.0,
+                    "signed_residual": 0.0,
+                    "source_tc": 0.0,
+                }
+            elif estimator == "transport":
+                values = _transport_synergy(
+                    interventions[:, [left_idx]], interventions[:, [right_idx]], target_block
+                )
+                values["signed_residual"] = float(values["syn"])
+            else:
+                values = _histogram_synergy_matrix(
+                    interventions[:, left_idx], interventions[:, right_idx], target_block, bins
+                )
+            hyper_rows.append(
+                {
+                    "sources": "+".join(sorted((spec.state_names[left_idx], spec.state_names[right_idx]))),
+                    "target": target_name,
+                    "score": float(values["syn"]),
+                    "raw_syn": float(values["syn"]),
+                    "joint_ei": float(values["joint_ei"]),
+                    "single_ei_sum": float(
+                        values.get("left_ei", pair_lookup[(left_idx, group_idx)])
+                        + values.get("right_ei", pair_lookup[(right_idx, group_idx)])
+                    ),
+                    "signed_residual": float(
+                        values.get(
+                            "signed_residual",
+                            float(values["joint_ei"])
+                            - pair_lookup[(left_idx, group_idx)]
+                            - pair_lookup[(right_idx, group_idx)],
+                        )
+                    ),
+                    "source_tc": float(values.get("source_tc", float("nan"))),
+                }
+            )
+    return {
+        "target_names": [name for name, _ in grouped_targets],
+        "pairwise": pd.DataFrame(pair_rows),
+        "hyperedges": pd.DataFrame(hyper_rows),
+    }
 
 
 def estimate_peid(
@@ -1571,6 +1700,60 @@ def _aggregate_kuramoto_peid_detail_rows(rows: list[dict[str, object]]) -> list[
     return summaries
 
 
+def _aggregate_kuramoto_joint_target_rows(rows: list[dict[str, object]]) -> dict[str, object]:
+    frame = pd.DataFrame(rows)
+    summary: dict[str, object] = {"n_seeds": int(frame["seed"].nunique())}
+    for metric in (
+        "mlp_syn",
+        "mlp_joint_ei",
+        "mlp_single_ei_sum",
+        "oracle_syn",
+        "oracle_joint_ei",
+        "oracle_single_ei_sum",
+        "mlp_test_mse",
+    ):
+        values = frame[metric].astype(float)
+        summary[f"{metric}_mean"] = float(values.mean())
+        summary[f"{metric}_std"] = float(values.std(ddof=0))
+    return summary
+
+
+def _aggregate_kuramoto_joint_target_sweep_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "mlp_syn",
+        "mlp_joint_ei",
+        "mlp_single_ei_sum",
+        "oracle_syn",
+        "oracle_joint_ei",
+        "oracle_single_ei_sum",
+        "mlp_test_mse",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {"coupling": float(coupling), "n_seeds": int(group["seed"].nunique())}
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+        summaries.append(row)
+    return summaries
+
+
+def _nonmonotonic_syn_diagnostic(summary: list[dict[str, object]]) -> dict[str, object]:
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    diagnostic: dict[str, object] = {}
+    for key in ("mlp_syn", "oracle_syn"):
+        values = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        peak_idx = int(np.argmax(values))
+        diagnostic[f"{key}_peak_coupling"] = float(couplings[peak_idx])
+        diagnostic[f"{key}_peak_value"] = float(values[peak_idx])
+        diagnostic[f"{key}_has_internal_peak"] = bool(0 < peak_idx < len(values) - 1)
+        diagnostic[f"{key}_start_value"] = float(values[0])
+        diagnostic[f"{key}_end_value"] = float(values[-1])
+    return diagnostic
+
+
 def _aggregate_sis_gate_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     return _aggregate_sweep_rows(rows, parameter_key="beta")
 
@@ -1620,6 +1803,211 @@ def _kuramoto_order_parameter(states: np.ndarray) -> float:
         raise ValueError("Kuramoto states must have shape (n, 2).")
     phasors = np.exp(1j * values)
     return float(np.mean(np.abs(np.mean(phasors, axis=1))))
+
+
+def _kuramoto_order_excess(states: np.ndarray) -> float:
+    baseline = 2.0 / np.pi
+    raw_order = _kuramoto_order_parameter(states)
+    return float(np.clip((raw_order - baseline) / (1.0 - baseline), 0.0, 1.0))
+
+
+def _kuramoto_phase_response_targets(states: np.ndarray) -> np.ndarray:
+    values = np.asarray(states, dtype=float)
+    if values.ndim != 2 or values.shape[1] != 2:
+        raise ValueError("Kuramoto states must have shape (n, 2).")
+    delta = values[:, 1] - values[:, 0]
+    raw_order = np.abs(np.mean(np.exp(1j * values), axis=1))
+    baseline = 2.0 / np.pi
+    order_excess = np.clip((raw_order - baseline) / (1.0 - baseline), 0.0, 1.0)
+    return np.column_stack([np.cos(delta), np.sin(delta), order_excess])
+
+
+def _aggregate_kuramoto_phase_response_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "natural_plv",
+        "natural_order",
+        "natural_order_raw",
+        "mlp_syn",
+        "mlp_joint_ei",
+        "mlp_single_ei_sum",
+        "oracle_syn",
+        "oracle_joint_ei",
+        "oracle_single_ei_sum",
+        "mlp_test_mse",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {"coupling": float(coupling), "n_seeds": int(group["seed"].nunique())}
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+        summaries.append(row)
+    return summaries
+
+
+def _phase_response_criticality_diagnostic(summary: list[dict[str, object]]) -> dict[str, object]:
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    if len(couplings) == 0:
+        return {}
+
+    def peak_coupling(metric: str) -> tuple[float, float]:
+        values = np.asarray([float(row[f"{metric}_mean"]) for row in summary], dtype=float)
+        index = int(np.nanargmax(values))
+        return float(couplings[index]), float(values[index])
+
+    def transition_coupling(metric: str) -> tuple[float, float]:
+        values = np.asarray([float(row[f"{metric}_mean"]) for row in summary], dtype=float)
+        if len(values) < 2:
+            return float(couplings[0]), 0.0
+        gradient = np.gradient(values, couplings)
+        index = int(np.nanargmax(gradient))
+        return float(couplings[index]), float(gradient[index])
+
+    order_transition, order_slope = transition_coupling("natural_order")
+    plv_transition, plv_slope = transition_coupling("natural_plv")
+    oracle_peak, oracle_value = peak_coupling("oracle_syn")
+    mlp_peak, mlp_value = peak_coupling("mlp_syn")
+    return {
+        "order_transition_coupling": order_transition,
+        "order_transition_slope": order_slope,
+        "plv_transition_coupling": plv_transition,
+        "plv_transition_slope": plv_slope,
+        "oracle_syn_peak_coupling": oracle_peak,
+        "oracle_syn_peak_value": oracle_value,
+        "oracle_syn_peak_minus_order_transition": float(oracle_peak - order_transition),
+        "mlp_syn_peak_coupling": mlp_peak,
+        "mlp_syn_peak_value": mlp_value,
+        "mlp_syn_peak_minus_order_transition": float(mlp_peak - order_transition),
+    }
+
+
+def _classic_kuramoto_frequencies(oscillator_count: int, seed: int, sigma: float) -> np.ndarray:
+    if oscillator_count < 4:
+        raise ValueError("oscillator_count must be at least 4 for a large-N Kuramoto sweep.")
+    rng = np.random.default_rng(seed)
+    frequencies = rng.normal(0.0, sigma, size=int(oscillator_count))
+    frequencies = frequencies - float(np.mean(frequencies))
+    current_std = float(np.std(frequencies))
+    if current_std > 0.0:
+        frequencies = frequencies * (float(sigma) / current_std)
+    return frequencies
+
+
+def _classic_kuramoto_critical_coupling(sigma: float) -> float:
+    # For a Gaussian frequency density g(omega), Kc = 2 / (pi g(0)).
+    return float(2.0 * math.sqrt(2.0 * math.pi) * float(sigma) / math.pi)
+
+
+def _kuramoto_global_order(states: np.ndarray) -> np.ndarray:
+    values = np.asarray(states, dtype=float)
+    if values.ndim != 2:
+        raise ValueError("states must have shape (n_samples, n_oscillators).")
+    return np.abs(np.mean(np.exp(1j * values), axis=1))
+
+
+def _large_kuramoto_order_excess(states: np.ndarray) -> np.ndarray:
+    values = np.asarray(states, dtype=float)
+    baseline = math.sqrt(math.pi) / (2.0 * math.sqrt(values.shape[1]))
+    raw_order = _kuramoto_global_order(values)
+    return np.clip((raw_order - baseline) / (1.0 - baseline), 0.0, 1.0)
+
+
+def _classic_kuramoto_integrate(
+    initial_states: np.ndarray,
+    frequencies: np.ndarray,
+    *,
+    coupling: float,
+    tau: float,
+    dt: float,
+) -> np.ndarray:
+    states = np.asarray(initial_states, dtype=float).copy()
+    omega = np.asarray(frequencies, dtype=float).reshape(1, -1)
+    if states.ndim != 2 or states.shape[1] != omega.shape[1]:
+        raise ValueError("initial_states and frequencies have incompatible shapes.")
+    steps = max(1, int(math.ceil(float(tau) / float(dt))))
+    step = float(tau) / steps
+    for _ in range(steps):
+        mean_field = np.mean(np.exp(1j * states), axis=1, keepdims=True)
+        coupling_term = float(coupling) * np.imag(mean_field * np.exp(-1j * states))
+        states = (states + step * (omega + coupling_term)) % (2.0 * math.pi)
+    return states
+
+
+def _large_kuramoto_group_sources(states: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    values = np.asarray(states, dtype=float)
+    midpoint = values.shape[1] // 2
+    left = np.mean(np.exp(1j * values[:, :midpoint]), axis=1)
+    right = np.mean(np.exp(1j * values[:, midpoint:]), axis=1)
+    return (
+        np.column_stack([left.real, left.imag]),
+        np.column_stack([right.real, right.imag]),
+    )
+
+
+def _large_kuramoto_order_targets(states: np.ndarray) -> np.ndarray:
+    return _large_kuramoto_order_excess(states).reshape(-1, 1)
+
+
+def _aggregate_large_kuramoto_phi_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "natural_order",
+        "natural_order_raw",
+        "phi_syn",
+        "phi_joint_ei",
+        "phi_single_ei_sum",
+        "phi_left_ei",
+        "phi_right_ei",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {"coupling": float(coupling), "n_seeds": int(group["seed"].nunique())}
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+        summaries.append(row)
+    return summaries
+
+
+def _large_kuramoto_phi_diagnostic(
+    summary: list[dict[str, object]],
+    *,
+    critical_coupling: float,
+) -> dict[str, object]:
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    if len(couplings) == 0:
+        return {}
+
+    def peak(metric: str) -> tuple[float, float]:
+        values = np.asarray([float(row[f"{metric}_mean"]) for row in summary], dtype=float)
+        index = int(np.nanargmax(values))
+        return float(couplings[index]), float(values[index])
+
+    order_values = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    if len(order_values) < 2:
+        order_transition = float(couplings[0])
+        order_slope = 0.0
+    else:
+        gradient = np.gradient(order_values, couplings)
+        index = int(np.nanargmax(gradient))
+        order_transition = float(couplings[index])
+        order_slope = float(gradient[index])
+    phi_peak, phi_value = peak("phi_syn")
+    joint_peak, joint_value = peak("phi_joint_ei")
+    return {
+        "theoretical_critical_coupling": float(critical_coupling),
+        "order_transition_coupling": order_transition,
+        "order_transition_slope": order_slope,
+        "phi_syn_peak_coupling": phi_peak,
+        "phi_syn_peak_value": phi_value,
+        "phi_syn_peak_minus_order_transition": float(phi_peak - order_transition),
+        "phi_syn_peak_minus_theoretical_kc": float(phi_peak - critical_coupling),
+        "phi_joint_ei_peak_coupling": joint_peak,
+        "phi_joint_ei_peak_value": joint_value,
+    }
 
 
 def _aggregate_lorenz_rho_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -2223,6 +2611,215 @@ def _plot_ode_future_state_combined(
     plt.close(fig)
 
 
+def _plot_kuramoto_joint_target_peid(summary: Mapping[str, object], path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    labels = ["Joint EI", "Single EI sum", "Syn"]
+    mlp = np.asarray(
+        [
+            float(summary["mlp_joint_ei_mean"]),
+            float(summary["mlp_single_ei_sum_mean"]),
+            float(summary["mlp_syn_mean"]),
+        ],
+        dtype=float,
+    )
+    oracle = np.asarray(
+        [
+            float(summary["oracle_joint_ei_mean"]),
+            float(summary["oracle_single_ei_sum_mean"]),
+            float(summary["oracle_syn_mean"]),
+        ],
+        dtype=float,
+    )
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(6.4, 3.6), constrained_layout=True)
+    ax.bar(x - width / 2, mlp, width=width, color="#2F7D5A", label="MLP+PEID")
+    ax.bar(x + width / 2, oracle, width=width, color="#7068A8", label="Oracle PEID")
+    ax.axhline(0.0, color="#888888", linewidth=1.0)
+    ax.set_xticks(x, labels)
+    ax.set_ylabel("Information readout")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="y", alpha=0.22, linewidth=0.8)
+    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_kuramoto_joint_target_peid_sweep(summary: list[dict[str, object]], path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, ax = plt.subplots(figsize=(6.8, 3.9), constrained_layout=True)
+    for key, label, color, marker in (
+        ("mlp_syn", "MLP+PEID Syn", "#2F7D5A", "D"),
+        ("oracle_syn", "Oracle PEID Syn", "#7068A8", "o"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        ax.plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        ax.fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    ax.axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    ax.set_xscale("symlog", linthresh=0.01)
+    ax.set_xlabel("Kuramoto coupling K")
+    ax.set_ylabel("Syn for joint target dtheta")
+    ax.grid(True, alpha=0.22, linewidth=0.8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_kuramoto_phase_response_peid_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.9), constrained_layout=True)
+
+    for key, label, color, marker in (
+        ("natural_plv", "PLV", "#4C78A8", "o"),
+        ("natural_order", "Corrected order excess", "#2F7D5A", "D"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[0].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[0].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "order_transition_coupling" in diagnostic:
+        axes[0].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[0].set_ylabel("Synchronization readout")
+    axes[0].set_title("a  Natural trajectory synchronization", loc="left", fontweight="bold")
+
+    for key, label, color, marker in (
+        ("oracle_syn", "Oracle PEID Syn", "#7068A8", "o"),
+        ("mlp_syn", "MLP+PEID Syn", "#2F7D5A", "D"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[1].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[1].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "oracle_syn_peak_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["oracle_syn_peak_coupling"]),
+            color="#7068A8",
+            linestyle=":",
+            linewidth=1.2,
+            label="Oracle Syn peak",
+        )
+    if "order_transition_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("Syn for finite-time phase response")
+    axes[1].set_title("b  Phase-response PEID", loc="left", fontweight="bold")
+
+    for axis in axes:
+        axis.set_xscale("symlog", linthresh=0.01)
+        axis.set_xlim(left=0.0, right=float(np.max(couplings)) * 1.05 if len(couplings) else 1.0)
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_large_kuramoto_phi_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.9), constrained_layout=True)
+
+    for key, label, color, marker in (
+        ("natural_order", "Corrected global order", "#4C78A8", "o"),
+        ("natural_order_raw", "Raw global order", "#8C8C8C", "^"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[0].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[0].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "theoretical_critical_coupling" in diagnostic:
+        axes[0].axvline(
+            float(diagnostic["theoretical_critical_coupling"]),
+            color="#333333",
+            linestyle=":",
+            linewidth=1.2,
+            label="theory Kc",
+        )
+    if "order_transition_coupling" in diagnostic:
+        axes[0].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[0].set_ylabel("Global synchronization")
+    axes[0].set_title("a  Large-N Kuramoto transition", loc="left", fontweight="bold")
+
+    for key, label, color, marker in (
+        ("phi_syn", "Whole-system Phi/Syn", "#2F7D5A", "D"),
+        ("phi_joint_ei", "Whole-system joint EI", "#7068A8", "o"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[1].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[1].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "phi_syn_peak_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["phi_syn_peak_coupling"]),
+            color="#2F7D5A",
+            linestyle=":",
+            linewidth=1.2,
+            label="Phi/Syn peak",
+        )
+    if "order_transition_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("Information readout (bits)")
+    axes[1].set_title("b  Macro-partition PEID", loc="left", fontweight="bold")
+
+    for axis in axes:
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
 def run_ode_future_state_sweeps(
     *,
     mode: str = "full",
@@ -2559,6 +3156,433 @@ def run_kuramoto_peid_detail_sweep(
     result_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     _plot_kuramoto_peid_detail_sweep(summary, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_kuramoto_joint_target_peid(
+    *,
+    mode: str = "full",
+    coupling: float = 0.2,
+    seeds: Sequence[int] = (0, 1, 2, 3),
+    result_path: Path = DEFAULT_RESULT_DIR / "kuramoto_joint_target_peid.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "kuramoto_joint_target_peid.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    trajectory_samples = 260 if mode == "smoke" else 1000
+    intervention_train_samples = 260 if mode == "smoke" else 1000
+    readout_samples = 700 if mode == "smoke" else 2000
+    epochs = 35 if mode == "smoke" else 180
+    estimator = "transport"
+    rows: list[dict[str, object]] = []
+    spec = build_kuramoto_coupling_spec(float(coupling))
+    joint_targets = {"dtheta": ("dtheta1", "dtheta2")}
+
+    for seed in seeds:
+        seed = int(seed)
+        natural_states, natural_targets = spec.simulate(seed=seed, samples=trajectory_samples, noise=0.0)
+        train_interventions = _sample_intervention_states(
+            spec, samples=intervention_train_samples, seed=seed + 991
+        )
+        train_intervention_targets = spec.vector_field(train_interventions)
+        train_states = np.vstack([natural_states, train_interventions])
+        train_targets = np.vstack([natural_targets, train_intervention_targets])
+        fitted = fit_mlp(train_states, train_targets, seed=seed + 300, epochs=epochs)
+        readout_states = _sample_intervention_states(spec, samples=readout_samples, seed=seed + 1991)
+        oracle_targets = spec.vector_field(readout_states)
+        mlp_targets = fitted.predict(readout_states)
+        oracle = estimate_peid_for_joint_targets_from_samples(
+            spec,
+            readout_states,
+            oracle_targets,
+            joint_targets=joint_targets,
+            estimator=estimator,
+        )
+        learned = estimate_peid_for_joint_targets_from_samples(
+            spec,
+            readout_states,
+            mlp_targets,
+            joint_targets=joint_targets,
+            estimator=estimator,
+        )
+        oracle_row = oracle["hyperedges"].set_index(["sources", "target"]).loc[("theta1+theta2", "dtheta")]
+        learned_row = learned["hyperedges"].set_index(["sources", "target"]).loc[("theta1+theta2", "dtheta")]
+        rows.append(
+            {
+                "coupling": float(coupling),
+                "seed": seed,
+                "mlp_syn": float(learned_row["score"]),
+                "mlp_joint_ei": float(learned_row["joint_ei"]),
+                "mlp_single_ei_sum": float(learned_row["single_ei_sum"]),
+                "oracle_syn": float(oracle_row["score"]),
+                "oracle_joint_ei": float(oracle_row["joint_ei"]),
+                "oracle_single_ei_sum": float(oracle_row["single_ei_sum"]),
+                "mlp_test_mse": float(fitted.train_mse),
+                "train_state_digest": _digest(train_states),
+                "readout_state_digest": _digest(readout_states),
+                "mlp_target_digest": _digest(mlp_targets),
+                "oracle_target_digest": _digest(oracle_targets),
+            }
+        )
+
+    summary = _aggregate_kuramoto_joint_target_rows(rows)
+    result = {
+        "mode": mode,
+        "system": "kuramoto_phase_coupling_joint_target",
+        "sampling_distribution": "independent_uniform_intervention",
+        "training_distribution": "equal_natural_and_uniform_intervention",
+        "coupling": float(coupling),
+        "seeds": [int(seed) for seed in seeds],
+        "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
+        "target": "instantaneous_vector_field_joint_target",
+        "target_relation": "theta1+theta2->dtheta",
+        "joint_target": ["dtheta1", "dtheta2"],
+        "equation_parameters": {
+            "omega1": 1.0,
+            "omega2": 0.9,
+            "A": KURAMOTO_PHASE_POTENTIAL_STRENGTH,
+            "K": float(coupling),
+        },
+        "equation": spec.equation,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_kuramoto_joint_target_peid(summary, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_kuramoto_joint_target_peid_sweep(
+    *,
+    mode: str = "full",
+    couplings: Sequence[float] = KURAMOTO_PEID_DETAIL_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2, 3),
+    result_path: Path = DEFAULT_RESULT_DIR / "kuramoto_joint_target_peid_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "kuramoto_joint_target_peid_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    trajectory_samples = 260 if mode == "smoke" else 1000
+    intervention_train_samples = 260 if mode == "smoke" else 1000
+    readout_samples = 700 if mode == "smoke" else 2000
+    epochs = 35 if mode == "smoke" else 180
+    estimator = "transport"
+    joint_targets = {"dtheta": ("dtheta1", "dtheta2")}
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        spec = build_kuramoto_coupling_spec(float(coupling))
+        for seed in seeds:
+            seed = int(seed)
+            natural_states, natural_targets = spec.simulate(seed=seed, samples=trajectory_samples, noise=0.0)
+            train_interventions = _sample_intervention_states(
+                spec, samples=intervention_train_samples, seed=seed + 991
+            )
+            train_intervention_targets = spec.vector_field(train_interventions)
+            train_states = np.vstack([natural_states, train_interventions])
+            train_targets = np.vstack([natural_targets, train_intervention_targets])
+            fitted = fit_mlp(train_states, train_targets, seed=seed + 300, epochs=epochs)
+            readout_states = _sample_intervention_states(
+                spec,
+                samples=readout_samples,
+                seed=seed + 1991 + int(round(float(coupling) * 10000)),
+            )
+            oracle_targets = spec.vector_field(readout_states)
+            mlp_targets = fitted.predict(readout_states)
+            oracle = estimate_peid_for_joint_targets_from_samples(
+                spec,
+                readout_states,
+                oracle_targets,
+                joint_targets=joint_targets,
+                estimator=estimator,
+            )
+            learned = estimate_peid_for_joint_targets_from_samples(
+                spec,
+                readout_states,
+                mlp_targets,
+                joint_targets=joint_targets,
+                estimator=estimator,
+            )
+            oracle_row = oracle["hyperedges"].set_index(["sources", "target"]).loc[("theta1+theta2", "dtheta")]
+            learned_row = learned["hyperedges"].set_index(["sources", "target"]).loc[("theta1+theta2", "dtheta")]
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "mlp_syn": float(learned_row["score"]),
+                    "mlp_joint_ei": float(learned_row["joint_ei"]),
+                    "mlp_single_ei_sum": float(learned_row["single_ei_sum"]),
+                    "oracle_syn": float(oracle_row["score"]),
+                    "oracle_joint_ei": float(oracle_row["joint_ei"]),
+                    "oracle_single_ei_sum": float(oracle_row["single_ei_sum"]),
+                    "mlp_test_mse": float(fitted.train_mse),
+                    "train_state_digest": _digest(train_states),
+                    "readout_state_digest": _digest(readout_states),
+                    "mlp_target_digest": _digest(mlp_targets),
+                    "oracle_target_digest": _digest(oracle_targets),
+                }
+            )
+
+    summary = _aggregate_kuramoto_joint_target_sweep_rows(rows)
+    result = {
+        "mode": mode,
+        "system": "kuramoto_phase_coupling_joint_target_sweep",
+        "sampling_distribution": "independent_uniform_intervention",
+        "training_distribution": "equal_natural_and_uniform_intervention",
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
+        "target": "instantaneous_vector_field_joint_target",
+        "target_relation": "theta1+theta2->dtheta",
+        "joint_target": ["dtheta1", "dtheta2"],
+        "equation_parameters": {
+            "omega1": 1.0,
+            "omega2": 0.9,
+            "A": KURAMOTO_PHASE_POTENTIAL_STRENGTH,
+        },
+        "nonmonotonic_diagnostic": _nonmonotonic_syn_diagnostic(summary),
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_kuramoto_joint_target_peid_sweep(summary, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_kuramoto_phase_response_peid_sweep(
+    *,
+    mode: str = "full",
+    couplings: Sequence[float] = KURAMOTO_PEID_DETAIL_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2, 3),
+    tau: float = 4.0,
+    result_path: Path = DEFAULT_RESULT_DIR / "kuramoto_phase_response_peid_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "kuramoto_phase_response_peid_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    natural_trajectories = 4 if mode == "smoke" else 12
+    samples_per_trajectory = 65 if mode == "smoke" else 120
+    natural_burnin_steps = 1200 if mode == "smoke" else 2400
+    intervention_train_samples = 260 if mode == "smoke" else 1200
+    readout_samples = 700 if mode == "smoke" else 2000
+    epochs = 45 if mode == "smoke" else 220
+    estimator = "transport"
+    phase_velocity_noise = 0.01
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        spec = build_kuramoto_coupling_spec(float(coupling))
+        for seed in seeds:
+            seed = int(seed)
+            natural_states, _ = simulate_natural_trajectory_pool(
+                spec,
+                seed=seed,
+                trajectories=natural_trajectories,
+                samples_per_trajectory=samples_per_trajectory,
+                burnin_steps=natural_burnin_steps,
+                noise=phase_velocity_noise,
+            )
+            natural_next = simulate_finite_time_next_states(
+                spec,
+                natural_states,
+                tau=tau,
+                process_noise=0.0,
+                seed=seed + 1100,
+            )
+            natural_targets = _kuramoto_phase_response_targets(natural_next)
+            train_interventions = _sample_intervention_states(
+                spec,
+                samples=intervention_train_samples,
+                seed=seed + 991 + int(round(float(coupling) * 10000)),
+            )
+            train_intervention_next = simulate_finite_time_next_states(
+                spec,
+                train_interventions,
+                tau=tau,
+                process_noise=0.0,
+                seed=seed + 1200,
+            )
+            train_states = np.vstack([natural_states, train_interventions])
+            train_targets = np.vstack([natural_targets, _kuramoto_phase_response_targets(train_intervention_next)])
+            fitted = fit_mlp(train_states, train_targets, seed=seed + 300, epochs=epochs)
+
+            readout_states = _sample_intervention_states(
+                spec,
+                samples=readout_samples,
+                seed=seed + 1991 + int(round(float(coupling) * 10000)),
+            )
+            oracle_next = simulate_finite_time_next_states(
+                spec,
+                readout_states,
+                tau=tau,
+                process_noise=0.0,
+                seed=seed + 1300,
+            )
+            oracle_targets = _kuramoto_phase_response_targets(oracle_next)
+            mlp_targets = fitted.predict(readout_states)
+            oracle_values = _transport_synergy(readout_states[:, [0]], readout_states[:, [1]], oracle_targets)
+            mlp_values = _transport_synergy(readout_states[:, [0]], readout_states[:, [1]], mlp_targets)
+            natural_pred = fitted.predict(natural_states)
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "natural_plv": _phase_locking_value(natural_states),
+                    "natural_order": _kuramoto_order_excess(natural_states),
+                    "natural_order_raw": _kuramoto_order_parameter(natural_states),
+                    "mlp_syn": float(mlp_values["syn"]),
+                    "mlp_joint_ei": float(mlp_values["joint_ei"]),
+                    "mlp_single_ei_sum": float(mlp_values["left_ei"] + mlp_values["right_ei"]),
+                    "oracle_syn": float(oracle_values["syn"]),
+                    "oracle_joint_ei": float(oracle_values["joint_ei"]),
+                    "oracle_single_ei_sum": float(oracle_values["left_ei"] + oracle_values["right_ei"]),
+                    "mlp_test_mse": float(np.mean((natural_pred - natural_targets) ** 2)),
+                    "train_state_digest": _digest(train_states),
+                    "readout_state_digest": _digest(readout_states),
+                    "natural_target_digest": _digest(natural_targets),
+                    "mlp_target_digest": _digest(mlp_targets),
+                    "oracle_target_digest": _digest(oracle_targets),
+                }
+            )
+
+    summary = _aggregate_kuramoto_phase_response_rows(rows)
+    diagnostic = _phase_response_criticality_diagnostic(summary)
+    result = {
+        "mode": mode,
+        "system": "kuramoto_phase_response_peid_sweep",
+        "target": "finite_time_phase_locking_response",
+        "tau": float(tau),
+        "sampling_distribution": "independent_uniform_intervention_for_peid_readout",
+        "training_distribution": "natural_trajectory_plus_uniform_intervention",
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "estimator": estimator,
+        "transport_map": _transport_map_config() if estimator == "transport" else None,
+        "phase_response_target": ["cos_delta_tau", "sin_delta_tau", "order_excess_tau"],
+        "equation_parameters": {
+            "omega1": 1.0,
+            "omega2": 0.9,
+            "A": KURAMOTO_PHASE_POTENTIAL_STRENGTH,
+        },
+        "natural_trajectory_protocol": {
+            "trajectories": natural_trajectories,
+            "samples_per_trajectory": samples_per_trajectory,
+            "burnin_steps": natural_burnin_steps,
+            "phase_velocity_noise_std": phase_velocity_noise,
+        },
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_kuramoto_phase_response_peid_sweep(summary, diagnostic, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_large_kuramoto_phi_sweep(
+    *,
+    mode: str = "full",
+    oscillator_count: int = 64,
+    couplings: Sequence[float] = LARGE_KURAMOTO_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2),
+    tau: float = 4.0,
+    frequency_sigma: float = 1.0,
+    result_path: Path = DEFAULT_RESULT_DIR / "large_kuramoto_phi_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "large_kuramoto_phi_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    if oscillator_count % 2 != 0:
+        raise ValueError("oscillator_count must be even so the macro partition is balanced.")
+    readout_samples = 360 if mode == "smoke" else 1400
+    natural_samples = 220 if mode == "smoke" else 900
+    dt = 0.05 if mode == "smoke" else 0.04
+    critical_coupling = _classic_kuramoto_critical_coupling(frequency_sigma)
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        for seed in seeds:
+            seed = int(seed)
+            frequency_seed = seed + 50017
+            frequencies = _classic_kuramoto_frequencies(oscillator_count, frequency_seed, frequency_sigma)
+            readout_rng = np.random.default_rng(seed + 61003 + int(round(float(coupling) * 1000)))
+            readout_states = readout_rng.uniform(0.0, 2.0 * math.pi, size=(readout_samples, oscillator_count))
+            readout_next = _classic_kuramoto_integrate(
+                readout_states,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            left_source, right_source = _large_kuramoto_group_sources(readout_states)
+            target = _large_kuramoto_order_targets(readout_next)
+            phi_values = _transport_synergy(left_source, right_source, target)
+
+            natural_rng = np.random.default_rng(seed + 71003 + int(round(float(coupling) * 1000)))
+            natural_initial = natural_rng.uniform(0.0, 2.0 * math.pi, size=(natural_samples, oscillator_count))
+            natural_next = _classic_kuramoto_integrate(
+                natural_initial,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            natural_order_raw = _kuramoto_global_order(natural_next)
+            natural_order = _large_kuramoto_order_excess(natural_next)
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "frequency_seed": frequency_seed,
+                    "natural_order": float(np.mean(natural_order)),
+                    "natural_order_raw": float(np.mean(natural_order_raw)),
+                    "phi_syn": float(phi_values["syn"]),
+                    "phi_joint_ei": float(phi_values["joint_ei"]),
+                    "phi_single_ei_sum": float(phi_values["left_ei"] + phi_values["right_ei"]),
+                    "phi_left_ei": float(phi_values["left_ei"]),
+                    "phi_right_ei": float(phi_values["right_ei"]),
+                    "readout_state_digest": _digest(readout_states),
+                    "target_digest": _digest(target),
+                    "frequency_digest": _digest(frequencies),
+                }
+            )
+
+    summary = _aggregate_large_kuramoto_phi_rows(rows)
+    diagnostic = _large_kuramoto_phi_diagnostic(summary, critical_coupling=critical_coupling)
+    midpoint = oscillator_count // 2
+    result = {
+        "mode": mode,
+        "system": "classic_large_n_kuramoto_phi_sweep",
+        "target": "finite_time_global_order_response",
+        "source_partition": [f"oscillators_0_to_{midpoint - 1}", f"oscillators_{midpoint}_to_{oscillator_count - 1}"],
+        "sampling_distribution": "independent_uniform_initial_phases",
+        "oscillator_count": int(oscillator_count),
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "tau": float(tau),
+        "dt": float(dt),
+        "frequency_distribution": "zero-mean Gaussian, rescaled to requested sigma per seed",
+        "frequency_sigma": float(frequency_sigma),
+        "critical_coupling_theory": critical_coupling,
+        "estimator": "transport",
+        "transport_map": _transport_map_config(),
+        "target_components": ["order_excess_tau"],
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_large_kuramoto_phi_sweep(summary, diagnostic, figure_path)
     return {**result, "result_path": str(result_path)}
 
 
@@ -3151,7 +4175,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--figure-dir", type=Path, default=DEFAULT_FIGURE_DIR)
     parser.add_argument("--report-path", type=Path, default=DEFAULT_REPORT_PATH)
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    parser.add_argument("--kuramoto-k", type=float, default=0.2, help="Kuramoto phase coupling K for single-example runs.")
+    parser.add_argument("--kuramoto-tau", type=float, default=4.0, help="Finite-time horizon for Kuramoto phase-response runs.")
+    parser.add_argument("--kuramoto-n", type=int, default=64, help="Oscillator count for large-N classic Kuramoto runs.")
     parser.add_argument("--kuramoto-coupling-sweep", action="store_true", help="Run only the Part1 Kuramoto coupling synergy sweep.")
+    parser.add_argument("--kuramoto-joint-target-peid", action="store_true", help="Run the standalone Kuramoto PEID example with joint dtheta target.")
+    parser.add_argument("--kuramoto-joint-target-peid-sweep", action="store_true", help="Run the standalone Kuramoto joint-target PEID coupling sweep.")
+    parser.add_argument("--kuramoto-phase-response-peid-sweep", action="store_true", help="Run finite-time Kuramoto phase-locking response PEID sweep.")
+    parser.add_argument("--large-kuramoto-phi-sweep", action="store_true", help="Run classic large-N Kuramoto whole-system Phi/Syn sweep.")
     parser.add_argument("--kuramoto-peid-detail-sweep", action="store_true", help="Run the dense Kuramoto Oracle/MLP PEID component sweep.")
     parser.add_argument("--sis-gate-sweep", action="store_true", help="Run only the Part1 SIS gate synergy sweep.")
     parser.add_argument("--lorenz-rho-sweep", action="store_true", help="Run only the Part1 Lorenz rho synergy sweep.")
@@ -3171,6 +4202,46 @@ def main() -> None:
             seeds=tuple(args.seeds),
             result_path=args.result_dir / "kuramoto_coupling_synergy_sweep.json",
             figure_path=args.figure_dir / "kuramoto_coupling_synergy_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.kuramoto_joint_target_peid:
+        result = run_kuramoto_joint_target_peid(
+            mode=args.mode,
+            coupling=args.kuramoto_k,
+            seeds=tuple(args.seeds),
+            result_path=args.result_dir / "kuramoto_joint_target_peid.json",
+            figure_path=args.figure_dir / "kuramoto_joint_target_peid.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.kuramoto_joint_target_peid_sweep:
+        result = run_kuramoto_joint_target_peid_sweep(
+            mode=args.mode,
+            seeds=tuple(args.seeds),
+            result_path=args.result_dir / "kuramoto_joint_target_peid_sweep.json",
+            figure_path=args.figure_dir / "kuramoto_joint_target_peid_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.kuramoto_phase_response_peid_sweep:
+        result = run_kuramoto_phase_response_peid_sweep(
+            mode=args.mode,
+            seeds=tuple(args.seeds),
+            tau=args.kuramoto_tau,
+            result_path=args.result_dir / "kuramoto_phase_response_peid_sweep.json",
+            figure_path=args.figure_dir / "kuramoto_phase_response_peid_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.large_kuramoto_phi_sweep:
+        result = run_large_kuramoto_phi_sweep(
+            mode=args.mode,
+            oscillator_count=args.kuramoto_n,
+            seeds=tuple(args.seeds),
+            tau=args.kuramoto_tau,
+            result_path=args.result_dir / "large_kuramoto_phi_sweep.json",
+            figure_path=args.figure_dir / "large_kuramoto_phi_sweep.png",
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
