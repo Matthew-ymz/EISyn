@@ -29,8 +29,8 @@ Pipeline:
    distribution is built by shuffling the target time series before refitting
    the joint EI estimator on the same intervention batch. Empirical p-values
    and z-scores are attached to every candidate hyperedge.
-6. Hyper-ACE / Hyper-AMCE scores aggregate the hyperedge magnitudes into
-   gateway and mediator readouts that mirror Runge-style ACE/AMCE.
+6. Hyper-ACE / Hyper-AMCE scores aggregate the direct hyperedge magnitudes into
+   gateway and mediator readouts.
 
 Outputs land in ``results/runge/peid_hypergraph/`` and ``fig/runge/peid_hypergraph/``.
 """
@@ -634,16 +634,19 @@ def aggregate_hyper_mediator(
     significance_z: float,
     pairwise_mediator: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Hyper-AMCE: pairwise path component + synergetic membership component.
+    """Hyper-AMCE: direct synergetic source-membership component.
 
     For each node ``m`` we accumulate:
     - ``mediator_path_amce``: the existing path-effect AMCE from the pairwise
-      pipeline (linear mediator interpretation).
+      pipeline, kept only as a diagnostic baseline.
     - ``mediator_synergy_order2``: |delta_2| share when ``m`` co-appears with
       another source on a target subset, normalized by the order.
     - ``mediator_synergy_order3``: same idea for k=3 hyperedges. We split into
       positive and signed components so anti-coordination contributions are
       visible.
+
+    The total intentionally excludes ``mediator_path_amce`` so this score does
+    not average over multi-step pairwise mediated paths.
     """
 
     n = int(n_components)
@@ -680,9 +683,7 @@ def aggregate_hyper_mediator(
                 "mediator_synergy_order2": syn2[idx] / denom_per_node,
                 "mediator_synergy_order3": syn3[idx] / denom_per_node,
                 "mediator_synergy_order3_signed": syn3_signed[idx] / denom_per_node,
-                "hyper_amce_total": path_amce
-                + syn2[idx] / denom_per_node
-                + syn3[idx] / denom_per_node,
+                "hyper_amce_total": syn2[idx] / denom_per_node + syn3[idx] / denom_per_node,
             }
         )
     frame = pd.DataFrame(rows)
@@ -844,10 +845,8 @@ def save_hyper_mediator_ranking(scores: pd.DataFrame, output_path: Path, *, titl
     plot_frame = scores.head(20).copy()
     x = np.arange(len(plot_frame))
     fig, ax = plt.subplots(figsize=(8.6, 4.4), constrained_layout=True)
-    ax.bar(x, plot_frame["mediator_path_amce"], width=0.7, label="path AMCE (pairwise)", color="#54a24b")
-    bottom = plot_frame["mediator_path_amce"].to_numpy()
-    ax.bar(x, plot_frame["mediator_synergy_order2"], width=0.7, bottom=bottom, label="order 2 synergy share", color="#f58518")
-    bottom = bottom + plot_frame["mediator_synergy_order2"].to_numpy()
+    ax.bar(x, plot_frame["mediator_synergy_order2"], width=0.7, label="order 2 synergy share", color="#f58518")
+    bottom = plot_frame["mediator_synergy_order2"].to_numpy()
     if "mediator_synergy_order3" in plot_frame and float(plot_frame["mediator_synergy_order3"].abs().sum()) > 0.0:
         ax.bar(x, plot_frame["mediator_synergy_order3"], width=0.7, bottom=bottom, label="order 3 synergy share", color="#b279a2")
     ax.set_xticks(x)
@@ -1482,14 +1481,14 @@ def _build_summary(
     if order_max >= 3:
         lines.extend(
             [
-                "| paper_component | path_amce | synergy_order2 | synergy_order3 | hyper_amce_total |",
+                "| paper_component | pairwise_path_amce_diagnostic | synergy_order2 | synergy_order3 | hyper_amce_total |",
                 "| --- | ---: | ---: | ---: | ---: |",
             ]
         )
     else:
         lines.extend(
             [
-                "| paper_component | path_amce | synergy_order2 | hyper_amce_total |",
+                "| paper_component | pairwise_path_amce_diagnostic | synergy_order2 | hyper_amce_total |",
                 "| --- | ---: | ---: | ---: |",
             ]
         )

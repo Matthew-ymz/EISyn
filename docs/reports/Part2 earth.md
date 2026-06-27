@@ -5,7 +5,7 @@
 这一组实验放在最前面，因为它直接检验 PEID 二阶协同对 gateway / mediator 解释的影响。实验使用 Runge 等人 [R1] 的 NCEP SLP 口径下得到的 60 维周尺度 Varimax 分量，输入最近 4 周状态，预测下一周状态；随后比较两种读出：
 
 - 不考虑二阶协同时，只用 pairwise MLP-TM-EI 构造路径效应，得到 path ACE / AMCE。
-- 考虑二阶协同时，用 PEID 的二阶增量补充 pairwise 路径效应，得到 Hyper-ACE / Hyper-AMCE。
+- 考虑二阶协同时，用 PEID 的二阶增量补充 pairwise 节点效应和路径效应，得到 Hyper-ACE / Hyper-ACS / Hyper-AMCE。
 
 非线性读出使用同一组 60 维周尺度分量。保存运行中的 MLP/Ridge 融合模型 test RMSE 为 `0.714863`、MAE 为 `0.569984`、相关系数为 `0.450806`；相对 tuned Ridge 的 RMSE 改进为 `0.001376`，block bootstrap 95% CI 为 `[0.000893, 0.001825]`，单侧 \(p=0.0002\)。该提升很小，只用于支持“预测器没有失效，可以作为结构读出模型”，不应解释为显著提升天气或气候预测技能。
 
@@ -35,13 +35,21 @@ MLP-TM-EI/PEID 的源对综合排序按显著正二阶 \(\Delta_2\) target 求�
 
 ### Runge 指标公式
 
-记 \(n=60\) 为 Runge Varimax 分量数，\(E_{ij}\) 为源分量 \(i\) 到下一步目标分量 \(j\) 的 pairwise MLP-TM-EI。先把负值和自环去掉，再按谱半径缩放得到非负路径矩阵 \(A\)。总路径效应用有限路径和表示：
+记 \(n=60\) 为 Runge Varimax 分量数，\(E^{(0)}_{ij}\) 为源分量 \(i\) 到下一步目标分量 \(j\) 的 pairwise MLP-TM-EI。路径效应不直接使用完整 \(E^{(0)}\)，而是先构造稀疏非负直接边矩阵 \(D\)：当前使用 source-top-\(k\) 稀疏化并取 \(k=5\)，即保留每个源的 5 条最大正向出边，删除负值和自环，其余元素置零。再按谱半径得到路径矩阵
+
+```math
+A=cD,\qquad
+c=\min\left(1,\frac{\alpha}{\rho(D)}\right),
+\qquad \alpha=0.8 .
+```
+
+这里 \(\rho(D)\) 是 \(D\) 的谱半径；如果 \(\rho(D)\le \alpha\)，则 \(c=1\)，不做缩放。当前结果文件中的实际缩放因子就是 \(1\)。总路径效应用有限路径和表示：
 
 ```math
 T=\sum_{\ell=1}^{L} A^\ell .
 ```
 
-这里 \(T_{ij}\) 不是单条直接边，而是从 \(i\) 出发、经过最多 \(L\) 步传播后到达 \(j\) 的累计影响。于是三个 Runge-style 指标为：
+这里 \(L=60\)，\(T_{ij}\) 不是单条直接边，而是从 \(i\) 出发、经过最多 \(L\) 步传播后到达 \(j\) 的累计影响。于是三个 pairwise Runge-style 指标为：
 
 ```math
 \mathrm{ACE}(i)=\frac{1}{n-1}\sum_{j\ne i}T_{ij},
@@ -57,43 +65,49 @@ A_{sm}T_{mt}.
 
 ACE 看一个分量作为源头能往外影响多少对象，ACS 看一个分量作为目标被多少对象影响，AMCE 看一个分量是否常处在“别人先到它、再由它传出去”的中介位置。简单说，ACE 是 outgoing gateway，ACS 是 incoming susceptibility，AMCE 是 mediator。
 
-图中的 PEID Hyper-ACE / Hyper-ACS / Hyper-AMCE 是在上面 pairwise 路径口径上加入二阶协同。对源集合 \(K\) 和目标 \(t\)，协同增量用 Möbius 反演定义：
+图中的 PEID Hyper-ACE / Hyper-ACS / Hyper-AMCE 用同一组 MLP 干预样本重新估计一阶和二阶 PEID 增量。这里的 PEID 部分是 direct one-step hyperedge membership aggregation：它统计 \(X_t\to X_{t+1}\) 这一预测步上的直接一阶边和二阶超边，不把二阶超边再沿 \(T\) 传播到更远节点。对源集合 \(K\) 和目标 \(t\)，协同增量用 Möbius 反演定义：
 
 ```math
-\Delta_K(t)=\sum_{\emptyset\ne A\subseteq K}(-1)^{|K|-|A|}
-EI(X_A\rightarrow X_t).
+\Delta_K(t)=\sum_{\emptyset\ne B\subseteq K}(-1)^{|K|-|B|}
+EI(X_B\rightarrow X_t).
 ```
 
-显著的高阶超边按源成员均分后计入节点分数：
+这里把求和子集写作 \(B\)，避免和上面的路径矩阵 \(A\) 混淆。一阶时 \(\Delta_{\{i\}}(t)=EI(X_i\to X_t)\)；二阶时 \(\Delta_{\{i,k\}}(t)=EI(X_{\{i,k\}}\to X_t)-EI(X_i\to X_t)-EI(X_k\to X_t)\)。当前图只把满足 \(|z|\ge2\) 的二阶项计入 Hyper 指标。注意 Hyper 指标的一阶基线来自完整 order-1 PEID 表，包含 \(i=t\) 的 self-memory 项；这与上面删除自环的 pairwise 路径矩阵 \(A\) 不同。
+
+图 C 的外圈不是只画二阶项，而是画一阶源侧强度加二阶源成员贡献：
 
 ```math
 \mathrm{Hyper\text{-}ACE}(i)=
-\frac{1}{n-1}\sum_{\substack{(K,t):\,i\in K}}
-\frac{|\Delta_K(t)|}{|K|}.
+\frac{1}{n-1}\left[
+\sum_t|\Delta_{\{i\}}(t)|
++\sum_{\substack{(K,t):\,i\in K,\ |K|=2,\ |z_K(t)|\ge2}}
+\frac{|\Delta_K(t)|}{|K|}
+\right].
 ```
+
+图 C 的内圈是目标侧的对应量：
 
 ```math
 \mathrm{Hyper\text{-}ACS}(i)=
-\frac{1}{n-1}\sum_{\substack{(K,t):\,t=i}}
-|\Delta_K(i)|.
+\frac{1}{n-1}\left[
+\sum_s|\Delta_{\{s\}}(i)|
++\sum_{\substack{(K,t):\,t=i,\ |K|=2,\ |z_K(i)|\ge2}}
+|\Delta_K(i)|
+\right].
 ```
+
+图 D 的 Hyper-AMCE 则是在 pairwise 路径 AMCE 上加“节点作为显著二源组合成员”的直接超边贡献：
 
 ```math
 \mathrm{Hyper\text{-}AMCE}(m)=
 \mathrm{AMCE}(m)+
-\frac{1}{n-1}\sum_{\substack{(K,t):\,m\in K,\ |K|\ge 2}}
+\frac{1}{n-1}\sum_{\substack{(K,t):\,m\in K,\ |K|=2,\ |z_K(t)|\ge2}}
 \frac{|\Delta_K(t)|}{|K|}.
 ```
 
-这些 Hyper 指标的意思也很直接：如果一个分量经常出现在“两个源一起看才有额外信息”的组合里，它的源侧或中介侧重要性就会被抬高；如果它经常是这种协同关系的目标，Hyper-ACS 就会更高。
+因此，图 C/D 与当前结果文件是对应的，但对应关系不是“只把二阶公式直接画出来”：Hyper-ACE 和 Hyper-ACS 都含有一阶 PEID 基线，Hyper-AMCE 含有 pairwise 路径 AMCE 基线。二阶项的作用是把经常出现在“两个源一起看才有额外信息”的源成员或目标节点抬高；Hyper-AMCE 的二阶部分衡量协同源成员身份，不等同于严格证明信息真的经由该节点传播。
 
-### 分量载荷
-
-![Runge component regions](assets/part2_runge_component_regions.png)
-
-*图 4. ACE、ACS、AMCE 前五节点并集的全球 SLP Varimax loading。红色方向经过符号统一；黑色半透明区域标出高正载荷核心区。*
-
-图 4 给 No. 标签定下解释口径：No.0、No.1、No.2、No.26、No.48 可以结合 Runge 原文和载荷位置做气候解释；No.3、No.6 等高 ACE 节点则先作为强传播空间模态处理。除非经过季节、相位和独立资料验证，本文不把低排名或未标注分量解释成确定的气候指数。
+这也给图 C/D 的解释加了一个边界：pairwise ACE/ACS/AMCE 的 \(T\) 考虑了多步路径，但当前 Hyper-ACE / Hyper-ACS 的 PEID 增量没有计算“\(\{i,k\}\) 先协同影响 \(t\)，再由 \(t\) 继续影响更远节点”的高阶路径传播。因此这些 Hyper 图更适合读作直接协同参与度图，而不是完整的高阶超路径中心性图。若后续要回答多步高阶传播问题，需要另定义 propagated hyper score，例如把每条 \(\Delta_K(t)\) 再按 \(t\) 到下游节点的 \(T_{tu}\) 进行扩散加权。
 
 ## UniCM ENSO 实验口径
 

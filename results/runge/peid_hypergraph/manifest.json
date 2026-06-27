@@ -839,8 +839,8 @@
       "spearman": 0.8677966101694916
     },
     "mediator_rank_correlation": {
-      "kendall": 0.8531073446327684,
-      "spearman": 0.9043623228674634
+      "kendall": 0.6435374149659864,
+      "spearman": 0.5268060814199327
     },
     "topk_overlap": {
       "10": {
@@ -897,10 +897,9 @@
             9,
             11,
             21,
-            22,
-            37
+            22
           ],
-          "overlap": 11
+          "overlap": 10
         }
       },
       "20": {
@@ -934,16 +933,11 @@
             6,
             9,
             11,
-            17,
+            13,
             21,
-            22,
-            37,
-            39,
-            42,
-            46,
-            53
+            22
           ],
-          "overlap": 16
+          "overlap": 11
         }
       },
       "5": {
@@ -1092,9 +1086,9 @@
       "component": "component_03",
       "component_index": 2,
       "hyper_amce_rank": 1,
-      "hyper_amce_total": 0.0009961613311751866,
+      "hyper_amce_total": 0.0009782513505466998,
       "mediator_path_amce": 1.7909980628463734e-05,
-      "mediator_synergy_order2": 0.0009782513505467228,
+      "mediator_synergy_order2": 0.0009782513505466998,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1102,29 +1096,29 @@
       "component": "component_02",
       "component_index": 1,
       "hyper_amce_rank": 2,
-      "hyper_amce_total": 0.0008345858683111979,
+      "hyper_amce_total": 0.000827547356066123,
       "mediator_path_amce": 7.0385122450553696e-06,
-      "mediator_synergy_order2": 0.0008275473560661425,
-      "mediator_synergy_order3": 0.0,
-      "mediator_synergy_order3_signed": 0.0
-    },
-    {
-      "component": "component_05",
-      "component_index": 4,
-      "hyper_amce_rank": 3,
-      "hyper_amce_total": 0.0007856558534676753,
-      "mediator_path_amce": 6.934745718820929e-06,
-      "mediator_synergy_order2": 0.0007787211077488544,
+      "mediator_synergy_order2": 0.000827547356066123,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
     {
       "component": "component_58",
       "component_index": 57,
-      "hyper_amce_rank": 4,
-      "hyper_amce_total": 0.0007833995946857243,
+      "hyper_amce_rank": 3,
+      "hyper_amce_total": 0.0007801200151944881,
       "mediator_path_amce": 3.279579491213745e-06,
-      "mediator_synergy_order2": 0.0007801200151945106,
+      "mediator_synergy_order2": 0.0007801200151944881,
+      "mediator_synergy_order3": 0.0,
+      "mediator_synergy_order3_signed": 0.0
+    },
+    {
+      "component": "component_05",
+      "component_index": 4,
+      "hyper_amce_rank": 4,
+      "hyper_amce_total": 0.0007787211077488341,
+      "mediator_path_amce": 6.934745718820929e-06,
+      "mediator_synergy_order2": 0.0007787211077488341,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1132,9 +1126,9 @@
       "component": "component_01",
       "component_index": 0,
       "hyper_amce_rank": 5,
-      "hyper_amce_total": 0.0007764358894546706,
+      "hyper_amce_total": 0.0007662752578772304,
       "mediator_path_amce": 1.0160631577419869e-05,
-      "mediator_synergy_order2": 0.0007662752578772508,
+      "mediator_synergy_order2": 0.0007662752578772304,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1142,9 +1136,9 @@
       "component": "component_04",
       "component_index": 3,
       "hyper_amce_rank": 6,
-      "hyper_amce_total": 0.0007565508464120549,
+      "hyper_amce_total": 0.0007496739485234178,
       "mediator_path_amce": 6.876897888611275e-06,
-      "mediator_synergy_order2": 0.0007496739485234436,
+      "mediator_synergy_order2": 0.0007496739485234178,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1152,9 +1146,9 @@
       "component": "component_23",
       "component_index": 22,
       "hyper_amce_rank": 7,
-      "hyper_amce_total": 0.0006674078052686143,
+      "hyper_amce_total": 0.0006582706444220448,
       "mediator_path_amce": 9.137160846550716e-06,
-      "mediator_synergy_order2": 0.0006582706444220636,
+      "mediator_synergy_order2": 0.0006582706444220448,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1162,9 +1156,9 @@
       "component": "component_12",
       "component_index": 11,
       "hyper_amce_rank": 8,
-      "hyper_amce_total": 0.0005970285468771875,
+      "hyper_amce_total": 0.0005859925327251067,
       "mediator_path_amce": 1.1036014152063606e-05,
-      "mediator_synergy_order2": 0.0005859925327251239,
+      "mediator_synergy_order2": 0.0005859925327251067,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1172,9 +1166,9 @@
       "component": "component_42",
       "component_index": 41,
       "hyper_amce_rank": 9,
-      "hyper_amce_total": 0.0005835676255396788,
+      "hyper_amce_total": 0.0005810266233894556,
       "mediator_path_amce": 2.541002150202174e-06,
-      "mediator_synergy_order2": 0.0005810266233894765,
+      "mediator_synergy_order2": 0.0005810266233894556,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     },
@@ -1182,9 +1176,9 @@
       "component": "component_07",
       "component_index": 6,
       "hyper_amce_rank": 10,
-      "hyper_amce_total": 0.0005563413744401647,
+      "hyper_amce_total": 0.0005512412118736194,
       "mediator_path_amce": 5.100162566527556e-06,
-      "mediator_synergy_order2": 0.0005512412118736371,
+      "mediator_synergy_order2": 0.0005512412118736194,
       "mediator_synergy_order3": 0.0,
       "mediator_synergy_order3_signed": 0.0
     }
