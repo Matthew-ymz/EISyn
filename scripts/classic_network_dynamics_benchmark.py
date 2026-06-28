@@ -38,6 +38,15 @@ KURAMOTO_PEID_DETAIL_COUPLINGS = (
     0.2, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0,
 )
 LARGE_KURAMOTO_COUPLINGS = (0.0, 0.4, 0.8, 1.1, 1.3, 1.5, 1.6, 1.7, 1.9, 2.2, 2.6, 3.2, 4.0)
+LARGE_KURAMOTO_LEARNED_NSOURCE_COUPLINGS = (
+    0.0, 0.8, 1.0, 1.2, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.6, 3.2, 4.0,
+)
+LARGE_KURAMOTO_ORACLE_SUSCEPTIBILITY_COUPLINGS = (
+    0.0, 0.8, 1.0, 1.2, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.6, 3.2, 4.0,
+)
+LARGE_KURAMOTO_ORACLE_WHOLE_STATE_COUPLINGS = (
+    0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.6, 3.2, 4.0,
+)
 LORENZ_RHO_VALUES = (10.0, 15.0, 20.0, 24.0, 28.0)
 LORENZ_UNIFORM_TAU_VALUES = (0.01, 0.02, 0.05, 0.1, 0.2)
 ROSSLER_COUPLING_VALUES = (0.0, 0.1, 0.25, 0.5, 0.75)
@@ -681,16 +690,215 @@ def _transport_synergy(left: np.ndarray, right: np.ndarray, target: np.ndarray) 
     }
 
 
-def _transport_single(source: np.ndarray, target: np.ndarray) -> float:
+def _transport_single(source: np.ndarray, target: np.ndarray, *, degree: int = TRANSPORT_MAP_DEGREE) -> float:
     from yrd import clip_nonnegative_ei, estimate_mutual_information_transport_map
 
     estimate = estimate_mutual_information_transport_map(
         np.asarray(source, dtype=float).reshape(len(source), -1),
         np.asarray(target, dtype=float).reshape(len(target), -1),
         jitter=TRANSPORT_MAP_JITTER,
-        degree=TRANSPORT_MAP_DEGREE,
+        degree=int(degree),
     )
     return float(clip_nonnegative_ei(float(estimate["mi_hat"])))
+
+
+def _transport_single_with_target_log_prob(
+    source: np.ndarray,
+    target: np.ndarray,
+    *,
+    target_log_prob: np.ndarray,
+    degree: int,
+) -> float:
+    from exp.TM.transport_map_density import (
+        LOG_2,
+        fit_affine_transport_map_density,
+        fit_polynomial_triangular_transport_map_density,
+    )
+    from yrd import clip_nonnegative_ei
+
+    source_array = np.asarray(source, dtype=float).reshape(len(source), -1)
+    target_array = np.asarray(target, dtype=float).reshape(len(target), -1)
+    if source_array.shape[0] != target_array.shape[0]:
+        raise ValueError("source and target must share the sample axis.")
+    joint = np.concatenate([target_array, source_array], axis=1)
+    if int(degree) == 1:
+        joint_model = fit_affine_transport_map_density(joint, jitter=TRANSPORT_MAP_JITTER)
+        source_model = fit_affine_transport_map_density(source_array, jitter=TRANSPORT_MAP_JITTER)
+    else:
+        joint_model = fit_polynomial_triangular_transport_map_density(joint, degree=int(degree))
+        source_model = fit_polynomial_triangular_transport_map_density(source_array, degree=int(degree))
+    pointwise_mi = (joint_model.log_prob(joint) - source_model.log_prob(source_array) - target_log_prob) / LOG_2
+    return float(clip_nonnegative_ei(float(pointwise_mi.mean())))
+
+
+def _nsource_peid_from_ei(singleton_ei: np.ndarray, *, joint_ei: float) -> dict[str, object]:
+    singleton_values = np.asarray(singleton_ei, dtype=float).reshape(-1)
+    if singleton_values.size == 0:
+        raise ValueError("singleton_ei must contain at least one source.")
+    singleton_ei_sum = float(np.sum(singleton_values))
+    phi = float(joint_ei) - singleton_ei_sum
+    return {
+        "joint_ei": float(joint_ei),
+        "singleton_ei": singleton_values,
+        "singleton_ei_sum": singleton_ei_sum,
+        "phi": phi,
+        "raw_phi": phi,
+    }
+
+
+def _safe_logdet_psd(matrix: np.ndarray, *, floor: float = 1.0e-12) -> float:
+    symmetric = 0.5 * (np.asarray(matrix, dtype=float) + np.asarray(matrix, dtype=float).T)
+    eigenvalues = np.linalg.eigvalsh(symmetric)
+    return float(np.log(np.maximum(eigenvalues, float(floor))).sum())
+
+
+def _gaussian_block_conditional_total_correlation(
+    source_blocks: Sequence[np.ndarray],
+    target: np.ndarray,
+    *,
+    ridge: float = TRANSPORT_MAP_JITTER,
+) -> dict[str, object]:
+    blocks = [np.asarray(block, dtype=float).reshape(len(block), -1) for block in source_blocks]
+    if not blocks:
+        raise ValueError("source_blocks must contain at least one source.")
+    sample_count = len(blocks[0])
+    if any(len(block) != sample_count for block in blocks):
+        raise ValueError("all source blocks must have the same sample count.")
+    target_array = np.asarray(target, dtype=float).reshape(sample_count, -1)
+    source_array = np.column_stack(blocks)
+    source_dim = source_array.shape[1]
+    empirical_source_cov = np.cov(source_array, rowvar=False, bias=False)
+    empirical_source_cov = np.atleast_2d(empirical_source_cov)
+    source_cov = np.zeros_like(empirical_source_cov, dtype=float)
+    offset = 0
+    for block in blocks:
+        width = block.shape[1]
+        indices = slice(offset, offset + width)
+        source_cov[indices, indices] = empirical_source_cov[indices, indices]
+        offset += width
+    source_cov += float(ridge) * np.eye(source_dim)
+    coefficient, *_ = np.linalg.lstsq(source_array, target_array, rcond=None)
+    transition = coefficient.T
+    residual = target_array - source_array @ coefficient
+    noise_cov = np.cov(residual, rowvar=False, bias=False)
+    noise_cov = np.atleast_2d(noise_cov) + float(ridge) * np.eye(target_array.shape[1])
+    target_cov = transition @ source_cov @ transition.T + noise_cov
+    target_cov = 0.5 * (target_cov + target_cov.T)
+    target_cov += float(ridge) * np.eye(target_array.shape[1])
+    source_target_cov = source_cov @ transition.T
+    conditional_source_cov = source_cov - source_target_cov @ np.linalg.pinv(target_cov) @ source_target_cov.T
+    conditional_source_cov = 0.5 * (conditional_source_cov + conditional_source_cov.T)
+    conditional_source_cov += float(ridge) * np.eye(source_dim)
+
+    singleton_ei: list[float] = []
+    block_prior_logdet_sum = 0.0
+    block_logdet_sum = 0.0
+    offset = 0
+    for block in blocks:
+        width = block.shape[1]
+        indices = slice(offset, offset + width)
+        block_prior = source_cov[indices, indices]
+        block_conditional = conditional_source_cov[indices, indices]
+        block_prior_logdet_sum += _safe_logdet_psd(block_prior)
+        singleton_value = 0.5 * (_safe_logdet_psd(block_prior) - _safe_logdet_psd(block_conditional)) / math.log(2.0)
+        singleton_ei.append(float(singleton_value))
+        block_logdet_sum += _safe_logdet_psd(block_conditional)
+        offset += width
+
+    joint_ei = 0.5 * (block_prior_logdet_sum - _safe_logdet_psd(conditional_source_cov)) / math.log(2.0)
+    phi = float(0.5 * (block_logdet_sum - _safe_logdet_psd(conditional_source_cov)) / math.log(2.0))
+    return {
+        **_nsource_peid_from_ei(np.asarray(singleton_ei, dtype=float), joint_ei=float(joint_ei)),
+        "phi": phi,
+        "raw_phi": phi,
+        "phi_estimator": "gaussian_block_conditional_total_correlation",
+    }
+
+
+def _null_corrected_phi_from_values(observed_phi: float, null_values: np.ndarray) -> dict[str, float]:
+    null_array = np.asarray(null_values, dtype=float).reshape(-1)
+    null_mean = float(null_array.mean()) if null_array.size else 0.0
+    null_std = float(null_array.std(ddof=0)) if null_array.size else 0.0
+    corrected = float(observed_phi) - null_mean
+    return {
+        "null_phi": null_mean,
+        "null_phi_std": null_std,
+        "null_corrected_phi": corrected,
+    }
+
+
+def _transport_nsource_phi(
+    source_blocks: Sequence[np.ndarray],
+    target: np.ndarray,
+    *,
+    degree: int = 1,
+) -> dict[str, object]:
+    blocks = [np.asarray(block, dtype=float).reshape(len(block), -1) for block in source_blocks]
+    if not blocks:
+        raise ValueError("source_blocks must contain at least one source.")
+    sample_count = len(blocks[0])
+    if any(len(block) != sample_count for block in blocks):
+        raise ValueError("all source blocks must have the same sample count.")
+    target_array = np.asarray(target, dtype=float).reshape(sample_count, -1)
+    if int(degree) == 1:
+        return _gaussian_block_conditional_total_correlation(blocks, target_array, ridge=TRANSPORT_MAP_JITTER)
+    from exp.TM.transport_map_density import fit_affine_transport_map_density, fit_polynomial_triangular_transport_map_density
+
+    if int(degree) == 1:
+        target_model = fit_affine_transport_map_density(target_array, jitter=TRANSPORT_MAP_JITTER)
+    else:
+        target_model = fit_polynomial_triangular_transport_map_density(target_array, degree=int(degree))
+    target_log_prob = target_model.log_prob(target_array)
+    singleton_ei = np.asarray(
+        [
+            _transport_single_with_target_log_prob(
+                block,
+                target_array,
+                target_log_prob=target_log_prob,
+                degree=degree,
+            )
+            for block in blocks
+        ],
+        dtype=float,
+    )
+    joint_ei = _transport_single_with_target_log_prob(
+        np.column_stack(blocks),
+        target_array,
+        target_log_prob=target_log_prob,
+        degree=degree,
+    )
+    return _nsource_peid_from_ei(singleton_ei, joint_ei=joint_ei)
+
+
+def _transport_nsource_phi_with_target_shuffle_null(
+    source_blocks: Sequence[np.ndarray],
+    target: np.ndarray,
+    *,
+    degree: int,
+    n_shuffles: int,
+    seed: int,
+) -> dict[str, object]:
+    observed = _transport_nsource_phi(source_blocks, target, degree=degree)
+    target_array = np.asarray(target, dtype=float).reshape(len(target), -1)
+    null_values: list[float] = []
+    rng = np.random.default_rng(seed)
+    for _ in range(max(0, int(n_shuffles))):
+        permutation = rng.permutation(target_array.shape[0])
+        shuffled = _transport_nsource_phi(source_blocks, target_array[permutation], degree=degree)
+        null_values.append(float(shuffled["phi"]))
+
+    correction = _null_corrected_phi_from_values(float(observed["phi"]), np.asarray(null_values, dtype=float))
+    return {
+        **observed,
+        "observed_phi": float(observed["phi"]),
+        "observed_raw_phi": float(observed["raw_phi"]),
+        "null_phi": correction["null_phi"],
+        "null_phi_std": correction["null_phi_std"],
+        "null_phi_values": null_values,
+        "null_corrected_phi": correction["null_corrected_phi"],
+        "phi": float(observed["phi"]),
+        "raw_phi": float(observed["raw_phi"]),
+    }
 
 
 def _digest(values: np.ndarray) -> str:
@@ -1696,6 +1904,7 @@ def _aggregate_kuramoto_peid_detail_rows(rows: list[dict[str, object]]) -> list[
             values = group[metric].astype(float)
             row[f"{metric}_mean"] = float(values.mean())
             row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=0) / math.sqrt(max(1, len(values))))
         summaries.append(row)
     return summaries
 
@@ -1736,6 +1945,7 @@ def _aggregate_kuramoto_joint_target_sweep_rows(rows: list[dict[str, object]]) -
             values = group[metric].astype(float)
             row[f"{metric}_mean"] = float(values.mean())
             row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=0) / math.sqrt(max(1, len(values))))
         summaries.append(row)
     return summaries
 
@@ -1950,6 +2160,57 @@ def _large_kuramoto_order_targets(states: np.ndarray) -> np.ndarray:
     return _large_kuramoto_order_excess(states).reshape(-1, 1)
 
 
+def _large_kuramoto_delta_order_targets(initial_states: np.ndarray, next_states: np.ndarray) -> np.ndarray:
+    initial_order = _large_kuramoto_order_excess(initial_states)
+    next_order = _large_kuramoto_order_excess(next_states)
+    return (next_order - initial_order).reshape(-1, 1)
+
+
+def _large_kuramoto_coupling_susceptibility_targets(
+    states: np.ndarray,
+    frequencies: np.ndarray,
+    *,
+    coupling: float,
+    coupling_delta: float,
+    tau: float,
+    dt: float,
+) -> np.ndarray:
+    delta = float(coupling_delta)
+    if delta <= 0.0:
+        raise ValueError("coupling_delta must be positive.")
+    lower = max(0.0, float(coupling) - delta)
+    upper = float(coupling) + delta
+    if lower == upper:
+        raise ValueError("coupling_delta produces an empty finite-difference interval.")
+    lower_next = _classic_kuramoto_integrate(
+        states,
+        frequencies,
+        coupling=lower,
+        tau=tau,
+        dt=dt,
+    )
+    upper_next = _classic_kuramoto_integrate(
+        states,
+        frequencies,
+        coupling=upper,
+        tau=tau,
+        dt=dt,
+    )
+    lower_order = _large_kuramoto_order_excess(lower_next)
+    upper_order = _large_kuramoto_order_excess(upper_next)
+    return ((upper_order - lower_order) / (upper - lower)).reshape(-1, 1)
+
+
+def _large_kuramoto_phase_features(states: np.ndarray) -> np.ndarray:
+    values = np.asarray(states, dtype=float)
+    return np.column_stack([np.cos(values), np.sin(values)])
+
+
+def _large_kuramoto_singleton_source_blocks(states: np.ndarray) -> list[np.ndarray]:
+    values = np.asarray(states, dtype=float)
+    return [np.column_stack([np.cos(values[:, index]), np.sin(values[:, index])]) for index in range(values.shape[1])]
+
+
 def _aggregate_large_kuramoto_phi_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     frame = pd.DataFrame(rows)
     summaries: list[dict[str, object]] = []
@@ -1968,6 +2229,73 @@ def _aggregate_large_kuramoto_phi_rows(rows: list[dict[str, object]]) -> list[di
             values = group[metric].astype(float)
             row[f"{metric}_mean"] = float(values.mean())
             row[f"{metric}_std"] = float(values.std(ddof=0))
+        summaries.append(row)
+    return summaries
+
+
+def _aggregate_large_kuramoto_learned_nsource_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "natural_order",
+        "natural_order_raw",
+        "learned_phi",
+        "learned_raw_phi",
+        "learned_observed_phi",
+        "learned_observed_raw_phi",
+        "learned_null_phi",
+        "learned_null_phi_std",
+        "learned_null_corrected_phi",
+        "learned_joint_ei",
+        "learned_singleton_ei_sum",
+        "oracle_phi",
+        "oracle_raw_phi",
+        "oracle_observed_phi",
+        "oracle_observed_raw_phi",
+        "oracle_null_phi",
+        "oracle_null_phi_std",
+        "oracle_null_corrected_phi",
+        "oracle_joint_ei",
+        "oracle_singleton_ei_sum",
+        "mlp_test_mse",
+        "mlp_baseline_mse",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {"coupling": float(coupling), "n_seeds": int(group["seed"].nunique())}
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=0) / math.sqrt(max(1, len(values))))
+        summaries.append(row)
+    return summaries
+
+
+def _aggregate_large_kuramoto_oracle_nsource_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "natural_order",
+        "natural_order_raw",
+        "oracle_phi",
+        "oracle_raw_phi",
+        "oracle_observed_phi",
+        "oracle_observed_raw_phi",
+        "oracle_null_phi",
+        "oracle_null_phi_std",
+        "oracle_null_corrected_phi",
+        "oracle_joint_ei",
+        "oracle_singleton_ei_sum",
+        "target_mean",
+        "target_std",
+    )
+    for coupling, group in frame.groupby("coupling", sort=True):
+        row: dict[str, object] = {"coupling": float(coupling), "n_seeds": int(group["seed"].nunique())}
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=0) / math.sqrt(max(1, len(values))))
         summaries.append(row)
     return summaries
 
@@ -2007,6 +2335,82 @@ def _large_kuramoto_phi_diagnostic(
         "phi_syn_peak_minus_theoretical_kc": float(phi_peak - critical_coupling),
         "phi_joint_ei_peak_coupling": joint_peak,
         "phi_joint_ei_peak_value": joint_value,
+    }
+
+
+def _large_kuramoto_learned_nsource_diagnostic(
+    summary: list[dict[str, object]],
+    *,
+    critical_coupling: float,
+) -> dict[str, object]:
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    if len(couplings) == 0:
+        return {}
+
+    def peak(metric: str) -> tuple[float, float]:
+        values = np.asarray([float(row[f"{metric}_mean"]) for row in summary], dtype=float)
+        index = int(np.nanargmax(values))
+        return float(couplings[index]), float(values[index])
+
+    order_values = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    if len(order_values) < 2:
+        order_transition = float(couplings[0])
+        order_slope = 0.0
+    else:
+        gradient = np.gradient(order_values, couplings)
+        index = int(np.nanargmax(gradient))
+        order_transition = float(couplings[index])
+        order_slope = float(gradient[index])
+    learned_peak, learned_value = peak("learned_phi")
+    oracle_peak, oracle_value = peak("oracle_phi")
+    return {
+        "theoretical_critical_coupling": float(critical_coupling),
+        "order_transition_coupling": order_transition,
+        "order_transition_slope": order_slope,
+        "learned_phi_peak_coupling": learned_peak,
+        "learned_phi_peak_value": learned_value,
+        "learned_phi_peak_minus_order_transition": float(learned_peak - order_transition),
+        "learned_phi_peak_minus_theoretical_kc": float(learned_peak - critical_coupling),
+        "oracle_phi_peak_coupling": oracle_peak,
+        "oracle_phi_peak_value": oracle_value,
+    }
+
+
+def _large_kuramoto_oracle_nsource_diagnostic(
+    summary: list[dict[str, object]],
+    *,
+    critical_coupling: float,
+) -> dict[str, object]:
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    if len(couplings) == 0:
+        return {}
+
+    order_values = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    if len(order_values) < 2:
+        order_transition = float(couplings[0])
+        order_slope = 0.0
+    else:
+        gradient = np.gradient(order_values, couplings)
+        index = int(np.nanargmax(gradient))
+        order_transition = float(couplings[index])
+        order_slope = float(gradient[index])
+
+    phi_values = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+    observed_values = np.asarray([float(row["oracle_observed_phi_mean"]) for row in summary], dtype=float)
+    target_values = np.asarray([float(row["target_std_mean"]) for row in summary], dtype=float)
+    phi_index = int(np.nanargmax(phi_values))
+    observed_index = int(np.nanargmax(observed_values))
+    target_index = int(np.nanargmax(target_values))
+    return {
+        "theoretical_critical_coupling": float(critical_coupling),
+        "order_transition_coupling": order_transition,
+        "order_transition_slope": order_slope,
+        "oracle_phi_peak_coupling": float(couplings[phi_index]),
+        "oracle_phi_peak_value": float(phi_values[phi_index]),
+        "oracle_phi_peak_minus_order_transition": float(couplings[phi_index] - order_transition),
+        "oracle_phi_peak_minus_theoretical_kc": float(couplings[phi_index] - critical_coupling),
+        "oracle_observed_phi_peak_coupling": float(couplings[observed_index]),
+        "target_susceptibility_std_peak_coupling": float(couplings[target_index]),
     }
 
 
@@ -2820,6 +3224,203 @@ def _plot_large_kuramoto_phi_sweep(
     plt.close(fig)
 
 
+def _plot_large_kuramoto_learned_nsource_phi_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.9), constrained_layout=True)
+
+    for key, label, color, marker in (
+        ("natural_order", "Corrected global order", "#4C78A8", "o"),
+        ("natural_order_raw", "Raw global order", "#8C8C8C", "^"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[0].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[0].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "theoretical_critical_coupling" in diagnostic:
+        axes[0].axvline(
+            float(diagnostic["theoretical_critical_coupling"]),
+            color="#333333",
+            linestyle=":",
+            linewidth=1.2,
+            label="theory Kc",
+        )
+    if "order_transition_coupling" in diagnostic:
+        axes[0].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[0].set_ylabel("Global synchronization")
+    axes[0].set_title("a  Large-N Kuramoto transition", loc="left", fontweight="bold")
+
+    for key, label, color, marker in (
+        ("learned_phi", "Learned PEID Phi", "#2F7D5A", "D"),
+        ("oracle_phi", "Oracle PEID Phi", "#7068A8", "o"),
+    ):
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        axes[1].plot(couplings, mean, color=color, marker=marker, linewidth=2.0, markersize=4.8, label=label)
+        axes[1].fill_between(couplings, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+    if "learned_phi_peak_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["learned_phi_peak_coupling"]),
+            color="#2F7D5A",
+            linestyle=":",
+            linewidth=1.2,
+            label="learned Phi peak",
+        )
+    if "order_transition_coupling" in diagnostic:
+        axes[1].axvline(
+            float(diagnostic["order_transition_coupling"]),
+            color="#777777",
+            linestyle="--",
+            linewidth=1.0,
+            label="max d r / dK",
+        )
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("N-source PEID Phi (bits)")
+    axes[1].set_title("b  Transport-map PEID", loc="left", fontweight="bold")
+
+    for axis in axes:
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _smooth_curve_gaussian_kernel(x: np.ndarray, y: np.ndarray, *, bandwidth: float) -> np.ndarray:
+    x_values = np.asarray(x, dtype=float)
+    y_values = np.asarray(y, dtype=float)
+    if x_values.ndim != 1 or y_values.ndim != 1:
+        raise ValueError("x and y must be one-dimensional.")
+    if x_values.shape != y_values.shape:
+        raise ValueError("x and y must have the same shape.")
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be positive.")
+    if len(x_values) == 0:
+        return y_values.copy()
+
+    finite = np.isfinite(x_values) & np.isfinite(y_values)
+    smoothed = np.full_like(y_values, np.nan, dtype=float)
+    for index, x_value in enumerate(x_values):
+        if not np.isfinite(x_value) or not np.any(finite):
+            continue
+        weights = np.exp(-0.5 * ((x_values[finite] - x_value) / float(bandwidth)) ** 2)
+        weight_sum = float(np.sum(weights))
+        if weight_sum > 0.0:
+            smoothed[index] = float(np.sum(weights * y_values[finite]) / weight_sum)
+    return smoothed
+
+
+def _plot_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 3.8), constrained_layout=True)
+
+    order_mean = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
+    axes[0].plot(couplings, order_mean, color="#4C78A8", marker="o", linewidth=2.0, markersize=4.5, label="Corrected order")
+    axes[0].fill_between(couplings, order_mean - order_sem, order_mean + order_sem, color="#4C78A8", alpha=0.16, linewidth=0)
+    axes[0].set_ylabel("Global synchronization")
+    axes[0].set_title("a  Transition", loc="left", fontweight="bold")
+
+    phi_mean = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+    phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
+    smoothed_phi = _smooth_curve_gaussian_kernel(couplings, phi_mean, bandwidth=0.25)
+    axes[1].plot(
+        couplings,
+        phi_mean,
+        color="#2F7D5A",
+        marker="D",
+        linestyle="none",
+        markersize=4.8,
+        label="Oracle PEID Phi",
+    )
+    axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color="#2F7D5A", alpha=0.16, linewidth=0)
+    axes[1].plot(couplings, smoothed_phi, color="#2F7D5A", linewidth=2.2, label="Smoothed trend")
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("Oracle N-source Phi (bits)")
+    axes[1].set_title("b  N-source PEID Phi", loc="left", fontweight="bold")
+
+    target_mean = np.asarray([float(row["target_std_mean"]) for row in summary], dtype=float)
+    target_sem = np.asarray([float(row.get("target_std_sem", 0.0)) for row in summary], dtype=float)
+    axes[2].plot(couplings, target_mean, color="#D55E00", marker="s", linewidth=2.0, markersize=4.5, label="Target std")
+    axes[2].fill_between(couplings, target_mean - target_sem, target_mean + target_sem, color="#D55E00", alpha=0.14, linewidth=0)
+    axes[2].set_ylabel("Susceptibility target spread")
+    axes[2].set_title("c  d order / dK response", loc="left", fontweight="bold")
+
+    for axis in axes:
+        if "theoretical_critical_coupling" in diagnostic:
+            axis.axvline(float(diagnostic["theoretical_critical_coupling"]), color="#333333", linestyle=":", linewidth=1.1, label="theory Kc")
+        if "order_transition_coupling" in diagnostic:
+            axis.axvline(float(diagnostic["order_transition_coupling"]), color="#777777", linestyle="--", linewidth=1.0, label="max d r / dK")
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(10.6, 3.8), constrained_layout=True)
+
+    order_mean = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
+    axes[0].plot(couplings, order_mean, color="#4C78A8", marker="o", linewidth=2.0, markersize=4.6, label="Corrected order")
+    axes[0].fill_between(couplings, order_mean - order_sem, order_mean + order_sem, color="#4C78A8", alpha=0.16, linewidth=0)
+    axes[0].set_ylabel("Global synchronization")
+    axes[0].set_title("a  Transition", loc="left", fontweight="bold")
+
+    phi_mean = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+    phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
+    axes[1].plot(couplings, phi_mean, color="#2F7D5A", marker="D", linewidth=2.0, markersize=4.6, label="Whole-state Phi")
+    axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color="#2F7D5A", alpha=0.16, linewidth=0)
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("Oracle N-source Phi (bits)")
+    axes[1].set_title("b  Whole future phase target", loc="left", fontweight="bold")
+
+    for axis in axes:
+        if "theoretical_critical_coupling" in diagnostic:
+            axis.axvline(float(diagnostic["theoretical_critical_coupling"]), color="#333333", linestyle=":", linewidth=1.1, label="theory Kc")
+        if "order_transition_coupling" in diagnostic:
+            axis.axvline(float(diagnostic["order_transition_coupling"]), color="#777777", linestyle="--", linewidth=1.0, label="max d r / dK")
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
 def run_ode_future_state_sweeps(
     *,
     mode: str = "full",
@@ -3586,6 +4187,423 @@ def run_large_kuramoto_phi_sweep(
     return {**result, "result_path": str(result_path)}
 
 
+def run_large_kuramoto_learned_nsource_phi_sweep(
+    *,
+    mode: str = "full",
+    oscillator_count: int = 16,
+    couplings: Sequence[float] = LARGE_KURAMOTO_LEARNED_NSOURCE_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2),
+    tau: float = 4.0,
+    frequency_sigma: float = 1.0,
+    nsource_transport_degree: int = 1,
+    nsource_null_shuffles: int | None = None,
+    result_path: Path = DEFAULT_RESULT_DIR / "large_kuramoto_learned_nsource_phi_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "large_kuramoto_learned_nsource_phi_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    if oscillator_count < 4:
+        raise ValueError("oscillator_count must be at least 4.")
+    train_samples = 80 if mode == "smoke" else 420
+    readout_samples = 40 if mode == "smoke" else 220
+    natural_samples = 60 if mode == "smoke" else 360
+    epochs = 12 if mode == "smoke" else 90
+    dt = 0.05 if mode == "smoke" else 0.04
+    nsource_transport_degree = int(nsource_transport_degree)
+    if nsource_transport_degree < 1:
+        raise ValueError("nsource_transport_degree must be positive.")
+    if nsource_null_shuffles is None:
+        nsource_null_shuffles = 1 if mode == "smoke" else 2
+    nsource_null_shuffles = int(nsource_null_shuffles)
+    if nsource_null_shuffles < 0:
+        raise ValueError("nsource_null_shuffles must be nonnegative.")
+    critical_coupling = _classic_kuramoto_critical_coupling(frequency_sigma)
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        for seed in seeds:
+            seed = int(seed)
+            frequency_seed = seed + 50017
+            frequencies = _classic_kuramoto_frequencies(oscillator_count, frequency_seed, frequency_sigma)
+            train_rng = np.random.default_rng(seed + 81003 + int(round(float(coupling) * 1000)))
+            train_states = train_rng.uniform(0.0, 2.0 * math.pi, size=(train_samples, oscillator_count))
+            train_next = _classic_kuramoto_integrate(
+                train_states,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            train_features = _large_kuramoto_phase_features(train_states)
+            train_targets = _large_kuramoto_delta_order_targets(train_states, train_next)
+            fitted = fit_mlp(train_features, train_targets, seed=seed + 91003, epochs=epochs)
+
+            readout_rng = np.random.default_rng(seed + 61003 + int(round(float(coupling) * 1000)))
+            readout_states = readout_rng.uniform(0.0, 2.0 * math.pi, size=(readout_samples, oscillator_count))
+            readout_next = _classic_kuramoto_integrate(
+                readout_states,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            readout_features = _large_kuramoto_phase_features(readout_states)
+            source_blocks = _large_kuramoto_singleton_source_blocks(readout_states)
+            learned_targets = fitted.predict(readout_features)
+            oracle_targets = _large_kuramoto_delta_order_targets(readout_states, readout_next)
+            null_seed_base = seed + 111003 + int(round(float(coupling) * 1000))
+            learned_phi = _transport_nsource_phi_with_target_shuffle_null(
+                source_blocks,
+                learned_targets,
+                degree=nsource_transport_degree,
+                n_shuffles=nsource_null_shuffles,
+                seed=null_seed_base,
+            )
+            oracle_phi = _transport_nsource_phi_with_target_shuffle_null(
+                source_blocks,
+                oracle_targets,
+                degree=nsource_transport_degree,
+                n_shuffles=nsource_null_shuffles,
+                seed=null_seed_base + 17011,
+            )
+
+            natural_rng = np.random.default_rng(seed + 71003 + int(round(float(coupling) * 1000)))
+            natural_initial = natural_rng.uniform(0.0, 2.0 * math.pi, size=(natural_samples, oscillator_count))
+            natural_next = _classic_kuramoto_integrate(
+                natural_initial,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            natural_order_raw = _kuramoto_global_order(natural_next)
+            natural_order = _large_kuramoto_order_excess(natural_next)
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "frequency_seed": frequency_seed,
+                    "natural_order": float(np.mean(natural_order)),
+                    "natural_order_raw": float(np.mean(natural_order_raw)),
+                    "learned_phi": float(learned_phi["phi"]),
+                    "learned_raw_phi": float(learned_phi["raw_phi"]),
+                    "learned_observed_phi": float(learned_phi["observed_phi"]),
+                    "learned_observed_raw_phi": float(learned_phi["observed_raw_phi"]),
+                    "learned_null_phi": float(learned_phi["null_phi"]),
+                    "learned_null_phi_std": float(learned_phi["null_phi_std"]),
+                    "learned_null_corrected_phi": float(learned_phi["null_corrected_phi"]),
+                    "learned_joint_ei": float(learned_phi["joint_ei"]),
+                    "learned_singleton_ei_sum": float(learned_phi["singleton_ei_sum"]),
+                    "oracle_phi": float(oracle_phi["phi"]),
+                    "oracle_raw_phi": float(oracle_phi["raw_phi"]),
+                    "oracle_observed_phi": float(oracle_phi["observed_phi"]),
+                    "oracle_observed_raw_phi": float(oracle_phi["observed_raw_phi"]),
+                    "oracle_null_phi": float(oracle_phi["null_phi"]),
+                    "oracle_null_phi_std": float(oracle_phi["null_phi_std"]),
+                    "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
+                    "oracle_joint_ei": float(oracle_phi["joint_ei"]),
+                    "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                    "mlp_test_mse": float(fitted.train_mse),
+                    "mlp_baseline_mse": float(fitted.baseline_mse),
+                    "train_state_digest": _digest(train_states),
+                    "readout_state_digest": _digest(readout_states),
+                    "learned_target_digest": _digest(learned_targets),
+                    "oracle_target_digest": _digest(oracle_targets),
+                    "frequency_digest": _digest(frequencies),
+                }
+            )
+
+    summary = _aggregate_large_kuramoto_learned_nsource_rows(rows)
+    diagnostic = _large_kuramoto_learned_nsource_diagnostic(summary, critical_coupling=critical_coupling)
+    result = {
+        "mode": mode,
+        "system": "classic_large_n_kuramoto_learned_nsource_phi_sweep",
+        "target": "learned_finite_time_global_order_response",
+        "target_components": ["delta_order_excess_tau"],
+        "source_partition": "singleton_oscillators",
+        "source_count": int(oscillator_count),
+        "source_feature": "per-oscillator cos(theta), sin(theta)",
+        "oscillator_count": int(oscillator_count),
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "tau": float(tau),
+        "dt": float(dt),
+        "frequency_distribution": "zero-mean Gaussian, rescaled to requested sigma per seed",
+        "frequency_sigma": float(frequency_sigma),
+        "critical_coupling_theory": critical_coupling,
+        "estimator": "learned_mlp_plus_transport_map",
+        "transport_map": _transport_map_config(),
+        "nsource_transport_map_degree": int(nsource_transport_degree),
+        "nsource_null_shuffles": int(nsource_null_shuffles),
+        "phi_null_model": "target_shuffle",
+        "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_large_kuramoto_learned_nsource_phi_sweep(summary, diagnostic, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
+    *,
+    mode: str = "full",
+    oscillator_count: int = 16,
+    couplings: Sequence[float] = LARGE_KURAMOTO_ORACLE_SUSCEPTIBILITY_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2),
+    tau: float = 4.0,
+    frequency_sigma: float = 1.0,
+    coupling_delta: float = 0.1,
+    nsource_transport_degree: int = 1,
+    nsource_null_shuffles: int | None = None,
+    result_path: Path = DEFAULT_RESULT_DIR / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    if oscillator_count < 4:
+        raise ValueError("oscillator_count must be at least 4.")
+    readout_samples = 40 if mode == "smoke" else 220
+    natural_samples = 60 if mode == "smoke" else 360
+    dt = 0.05 if mode == "smoke" else 0.04
+    nsource_transport_degree = int(nsource_transport_degree)
+    if nsource_transport_degree < 1:
+        raise ValueError("nsource_transport_degree must be positive.")
+    if nsource_null_shuffles is None:
+        nsource_null_shuffles = 1 if mode == "smoke" else 2
+    nsource_null_shuffles = int(nsource_null_shuffles)
+    if nsource_null_shuffles < 0:
+        raise ValueError("nsource_null_shuffles must be nonnegative.")
+    critical_coupling = _classic_kuramoto_critical_coupling(frequency_sigma)
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        for seed in seeds:
+            seed = int(seed)
+            frequency_seed = seed + 50017
+            frequencies = _classic_kuramoto_frequencies(oscillator_count, frequency_seed, frequency_sigma)
+            readout_rng = np.random.default_rng(seed + 61003 + int(round(float(coupling) * 1000)))
+            readout_states = readout_rng.uniform(0.0, 2.0 * math.pi, size=(readout_samples, oscillator_count))
+            source_blocks = _large_kuramoto_singleton_source_blocks(readout_states)
+            oracle_targets = _large_kuramoto_coupling_susceptibility_targets(
+                readout_states,
+                frequencies,
+                coupling=float(coupling),
+                coupling_delta=coupling_delta,
+                tau=tau,
+                dt=dt,
+            )
+            oracle_phi = _transport_nsource_phi_with_target_shuffle_null(
+                source_blocks,
+                oracle_targets,
+                degree=nsource_transport_degree,
+                n_shuffles=nsource_null_shuffles,
+                seed=seed + 128003 + int(round(float(coupling) * 1000)),
+            )
+
+            natural_rng = np.random.default_rng(seed + 71003 + int(round(float(coupling) * 1000)))
+            natural_initial = natural_rng.uniform(0.0, 2.0 * math.pi, size=(natural_samples, oscillator_count))
+            natural_next = _classic_kuramoto_integrate(
+                natural_initial,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            natural_order_raw = _kuramoto_global_order(natural_next)
+            natural_order = _large_kuramoto_order_excess(natural_next)
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "frequency_seed": frequency_seed,
+                    "natural_order": float(np.mean(natural_order)),
+                    "natural_order_raw": float(np.mean(natural_order_raw)),
+                    "oracle_phi": float(oracle_phi["phi"]),
+                    "oracle_raw_phi": float(oracle_phi["raw_phi"]),
+                    "oracle_observed_phi": float(oracle_phi["observed_phi"]),
+                    "oracle_observed_raw_phi": float(oracle_phi["observed_raw_phi"]),
+                    "oracle_null_phi": float(oracle_phi["null_phi"]),
+                    "oracle_null_phi_std": float(oracle_phi["null_phi_std"]),
+                    "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
+                    "oracle_joint_ei": float(oracle_phi["joint_ei"]),
+                    "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                    "target_mean": float(np.mean(oracle_targets)),
+                    "target_std": float(np.std(oracle_targets, ddof=0)),
+                    "readout_state_digest": _digest(readout_states),
+                    "oracle_target_digest": _digest(oracle_targets),
+                    "frequency_digest": _digest(frequencies),
+                }
+            )
+
+    summary = _aggregate_large_kuramoto_oracle_nsource_rows(rows)
+    diagnostic = _large_kuramoto_oracle_nsource_diagnostic(summary, critical_coupling=critical_coupling)
+    result = {
+        "mode": mode,
+        "system": "classic_large_n_kuramoto_oracle_nsource_phi_susceptibility_sweep",
+        "target": "oracle_finite_time_coupling_susceptibility_response",
+        "target_components": ["d_order_excess_tau_dK"],
+        "source_partition": "singleton_oscillators",
+        "source_count": int(oscillator_count),
+        "source_feature": "per-oscillator cos(theta), sin(theta)",
+        "oscillator_count": int(oscillator_count),
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "tau": float(tau),
+        "dt": float(dt),
+        "coupling_delta": float(coupling_delta),
+        "frequency_distribution": "zero-mean Gaussian, rescaled to requested sigma per seed",
+        "frequency_sigma": float(frequency_sigma),
+        "critical_coupling_theory": critical_coupling,
+        "estimator": "oracle_transport_map",
+        "transport_map": _transport_map_config(),
+        "nsource_transport_map_degree": int(nsource_transport_degree),
+        "nsource_null_shuffles": int(nsource_null_shuffles),
+        "phi_null_model": "target_shuffle",
+        "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(summary, diagnostic, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
+def run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
+    *,
+    mode: str = "full",
+    oscillator_count: int = 16,
+    couplings: Sequence[float] = LARGE_KURAMOTO_ORACLE_WHOLE_STATE_COUPLINGS,
+    seeds: Sequence[int] = (0, 1, 2),
+    tau: float = 4.0,
+    frequency_sigma: float = 1.0,
+    nsource_transport_degree: int = 1,
+    nsource_null_shuffles: int | None = None,
+    result_path: Path = DEFAULT_RESULT_DIR / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    if oscillator_count < 4:
+        raise ValueError("oscillator_count must be at least 4.")
+    readout_samples = 40 if mode == "smoke" else 220
+    natural_samples = 60 if mode == "smoke" else 360
+    dt = 0.05 if mode == "smoke" else 0.04
+    nsource_transport_degree = int(nsource_transport_degree)
+    if nsource_transport_degree < 1:
+        raise ValueError("nsource_transport_degree must be positive.")
+    if nsource_null_shuffles is None:
+        nsource_null_shuffles = 1 if mode == "smoke" else 2
+    nsource_null_shuffles = int(nsource_null_shuffles)
+    if nsource_null_shuffles < 0:
+        raise ValueError("nsource_null_shuffles must be nonnegative.")
+    critical_coupling = _classic_kuramoto_critical_coupling(frequency_sigma)
+    rows: list[dict[str, object]] = []
+
+    for coupling in couplings:
+        for seed in seeds:
+            seed = int(seed)
+            frequency_seed = seed + 50017
+            frequencies = _classic_kuramoto_frequencies(oscillator_count, frequency_seed, frequency_sigma)
+            readout_rng = np.random.default_rng(seed + 61003 + int(round(float(coupling) * 1000)))
+            readout_states = readout_rng.uniform(0.0, 2.0 * math.pi, size=(readout_samples, oscillator_count))
+            readout_next = _classic_kuramoto_integrate(
+                readout_states,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            source_blocks = _large_kuramoto_singleton_source_blocks(readout_states)
+            oracle_targets = _large_kuramoto_phase_features(readout_next)
+            oracle_phi = _transport_nsource_phi_with_target_shuffle_null(
+                source_blocks,
+                oracle_targets,
+                degree=nsource_transport_degree,
+                n_shuffles=nsource_null_shuffles,
+                seed=seed + 138003 + int(round(float(coupling) * 1000)),
+            )
+
+            natural_rng = np.random.default_rng(seed + 71003 + int(round(float(coupling) * 1000)))
+            natural_initial = natural_rng.uniform(0.0, 2.0 * math.pi, size=(natural_samples, oscillator_count))
+            natural_next = _classic_kuramoto_integrate(
+                natural_initial,
+                frequencies,
+                coupling=float(coupling),
+                tau=tau,
+                dt=dt,
+            )
+            natural_order_raw = _kuramoto_global_order(natural_next)
+            natural_order = _large_kuramoto_order_excess(natural_next)
+            rows.append(
+                {
+                    "coupling": float(coupling),
+                    "seed": seed,
+                    "frequency_seed": frequency_seed,
+                    "natural_order": float(np.mean(natural_order)),
+                    "natural_order_raw": float(np.mean(natural_order_raw)),
+                    "oracle_phi": float(oracle_phi["phi"]),
+                    "oracle_raw_phi": float(oracle_phi["raw_phi"]),
+                    "oracle_observed_phi": float(oracle_phi["observed_phi"]),
+                    "oracle_observed_raw_phi": float(oracle_phi["observed_raw_phi"]),
+                    "oracle_null_phi": float(oracle_phi["null_phi"]),
+                    "oracle_null_phi_std": float(oracle_phi["null_phi_std"]),
+                    "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
+                    "oracle_joint_ei": float(oracle_phi["joint_ei"]),
+                    "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                    "target_mean": float(np.mean(oracle_targets)),
+                    "target_std": float(np.std(oracle_targets, ddof=0)),
+                    "readout_state_digest": _digest(readout_states),
+                    "oracle_target_digest": _digest(oracle_targets),
+                    "frequency_digest": _digest(frequencies),
+                }
+            )
+
+    summary = _aggregate_large_kuramoto_oracle_nsource_rows(rows)
+    diagnostic = _large_kuramoto_oracle_nsource_diagnostic(summary, critical_coupling=critical_coupling)
+    result = {
+        "mode": mode,
+        "system": "classic_large_n_kuramoto_oracle_nsource_whole_state_phi_sweep",
+        "target": "oracle_finite_time_whole_system_phase_state",
+        "target_components": ["cos(theta_tau)_all", "sin(theta_tau)_all"],
+        "target_dimension": int(2 * oscillator_count),
+        "source_partition": "singleton_oscillators",
+        "source_count": int(oscillator_count),
+        "source_feature": "per-oscillator cos(theta), sin(theta)",
+        "oscillator_count": int(oscillator_count),
+        "couplings": [float(coupling) for coupling in couplings],
+        "seeds": [int(seed) for seed in seeds],
+        "tau": float(tau),
+        "dt": float(dt),
+        "frequency_distribution": "zero-mean Gaussian, rescaled to requested sigma per seed",
+        "frequency_sigma": float(frequency_sigma),
+        "critical_coupling_theory": critical_coupling,
+        "estimator": "oracle_transport_map",
+        "transport_map": _transport_map_config(),
+        "nsource_transport_map_degree": int(nsource_transport_degree),
+        "nsource_null_shuffles": int(nsource_null_shuffles),
+        "phi_null_model": "target_shuffle",
+        "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_large_kuramoto_oracle_nsource_whole_state_phi_sweep(summary, diagnostic, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
 def run_sis_gate_sweep(
     *,
     mode: str = "full",
@@ -4177,12 +5195,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--kuramoto-k", type=float, default=0.2, help="Kuramoto phase coupling K for single-example runs.")
     parser.add_argument("--kuramoto-tau", type=float, default=4.0, help="Finite-time horizon for Kuramoto phase-response runs.")
-    parser.add_argument("--kuramoto-n", type=int, default=64, help="Oscillator count for large-N classic Kuramoto runs.")
+    parser.add_argument("--kuramoto-n", type=int, default=None, help="Oscillator count for large-N classic Kuramoto runs.")
+    parser.add_argument("--nsource-transport-degree", type=int, default=1, help="Transport-map degree for N-source Kuramoto Phi.")
+    parser.add_argument("--nsource-null-shuffles", type=int, default=None, help="Target-shuffle null count for N-source Kuramoto Phi.")
     parser.add_argument("--kuramoto-coupling-sweep", action="store_true", help="Run only the Part1 Kuramoto coupling synergy sweep.")
     parser.add_argument("--kuramoto-joint-target-peid", action="store_true", help="Run the standalone Kuramoto PEID example with joint dtheta target.")
     parser.add_argument("--kuramoto-joint-target-peid-sweep", action="store_true", help="Run the standalone Kuramoto joint-target PEID coupling sweep.")
     parser.add_argument("--kuramoto-phase-response-peid-sweep", action="store_true", help="Run finite-time Kuramoto phase-locking response PEID sweep.")
     parser.add_argument("--large-kuramoto-phi-sweep", action="store_true", help="Run classic large-N Kuramoto whole-system Phi/Syn sweep.")
+    parser.add_argument("--large-kuramoto-learned-nsource-phi-sweep", action="store_true", help="Run learned transport-map N-source Phi sweep for classic Kuramoto.")
+    parser.add_argument("--large-kuramoto-oracle-nsource-phi-susceptibility-sweep", action="store_true", help="Run Oracle N-source Phi sweep using coupling-susceptibility targets.")
+    parser.add_argument("--large-kuramoto-oracle-nsource-whole-state-phi-sweep", action="store_true", help="Run Oracle N-source Phi sweep using whole future phase-state targets.")
     parser.add_argument("--kuramoto-peid-detail-sweep", action="store_true", help="Run the dense Kuramoto Oracle/MLP PEID component sweep.")
     parser.add_argument("--sis-gate-sweep", action="store_true", help="Run only the Part1 SIS gate synergy sweep.")
     parser.add_argument("--lorenz-rho-sweep", action="store_true", help="Run only the Part1 Lorenz rho synergy sweep.")
@@ -4237,11 +5260,50 @@ def main() -> None:
     if args.large_kuramoto_phi_sweep:
         result = run_large_kuramoto_phi_sweep(
             mode=args.mode,
-            oscillator_count=args.kuramoto_n,
+            oscillator_count=64 if args.kuramoto_n is None else args.kuramoto_n,
             seeds=tuple(args.seeds),
             tau=args.kuramoto_tau,
             result_path=args.result_dir / "large_kuramoto_phi_sweep.json",
             figure_path=args.figure_dir / "large_kuramoto_phi_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.large_kuramoto_learned_nsource_phi_sweep:
+        result = run_large_kuramoto_learned_nsource_phi_sweep(
+            mode=args.mode,
+            oscillator_count=16 if args.kuramoto_n is None else args.kuramoto_n,
+            seeds=tuple(args.seeds),
+            tau=args.kuramoto_tau,
+            nsource_transport_degree=args.nsource_transport_degree,
+            nsource_null_shuffles=args.nsource_null_shuffles,
+            result_path=args.result_dir / "large_kuramoto_learned_nsource_phi_sweep.json",
+            figure_path=args.figure_dir / "large_kuramoto_learned_nsource_phi_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.large_kuramoto_oracle_nsource_phi_susceptibility_sweep:
+        result = run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
+            mode=args.mode,
+            oscillator_count=16 if args.kuramoto_n is None else args.kuramoto_n,
+            seeds=tuple(args.seeds),
+            tau=args.kuramoto_tau,
+            nsource_transport_degree=args.nsource_transport_degree,
+            nsource_null_shuffles=args.nsource_null_shuffles,
+            result_path=args.result_dir / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.json",
+            figure_path=args.figure_dir / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.large_kuramoto_oracle_nsource_whole_state_phi_sweep:
+        result = run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
+            mode=args.mode,
+            oscillator_count=16 if args.kuramoto_n is None else args.kuramoto_n,
+            seeds=tuple(args.seeds),
+            tau=args.kuramoto_tau,
+            nsource_transport_degree=args.nsource_transport_degree,
+            nsource_null_shuffles=args.nsource_null_shuffles,
+            result_path=args.result_dir / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.json",
+            figure_path=args.figure_dir / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.png",
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return

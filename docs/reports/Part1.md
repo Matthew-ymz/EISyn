@@ -53,16 +53,6 @@ $$
 
 正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。
 
-## Liang information flow 对照
-
-Liang 对照实验使用完全相同的 `common_driver_sine_synergy` 配置：`alpha=1`、`noise=0.05`、`n_samples=1100`、`beta∈[0,1]` 步长 `0.05`、seed 为 `0,1,2,3`。输入只包含原始观测变量 `x,y,z,w`，不额外加入 `sin(x_t y_t)` 人工特征。因此这里检验的是 Liang 线性多变量信息流在同一观测序列上的 pairwise 读数，而不是给方法显式暴露二源非线性结构项。
-
-![Liang information flow beta sweep](../../fig/granger_peid_mlp_comparison/sine_beta_liang_information_flow.png)
-
-结果显示，Euler 版 Liang 信息流和有限时间 matrix-log 版读数一致地捕捉到随 `beta` 增强的 `w→z` 分量：Euler 信息流的 `w→z` 线性斜率约为 `0.0476`，归一化信息流斜率约为 `0.0629`，matrix-log 读数斜率约为 `0.0809`。相比之下，`x→z` 和 `y→z` 没有呈现固定二源结构所期望的稳定正向响应；`x→z` 在高 `beta` 区间转为负值，`y→z` 接近零且波动较大。
-
-这说明在该实验设置下，Liang 方法更像是在读出可线性投影的单源方向信息：弱边 `0.15\beta w_t` 和共同驱动诱导的线性相关会随 `beta` 被强化；固定的 `sin(x_t y_t)` 二源协同不会被标准 pairwise Liang 信息流稳定表示为 `x→z`、`y→z` 两条边。这个结果与 PEID/Oracle 曲线的解释边界不同：PEID 目标是刻画二源联合约束，Liang 信息流目标是方向性单源流量。
-
 # 五方法协同比较
 
 每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
@@ -153,12 +143,7 @@ $$
 
 目标是第一振子的瞬时速度。该 sweep 现在覆盖
 $K\in\{0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0,1.5,2.0\}$，
-使参数范围从锁相转变区延伸到高耦合的有序同步相。同步诊断同时报告相位锁定值
-$|\langle e^{i(\theta_2-\theta_1)}\rangle|$ 和 Kuramoto 序参量
-$r(t)=\left|\frac{1}{2}\sum_{j=1}^2 e^{i\theta_j(t)}\right|$ 的轨迹均值；在
-$K\ge 0.5$ 后二者均接近 1，确认系统已进入同步相。
-
-![Kuramoto synchronization diagnostic](../../fig/classic_network_dynamics_benchmark/kuramoto_coupling_synergy_sweep.png)
+使参数范围从锁相转变区延伸到高耦合的有序同步相。
 
 随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
 
@@ -218,3 +203,42 @@ $$
 **协同源和目标**：只计算 `H+P->H_tau`。
 
 当 $a=0$ 时，$P_t$ 不影响目标；当 $a>0$ 时，指数项形成乘性门控。随着攻击效率继续增大，指数响应逐渐饱和，因此信息协同表现为平台而非线性增长。
+
+# 附录：Kuramoto 振子数与 whole-state $\Phi^{EID}$ 曲线形状的影响
+
+为避免把方程差异误读成振子数效应，这里重新使用同一个经典全局耦合 Kuramoto 方程，只改变振子数：
+
+$$
+\dot{\theta}_i
+=\omega_i+\frac{K}{N}\sum_{j=1}^{N}\sin(\theta_j-\theta_i).
+$$
+
+除振子数外，两组实验使用同一协议：频率 $\omega_i$ 从零均值 Gaussian 抽样，随后对每个 seed 去均值并重缩放到 `sigma=1`；`N=2` 时这个协议退化为一对符号相反、标准差为 1 的频率。source 是全部振子的当前相位特征，target 是全部振子的未来相位状态，而不是整体速度；两组都直接计算与 Part2 大脑动力学 $\Phi^{EID}$ 相同的源侧 whole-minus-sum 结构：
+
+$$
+\Phi^{EID}
+=
+EI_{\mathrm{do}}(\{\mathbf{s}_t^i\}_{i=1}^{N};\mathbf{y}_{t+\tau})
+-\sum_{i=1}^{N} EI_{\mathrm{do}}(\mathbf{s}_t^i;\mathbf{y}_{t+\tau})
+.
+$$
+
+其中 $\mathbf{s}_t^i=(\cos\theta_i(t),\sin\theta_i(t))$ 是第 $i$ 个振子的相位特征，$\mathbf{y}_{t+\tau}=\{(\cos\theta_i(t+\tau),\sin\theta_i(t+\tau))\}_{i=1}^{N}$ 是系统整体未来相位状态。这里不再对差值做非负截断；若出现负值，应优先检查 EI 估计、source covariance 或数值正则化，而不是把负值裁掉。
+
+![Kuramoto oscillator-count appendix](assets/part1_kuramoto_size_phi_eid_appendix.png)
+
+**小 $N=2$ classic Kuramoto。** 图 A 左列显示，同一 whole-state 口径下，`N=2` 的 Oracle $\Phi^{EID}$ 没有形成清楚的内部临界峰；它在当前扫描范围内主要随强耦合增强，到 `K=4.0` 约 `0.96` bits。learned 曲线在 `K=2.6` 附近出现更高峰值，约 `6.35` bits，但该峰明显高于 Oracle，主要反映 learned readout 的偏差。`N=2` 的 corrected order 也不是热力学意义下的相变曲线，而是有限二振子锁相读数。
+
+**大 $N=64$ classic Kuramoto。** 图 B 右列使用完全相同的方程、source partition、whole-state target 和 $\Phi^{EID}$ 公式。此时 corrected global order 从低 $K$ 的近零状态进入高 $K$ 同步饱和区。理论临界耦合为 $K_c\approx1.596$；有限时间读出下最大斜率出现在 `K=2.2`。对应 whole-state Oracle N-source $\Phi^{EID}$ 从 `K=0` 的 `0` bits 升高，在 `K=1.7` 达峰，约 `279.63` bits；随后进入强同步区后明显回落，`K=4.0` 约 `13.58` bits。
+
+这个对照说明，在方程形式、source/target 和 EI 分解公式都固定后，是否出现临界峰主要取决于系统规模。`N=2` 没有经典 Kuramoto 的热力学同步相变，所以不能期待它给出与大系统相同的 $\Phi^{EID}$ 峰；`N=64` 才提供清晰的 order-parameter 转变参照。learned whole-state readout 仍有明显正基线和幅度偏差，因此目前只作为学习模型诊断，判断临界峰仍以 Oracle whole-state $\Phi^{EID}$ 为准。
+
+## Liang information flow 对照
+
+Liang 对照实验使用完全相同的 `common_driver_sine_synergy` 配置：`alpha=1`、`noise=0.05`、`n_samples=1100`、`beta∈[0,1]` 步长 `0.05`、seed 为 `0,1,2,3`。输入只包含原始观测变量 `x,y,z,w`，不额外加入 `sin(x_t y_t)` 人工特征。因此这里检验的是 Liang 线性多变量信息流在同一观测序列上的 pairwise 读数，而不是给方法显式暴露二源非线性结构项。
+
+![Liang information flow beta sweep](../../fig/granger_peid_mlp_comparison/sine_beta_liang_information_flow.png)
+
+结果显示，Euler 版 Liang 信息流和有限时间 matrix-log 版读数一致地捕捉到随 `beta` 增强的 `w→z` 分量：Euler 信息流的 `w→z` 线性斜率约为 `0.0476`，归一化信息流斜率约为 `0.0629`，matrix-log 读数斜率约为 `0.0809`。相比之下，`x→z` 和 `y→z` 没有呈现固定二源结构所期望的稳定正向响应；`x→z` 在高 `beta` 区间转为负值，`y→z` 接近零且波动较大。
+
+这说明在该实验设置下，Liang 方法更像是在读出可线性投影的单源方向信息：弱边 `0.15\beta w_t` 和共同驱动诱导的线性相关会随 `beta` 被强化；固定的 `sin(x_t y_t)` 二源协同不会被标准 pairwise Liang 信息流稳定表示为 `x→z`、`y→z` 两条边。这个结果与 PEID/Oracle 曲线的解释边界不同：PEID 目标是刻画二源联合约束，Liang 信息流目标是方向性单源流量。

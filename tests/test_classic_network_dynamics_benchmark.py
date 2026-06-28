@@ -13,6 +13,8 @@ if str(ROOT) not in sys.path:
 from scripts.classic_network_dynamics_benchmark import (
     BENCHMARK_MODEL_NAMES,
     KURAMOTO_COUPLING_VALUES,
+    LARGE_KURAMOTO_LEARNED_NSOURCE_COUPLINGS,
+    LARGE_KURAMOTO_ORACLE_WHOLE_STATE_COUPLINGS,
     ModelSpec,
     build_coupled_rossler_spec,
     build_kuramoto_coupling_spec,
@@ -30,6 +32,9 @@ from scripts.classic_network_dynamics_benchmark import (
     run_kuramoto_joint_target_peid,
     run_kuramoto_joint_target_peid_sweep,
     run_large_kuramoto_phi_sweep,
+    run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep,
+    run_large_kuramoto_learned_nsource_phi_sweep,
+    run_large_kuramoto_oracle_nsource_whole_state_phi_sweep,
     run_kuramoto_phase_response_peid_sweep,
     run_kuramoto_peid_detail_sweep,
     run_lorenz_rho_sweep,
@@ -39,12 +44,17 @@ from scripts.classic_network_dynamics_benchmark import (
     _plot_panel,
     _kuramoto_order_parameter,
     _kuramoto_order_excess,
+    _nsource_peid_from_ei,
+    _null_corrected_phi_from_values,
+    _transport_nsource_phi,
+    _smooth_curve_gaussian_kernel,
     _zero_control_synergy_readouts,
     run_sis_gate_sweep,
     run_wilson_cowan_gain_sweep,
     simulate_natural_trajectory_pool,
     simulate_finite_time_next_states,
     simulate_sis_gate_next_states,
+    _aggregate_large_kuramoto_learned_nsource_rows,
 )
 from scripts.discrete_iteration_dynamics_benchmark import (
     _broad_one_step_distribution_metadata,
@@ -541,6 +551,190 @@ def test_large_kuramoto_phi_sweep_reports_classic_transition_and_phi_peak(tmp_pa
     assert "order_transition_coupling" in payload["criticality_diagnostic"]
     assert "phi_syn_peak_coupling" in payload["criticality_diagnostic"]
     assert {"natural_order_mean", "phi_syn_mean", "phi_joint_ei_mean"} <= set(payload["summary"][0])
+
+
+def test_large_kuramoto_learned_nsource_phi_sweep_uses_all_oscillators_as_sources(tmp_path: Path) -> None:
+    result = run_large_kuramoto_learned_nsource_phi_sweep(
+        mode="smoke",
+        oscillator_count=4,
+        couplings=(0.0, 2.6),
+        seeds=(0,),
+        tau=2.0,
+        nsource_null_shuffles=2,
+        result_path=tmp_path / "large_kuramoto_learned_nsource_phi_sweep.json",
+        figure_path=tmp_path / "large_kuramoto_learned_nsource_phi_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "classic_large_n_kuramoto_learned_nsource_phi_sweep"
+    assert payload["source_partition"] == "singleton_oscillators"
+    assert payload["source_count"] == 4
+    assert payload["target"] == "learned_finite_time_global_order_response"
+    assert payload["target_components"] == ["delta_order_excess_tau"]
+    assert payload["nsource_transport_map_degree"] == 1
+    assert payload["nsource_null_shuffles"] == 2
+    assert payload["phi_null_model"] == "target_shuffle"
+    assert payload["phi_definition"] == "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)"
+    assert "null_corrected_phi_definition" in payload
+    assert [row["coupling"] for row in payload["summary"]] == [0.0, 2.6]
+    assert {
+        "learned_phi_mean",
+        "learned_observed_phi_mean",
+        "learned_null_phi_mean",
+        "learned_joint_ei_mean",
+        "learned_singleton_ei_sum_mean",
+    } <= set(payload["summary"][0])
+    assert payload["summary"][0]["learned_phi_mean"] <= payload["summary"][0]["learned_observed_phi_mean"]
+    assert "learned_phi_peak_coupling" in payload["criticality_diagnostic"]
+
+
+def test_large_kuramoto_learned_nsource_defaults_use_dense_transition_grid() -> None:
+    transition_grid = [k for k in LARGE_KURAMOTO_LEARNED_NSOURCE_COUPLINGS if 1.2 <= k <= 2.2]
+
+    assert len(transition_grid) >= 7
+    assert 1.6 in LARGE_KURAMOTO_LEARNED_NSOURCE_COUPLINGS
+    assert max(np.diff(transition_grid)) <= 0.2000001
+
+
+def test_large_kuramoto_oracle_whole_state_grid_resolves_low_coupling_rise() -> None:
+    low_grid = [k for k in LARGE_KURAMOTO_ORACLE_WHOLE_STATE_COUPLINGS if 0.0 <= k <= 1.0]
+
+    assert low_grid == [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
+
+def test_large_kuramoto_learned_nsource_summary_reports_sem() -> None:
+    rows = []
+    for seed, phi in enumerate((0.0, 0.1, 0.2)):
+        rows.append(
+            {
+                "coupling": 1.6,
+                "seed": seed,
+                "natural_order": 0.5 + 0.01 * seed,
+                "natural_order_raw": 0.6 + 0.01 * seed,
+                "learned_phi": phi,
+                "learned_raw_phi": phi,
+                "learned_observed_phi": phi + 0.01,
+                "learned_observed_raw_phi": phi + 0.01,
+                "learned_null_phi": 0.01,
+                "learned_null_phi_std": 0.0,
+                "learned_null_corrected_phi": phi,
+                "learned_joint_ei": phi + 0.2,
+                "learned_singleton_ei_sum": 0.2,
+                "oracle_phi": phi / 2.0,
+                "oracle_raw_phi": phi / 2.0,
+                "oracle_observed_phi": phi / 2.0 + 0.01,
+                "oracle_observed_raw_phi": phi / 2.0 + 0.01,
+                "oracle_null_phi": 0.01,
+                "oracle_null_phi_std": 0.0,
+                "oracle_null_corrected_phi": phi / 2.0,
+                "oracle_joint_ei": phi / 2.0 + 0.2,
+                "oracle_singleton_ei_sum": 0.2,
+                "mlp_test_mse": 0.1,
+                "mlp_baseline_mse": 0.2,
+            }
+        )
+
+    summary = _aggregate_large_kuramoto_learned_nsource_rows(rows)
+
+    assert summary[0]["learned_phi_sem"] < summary[0]["learned_phi_std"]
+    assert summary[0]["natural_order_sem"] < summary[0]["natural_order_std"]
+
+
+def test_nsource_phi_uses_effective_information_joint_minus_singleton_sum() -> None:
+    decomposition = _nsource_peid_from_ei(np.array([0.40, 0.30, 0.20]), joint_ei=0.55)
+
+    assert np.isclose(decomposition["singleton_ei_sum"], 0.90)
+    assert np.isclose(decomposition["phi"], 0.55 - 0.90)
+    assert np.isclose(decomposition["raw_phi"], 0.55 - 0.90)
+
+
+def test_target_shuffle_null_correction_keeps_signed_residual_without_clipping() -> None:
+    correction = _null_corrected_phi_from_values(observed_phi=0.02, null_values=np.array([0.03, 0.05]))
+
+    assert correction["null_phi"] == 0.04
+    assert correction["null_corrected_phi"] == -0.02
+
+
+def test_affine_nsource_phi_uses_stable_gaussian_block_ctc_for_separable_identity() -> None:
+    rng = np.random.default_rng(0)
+    source_blocks = [rng.normal(size=(300, 2)) for _ in range(4)]
+    target = np.column_stack(source_blocks)
+
+    result = _transport_nsource_phi(source_blocks, target, degree=1)
+
+    assert result["phi"] >= -1.0e-9
+    assert result["phi"] < 0.05
+    assert np.isclose(result["phi"], result["joint_ei"] - result["singleton_ei_sum"])
+    assert result["phi_estimator"] == "gaussian_block_conditional_total_correlation"
+
+
+def test_large_kuramoto_oracle_nsource_phi_susceptibility_sweep_reports_corrected_oracle_peak(
+    tmp_path: Path,
+) -> None:
+    result = run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
+        mode="smoke",
+        oscillator_count=4,
+        couplings=(0.0, 1.6, 3.2),
+        seeds=(0,),
+        tau=2.0,
+        nsource_null_shuffles=1,
+        result_path=tmp_path / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.json",
+        figure_path=tmp_path / "large_kuramoto_oracle_nsource_phi_susceptibility_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "classic_large_n_kuramoto_oracle_nsource_phi_susceptibility_sweep"
+    assert payload["estimator"] == "oracle_transport_map"
+    assert payload["source_partition"] == "singleton_oscillators"
+    assert payload["target_components"] == ["d_order_excess_tau_dK"]
+    assert payload["phi_null_model"] == "target_shuffle"
+    assert payload["phi_definition"] == "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)"
+    assert "null_corrected_phi_definition" in payload
+    assert {"oracle_phi_mean", "oracle_observed_phi_mean", "oracle_null_phi_mean", "oracle_phi_sem"} <= set(
+        payload["summary"][0]
+    )
+    assert "oracle_phi_peak_coupling" in payload["criticality_diagnostic"]
+
+
+def test_large_kuramoto_oracle_nsource_whole_state_phi_sweep_matches_dmf_style_target(
+    tmp_path: Path,
+) -> None:
+    result = run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
+        mode="smoke",
+        oscillator_count=4,
+        couplings=(0.0, 1.6),
+        seeds=(0,),
+        tau=2.0,
+        nsource_null_shuffles=1,
+        result_path=tmp_path / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.json",
+        figure_path=tmp_path / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "classic_large_n_kuramoto_oracle_nsource_whole_state_phi_sweep"
+    assert payload["estimator"] == "oracle_transport_map"
+    assert payload["source_partition"] == "singleton_oscillators"
+    assert payload["source_feature"] == "per-oscillator cos(theta), sin(theta)"
+    assert payload["target"] == "oracle_finite_time_whole_system_phase_state"
+    assert payload["target_components"] == ["cos(theta_tau)_all", "sin(theta_tau)_all"]
+    assert payload["target_dimension"] == 8
+    assert payload["phi_definition"] == "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)"
+    assert {"oracle_phi_mean", "oracle_joint_ei_mean", "oracle_singleton_ei_sum_mean"} <= set(payload["summary"][0])
+    assert "oracle_phi_peak_coupling" in payload["criticality_diagnostic"]
+
+
+def test_gaussian_kernel_smoothing_spreads_local_phi_peak_without_changing_grid() -> None:
+    couplings = np.array([1.2, 1.4, 1.6])
+    phi = np.array([0.0, 0.03, 0.0])
+
+    smoothed = _smooth_curve_gaussian_kernel(couplings, phi, bandwidth=0.25)
+
+    assert smoothed.shape == phi.shape
+    assert 0.0 < smoothed[0] < smoothed[1] < phi[1]
+    assert 0.0 < smoothed[2] < smoothed[1]
 
 
 def test_lorenz_rho_spec_matches_classic_equations() -> None:

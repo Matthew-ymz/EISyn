@@ -6,6 +6,7 @@ import numpy as np
 
 from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
+    _polynomial_exponents,
     estimate_mutual_information_transport_map,
     estimate_specific_mutual_information_transport_map,
     fit_affine_transport_map_density,
@@ -104,6 +105,12 @@ class TransportMapDensityTests(unittest.TestCase):
             float(mutual["mi_hat"]),
             delta=0.25,
         )
+
+    def test_polynomial_exponents_degree_one_scales_linearly_in_dimension(self) -> None:
+        exponents = _polynomial_exponents(64, 1)
+
+        self.assertEqual(exponents.shape, (65, 64))
+        self.assertTrue(np.all(exponents.sum(axis=1) <= 1))
 
     def test_pairwise_effective_information_for_dynamics_returns_indexed_matrix(self) -> None:
         def dynamics(inputs: np.ndarray) -> np.ndarray:

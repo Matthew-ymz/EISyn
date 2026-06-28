@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations_with_replacement
 from typing import Callable, Sequence
 
 import numpy as np
@@ -483,13 +484,15 @@ def multivariate_gaussian_logpdf(
 def _polynomial_exponents(predictor_dimension: int, degree: int) -> np.ndarray:
     if predictor_dimension == 0:
         return np.zeros((1, 0), dtype=int)
+    if degree < 0:
+        raise ValueError("degree must be nonnegative.")
     rows = [tuple(0 for _ in range(predictor_dimension))]
     for total_degree in range(1, int(degree) + 1):
-        rows.extend(
-            exponent
-            for exponent in np.ndindex(*([total_degree + 1] * predictor_dimension))
-            if sum(exponent) == total_degree
-        )
+        for indices in combinations_with_replacement(range(predictor_dimension), total_degree):
+            exponent = [0] * predictor_dimension
+            for index in indices:
+                exponent[index] += 1
+            rows.append(tuple(exponent))
     return np.asarray(rows, dtype=int)
 
 
