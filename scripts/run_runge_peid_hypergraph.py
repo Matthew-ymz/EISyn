@@ -114,6 +114,7 @@ class PeidHypergraphConfig:
     force_retrain: bool = False
     order_max: int = 3
     candidate_top_sources: int = 14
+    candidate_extra_sources: tuple[int, ...] = ()
     candidate_target_topk: int = 10
     candidate_third_source_topk: int = 15
     delta2_significance_z: float = 2.0
@@ -180,6 +181,16 @@ def parse_float_tuple(text: str | Sequence[float] | None) -> tuple[float, ...]:
             return ()
         return tuple(float(part.strip()) for part in text.split(",") if part.strip())
     return tuple(float(value) for value in text)
+
+
+def parse_int_tuple(text: str | Sequence[int] | None) -> tuple[int, ...]:
+    if text is None:
+        return ()
+    if isinstance(text, str):
+        if not text.strip():
+            return ()
+        return tuple(int(part.strip()) for part in text.split(",") if part.strip())
+    return tuple(int(value) for value in text)
 
 
 def _model_config_hash_for_cache(pairwise_module, config: PeidHypergraphConfig, *, n_components: int, n_rows: int) -> str:
@@ -380,12 +391,18 @@ def _mobius_recursive(
 # ---------------------------------------------------------------------------
 
 
-def _candidate_source_pool(matrix: np.ndarray, top_sources: int) -> np.ndarray:
+def _candidate_source_pool(
+    matrix: np.ndarray,
+    top_sources: int,
+    extra_sources: Sequence[int] = (),
+) -> np.ndarray:
     """Pick the top sources by outgoing pairwise EI mass."""
 
     out_strength = matrix.sum(axis=1) - np.diag(matrix)
     top = np.argsort(out_strength)[::-1][: int(top_sources)]
-    return np.sort(top)
+    n = int(matrix.shape[0])
+    extras = [int(source) for source in extra_sources if 0 <= int(source) < n]
+    return np.asarray(sorted({int(source) for source in top.tolist()} | set(extras)), dtype=int)
 
 
 def _target_pool_per_source(matrix: np.ndarray, top_targets: int) -> dict[int, set[int]]:
@@ -406,6 +423,7 @@ def enumerate_subset_targets(
     *,
     n_components: int,
     candidate_top_sources: int,
+    candidate_extra_sources: Sequence[int] = (),
     candidate_target_topk: int,
     third_source_topk: int,
     order_max: int,
@@ -419,7 +437,7 @@ def enumerate_subset_targets(
     """
 
     n = int(n_components)
-    pool = _candidate_source_pool(matrix, candidate_top_sources)
+    pool = _candidate_source_pool(matrix, candidate_top_sources, candidate_extra_sources)
     target_pool = _target_pool_per_source(matrix, candidate_target_topk)
 
     order_pairs: dict[str, list[tuple[tuple[int, ...], int]]] = {"1": [], "2": [], "3": []}
@@ -1184,6 +1202,7 @@ def run(config: PeidHypergraphConfig) -> dict[str, Path]:
         matrix,
         n_components=n_components,
         candidate_top_sources=int(config.candidate_top_sources),
+        candidate_extra_sources=tuple(int(source) for source in config.candidate_extra_sources),
         candidate_target_topk=int(config.candidate_target_topk),
         third_source_topk=int(config.candidate_third_source_topk),
         order_max=int(config.order_max),
@@ -1552,6 +1571,7 @@ def parse_args(argv: Sequence[str] | None = None) -> PeidHypergraphConfig:
     parser.add_argument("--force-retrain", action="store_true")
     parser.add_argument("--order-max", type=int, default=3, choices=[1, 2, 3])
     parser.add_argument("--candidate-top-sources", type=int, default=14)
+    parser.add_argument("--candidate-extra-sources", default="")
     parser.add_argument("--candidate-target-topk", type=int, default=10)
     parser.add_argument("--candidate-third-source-topk", type=int, default=15)
     parser.add_argument("--delta2-significance-z", type=float, default=2.0)
@@ -1564,6 +1584,7 @@ def parse_args(argv: Sequence[str] | None = None) -> PeidHypergraphConfig:
     parser.add_argument("--self-check-samples", type=int, default=5)
     args = parser.parse_args(argv)
     args.ensemble_ridge_alphas = parse_float_tuple(args.ensemble_ridge_alphas)
+    args.candidate_extra_sources = parse_int_tuple(args.candidate_extra_sources)
     return PeidHypergraphConfig(**vars(args))
 
 
