@@ -5,13 +5,13 @@
 这一组实验放在最前面，因为它直接检验 PEID 二阶协同对 gateway / mediator 解释的影响。实验使用 Runge 等人 [R1] 的 NCEP SLP 口径下得到的 60 维周尺度 Varimax 分量，输入最近 4 周状态，预测下一周状态；随后比较两种读出：
 
 - 不考虑二阶协同时，只用 pairwise MLP-TM-EI 构造路径效应，得到 path ACE / AMCE。
-- 考虑二阶协同时，用 PEID 的二阶增量补充 pairwise 节点效应和路径效应，得到 Hyper-ACE / Hyper-ACS / Hyper-AMCE。
+- 考虑二阶协同时，用 PEID 的二阶 \(Syn^{\mathrm{EID}}\) 补充一阶 \(EI\) 节点效应和路径效应，得到源侧 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\)、目标侧 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\) 与 Hyper-AMCE。
 
 非线性读出使用同一组 60 维周尺度分量。保存运行中的 MLP/Ridge 融合模型 test RMSE 为 `0.714863`、MAE 为 `0.569984`、相关系数为 `0.450806`；相对 tuned Ridge 的 RMSE 改进为 `0.001376`，block bootstrap 95% CI 为 `[0.000893, 0.001825]`，单侧 \(p=0.0002\)。该提升很小，只用于支持“预测器没有失效，可以作为结构读出模型”，不应解释为显著提升天气或气候预测技能。
 
 ![Runge MLP-TM-EI and PEID comparison map](assets/part2_runge_mlp_peid_comparison_map.png)
 
-*图 1. 不考虑二阶协同与考虑二阶协同后的 Runge 地理对比。A、B：pairwise MLP-TM-EI path-effect；C、D：加入二阶协同后的 PEID Hyper-ACE / Hyper-ACS 与 Hyper-AMCE。节点位置来自对应 Varimax loading 的高载荷中心。*
+*图 1. 不考虑二阶协同与考虑二阶协同后的 Runge 地理对比。A、B：pairwise MLP-TM-EI path-effect；C、D：加入二阶 \(Syn^{\mathrm{EID}}\) 后的 PEID 源侧/目标侧 \(EI+Syn\) 聚合指标与 Hyper-AMCE。节点位置来自对应 Varimax loading 的高载荷中心。*
 
 图 1 比柱状排序更直接：加入二阶协同后，gateway 的高值区仍保留 Indo-Pacific、东太平洋、热带大西洋等热带核心节点，但源侧强度在更多远端模态上被抬高；mediator 图的变化更明显，Hyper-AMCE 不再只反映 pairwise path product，而更多反映节点是否经常作为二阶协同源成员参与目标读出。按当前结果文件，gateway 排序的 Spearman / Kendall 相关为 `0.8678` / `0.6780`，top-5 有 4 个节点重合；mediator 排序相关为 `0.9044` / `0.8531`，top-5 只重合 No.0 和 No.2。
 
@@ -19,15 +19,15 @@
 
 ### 二源协同超边
 
-MLP-TM-EI/PEID 的源对综合排序按显著正二阶 \(\Delta_2\) target 求和。前三个源对为 `{No.6, No.18}`、`{No.18, No.13}` 和 `{No.0, No.7}`，total positive \(\Delta_2\) 分别为 `0.013160`、`0.011660` 和 `0.009892`。
+MLP-TM-EI/PEID 的源对综合排序按显著正二阶 \(Syn^{\mathrm{EID}}\) target 求和。前三个源对为 `{No.6, No.18}`、`{No.18, No.13}` 和 `{No.0, No.7}`，total positive \(Syn^{\mathrm{EID}}\) 分别为 `0.013160`、`0.011660` 和 `0.009892`。
 
 ![Top integrated Runge MLP-TM-EI source-pair synergy map](assets/part2_runge_mlp_top_pair_synergy_map.png)
 
-*图 2. MLP-TM-EI/PEID 中按总正二阶协同排序最高的三个源对及其各自前五个正协同 target。紫色汇合点表示二源联合读出；面板角标标出源变量和目标变量的预测时间间隔。当前 Runge 读出使用 latest source，即 \(X_t \rightarrow X_{t+1}\)，所以图中超边均为 1 周间隔。汇合点沿源对到目标的路径交错展开，箭头宽度和颜色深浅随 \(\Delta_2\) 增大而增强；节点位置来自对应 Varimax loading 的高载荷中心。*
+*图 2. MLP-TM-EI/PEID 中按总正二阶协同排序最高的三个源对及其各自前五个正协同 target。紫色汇合点表示二源联合读出；面板角标标出源变量和目标变量的预测时间间隔。当前 Runge 读出使用 latest source，即 \(X_t \rightarrow X_{t+1}\)，所以图中超边均为 1 周间隔。汇合点沿源对到目标的路径交错展开，箭头宽度和颜色深浅随 \(Syn^{\mathrm{EID}}\) 增大而增强；节点位置来自对应 Varimax loading 的高载荷中心。*
 
 ![Runge PEID synergy map](assets/part2_runge_peid_synergy_map.png)
 
-*图 3. No.0 与 No.1 附近的二阶 PEID 协同关系。节点外圈表示 hyper-ACE，内圈表示 hyper-ACS；紫色汇合箭头表示显著正二阶协同超边，面板角标中的 \(\Delta t=1\) week 表示 latest source \(X_t\) 到目标 \(X_{t+1}\) 的时间间隔。灰色小点只提供空间参照。*
+*图 3. No.0 与 No.1 附近的二阶 PEID 协同关系。节点外圈表示源侧 \(EI_{\mathrm{src}}^{(1)}+Syn_{\mathrm{src}}^{(2),\mathrm{EID}}\)，内圈表示目标侧 \(EI_{\mathrm{tgt}}^{(1)}+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}\)；紫色汇合箭头表示显著正二阶协同超边，面板角标中的 \(\Delta t=1\) week 表示 latest source \(X_t\) 到目标 \(X_{t+1}\) 的时间间隔。灰色小点只提供空间参照。*
 
 二阶 PEID 进一步问一个更强的问题：目标模态的变化，是否需要两个源模态一起看才解释得更好。图 3 中的紫色超边不是风场轨迹，也不是能量沿线传播路径，而是“两个空间模态联合起来比两个单独模态之和提供更多信息”的统计关系。当前图上的 \(\Delta t=1\) week 也限制了地理遥相关解释：跨洋或跨半球超边不能被说成异常在 1 周内从源区物理传播到目标区，更稳妥的解释是同一周背景态、低频模态记忆、共同驱动或已有遥相关型态对下一周目标读出的统计增量。No.0 相关超边有较强可读性：海洋大陆位于 Indo-Pacific 暖池和 Walker 环流上升支附近，这一区域的深对流和潜热释放容易影响大尺度环流 [R5]；ENSO 的 atmospheric bridge 也说明热带太平洋异常可以通过大气桥传到远端海盆 [R4]。因此，`{No.0, No.18} -> No.8`、`{No.0, No.14} -> No.1` 这类关系更适合作为 Indo-Pacific 背景态与远端模态共同调制目标区域的候选信号，而不是短时传播证据。
 
@@ -65,34 +65,42 @@ A_{sm}T_{mt}.
 
 ACE 看一个分量作为源头能往外影响多少对象，ACS 看一个分量作为目标被多少对象影响，AMCE 看一个分量是否常处在“别人先到它、再由它传出去”的中介位置。简单说，ACE 是 outgoing gateway，ACS 是 incoming susceptibility，AMCE 是 mediator。
 
-图中的 PEID Hyper-ACE / Hyper-ACS / Hyper-AMCE 用同一组 MLP 干预样本重新估计一阶和二阶 PEID 增量。这里的 PEID 部分是 direct one-step hyperedge membership aggregation：它统计 \(X_t\to X_{t+1}\) 这一预测步上的直接一阶边和二阶超边，不把二阶超边再沿 \(T\) 传播到更远节点。对源集合 \(K\) 和目标 \(t\)，协同增量用 Möbius 反演定义：
+图中的 PEID 聚合指标用同一组 MLP 干预样本重新估计一阶 EI 和二阶 Syn。这里的 PEID 部分是 direct one-step hyperedge membership aggregation：它统计 \(X_t\to X_{t+1}\) 这一预测步上的直接一阶边和二阶超边，不把二阶超边再沿 \(T\) 传播到更远节点。记
+\(EI_{i\to j}:=EI(X_t^{(i)}\to X_{t+1}^{(j)})\)。对二源集合 \(K=\{i,k\}\) 和目标 \(j\)，按研究框架中的写法定义
 
 ```math
-\Delta_K(t)=\sum_{\emptyset\ne B\subseteq K}(-1)^{|K|-|B|}
-EI(X_B\rightarrow X_t).
+Syn_{K\Rightarrow j}^{\mathrm{EID}}
+:=
+Syn_{\mathcal{P}_{\mathrm{fine}}(K)}^{\mathrm{EID}}
+\bigl(X_t^K\to X_{t+1}^{(j)}\bigr)
+=
+EI\bigl(X_t^K\to X_{t+1}^{(j)}\bigr)
+-\sum_{a\in K}EI\bigl(X_t^{(a)}\to X_{t+1}^{(j)}\bigr).
 ```
 
-这里把求和子集写作 \(B\)，避免和上面的路径矩阵 \(A\) 混淆。一阶时 \(\Delta_{\{i\}}(t)=EI(X_i\to X_t)\)；二阶时 \(\Delta_{\{i,k\}}(t)=EI(X_{\{i,k\}}\to X_t)-EI(X_i\to X_t)-EI(X_k\to X_t)\)。当前图只把满足 \(|z|\ge2\) 的二阶项计入 Hyper 指标。注意 Hyper 指标的一阶基线来自完整 order-1 PEID 表，包含 \(i=t\) 的 self-memory 项；这与上面删除自环的 pairwise 路径矩阵 \(A\) 不同。
+当前图只把满足 \(|z_{K\Rightarrow j}|\ge2\) 的二阶 Syn 项计入聚合指标。注意一阶 EI 基线来自完整 order-1 PEID 表，包含 \(i=j\) 的 self-memory 项；这与上面删除自环的 pairwise 路径矩阵 \(A\) 不同。
 
 图 C 的外圈不是只画二阶项，而是画一阶源侧强度加二阶源成员贡献：
 
 ```math
-\mathrm{Hyper\text{-}ACE}(i)=
+EI_{\mathrm{src}}^{(1)}(i)+Syn_{\mathrm{src}}^{(2),\mathrm{EID}}(i)
+=
 \frac{1}{n-1}\left[
-\sum_t|\Delta_{\{i\}}(t)|
-+\sum_{\substack{(K,t):\,i\in K,\ |K|=2,\ |z_K(t)|\ge2}}
-\frac{|\Delta_K(t)|}{|K|}
+\sum_j|EI_{i\to j}|
++\sum_{\substack{(K,j):\,i\in K,\ |K|=2,\ |z_{K\Rightarrow j}|\ge2}}
+\frac{|Syn_{K\Rightarrow j}^{\mathrm{EID}}|}{|K|}
 \right].
 ```
 
 图 C 的内圈是目标侧的对应量：
 
 ```math
-\mathrm{Hyper\text{-}ACS}(i)=
+EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
+=
 \frac{1}{n-1}\left[
-\sum_s|\Delta_{\{s\}}(i)|
-+\sum_{\substack{(K,t):\,t=i,\ |K|=2,\ |z_K(i)|\ge2}}
-|\Delta_K(i)|
+\sum_s|EI_{s\to i}|
++\sum_{\substack{(K,j):\,j=i,\ |K|=2,\ |z_{K\Rightarrow i}|\ge2}}
+|Syn_{K\Rightarrow i}^{\mathrm{EID}}|
 \right].
 ```
 
@@ -101,13 +109,13 @@ EI(X_B\rightarrow X_t).
 ```math
 \mathrm{Hyper\text{-}AMCE}(m)=
 \mathrm{AMCE}(m)+
-\frac{1}{n-1}\sum_{\substack{(K,t):\,m\in K,\ |K|=2,\ |z_K(t)|\ge2}}
-\frac{|\Delta_K(t)|}{|K|}.
+\frac{1}{n-1}\sum_{\substack{(K,j):\,m\in K,\ |K|=2,\ |z_{K\Rightarrow j}|\ge2}}
+\frac{|Syn_{K\Rightarrow j}^{\mathrm{EID}}|}{|K|}.
 ```
 
-因此，图 C/D 与当前结果文件是对应的，但对应关系不是“只把二阶公式直接画出来”：Hyper-ACE 和 Hyper-ACS 都含有一阶 PEID 基线，Hyper-AMCE 含有 pairwise 路径 AMCE 基线。二阶项的作用是把经常出现在“两个源一起看才有额外信息”的源成员或目标节点抬高；Hyper-AMCE 的二阶部分衡量协同源成员身份，不等同于严格证明信息真的经由该节点传播。
+因此，图 C/D 与当前结果文件是对应的，但对应关系不是“只把二阶公式直接画出来”：源侧和目标侧聚合指标都含有一阶 EI 基线，Hyper-AMCE 含有 pairwise 路径 AMCE 基线。二阶 Syn 项的作用是把经常出现在“两个源一起看才有额外信息”的源成员或目标节点抬高；Hyper-AMCE 的二阶部分衡量协同源成员身份，不等同于严格证明信息真的经由该节点传播。
 
-这也给图 C/D 的解释加了一个边界：pairwise ACE/ACS/AMCE 的 \(T\) 考虑了多步路径，但当前 Hyper-ACE / Hyper-ACS 的 PEID 增量没有计算“\(\{i,k\}\) 先协同影响 \(t\)，再由 \(t\) 继续影响更远节点”的高阶路径传播。因此这些 Hyper 图更适合读作直接协同参与度图，而不是完整的高阶超路径中心性图。若后续要回答多步高阶传播问题，需要另定义 propagated hyper score，例如把每条 \(\Delta_K(t)\) 再按 \(t\) 到下游节点的 \(T_{tu}\) 进行扩散加权。
+这也给图 C/D 的解释加了一个边界：pairwise ACE/ACS/AMCE 的 \(T\) 考虑了多步路径，但当前 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\) 聚合指标没有计算“\(\{i,k\}\) 先协同影响 \(j\)，再由 \(j\) 继续影响更远节点”的高阶路径传播。因此这些 Hyper 图更适合读作直接协同参与度图，而不是完整的高阶超路径中心性图。若后续要回答多步高阶传播问题，需要另定义 propagated hyper score，例如把每条 \(Syn_{K\Rightarrow j}^{\mathrm{EID}}\) 再按 \(j\) 到下游节点的 \(T_{ju}\) 进行扩散加权。
 
 ## UniCM ENSO 实验口径
 
