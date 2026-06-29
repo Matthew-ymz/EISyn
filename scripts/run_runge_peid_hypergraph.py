@@ -83,6 +83,8 @@ class PeidHypergraphConfig:
 
     component_scores: Path = DEFAULT_COMPONENT_SCORES
     output_dir: Path = Path(".")
+    result_subdir: Path = RESULT_SUBDIR
+    fig_subdir: Path = FIG_SUBDIR
     lag: int = 4
     horizon: int = 1
     hidden_dim: int = 64
@@ -168,7 +170,15 @@ def _import_transport_map():
 
 def _jsonable_config(config: PeidHypergraphConfig) -> dict[str, object]:
     data = asdict(config)
-    for key in ("component_scores", "output_dir", "pairwise_matrix_path", "pairwise_gateway_path", "pairwise_mediator_path"):
+    for key in (
+        "component_scores",
+        "output_dir",
+        "result_subdir",
+        "fig_subdir",
+        "pairwise_matrix_path",
+        "pairwise_gateway_path",
+        "pairwise_mediator_path",
+    ):
         data[key] = str(getattr(config, key))
     return data
 
@@ -1157,8 +1167,8 @@ def run(config: PeidHypergraphConfig) -> dict[str, Path]:
             **blend,
         }
 
-    result_dir = Path(config.output_dir) / RESULT_SUBDIR
-    fig_dir = Path(config.output_dir) / FIG_SUBDIR
+    result_dir = Path(config.output_dir) / Path(config.result_subdir)
+    fig_dir = Path(config.output_dir) / Path(config.fig_subdir)
     result_dir.mkdir(parents=True, exist_ok=True)
     fig_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1538,6 +1548,8 @@ def parse_args(argv: Sequence[str] | None = None) -> PeidHypergraphConfig:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--component-scores", type=Path, default=DEFAULT_COMPONENT_SCORES)
     parser.add_argument("--output-dir", type=Path, default=Path("."))
+    parser.add_argument("--result-subdir", type=Path, default=RESULT_SUBDIR)
+    parser.add_argument("--fig-subdir", type=Path, default=FIG_SUBDIR)
     parser.add_argument("--lag", type=int, default=4)
     parser.add_argument("--horizon", type=int, default=1)
     parser.add_argument("--hidden-dim", type=int, default=64)
