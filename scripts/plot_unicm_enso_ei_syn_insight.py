@@ -55,6 +55,13 @@ def display_pair(pair: object) -> str:
     return " + ".join(display_label(part) for part in str(pair).split("|"))
 
 
+def target_asset_slug(target: str) -> str:
+    if str(target) == "nino":
+        return "enso"
+    safe = "".join(char.lower() if char.isalnum() else "_" for char in str(target))
+    return "_".join(part for part in safe.split("_") if part)
+
+
 def configure_matplotlib() -> None:
     mpl.rcParams.update(
         {
@@ -289,18 +296,37 @@ def plot_source_ei(source_ei_leads: pd.DataFrame) -> Path:
     return save_figure(fig, "unicm_enso_source_ei_rankings")[0]
 
 
-def select_syn_pairs(syn_summary: pd.DataFrame, target: str, top_k: int = SYN_TOP_K) -> list[str]:
+def select_syn_pairs(
+    syn_summary: pd.DataFrame,
+    target: str,
+    top_k: int = SYN_TOP_K,
+    required_pairs: list[str] | None = None,
+) -> list[str]:
     target_rows = syn_summary[syn_summary["target"].astype(str) == target]
     top_pairs = target_rows.sort_values(["mean_syn", "pair"], ascending=[False, True]).head(int(top_k))["pair"].tolist()
     pairs: list[str] = []
-    for pair in top_pairs + REQUIRED_PAIRS:
+    required = REQUIRED_PAIRS if required_pairs is None else required_pairs
+    for pair in top_pairs + required:
         if pair in set(target_rows["pair"].astype(str)) and pair not in pairs:
             pairs.append(pair)
     return pairs
 
 
-def plot_syn_leads(syn_summary: pd.DataFrame, syn_lead: pd.DataFrame) -> Path:
-    fig, axes = plt.subplots(1, len(TARGETS), figsize=(6.4 * len(TARGETS), 3.8), constrained_layout=True, sharey=False)
+def plot_syn_leads(
+    syn_summary: pd.DataFrame,
+    syn_lead: pd.DataFrame,
+    *,
+    targets: list[str] | None = None,
+    base_name: str | None = None,
+    top_k: int = SYN_TOP_K,
+) -> Path:
+    target_names = TARGETS if targets is None else [str(target) for target in targets]
+    if not target_names:
+        raise ValueError("targets must contain at least one target.")
+    if base_name is None:
+        slug = target_asset_slug(target_names[0]) if len(target_names) == 1 else "multi_target"
+        base_name = f"unicm_{slug}_mode_pair_syn_leads"
+    fig, axes = plt.subplots(1, len(target_names), figsize=(6.4 * len(target_names), 3.8), constrained_layout=True, sharey=False)
     axes = np.atleast_1d(axes)
     palette = {
         "nino|SPMM": "#4C78A8",
@@ -323,17 +349,20 @@ def plot_syn_leads(syn_summary: pd.DataFrame, syn_lead: pd.DataFrame) -> Path:
         "nino|IOD": "#C85200",
         "NPMM|nino12": "#6B6ECF",
     }
-    for axis, target in zip(axes, TARGETS):
-        for pair in select_syn_pairs(syn_summary, target):
+    fallback_colors = plt.get_cmap("tab20").colors
+    for axis, target in zip(axes, target_names):
+        for color_index, pair in enumerate(select_syn_pairs(syn_summary, target, top_k=top_k)):
             subset = syn_lead[
                 (syn_lead["target"].astype(str) == target) & (syn_lead["pair"].astype(str) == pair)
             ].sort_values("lead")
+            if subset.empty:
+                continue
             summary_row = syn_summary[
                 (syn_summary["target"].astype(str) == target) & (syn_summary["pair"].astype(str) == pair)
             ].iloc[0]
             style = "--" if pair == "NPMM|TNA" else "-"
             width = 1.6 if pair in REQUIRED_PAIRS else 1.1
-            color = palette.get(pair, "#A0A0A0")
+            color = palette.get(pair, fallback_colors[color_index % len(fallback_colors)])
             alpha = 1.0 if pair in REQUIRED_PAIRS or int(summary_row["rank_within_target"]) <= 5 else 0.78
             x = subset["lead"].to_numpy(dtype=float)
             mean = subset["mean"].to_numpy(dtype=float)
@@ -360,7 +389,7 @@ def plot_syn_leads(syn_summary: pd.DataFrame, syn_lead: pd.DataFrame) -> Path:
         axis.set_xlabel("Lead (months)")
         axis.set_ylabel("Seed mean Syn (bits)")
         axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
-    return save_figure(fig, "unicm_enso_mode_pair_syn_leads")[0]
+    return save_figure(fig, base_name)[0]
 
 
 def fmt(value: float, digits: int = 6) -> str:
