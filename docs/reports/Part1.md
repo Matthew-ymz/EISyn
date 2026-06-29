@@ -233,6 +233,14 @@ $$
 
 这个对照说明，在方程形式、source/target 和 EI 分解公式都固定后，是否出现临界峰主要取决于系统规模。`N=2` 没有经典 Kuramoto 的热力学同步相变，所以不能期待它给出与大系统相同的 $\Phi^{EID}$ 峰；`N=64` 才提供清晰的 order-parameter 转变参照。learned whole-state readout 仍有明显正基线和幅度偏差，因此目前只作为学习模型诊断，判断临界峰仍以 Oracle whole-state $\Phi^{EID}$ 为准。
 
+为了检查这个峰值来自哪一项，进一步把 `N=64` Oracle whole-state 结果分解为联合 EI 与单独 EI 之和：
+
+![Large-N Kuramoto EI decomposition](../../fig/classic_network_dynamics_benchmark/large_kuramoto_n64_ei_decomposition.png)
+
+分解结果显示，$EI_{\mathrm{do}}(\{\mathbf{s}_t^i\}_{i=1}^{N};\mathbf{y}_{t+\tau})$ 和 $\sum_i EI_{\mathrm{do}}(\mathbf{s}_t^i;\mathbf{y}_{t+\tau})$ 都随 $K$ 增大而整体下降。这不是反常现象，因为这里的 EI 衡量的是最大熵相位干预下，当前相位状态有多少可区分信息保留到未来 whole-state target 中。`K=0` 时，每个振子近似独立转动，当前相位到未来相位接近一一映射，所以联合 EI 和单独 EI 之和都很高，并且二者几乎相等，$\Phi^{EID}\approx0$。
+
+随着 $K$ 增大，同步吸引会压缩相位差自由度，许多不同初始相位会被映射到更相似的未来状态，因此总的可区分信息下降。临界前沿附近，单个振子对未来全系统状态的解释力下降得更快，而联合状态仍保留对集体相位关系的解释力，所以两项差值扩大，$\Phi^{EID}$ 在 `K≈1.7` 达峰。到强同步区后，系统接近低维同步流形，联合 EI 本身也明显降低，差值随之回落。换言之，临界峰不是因为总 EI 最大，而是因为整体相对于部分之和的不可分解优势最大。
+
 ## Liang information flow 对照
 
 Liang 对照实验使用完全相同的 `common_driver_sine_synergy` 配置：`alpha=1`、`noise=0.05`、`n_samples=1100`、`beta∈[0,1]` 步长 `0.05`、seed 为 `0,1,2,3`。输入只包含原始观测变量 `x,y,z,w`，不额外加入 `sin(x_t y_t)` 人工特征。因此这里检验的是 Liang 线性多变量信息流在同一观测序列上的 pairwise 读数，而不是给方法显式暴露二源非线性结构项。
