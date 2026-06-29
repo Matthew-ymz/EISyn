@@ -42,6 +42,7 @@ from scripts.classic_network_dynamics_benchmark import (
     run_ode_future_state_sweeps,
     run_part1_combined_synergy_figure,
     _plot_panel,
+    _plot_large_kuramoto_n64_ei_decomposition,
     _kuramoto_order_parameter,
     _kuramoto_order_excess,
     _nsource_peid_from_ei,
@@ -724,6 +725,61 @@ def test_large_kuramoto_oracle_nsource_whole_state_phi_sweep_matches_dmf_style_t
     assert payload["phi_definition"] == "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)"
     assert {"oracle_phi_mean", "oracle_joint_ei_mean", "oracle_singleton_ei_sum_mean"} <= set(payload["summary"][0])
     assert "oracle_phi_peak_coupling" in payload["criticality_diagnostic"]
+
+
+def test_large_kuramoto_n64_ei_decomposition_plot_uses_only_oracle_ab_panels(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import matplotlib.figure
+
+    captured: dict[str, object] = {}
+    original_savefig = matplotlib.figure.Figure.savefig
+
+    def capture_savefig(self, *args, **kwargs):
+        captured["titles"] = [axis.get_title(loc="left") for axis in self.axes]
+        captured["line_labels"] = [line.get_label() for axis in self.axes for line in axis.lines]
+        captured["axis_count"] = len(self.axes)
+        return original_savefig(self, *args, **kwargs)
+
+    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", capture_savefig)
+    payload = {
+        "summary": [
+            {
+                "coupling": 0.0,
+                "oracle_joint_ei_mean": 10.0,
+                "oracle_joint_ei_sem": 0.1,
+                "oracle_singleton_ei_sum_mean": 9.5,
+                "oracle_singleton_ei_sum_sem": 0.1,
+                "oracle_phi_mean": 0.5,
+                "oracle_phi_sem": 0.05,
+                "natural_order_mean": 0.0,
+                "natural_order_sem": 0.0,
+            },
+            {
+                "coupling": 1.6,
+                "oracle_joint_ei_mean": 8.0,
+                "oracle_joint_ei_sem": 0.1,
+                "oracle_singleton_ei_sum_mean": 5.0,
+                "oracle_singleton_ei_sum_sem": 0.1,
+                "oracle_phi_mean": 3.0,
+                "oracle_phi_sem": 0.05,
+                "natural_order_mean": 0.8,
+                "natural_order_sem": 0.01,
+            },
+        ],
+        "criticality_diagnostic": {
+            "theoretical_critical_coupling": 1.59,
+            "order_transition_coupling": 1.6,
+        },
+    }
+
+    _plot_large_kuramoto_n64_ei_decomposition(payload, tmp_path / "decomposition.png")
+
+    assert captured["axis_count"] == 3
+    assert captured["titles"] == ["a  Oracle EI components", "b  Difference and synchronization", ""]
+    assert "Learned readout audit" not in captured["titles"]
+    assert not any("theory" in label or "max d order" in label for label in captured["line_labels"])
 
 
 def test_gaussian_kernel_smoothing_spreads_local_phi_peak_without_changing_grid() -> None:

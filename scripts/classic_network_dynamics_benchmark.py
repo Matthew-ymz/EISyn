@@ -3421,6 +3421,87 @@ def _plot_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
     plt.close(fig)
 
 
+def _plot_large_kuramoto_n64_ei_decomposition(payload: Mapping[str, object], path: Path) -> None:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+        }
+    )
+
+    summary = list(payload["summary"])  # type: ignore[index]
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.0), constrained_layout=True)
+
+    joint_mean = np.asarray([float(row["oracle_joint_ei_mean"]) for row in summary], dtype=float)
+    joint_sem = np.asarray([float(row.get("oracle_joint_ei_sem", 0.0)) for row in summary], dtype=float)
+    singleton_mean = np.asarray([float(row["oracle_singleton_ei_sum_mean"]) for row in summary], dtype=float)
+    singleton_sem = np.asarray([float(row.get("oracle_singleton_ei_sum_sem", 0.0)) for row in summary], dtype=float)
+    axes[0].plot(couplings, joint_mean, color="#4C78A8", marker="o", linewidth=2.0, markersize=4.6, label=r"$EI(all;Y)$")
+    axes[0].fill_between(couplings, joint_mean - joint_sem, joint_mean + joint_sem, color="#4C78A8", alpha=0.14, linewidth=0)
+    axes[0].plot(
+        couplings,
+        singleton_mean,
+        color="#D98C2F",
+        marker="D",
+        linewidth=2.0,
+        markersize=4.6,
+        label=r"$\sum_i EI(i;Y)$",
+    )
+    axes[0].fill_between(
+        couplings,
+        singleton_mean - singleton_sem,
+        singleton_mean + singleton_sem,
+        color="#D98C2F",
+        alpha=0.14,
+        linewidth=0,
+    )
+    axes[0].set_ylabel("Effective information (bits)")
+    axes[0].set_title("a  Oracle EI components", loc="left", fontweight="bold")
+
+    phi_mean = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+    phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
+    order_mean = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+    order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
+    axes[1].plot(couplings, phi_mean, color="#2F7D5A", marker="o", linewidth=2.0, markersize=4.6, label=r"$\Phi^{EID}$")
+    axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color="#2F7D5A", alpha=0.14, linewidth=0)
+    axes[1].set_ylabel(r"$\Phi^{EID}$ (bits)")
+    axes[1].set_title("b  Difference and synchronization", loc="left", fontweight="bold")
+
+    order_axis = axes[1].twinx()
+    order_axis.plot(couplings, order_mean, color="#777777", marker="^", linewidth=1.8, markersize=4.4, label="corrected order")
+    order_axis.fill_between(couplings, order_mean - order_sem, order_mean + order_sem, color="#777777", alpha=0.12, linewidth=0)
+    order_axis.set_ylabel("Corrected order")
+    order_axis.spines["top"].set_visible(False)
+
+    for axis in axes:
+        axis.set_xscale("symlog", linthresh=0.05)
+        axis.set_xlim(-0.01, max(float(np.max(couplings)), 4.0) * 1.03)
+        axis.set_xticks([0.0, 0.05, 0.1, 1.0, 4.0])
+        axis.set_xticklabels(["0", "0.05", "0.1", "1", "4"])
+        axis.set_xlabel("Coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    handles, labels = axes[1].get_legend_handles_labels()
+    order_handles, order_labels = order_axis.get_legend_handles_labels()
+    axes[1].legend(handles + order_handles, labels + order_labels, loc="center left", bbox_to_anchor=(1.13, 0.5), frameon=False)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
 def run_ode_future_state_sweeps(
     *,
     mode: str = "full",
