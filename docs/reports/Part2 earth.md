@@ -129,23 +129,17 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 | current intervention samples | `8192` |
 | intervention support | all 12 historical months x 11 mode dimensions sampled independently from `[-4, 4]` |
 | sampling seed | `20260619` |
-| bootstrap repeats | `200` |
-| target mode | ENSO |
+| bootstrap repeats | ENSO summary: `200`; IOD pair curve: seed mean only |
+| target mode | 图 6-7 和图 9 为 ENSO；图 8 为 all modes；图 10 为 IOD |
 | source modes | ENSO, NPMM, SPMM, IOB, IOD, SIOD, TNA, nino12, nino3, nino4, WWV |
 
-整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的 ENSO 输出估计 `EI(history; target_lead)`。先定义二源 Syn：
+整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的目标 mode 输出估计 `EI(history; target_lead)`。本文保留二源 Syn 读数：
 
 ```math
 \mathrm{Syn}_{ij}=EI_{ij}-EI_i-EI_j.
 ```
 
-再用布尔子集格 Möbius 反演定义三源 interaction：
-
-```math
-\Delta_{ijk}=EI_{ijk}-EI_{ij}-EI_{ik}-EI_{jk}+EI_i+EI_j+EI_k.
-```
-
-所有这些读数都使用 Gaussian log-det 估计，适合作为 full-history 机制筛查；它们不等同于最终的非线性 transport-map PEID 分解。
+其中 `EI_i` 和 `EI_j` 是两个 source mode 的 12 个月历史分别到同一目标 lead 输出的单源 EI，`EI_{ij}` 是二者联合 source 到同一目标的 EI。所有这些读数都使用 Gaussian log-det 估计，适合作为 full-history 机制筛查；它们不等同于最终的非线性 transport-map PEID 分解。
 
 ## Mode 地理含义
 
@@ -179,6 +173,18 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 单源 EI 曲线显示，ENSO 自身历史在短 lead 占绝对主导，但随后快速衰减。排除自身后，`nino3`、`nino12` 和 IOD 的 EI 随 lead 增长并在较长 lead 位于前列，NPMM 则在中期达到较高水平后回落；这些长 lead 曲线的 checkpoint 波动也明显扩大，因此不宜过度解释精细排序。TNA 的曲线始终较低，更稳妥的说法是，它可能只在 ENSO 背景态或其他太平洋/印度洋模态共同存在时提供弱增量。
 
+## All-mode self EI: 不同模态的自身记忆尺度不同
+
+为了和二源 Syn 的量级作对照，这里进一步把每个 mode 都作为 target，并只输入该 mode 自己的 12 个月历史，计算 self EI 随 lead 的变化。也就是说，每条曲线都对应 `source = target`，没有引入其他 mode 的历史。
+
+![All-mode self EI lead curves](assets/unicm_all_modes_self_ei_leads.png)
+
+*图 8. UniCM 11 个 mode 的 self EI lead 曲线。实线为 checkpoint seed mean，浅色带为 seed standard deviation；横轴为 target lead，纵轴为该 mode 自身 12 个月历史到未来状态的 EI。*
+
+这张图说明，self EI 的绝对量级显著大于前面的二源 Syn：多数 mode 在 lead 1 都有约 `1.6-2.2` bits 的自身历史信息，而二源 Syn 通常只有 `10^{-3}` 到 `10^{-2}` bits。`NPMM`、`IOB`、`WWV`、`SPMM`、`TNA` 和 `SIOD` 的 self EI 衰减较慢，lead 12 仍约 `0.89-0.99` bits；相反，ENSO 相关的 `nino`、`nino3`、`nino4`、`nino12` 以及 `IOD` 在前 6 到 10 个月后快速下降，lead 24 基本接近 `0.05-0.08` bits。
+
+因此，self EI 主要读到的是各模态状态本身的持久性和自回归记忆，不应直接拿它和二源 Syn 当作同一层面的机制强度比较。二源 Syn 更像是在“已经有各自单源信息之后，两个历史变量联合读数还能额外提供多少目标信息”；它小很多是预期内的结果，也解释了为什么在分析协同项时需要单独画 Syn 曲线，而不能只看总 EI 或 self EI。
+
 ## 二源 Syn
 
 | Target | Source pair | rank | mean Syn 1..24 | Syn seed SD | 95% CI | seed rank range | joint EI 1..24 | left EI 1..24 | right EI 1..24 |
@@ -194,7 +200,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![ENSO mode-pair Syn leads](assets/unicm_enso_mode_pair_syn_leads.png)
 
-*图 8. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn.*
+*图 9. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn.*
 
 这张图的核心信息很直接：模型不是只看“ENSO 现在有多强”，还在看“暖异常更偏东、偏中太平洋，还是和其他海盆背景态一起出现”。前 1 到 7 个月，`ENSO + nino3` 和 `ENSO + nino4` 的 Syn 明显更高，说明 ENSO 的短期未来演变对赤道太平洋东西向 SST 结构很敏感。同样强度的 ENSO，如果空间型态不同，后续几个月的增长、衰减和位相演变也可能不同。
 
@@ -204,23 +210,28 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 
 
-## 三源 interaction: 高阶增量仍依赖 ENSO 背景态
+## IOD target 二源 Syn: 自身记忆与印度洋/ENSO 背景共同调制
 
-三源 interaction 已在同一组 8192-sample cache 上重算，覆盖 11 个 source mode 的全部 165 个无序三元组和 24 个 leads。
+作为对照，这里把 target 从 ENSO 换成 IOD，其他 full-history 最大熵干预口径保持一致：`8192` samples、checkpoint seeds `1, 2, 3`、lead `1..24`、intervention bound `[-4, 4]`，source modes 仍为 11 个 UniCM mode。图中展示按 IOD target 的 mean Syn 排名前 12 的 source pair，并保留同一组固定对照 pair。
 
-| Rank | Source triple | mean delta3 | seed SD | seed rank range | positive seeds | joint EI |
-|---:|---|---:|---:|---|---:|---:|
-| 1 | ENSO + nino3 + nino4 | 0.000282 | 0.000185 | 1-10 | 3/3 | 0.511657 |
-| 2 | ENSO + nino12 + nino4 | 0.000235 | 0.000111 | 4-9 | 3/3 | 0.508868 |
-| 3 | ENSO + SPMM + nino12 | 0.000225 | 0.000140 | 2-8 | 3/3 | 0.509713 |
-| 4 | ENSO + nino12 + nino3 | 0.000203 | 0.000177 | 1-63 | 3/3 | 0.514345 |
-| 5 | ENSO + NPMM + nino4 | 0.000195 | 0.000165 | 3-14 | 3/3 | 0.504753 |
+| Rank | Source pair | mean Syn 1..24 | seed SD | positive seeds | joint EI | left EI | right EI |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | IOD + SIOD | 0.012107 | 0.009310 | 3/3 | 0.350317 | 0.320329 | 0.017881 |
+| 2 | ENSO + IOD | 0.007147 | 0.002376 | 3/3 | 0.347583 | 0.020106 | 0.320329 |
+| 3 | IOD + nino4 | 0.005648 | 0.002882 | 3/3 | 0.345515 | 0.320329 | 0.019538 |
+| 4 | NPMM + IOD | 0.005263 | 0.004317 | 3/3 | 0.336838 | 0.011246 | 0.320329 |
+| 5 | SPMM + IOD | 0.004950 | 0.004075 | 3/3 | 0.334724 | 0.009445 | 0.320329 |
+| 6 | IOB + IOD | 0.004779 | 0.003570 | 3/3 | 0.333782 | 0.008674 | 0.320329 |
+| 7 | IOD + TNA | 0.003301 | 0.002480 | 3/3 | 0.331301 | 0.320329 | 0.007671 |
+| 8 | IOD + WWV | 0.003011 | 0.001956 | 3/3 | 0.329901 | 0.320329 | 0.006562 |
 
-![Top UniCM third-order EI interactions](assets/unicm_enso_mode_triple_interaction_leads.png)
+![IOD target mode-pair Syn leads](assets/unicm_iod_mode_pair_syn_leads.png)
 
-*图 9. 平均三阶 interaction 排名前五的 lead 曲线。点线为三个 checkpoint seed 的均值；同色虚线为该三元组在全部 lead 和 seed 上的平均值。*
+*图 10. IOD target 的二源 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead `1..24` 上的平均 Syn。*
 
-8192 结果的 top-10 仍有 `10/10` 个三元组包含 ENSO 自身历史，因此“高阶增量依赖 ENSO 背景态”的方向未变。但是三源细排名并未收敛：1024→8192 的 165 项 rank Spearman 仅为 `0.016`，top-5 只重合 `1/5`，top-10 只重合 `2/10`；原 1024 rank 1 的 `ENSO + TNA + nino4` 在 8192 下为 rank `8`。因此三源结果只能支持背景态层面的弱结论，不能支持具体 top triple 的稳定机制排序。
+IOD 结果的主信号与 ENSO target 不同：排名靠前的 pair 大多包含 IOD 自身历史，说明 IOD 未来状态的主要可预测部分仍由自身 12 个月历史提供；但 `IOD + SIOD`、`ENSO + IOD`、`IOD + nino4`、`NPMM + IOD` 等组合有正的额外二源增益。`IOD + SIOD` 在 lead 1 达峰，`ENSO + IOD` 和 `IOD + nino4` 在 lead 8 附近更强，说明印度洋内部结构和 ENSO/太平洋背景态主要影响短中期 IOD 演变。到 lead 15 后多数曲线贴近 0，不能支持长期稳定二源协同。
+
+需要注意，`IOD + SIOD` 的 seed SD 仍接近均值，说明具体 rank 不宜过度解释。这里更稳妥的结论是：在当前 UniCM learned mechanism 中，IOD target 的二阶协同主要表现为 IOD 自身记忆与印度洋/ENSO 背景态的条件调制，而不是单个外部 mode 的独立强迫。
 
 ## 参考文献
 
