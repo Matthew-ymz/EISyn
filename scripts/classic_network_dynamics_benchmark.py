@@ -785,12 +785,19 @@ def _gaussian_block_conditional_total_correlation(
     target_cov = transition @ source_cov @ transition.T + noise_cov
     target_cov = 0.5 * (target_cov + target_cov.T)
     target_cov += float(ridge) * np.eye(target_array.shape[1])
+    target_dim = int(target_array.shape[1])
+    log2 = math.log(2.0)
+    gaussian_entropy_constant = float(target_dim) * math.log(2.0 * math.pi * math.e)
+    target_entropy = 0.5 * (gaussian_entropy_constant + _safe_logdet_psd(target_cov)) / log2
+    joint_conditional_entropy = 0.5 * (gaussian_entropy_constant + _safe_logdet_psd(noise_cov)) / log2
+    target_reference_entropy = float(target_dim)
     source_target_cov = source_cov @ transition.T
     conditional_source_cov = source_cov - source_target_cov @ np.linalg.pinv(target_cov) @ source_target_cov.T
     conditional_source_cov = 0.5 * (conditional_source_cov + conditional_source_cov.T)
     conditional_source_cov += float(ridge) * np.eye(source_dim)
 
     singleton_ei: list[float] = []
+    singleton_conditional_entropy: list[float] = []
     block_prior_logdet_sum = 0.0
     block_logdet_sum = 0.0
     offset = 0
@@ -803,15 +810,35 @@ def _gaussian_block_conditional_total_correlation(
         singleton_value = 0.5 * (_safe_logdet_psd(block_prior) - _safe_logdet_psd(block_conditional)) / math.log(2.0)
         singleton_ei.append(float(singleton_value))
         block_logdet_sum += _safe_logdet_psd(block_conditional)
+        block_source_target_cov = source_target_cov[indices, :]
+        target_given_block_cov = target_cov - block_source_target_cov.T @ np.linalg.pinv(block_prior) @ block_source_target_cov
+        target_given_block_cov = 0.5 * (target_given_block_cov + target_given_block_cov.T)
+        target_given_block_cov += float(ridge) * np.eye(target_dim)
+        singleton_conditional_entropy.append(
+            float(0.5 * (gaussian_entropy_constant + _safe_logdet_psd(target_given_block_cov)) / log2)
+        )
         offset += width
 
     joint_ei = 0.5 * (block_prior_logdet_sum - _safe_logdet_psd(conditional_source_cov)) / math.log(2.0)
     phi = float(0.5 * (block_logdet_sum - _safe_logdet_psd(conditional_source_cov)) / math.log(2.0))
+    singleton_conditional_entropy_array = np.asarray(singleton_conditional_entropy, dtype=float)
+    singleton_determinism = target_reference_entropy - singleton_conditional_entropy_array
+    singleton_degeneracy = np.full_like(singleton_determinism, target_reference_entropy - target_entropy)
     return {
         **_nsource_peid_from_ei(np.asarray(singleton_ei, dtype=float), joint_ei=float(joint_ei)),
         "phi": phi,
         "raw_phi": phi,
         "phi_estimator": "gaussian_block_conditional_total_correlation",
+        "target_reference_entropy": target_reference_entropy,
+        "target_entropy": float(target_entropy),
+        "joint_conditional_entropy": float(joint_conditional_entropy),
+        "joint_determinism": float(target_reference_entropy - joint_conditional_entropy),
+        "joint_degeneracy": float(target_reference_entropy - target_entropy),
+        "singleton_conditional_entropy": singleton_conditional_entropy_array,
+        "singleton_determinism": singleton_determinism,
+        "singleton_degeneracy": singleton_degeneracy,
+        "singleton_determinism_sum": float(np.sum(singleton_determinism)),
+        "singleton_degeneracy_sum": float(np.sum(singleton_degeneracy)),
     }
 
 
@@ -2233,6 +2260,23 @@ def _aggregate_large_kuramoto_phi_rows(rows: list[dict[str, object]]) -> list[di
     return summaries
 
 
+def _renormalize_oracle_nsource_detdeg_rows(rows: list[dict[str, object]], *, source_count: int) -> None:
+    if not rows or not all("oracle_target_entropy" in row for row in rows):
+        return
+    reference_entropy = max(float(row["oracle_target_entropy"]) for row in rows)
+    for row in rows:
+        target_entropy = float(row["oracle_target_entropy"])
+        joint_degeneracy = float(reference_entropy - target_entropy)
+        singleton_degeneracy_sum = float(float(source_count) * joint_degeneracy)
+        row["oracle_target_reference_entropy"] = reference_entropy
+        row["oracle_joint_degeneracy"] = joint_degeneracy
+        row["oracle_joint_determinism"] = float(float(row["oracle_joint_ei"]) + joint_degeneracy)
+        row["oracle_singleton_degeneracy_sum"] = singleton_degeneracy_sum
+        row["oracle_singleton_determinism_sum"] = float(
+            float(row["oracle_singleton_ei_sum"]) + singleton_degeneracy_sum
+        )
+
+
 def _aggregate_large_kuramoto_learned_nsource_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     frame = pd.DataFrame(rows)
     summaries: list[dict[str, object]] = []
@@ -2286,6 +2330,12 @@ def _aggregate_large_kuramoto_oracle_nsource_rows(rows: list[dict[str, object]])
         "oracle_null_corrected_phi",
         "oracle_joint_ei",
         "oracle_singleton_ei_sum",
+        "oracle_joint_determinism",
+        "oracle_joint_degeneracy",
+        "oracle_singleton_determinism_sum",
+        "oracle_singleton_degeneracy_sum",
+        "oracle_target_entropy",
+        "oracle_target_reference_entropy",
         "target_mean",
         "target_std",
     )
@@ -3502,6 +3552,65 @@ def _plot_large_kuramoto_n64_ei_decomposition(payload: Mapping[str, object], pat
     plt.close(fig)
 
 
+def _plot_large_kuramoto_n64_determinism_degeneracy(payload: Mapping[str, object], path: Path) -> None:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+        }
+    )
+
+    summary = list(payload["summary"])  # type: ignore[index]
+    couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+    fig, axes = plt.subplots(2, 2, figsize=(11.0, 7.2), constrained_layout=True, sharex=True)
+
+    panels = (
+        (axes[0, 0], "oracle_joint_determinism", r"$Det(all;Y)$", "#4C78A8", "a  Whole EI determinism", False),
+        (axes[0, 1], "oracle_joint_degeneracy", r"$Deg(all;Y)$", "#4C78A8", "b  Whole EI degeneracy", True),
+        (axes[1, 0], "oracle_singleton_determinism_sum", r"$\sum_i Det(i;Y)$", "#D98C2F", "c  Singleton-sum determinism", True),
+        (axes[1, 1], "oracle_singleton_degeneracy_sum", r"$\sum_i Deg(i;Y)$", "#D98C2F", "d  Singleton-sum degeneracy", True),
+    )
+    for axis, key, label, color, title, use_log_y in panels:
+        mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
+        sem = np.asarray([float(row.get(f"{key}_sem", 0.0)) for row in summary], dtype=float)
+        axis.plot(couplings, mean, color=color, marker="o", linewidth=2.0, markersize=4.5, label=label)
+        lower = mean - sem
+        upper = mean + sem
+        if use_log_y:
+            positive = np.concatenate([mean[mean > 0.0], upper[upper > 0.0]])
+            floor = float(np.min(positive)) * 0.5 if positive.size else 1.0e-6
+            lower = np.maximum(lower, floor)
+            axis.set_yscale("log")
+        axis.fill_between(couplings, lower, upper, color=color, alpha=0.14, linewidth=0)
+        axis.set_ylabel("Information component (bits)")
+        axis.set_title(title, loc="left", fontweight="bold")
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+
+    for axis in axes.flat:
+        axis.set_xscale("symlog", linthresh=0.05)
+        axis.set_xlim(-0.01, max(float(np.max(couplings)), 4.0) * 1.03)
+        axis.set_xticks([0.0, 0.05, 0.1, 1.0, 4.0])
+        axis.set_xticklabels(["0", "0.05", "0.1", "1", "4"])
+        axis.set_xlabel("Coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    fig.savefig(path.with_suffix(".svg"), bbox_inches="tight")
+    fig.savefig(path.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig)
+
+
 def run_ode_future_state_sweeps(
     *,
     mode: str = "full",
@@ -4513,6 +4622,12 @@ def run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
                     "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
                     "oracle_joint_ei": float(oracle_phi["joint_ei"]),
                     "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                    "oracle_joint_determinism": float(oracle_phi["joint_determinism"]),
+                    "oracle_joint_degeneracy": float(oracle_phi["joint_degeneracy"]),
+                    "oracle_singleton_determinism_sum": float(oracle_phi["singleton_determinism_sum"]),
+                    "oracle_singleton_degeneracy_sum": float(oracle_phi["singleton_degeneracy_sum"]),
+                    "oracle_target_entropy": float(oracle_phi["target_entropy"]),
+                    "oracle_target_reference_entropy": float(oracle_phi["target_reference_entropy"]),
                     "target_mean": float(np.mean(oracle_targets)),
                     "target_std": float(np.std(oracle_targets, ddof=0)),
                     "readout_state_digest": _digest(readout_states),
@@ -4521,6 +4636,7 @@ def run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
                 }
             )
 
+    _renormalize_oracle_nsource_detdeg_rows(rows, source_count=oscillator_count)
     summary = _aggregate_large_kuramoto_oracle_nsource_rows(rows)
     diagnostic = _large_kuramoto_oracle_nsource_diagnostic(summary, critical_coupling=critical_coupling)
     result = {
@@ -4546,6 +4662,7 @@ def run_large_kuramoto_oracle_nsource_phi_susceptibility_sweep(
         "nsource_null_shuffles": int(nsource_null_shuffles),
         "phi_null_model": "target_shuffle",
         "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "determinism_degeneracy_definition": "Det = H0 - H(Y|source set), Deg = H0 - H(Y), with fixed H0 set to the maximum Gaussian target entropy over this sweep.",
         "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
         "criticality_diagnostic": diagnostic,
         "rows": rows,
@@ -4640,6 +4757,12 @@ def run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
                     "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
                     "oracle_joint_ei": float(oracle_phi["joint_ei"]),
                     "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                    "oracle_joint_determinism": float(oracle_phi["joint_determinism"]),
+                    "oracle_joint_degeneracy": float(oracle_phi["joint_degeneracy"]),
+                    "oracle_singleton_determinism_sum": float(oracle_phi["singleton_determinism_sum"]),
+                    "oracle_singleton_degeneracy_sum": float(oracle_phi["singleton_degeneracy_sum"]),
+                    "oracle_target_entropy": float(oracle_phi["target_entropy"]),
+                    "oracle_target_reference_entropy": float(oracle_phi["target_reference_entropy"]),
                     "target_mean": float(np.mean(oracle_targets)),
                     "target_std": float(np.std(oracle_targets, ddof=0)),
                     "readout_state_digest": _digest(readout_states),
@@ -4648,6 +4771,7 @@ def run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
                 }
             )
 
+    _renormalize_oracle_nsource_detdeg_rows(rows, source_count=oscillator_count)
     summary = _aggregate_large_kuramoto_oracle_nsource_rows(rows)
     diagnostic = _large_kuramoto_oracle_nsource_diagnostic(summary, critical_coupling=critical_coupling)
     result = {
@@ -4673,15 +4797,23 @@ def run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
         "nsource_null_shuffles": int(nsource_null_shuffles),
         "phi_null_model": "target_shuffle",
         "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "determinism_degeneracy_definition": "Det = H0 - H(Y|source set), Deg = H0 - H(Y), with fixed H0 set to the maximum Gaussian target entropy over this sweep.",
         "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
         "criticality_diagnostic": diagnostic,
         "rows": rows,
         "summary": summary,
         "figure_path": str(figure_path),
+        "determinism_degeneracy_figure_path": str(
+            figure_path.with_name(f"{figure_path.stem}_determinism_degeneracy.png")
+        ),
     }
     result_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     _plot_large_kuramoto_oracle_nsource_whole_state_phi_sweep(summary, diagnostic, figure_path)
+    _plot_large_kuramoto_n64_determinism_degeneracy(
+        result,
+        figure_path.with_name(f"{figure_path.stem}_determinism_degeneracy.png"),
+    )
     return {**result, "result_path": str(result_path)}
 
 
