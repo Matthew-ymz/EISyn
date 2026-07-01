@@ -31,6 +31,10 @@ DEFAULT_PEID_SUMMARIES = (
     ROOT / "results" / "unicm_full_history_mode_pair_syn_cpu_bound4_n8192" / "full_history_mode_pair_syn_summary.csv",
     ROOT / "results" / "unicm_full_history_mode_pair_syn_cpu_bound4_n8192_iod" / "full_history_mode_pair_syn_summary.csv",
 )
+DEFAULT_PEID_ROWS = (
+    ROOT / "results" / "unicm_full_history_mode_pair_syn_cpu_bound4_n8192" / "full_history_mode_pair_syn_rows.jsonl",
+    ROOT / "results" / "unicm_full_history_mode_pair_syn_cpu_bound4_n8192_iod" / "full_history_mode_pair_syn_rows.jsonl",
+)
 TARGET_DISPLAY = {"nino": "ENSO", "IOD": "IOD"}
 
 
@@ -271,6 +275,35 @@ def summarize_mode_leads(rows: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
+def build_peid_source_ei_lead_summary(pair_rows: pd.DataFrame) -> pd.DataFrame:
+    required = {"target", "seed", "lead", "left_source", "right_source", "left_ei", "right_ei"}
+    missing = required - set(pair_rows.columns)
+    if missing:
+        raise ValueError(f"PEID pair rows missing required columns: {', '.join(sorted(missing))}")
+    left = pair_rows[["target", "seed", "lead", "left_source", "left_ei"]].rename(
+        columns={"left_source": "mode", "left_ei": "source_ei"}
+    )
+    right = pair_rows[["target", "seed", "lead", "right_source", "right_ei"]].rename(
+        columns={"right_source": "mode", "right_ei": "source_ei"}
+    )
+    per_pair = pd.concat([left, right], ignore_index=True)
+    per_seed = (
+        per_pair.groupby(["target", "mode", "seed", "lead"], as_index=False)["source_ei"]
+        .mean()
+        .sort_values(["target", "mode", "seed", "lead"])
+    )
+    summary = (
+        per_seed.groupby(["target", "mode", "lead"], as_index=False)["source_ei"]
+        .agg(["mean", "std"])
+        .reset_index()
+        .rename(columns={"mean": "mean_peid_source_ei", "std": "std_peid_source_ei"})
+        .sort_values(["target", "mode", "lead"])
+        .reset_index(drop=True)
+    )
+    summary["std_peid_source_ei"] = summary["std_peid_source_ei"].fillna(0.0)
+    return summary
+
+
 def summarize_pair_interactions(rows: pd.DataFrame, *, top_k: int | None = None) -> pd.DataFrame:
     pairs = rows[~rows["is_diagonal"].astype(bool)].copy()
     summary = (
@@ -286,6 +319,37 @@ def summarize_pair_interactions(rows: pd.DataFrame, *, top_k: int | None = None)
     summary["rank_shap_interaction"] = summary.groupby("target").cumcount() + 1
     if top_k is not None:
         summary = summary[summary["rank_shap_interaction"] <= int(top_k)].reset_index(drop=True)
+    return summary
+
+
+def summarize_pair_interaction_leads(rows: pd.DataFrame) -> pd.DataFrame:
+    pairs = rows[~rows["is_diagonal"].astype(bool)].copy()
+    summary = (
+        pairs.groupby(["target", "pair", "left_source", "right_source", "lead"], as_index=False)["mean_abs_interaction"]
+        .agg(["mean", "std"])
+        .reset_index()
+        .rename(columns={"mean": "mean_abs_interaction", "std": "std_abs_interaction"})
+        .sort_values(["target", "pair", "lead"])
+        .reset_index(drop=True)
+    )
+    summary["std_abs_interaction"] = summary["std_abs_interaction"].fillna(0.0)
+    return summary
+
+
+def summarize_peid_syn_leads(pair_rows: pd.DataFrame) -> pd.DataFrame:
+    required = {"target", "pair", "left_source", "right_source", "lead", "seed", "syn"}
+    missing = required - set(pair_rows.columns)
+    if missing:
+        raise ValueError(f"PEID pair rows missing required columns: {', '.join(sorted(missing))}")
+    summary = (
+        pair_rows.groupby(["target", "pair", "left_source", "right_source", "lead"], as_index=False)["syn"]
+        .agg(["mean", "std"])
+        .reset_index()
+        .rename(columns={"mean": "mean_peid_syn", "std": "std_peid_syn"})
+        .sort_values(["target", "pair", "lead"])
+        .reset_index(drop=True)
+    )
+    summary["std_peid_syn"] = summary["std_peid_syn"].fillna(0.0)
     return summary
 
 
@@ -307,6 +371,17 @@ def load_peid_summaries(paths: Sequence[Path], *, targets: Sequence[str]) -> tup
         if peid.empty or str(target) not in set(peid["target"].astype(str)):
             warnings.append(f"No PEID pair summary rows found for target={target}")
     return peid, warnings
+
+
+def load_peid_pair_rows(paths: Sequence[Path]) -> pd.DataFrame:
+    frames = []
+    for path in paths:
+        candidate = Path(path)
+        if candidate.exists():
+            frames.append(pd.read_json(candidate, lines=True))
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).drop_duplicates(["target", "pair", "seed", "lead"]).reset_index(drop=True)
 
 
 def _peid_source_summary(peid: pd.DataFrame) -> pd.DataFrame:
@@ -490,6 +565,194 @@ def plot_outputs(mode_summary: pd.DataFrame, pair_summary: pd.DataFrame, output_
     return paths
 
 
+def _line_palette(labels: Sequence[str]) -> dict[str, object]:
+    import matplotlib.pyplot as plt
+
+    colors = plt.get_cmap("tab20").colors
+    return {str(label): colors[index % len(colors)] for index, label in enumerate(labels)}
+
+
+def _plot_curve(
+    ax,
+    rows: pd.DataFrame,
+    *,
+    key: str,
+    mean_col: str,
+    std_col: str,
+    labels: Sequence[str],
+    palette: dict[str, object],
+    label_map: dict[str, str] | None = None,
+) -> list[object]:
+    handles = []
+    for label in labels:
+        subset = rows[rows[key].astype(str) == str(label)].sort_values("lead")
+        if subset.empty:
+            continue
+        x = subset["lead"].to_numpy(dtype=float)
+        mean = subset[mean_col].to_numpy(dtype=float)
+        std = subset[std_col].fillna(0.0).to_numpy(dtype=float)
+        display = label_map.get(str(label), str(label)) if label_map else str(label)
+        (line,) = ax.plot(
+            x,
+            mean,
+            marker="o",
+            markersize=2.0,
+            linewidth=1.2,
+            color=palette[str(label)],
+            label=display,
+        )
+        ax.fill_between(x, mean - std, mean + std, color=palette[str(label)], alpha=0.08, linewidth=0)
+        handles.append(line)
+    ax.axhline(0.0, color="#888888", linewidth=0.7, linestyle=":")
+    ax.set_xlim(0.5, PREDICTION_LENGTH + 0.5)
+    ax.set_xlabel("Lead (months)")
+    return handles
+
+
+def plot_lead_curve_outputs(
+    *,
+    shap_mode_leads: pd.DataFrame,
+    shap_pair_leads: pd.DataFrame,
+    peid_source_leads: pd.DataFrame,
+    peid_syn_leads: pd.DataFrame,
+    pair_summary: pd.DataFrame,
+    peid_summary: pd.DataFrame,
+    output_dir: Path,
+    top_k_pairs: int = 10,
+) -> list[Path]:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "svg.fonttype": "none",
+            "pdf.fonttype": 42,
+            "font.size": 7,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+        }
+    )
+    fig_dir = Path(output_dir) / "fig"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    targets = ordered_targets(shap_mode_leads["target"].astype(str))
+    mode_palette = _line_palette(MODE_ORDER)
+
+    fig, axes = plt.subplots(
+        len(targets),
+        2,
+        figsize=(9.2, 3.1 * len(targets)),
+        constrained_layout=True,
+        sharex=True,
+    )
+    axes = np.asarray(axes).reshape(len(targets), 2)
+    mode_handles: list[object] = []
+    for row_index, target in enumerate(targets):
+        shap_rows = shap_mode_leads[shap_mode_leads["target"].astype(str) == target]
+        peid_rows = peid_source_leads[peid_source_leads["target"].astype(str) == target]
+        mode_handles = _plot_curve(
+            axes[row_index, 0],
+            shap_rows,
+            key="mode",
+            mean_col="mean_abs_shap",
+            std_col="std_abs_shap",
+            labels=MODE_ORDER,
+            palette=mode_palette,
+        )
+        _plot_curve(
+            axes[row_index, 1],
+            peid_rows,
+            key="mode",
+            mean_col="mean_peid_source_ei",
+            std_col="std_peid_source_ei",
+            labels=MODE_ORDER,
+            palette=mode_palette,
+        )
+        axes[row_index, 0].set_ylabel(f"{TARGET_DISPLAY.get(target, target)}\nMean |SHAP|")
+        axes[row_index, 1].set_ylabel("Source EI (bits)")
+        axes[row_index, 0].set_title(f"{TARGET_DISPLAY.get(target, target)}: SHAP attribution")
+        axes[row_index, 1].set_title(f"{TARGET_DISPLAY.get(target, target)}: PEID source EI")
+    fig.legend(mode_handles, [handle.get_label() for handle in mode_handles], loc="center left", bbox_to_anchor=(1.01, 0.5), frameon=False)
+    source_paths = []
+    for suffix in (".png", ".svg"):
+        path = fig_dir / f"unicm_enso_iod_shap_vs_peid_source_leads{suffix}"
+        fig.savefig(path, dpi=600 if suffix == ".png" else None, bbox_inches="tight")
+        source_paths.append(path)
+    plt.close(fig)
+
+    pair_paths = []
+    fig, axes = plt.subplots(
+        len(targets),
+        2,
+        figsize=(9.8, 3.2 * len(targets)),
+        constrained_layout=True,
+        sharex=True,
+    )
+    axes = np.asarray(axes).reshape(len(targets), 2)
+    for row_index, target in enumerate(targets):
+        top_shap = (
+            pair_summary[pair_summary["target"].astype(str) == target]
+            .sort_values("rank_shap_interaction")
+            .head(int(top_k_pairs))["pair"]
+            .astype(str)
+            .tolist()
+        )
+        top_peid = (
+            peid_summary[peid_summary["target"].astype(str) == target]
+            .sort_values("rank_within_target")
+            .head(int(top_k_pairs))["pair"]
+            .astype(str)
+            .tolist()
+            if not peid_summary.empty
+            else []
+        )
+        pairs = list(dict.fromkeys(top_shap + top_peid))[: max(int(top_k_pairs), len(top_shap))]
+        palette = _line_palette(pairs)
+        label_map = {pair: pair.replace("|", " + ") for pair in pairs}
+        shap_rows = shap_pair_leads[shap_pair_leads["target"].astype(str) == target]
+        peid_rows = peid_syn_leads[peid_syn_leads["target"].astype(str) == target]
+        pair_handles = _plot_curve(
+            axes[row_index, 0],
+            shap_rows,
+            key="pair",
+            mean_col="mean_abs_interaction",
+            std_col="std_abs_interaction",
+            labels=pairs,
+            palette=palette,
+            label_map=label_map,
+        )
+        _plot_curve(
+            axes[row_index, 1],
+            peid_rows,
+            key="pair",
+            mean_col="mean_peid_syn",
+            std_col="std_peid_syn",
+            labels=pairs,
+            palette=palette,
+            label_map=label_map,
+        )
+        axes[row_index, 0].set_ylabel(f"{TARGET_DISPLAY.get(target, target)}\nMean |interaction|")
+        axes[row_index, 1].set_ylabel("Syn (bits)")
+        axes[row_index, 0].set_title(f"{TARGET_DISPLAY.get(target, target)}: SHAP interaction")
+        axes[row_index, 1].set_title(f"{TARGET_DISPLAY.get(target, target)}: PEID pair Syn")
+        axes[row_index, 1].legend(
+            pair_handles,
+            [handle.get_label() for handle in pair_handles],
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False,
+        )
+    for suffix in (".png", ".svg"):
+        path = fig_dir / f"unicm_enso_iod_shap_vs_peid_pair_leads{suffix}"
+        fig.savefig(path, dpi=600 if suffix == ".png" else None, bbox_inches="tight")
+        pair_paths.append(path)
+    plt.close(fig)
+    return source_paths + pair_paths
+
+
 def _fmt(value: object) -> str:
     try:
         number = float(value)
@@ -506,6 +769,7 @@ def write_report(
     quality: pd.DataFrame,
     warnings: Sequence[str],
     output_dir: Path,
+    lead_figures: Sequence[Path] | None = None,
 ) -> None:
     lines = [
         "# UniCM SHAP vs PEID: ENSO and IOD",
@@ -585,6 +849,9 @@ def write_report(
             "- figures: `fig/unicm_enso_iod_shap_mode_ranking.*`, `fig/unicm_enso_iod_shap_pair_interactions.*`",
         ]
     )
+    if lead_figures:
+        names = ", ".join(f"`fig/{Path(path).name}`" for path in lead_figures if Path(path).suffix == ".png")
+        lines.append(f"- lead curves: {names}")
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
@@ -670,8 +937,26 @@ def run_analysis(args: argparse.Namespace) -> dict[str, object]:
     pair_summary = summarize_pair_interactions(pair_frame)
 
     peid, warnings = load_peid_summaries([Path(path) for path in args.peid_summaries], targets=targets)
+    peid_pair_rows = load_peid_pair_rows([Path(path) for path in args.peid_rows])
     mode_comparison = compare_shap_modes_with_peid(mode_summary, peid)
     pair_comparison = compare_pair_interactions_with_peid(pair_summary, peid)
+    pair_lead_summary = summarize_pair_interaction_leads(pair_frame)
+    if peid_pair_rows.empty:
+        peid_source_leads = pd.DataFrame()
+        peid_syn_leads = pd.DataFrame()
+        lead_figure_paths: list[Path] = []
+    else:
+        peid_source_leads = build_peid_source_ei_lead_summary(peid_pair_rows)
+        peid_syn_leads = summarize_peid_syn_leads(peid_pair_rows)
+        lead_figure_paths = plot_lead_curve_outputs(
+            shap_mode_leads=mode_lead_summary,
+            shap_pair_leads=pair_lead_summary,
+            peid_source_leads=peid_source_leads,
+            peid_syn_leads=peid_syn_leads,
+            pair_summary=pair_summary,
+            peid_summary=peid,
+            output_dir=output_dir,
+        )
 
     quality_path = output_dir / "surrogate_quality.csv"
     mode_rows_path = output_dir / "shap_mode_rows.jsonl"
@@ -679,6 +964,9 @@ def run_analysis(args: argparse.Namespace) -> dict[str, object]:
     mode_summary_path = output_dir / "shap_mode_summary.csv"
     lead_summary_path = output_dir / "shap_lead_summary.csv"
     pair_summary_path = output_dir / "shap_mode_pair_interaction_summary.csv"
+    pair_lead_summary_path = output_dir / "shap_pair_interaction_lead_summary.csv"
+    peid_source_leads_path = output_dir / "peid_source_ei_lead_summary.csv"
+    peid_syn_leads_path = output_dir / "peid_pair_syn_lead_summary.csv"
     mode_comparison_path = output_dir / "peid_shap_mode_comparison.csv"
     pair_comparison_path = output_dir / "peid_shap_pair_interaction_comparison.csv"
     warnings_path = output_dir / "warnings.json"
@@ -689,6 +977,9 @@ def run_analysis(args: argparse.Namespace) -> dict[str, object]:
     mode_summary.to_csv(mode_summary_path, index=False)
     mode_lead_summary.to_csv(lead_summary_path, index=False)
     pair_summary.to_csv(pair_summary_path, index=False)
+    pair_lead_summary.to_csv(pair_lead_summary_path, index=False)
+    peid_source_leads.to_csv(peid_source_leads_path, index=False)
+    peid_syn_leads.to_csv(peid_syn_leads_path, index=False)
     mode_comparison.to_csv(mode_comparison_path, index=False)
     pair_comparison.to_csv(pair_comparison_path, index=False)
     warnings_path.write_text(json.dumps(warnings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -701,16 +992,20 @@ def run_analysis(args: argparse.Namespace) -> dict[str, object]:
             quality=quality_frame,
             warnings=warnings,
             output_dir=output_dir,
+            lead_figures=lead_figure_paths,
         )
 
     return {
         "quality": str(quality_path),
         "mode_summary": str(mode_summary_path),
         "pair_summary": str(pair_summary_path),
+        "pair_lead_summary": str(pair_lead_summary_path),
+        "peid_source_leads": str(peid_source_leads_path),
+        "peid_syn_leads": str(peid_syn_leads_path),
         "mode_comparison": str(mode_comparison_path),
         "pair_comparison": str(pair_comparison_path),
         "warnings": str(warnings_path),
-        "figures": [str(path) for path in figure_paths],
+        "figures": [str(path) for path in figure_paths + lead_figure_paths],
         "report": str(args.report_path) if args.report_path else None,
     }
 
@@ -721,6 +1016,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--report-path", type=Path, default=DEFAULT_REPORT_PATH)
     parser.add_argument("--peid-summaries", nargs="+", type=Path, default=list(DEFAULT_PEID_SUMMARIES))
+    parser.add_argument("--peid-rows", nargs="+", type=Path, default=list(DEFAULT_PEID_ROWS))
     parser.add_argument("--targets", nargs="+", default=["nino", "IOD"])
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3])
     parser.add_argument("--lead-start", type=int, default=1)

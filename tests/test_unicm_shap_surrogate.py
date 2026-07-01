@@ -12,11 +12,13 @@ from scripts.run_unicm_shap_surrogate import (
     MODE_ORDER,
     aggregate_feature_interactions_to_pairs,
     aggregate_feature_shap_to_modes,
+    build_peid_source_ei_lead_summary,
     compare_pair_interactions_with_peid,
     compare_shap_modes_with_peid,
     exact_group_shapley_interactions,
     feature_names,
     load_peid_summaries,
+    summarize_pair_interaction_leads,
     summarize_pair_interactions,
 )
 
@@ -147,3 +149,61 @@ def test_peid_comparison_preserves_shap_only_targets_and_warnings(tmp_path: Path
     pair_comparison = compare_pair_interactions_with_peid(pair_summary, peid)
     iod_pair = pair_comparison[pair_comparison["target"] == "IOD"].iloc[0]
     assert bool(iod_pair["peid_available"]) is False
+
+
+def test_build_peid_source_ei_lead_summary_deduplicates_pair_rows() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "target": "nino",
+                "seed": 1,
+                "lead": 1,
+                "left_source": "nino",
+                "right_source": "IOD",
+                "left_ei": 2.0,
+                "right_ei": 0.5,
+            },
+            {
+                "target": "nino",
+                "seed": 1,
+                "lead": 1,
+                "left_source": "nino",
+                "right_source": "NPMM",
+                "left_ei": 2.0,
+                "right_ei": 0.2,
+            },
+            {
+                "target": "nino",
+                "seed": 2,
+                "lead": 1,
+                "left_source": "nino",
+                "right_source": "IOD",
+                "left_ei": 4.0,
+                "right_ei": 0.7,
+            },
+        ]
+    )
+
+    summary = build_peid_source_ei_lead_summary(rows)
+    nino = summary[(summary["target"] == "nino") & (summary["mode"] == "nino")].iloc[0]
+
+    assert nino["lead"] == 1
+    assert nino["mean_peid_source_ei"] == 3.0
+    assert np.isclose(nino["std_peid_source_ei"], np.sqrt(2.0))
+
+
+def test_summarize_pair_interaction_leads_uses_seed_variation() -> None:
+    rows = pd.DataFrame(
+        [
+            {"target": "IOD", "pair": "IOD|SIOD", "left_source": "IOD", "right_source": "SIOD", "lead": 1, "seed": 1, "mean_abs_interaction": 0.2, "is_diagonal": False},
+            {"target": "IOD", "pair": "IOD|SIOD", "left_source": "IOD", "right_source": "SIOD", "lead": 1, "seed": 2, "mean_abs_interaction": 0.4, "is_diagonal": False},
+            {"target": "IOD", "pair": "IOD|IOD", "left_source": "IOD", "right_source": "IOD", "lead": 1, "seed": 1, "mean_abs_interaction": 9.0, "is_diagonal": True},
+        ]
+    )
+
+    summary = summarize_pair_interaction_leads(rows)
+
+    assert len(summary) == 1
+    assert summary.iloc[0]["pair"] == "IOD|SIOD"
+    assert np.isclose(summary.iloc[0]["mean_abs_interaction"], 0.3)
+    assert np.isclose(summary.iloc[0]["std_abs_interaction"], np.sqrt(0.02))

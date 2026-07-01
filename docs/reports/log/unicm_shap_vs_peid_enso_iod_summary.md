@@ -79,3 +79,4 @@ SHAP/SHAP interaction 是 surrogate prediction attribution；PEID single-source 
 
 - output directory: `results/unicm_shap_mode_attribution`
 - figures: `fig/unicm_enso_iod_shap_mode_ranking.*`, `fig/unicm_enso_iod_shap_pair_interactions.*`
+- lead curves: `fig/unicm_enso_iod_shap_vs_peid_source_leads.png`, `fig/unicm_enso_iod_shap_vs_peid_pair_leads.png`
