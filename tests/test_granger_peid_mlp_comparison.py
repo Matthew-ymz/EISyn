@@ -816,6 +816,7 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
         intervention_samples=96,
         bins=4,
         neural_granger_epochs=2,
+        pcmci_cmiknn_sig_samples=2,
     )
 
     assert result["runs"]
@@ -829,7 +830,22 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
     assert "neural_granger_xy_to_z_slope" in trend
     assert "observational_wms" in run
     assert run["wms_estimator"] == "polynomial_triangular_transport_map_degree_3"
+    assert "mmi_pid_unique_x" in run
+    assert "mmi_pid_unique_y" in run
+    assert "mmi_pid_xy_synergy" in run
+    assert np.isclose(
+        run["mmi_pid_redundancy"]
+        + run["mmi_pid_unique_x"]
+        + run["mmi_pid_unique_y"]
+        + run["mmi_pid_xy_synergy"],
+        run["mmi_pid_xy_joint"],
+    )
+    assert np.isclose(run["mmi_pid_redundancy"], min(run["observational_x_to_z_mi"], run["observational_y_to_z_mi"]))
     assert result["config"]["peid_source_support"] == [-1.8, 1.8]
+    assert result["units"]["mmi_pid"] == "bits"
+    assert "mmi_pid_unique_x_mean" in summary
+    assert "mmi_pid_xy_synergy_mean" in summary
+    assert "mmi_pid_synergy_slope" in trend
     assert "observational_wms_mean" in summary
     assert "observational_wms_slope" in trend
 
@@ -934,6 +950,12 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
                     "observational_y_to_z_mi_std": 0.0,
                     "observational_wms_mean": 0.2,
                     "observational_wms_std": 0.0,
+                    "mmi_pid_unique_x_mean": 0.0,
+                    "mmi_pid_unique_x_std": 0.0,
+                    "mmi_pid_unique_y_mean": 0.0,
+                    "mmi_pid_unique_y_std": 0.0,
+                    "mmi_pid_xy_synergy_mean": 0.2,
+                    "mmi_pid_xy_synergy_std": 0.0,
                     "shap_x_to_z_mean_abs_mean": 0.1,
                     "shap_x_to_z_mean_abs_std": 0.0,
                     "shap_y_to_z_mean_abs_mean": 0.1,
@@ -985,6 +1007,12 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
                     "observational_y_to_z_mi_std": 0.0,
                     "observational_wms_mean": -0.1,
                     "observational_wms_std": 0.0,
+                    "mmi_pid_unique_x_mean": 0.0,
+                    "mmi_pid_unique_x_std": 0.0,
+                    "mmi_pid_unique_y_mean": 0.0,
+                    "mmi_pid_unique_y_std": 0.0,
+                    "mmi_pid_xy_synergy_mean": 0.1,
+                    "mmi_pid_xy_synergy_std": 0.0,
                     "shap_x_to_z_mean_abs_mean": 0.2,
                     "shap_x_to_z_mean_abs_std": 0.0,
                     "shap_y_to_z_mean_abs_mean": 0.2,
@@ -1030,7 +1058,15 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     }
     single_path = _plot_sine_beta_single_source_sweep(beta_result, tmp_path)
     synergy_path = _plot_sine_beta_synergy_sweep(beta_result, tmp_path)
-    combined_path = _plot_sine_beta_combined_readout_sweep(beta_result, tmp_path)
+    liang_result = {
+        "summary": [
+            {"beta": 0.0, "source": "x", "liang_flow_mean": 0.01},
+            {"beta": 0.0, "source": "y", "liang_flow_mean": 0.02},
+            {"beta": 1.0, "source": "x", "liang_flow_mean": -0.01},
+            {"beta": 1.0, "source": "y", "liang_flow_mean": -0.02},
+        ]
+    }
+    combined_path = _plot_sine_beta_combined_readout_sweep(beta_result, tmp_path, liang_result=liang_result)
 
     assert single_path is not None and single_path.exists()
     assert single_path.name == "sine_beta_single_source_readout_sweep.png"
@@ -1050,11 +1086,15 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     assert "observed corr(x,y)" not in plotted_labels
     assert r"Oracle+PEID $U_x$" in plotted_labels
     assert r"Oracle+PEID $S_{xy}$" in plotted_labels
+    assert r"MMI-PID $U_x$" in plotted_labels
+    assert r"MMI-PID $S_{xy}$" in plotted_labels
     assert not any(label.startswith("GT ") for label in plotted_labels)
     assert plotted_colors[r"MLP+PEID $U_x$"] == "#009E73"
+    assert plotted_colors[r"MMI-PID $U_x$"] == "#B07AA1"
     assert plotted_colors[r"Oracle+PEID $U_x$"] == "#7E57C2"
     assert plotted_colors["SHAP x->z"] == "#E68613"
     assert plotted_colors[r"MLP+PEID $S_{xy}$"] == "#009E73"
+    assert plotted_colors[r"MMI-PID $S_{xy}$"] == "#B07AA1"
     assert plotted_colors[r"Oracle+PEID $S_{xy}$"] == "#7E57C2"
     assert plotted_colors["observational WMS"] == "#4C78A8"
     assert plotted_colors[r"SURD $S_{xy}$"] == "#8C8C8C"
@@ -1071,6 +1111,8 @@ def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path,
     assert "PCMCI w->z" not in plotted_labels
     assert "NG x->z" in plotted_labels
     assert "NG y->z" in plotted_labels
+    assert "Liang IF x->z" in plotted_labels
+    assert "Liang IF y->z" in plotted_labels
     assert "NG w->z" not in plotted_labels
     assert "NG x+y->z sum" not in plotted_labels
     assert r"Product probe $R^2$" not in plotted_labels

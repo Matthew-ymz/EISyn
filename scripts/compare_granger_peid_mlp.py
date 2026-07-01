@@ -2245,6 +2245,20 @@ def _observational_wms(
     }
 
 
+def _mmi_pid_from_mi_triplet(*, left_mi: float, right_mi: float, joint_mi: float) -> dict[str, float]:
+    left = float(left_mi)
+    right = float(right_mi)
+    joint = float(joint_mi)
+    redundancy = min(left, right)
+    return {
+        "redundancy": float(redundancy),
+        "unique_x": float(left - redundancy),
+        "unique_y": float(right - redundancy),
+        "synergy": float(joint - max(left, right)),
+        "joint": float(joint),
+    }
+
+
 def run_sine_beta_common_driver_sweep(
     *,
     beta_values: Sequence[float] = BETA_COMMON_DRIVER_SWEEP_VALUES,
@@ -2376,6 +2390,11 @@ def run_sine_beta_common_driver_sweep(
                 series["z"].to_numpy(dtype=float)[1:],
                 bins=int(config.bins),
             )
+            mmi_pid_xy_z = _mmi_pid_from_mi_triplet(
+                left_mi=float(observational_wms["x_mi"]),
+                right_mi=float(observational_wms["y_mi"]),
+                joint_mi=float(observational_wms["joint_mi"]),
+            )
             peid_xy_z = peid.synergy_edges[
                 (peid.synergy_edges["sources"] == "x+y")
                 & (peid.synergy_edges["target"] == "z")
@@ -2420,6 +2439,11 @@ def run_sine_beta_common_driver_sweep(
                     "observational_xy_to_z_joint_mi": float(observational_wms["joint_mi"]),
                     "observational_wms": float(observational_wms["wms"]),
                     "wms_estimator": str(observational_wms["estimator"]),
+                    "mmi_pid_redundancy": float(mmi_pid_xy_z["redundancy"]),
+                    "mmi_pid_unique_x": float(mmi_pid_xy_z["unique_x"]),
+                    "mmi_pid_unique_y": float(mmi_pid_xy_z["unique_y"]),
+                    "mmi_pid_xy_synergy": float(mmi_pid_xy_z["synergy"]),
+                    "mmi_pid_xy_joint": float(mmi_pid_xy_z["joint"]),
                     "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
                     "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
                     "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
@@ -2490,6 +2514,16 @@ def run_sine_beta_common_driver_sweep(
             observational_xy_to_z_joint_mi_std=("observational_xy_to_z_joint_mi", "std"),
             observational_wms_mean=("observational_wms", "mean"),
             observational_wms_std=("observational_wms", "std"),
+            mmi_pid_redundancy_mean=("mmi_pid_redundancy", "mean"),
+            mmi_pid_redundancy_std=("mmi_pid_redundancy", "std"),
+            mmi_pid_unique_x_mean=("mmi_pid_unique_x", "mean"),
+            mmi_pid_unique_x_std=("mmi_pid_unique_x", "std"),
+            mmi_pid_unique_y_mean=("mmi_pid_unique_y", "mean"),
+            mmi_pid_unique_y_std=("mmi_pid_unique_y", "std"),
+            mmi_pid_xy_synergy_mean=("mmi_pid_xy_synergy", "mean"),
+            mmi_pid_xy_synergy_std=("mmi_pid_xy_synergy", "std"),
+            mmi_pid_xy_joint_mean=("mmi_pid_xy_joint", "mean"),
+            mmi_pid_xy_joint_std=("mmi_pid_xy_joint", "std"),
             shap_xy_mean_abs_interaction_mean=("shap_xy_mean_abs_interaction", "mean"),
             shap_xy_mean_abs_interaction_std=("shap_xy_mean_abs_interaction", "std"),
             shap_x_to_z_mean_abs_mean=("shap_x_to_z_mean_abs", "mean"),
@@ -2588,6 +2622,7 @@ def run_sine_beta_common_driver_sweep(
         },
         "units": {
             "observational_wms": "bits",
+            "mmi_pid": "bits",
             "shap": "mean absolute SHAP readout",
             "neural_granger": "first-layer source-group norm",
             "pcmci_cmiknn": "absolute CMIknn dependence statistic",
@@ -2602,6 +2637,8 @@ def run_sine_beta_common_driver_sweep(
 
 
 def _linear_slope(values: pd.DataFrame, y_col: str) -> float:
+    if y_col not in values:
+        return float("nan")
     finite = values[["beta", y_col]].replace([np.inf, -np.inf], np.nan).dropna()
     if finite["beta"].nunique() < 2:
         return float("nan")
@@ -2616,6 +2653,8 @@ def _bootstrap_slope_ci(
     seed: int,
     n_boot: int = 1000,
 ) -> tuple[float, float]:
+    if y_col not in values:
+        return (float("nan"), float("nan"))
     finite = values[["beta", y_col]].replace([np.inf, -np.inf], np.nan).dropna().reset_index(drop=True)
     if len(finite) < 4 or finite["beta"].nunique() < 2:
         return (float("nan"), float("nan"))
@@ -2631,6 +2670,7 @@ def _bootstrap_slope_ci(
 
 def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     observational_wms_slope = _linear_slope(frame, "observational_wms")
+    mmi_pid_slope = _linear_slope(frame, "mmi_pid_xy_synergy")
     shap_slope = _linear_slope(frame, "shap_xy_mean_abs_interaction")
     neural_granger_xy_slope = _linear_slope(frame, "neural_granger_xy_to_z")
     pcmci_cmiknn_xy_slope = _linear_slope(frame, "pcmci_cmiknn_xy_to_z")
@@ -2641,6 +2681,7 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
     product_slope = _linear_slope(frame, "product_xy_incremental_r2")
     corr_slope = _linear_slope(frame, "xy_observed_corr")
     observational_wms_ci = _bootstrap_slope_ci(frame, "observational_wms", seed=17009)
+    mmi_pid_ci = _bootstrap_slope_ci(frame, "mmi_pid_xy_synergy", seed=17010)
     shap_ci = _bootstrap_slope_ci(frame, "shap_xy_mean_abs_interaction", seed=17001)
     neural_granger_xy_ci = _bootstrap_slope_ci(frame, "neural_granger_xy_to_z", seed=17007)
     pcmci_cmiknn_xy_ci = _bootstrap_slope_ci(frame, "pcmci_cmiknn_xy_to_z", seed=17008)
@@ -2654,6 +2695,9 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
         "observational_wms_slope": observational_wms_slope,
         "observational_wms_slope_ci_low": observational_wms_ci[0],
         "observational_wms_slope_ci_high": observational_wms_ci[1],
+        "mmi_pid_synergy_slope": mmi_pid_slope,
+        "mmi_pid_synergy_slope_ci_low": mmi_pid_ci[0],
+        "mmi_pid_synergy_slope_ci_high": mmi_pid_ci[1],
         "shap_interaction_slope": shap_slope,
         "shap_interaction_slope_ci_low": shap_ci[0],
         "shap_interaction_slope_ci_high": shap_ci[1],
@@ -2685,12 +2729,14 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
 
 _BETA_NCS_METHOD_STYLES = {
     "observational": {"color": "#4C78A8", "alpha": 0.62, "linewidth": 1.15},
+    "mmi_pid": {"color": "#B07AA1", "alpha": 0.74, "linewidth": 1.15},
     "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 1.65},
     "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 1.65},
     "surd": {"color": "#8C8C8C", "alpha": 0.62, "linewidth": 1.15},
     "shap": {"color": "#E68613", "alpha": 0.62, "linewidth": 1.15},
     "pcmci": {"color": "#D65F8F", "alpha": 0.62, "linewidth": 1.15},
     "neural_granger": {"color": "#27A6B8", "alpha": 0.62, "linewidth": 1.15},
+    "liang_if": {"color": "#C44E52", "alpha": 0.74, "linewidth": 1.15},
 }
 
 
@@ -2827,6 +2873,8 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
     for y_col, std_col, label, source, method in [
         ("observational_x_to_z_mi_mean", "observational_x_to_z_mi_std", r"Obs. MI $x \to z$", "x", "observational"),
         ("observational_y_to_z_mi_mean", "observational_y_to_z_mi_std", r"Obs. MI $y \to z$", "y", "observational"),
+        ("mmi_pid_unique_x_mean", "mmi_pid_unique_x_std", r"MMI-PID $U_x$", "x", "mmi_pid"),
+        ("mmi_pid_unique_y_mean", "mmi_pid_unique_y_std", r"MMI-PID $U_y$", "y", "mmi_pid"),
         ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"MLP+PEID $U_x$", "x", "mlp_peid"),
         ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"MLP+PEID $U_y$", "y", "mlp_peid"),
         ("oracle_peid_unique_x_mean", "oracle_peid_unique_x_std", r"Oracle+PEID $U_x$", "x", "oracle_peid"),
@@ -2970,6 +3018,7 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
 
     for y_col, std_col, label, method, marker in [
         ("observational_wms_mean", "observational_wms_std", "observational WMS", "observational", "D"),
+        ("mmi_pid_xy_synergy_mean", "mmi_pid_xy_synergy_std", r"MMI-PID $S_{xy}$", "mmi_pid", "P"),
         ("surd_xy_synergy_mean", "surd_xy_synergy_std", r"SURD $S_{xy}$", "surd", "o"),
         ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"MLP+PEID $S_{xy}$", "mlp_peid", "^"),
         ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "oracle_peid", "s"),
@@ -3034,7 +3083,11 @@ def _plot_sine_beta_synergy_sweep(beta_result: dict[str, object], figure_dir: Pa
     return path
 
 
-def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figure_dir: Path) -> Path | None:
+def _plot_sine_beta_combined_readout_sweep(
+    beta_result: dict[str, object],
+    figure_dir: Path,
+    liang_result: dict[str, object] | None = None,
+) -> Path | None:
     summary_rows = beta_result.get("summary", [])
     if not summary_rows:
         return None
@@ -3093,6 +3146,8 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     for y_col, std_col, label, source, method in [
         ("observational_x_to_z_mi_mean", "observational_x_to_z_mi_std", r"Obs. MI $x \to z$", "x", "observational"),
         ("observational_y_to_z_mi_mean", "observational_y_to_z_mi_std", r"Obs. MI $y \to z$", "y", "observational"),
+        ("mmi_pid_unique_x_mean", "mmi_pid_unique_x_std", r"MMI-PID $U_x$", "x", "mmi_pid"),
+        ("mmi_pid_unique_y_mean", "mmi_pid_unique_y_std", r"MMI-PID $U_y$", "y", "mmi_pid"),
         ("mlp_peid_unique_x_mean", "mlp_peid_unique_x_std", r"MLP+PEID $U_x$", "x", "mlp_peid"),
         ("mlp_peid_unique_y_mean", "mlp_peid_unique_y_std", r"MLP+PEID $U_y$", "y", "mlp_peid"),
         ("oracle_peid_unique_x_mean", "oracle_peid_unique_x_std", r"Oracle+PEID $U_x$", "x", "oracle_peid"),
@@ -3152,8 +3207,28 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
             )
     single_ng.set_ylabel("Neural Granger group norm")
 
+    if liang_result and liang_result.get("summary"):
+        liang_frame = pd.DataFrame(liang_result["summary"]).sort_values(["beta", "source"])
+        style = method_styles["liang_if"]
+        for source in ("x", "y"):
+            source_summary = liang_frame[liang_frame["source"] == source].sort_values("beta")
+            if source_summary.empty:
+                continue
+            single_bits.plot(
+                source_summary["beta"].to_numpy(dtype=float),
+                source_summary["liang_flow_mean"].to_numpy(dtype=float),
+                color=style["color"],
+                marker=source_markers[source],
+                alpha=style["alpha"],
+                linewidth=style["linewidth"],
+                markersize=3.1,
+                label=f"Liang IF {source}->z",
+                zorder=2.5,
+            )
+
     for y_col, std_col, label, method, marker in [
         ("observational_wms_mean", "observational_wms_std", "observational WMS", "observational", "D"),
+        ("mmi_pid_xy_synergy_mean", "mmi_pid_xy_synergy_std", r"MMI-PID $S_{xy}$", "mmi_pid", "P"),
         ("surd_xy_synergy_mean", "surd_xy_synergy_std", r"SURD $S_{xy}$", "surd", "o"),
         ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"MLP+PEID $S_{xy}$", "mlp_peid", "^"),
         ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "oracle_peid", "s"),
@@ -3198,6 +3273,7 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
     ]
     method_specs = [
         ("Obs. MI / WMS (bits)", "observational"),
+        ("MMI-PID (bits)", "mmi_pid"),
         ("MLP+PEID (bits)", "mlp_peid"),
         ("Oracle+PEID (bits)", "oracle_peid"),
         ("SURD (bits)", "surd"),
@@ -3205,6 +3281,8 @@ def _plot_sine_beta_combined_readout_sweep(beta_result: dict[str, object], figur
         ("PCMCI-CMIknn (native)", "pcmci"),
         ("Neural Granger (group norm)", "neural_granger"),
     ]
+    if liang_result and liang_result.get("summary"):
+        method_specs.append(("Liang IF (flow)", "liang_if"))
     method_handles = [
         Line2D(
             [],
