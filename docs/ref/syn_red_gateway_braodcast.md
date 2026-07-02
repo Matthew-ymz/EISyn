@@ -78,7 +78,7 @@ $$
 
 其中 $BC_{\mathcal{Q}}^{+}$ 可称为 broadcast complementarity。不要把式 (6) 解释成完整 PID 原子；它只是式 (3) 的正负部分。
 
-## 4. 与 PEID 源侧协同的关系
+## 4. 与 PEID 源侧协同和 gateway phi 的关系
 
 当前 PEID 主定义处理的是源侧划分：
 
@@ -93,6 +93,41 @@ $$
 
 Broadcast redundancy 是式 (7) 的目标侧对偶问题，但符号方向相反：它比较“各目标块分别读源”的信息总和与“联合目标读源”的信息量。源侧最大熵干预会消掉源侧观测相关，但不会消掉目标侧由同一个源诱导的重复编码。因此 `1 -> n` 需要单独报告式 (3)。
 
+对某一个候选变量 $T$，可以把整个系统状态 $\mathbf{x}=(X_1,\dots,X_d)$ 作为源侧集合，定义变量级 gateway phi 为
+
+$$
+\phi^{EID}(T)
+:=
+EI(\mathbf{x}\to T)
+-
+\sum_{i=1}^{d} EI(X_i\to T).
+\tag{8}
+$$
+
+这里所有项仍在同一组最大熵独立干预样本下估计。等价地，若 $\mathcal{P}_1=\{\{X_1\},\dots,\{X_d\}\}$ 是单源划分，则
+
+$$
+\phi^{EID}(T)=Syn^{EID}_{\mathcal{P}_1}(\mathbf{x}\to T).
+\tag{9}
+$$
+
+式 (8) 和 broadcast redundancy 形成对照：$BR_{\mathcal{Q}}$ 固定一个源，检查它的信息是否被多个目标重复承载；$\phi^{EID}(T)$ 固定一个目标变量，检查整个系统对它的联合因果约束是否超过所有单源约束之和。因此 $\phi^{EID}(T)>0$ 表示 $T$ 的机制输入存在不可由单边 EI 相加解释的联合结构，可作为识别 causal gateway 的变量级读数。若目标是排名 gateway，建议同时报告 $EI(\mathbf{x}\to T)$、$\sum_i EI(X_i\to T)$ 和 $\phi^{EID}(T)$，避免把低联合 EI 下的估计噪声解释成结构性 gateway。
+
+### 4.1 Runge 1948-2026 MLP 结果中的重叠性
+
+在 Runge 1948-2026 daily SLP 的缓存 MLP transition model 上，我们用同一批最大熵干预预测样本和同一 Gaussian log-det MI 估计器，分别计算了 $\phi^{EID}(T)$ 与 $BR(S)$。为避免短期 persistence 主导结果，单源求和时默认排除自环项 $X_i(t)\to X_i(t+1)$。
+
+![Runge gateway phi and broadcast redundancy](../reports/assets/runge_gateway_phi_broadcast_redundancy_map.png)
+
+这张图显示两者确实有很强的经验重叠。原因是二者都在比较“联合 EI”和“单源/单目标 EI 之和”，只是固定的方向不同：
+
+- $\phi^{EID}(T)$ 固定目标 $T$，问整个系统是否以联合方式约束这个目标。
+- $BR(S)$ 固定源 $S$，问这个源的信息是否被多个目标重复承载。
+
+当同一组 component 既作为源又作为目标，并且用同一 MLP 通道估计 EI 时，强联合依赖的区域会同时影响两张图。因此它们不是完全独立的两个发现工具，而是同一个源-目标 EI 矩阵的两个投影。实际解释时不要把两张图当成两份独立证据相加。
+
+但二者也不是同一个指标。$\phi^{EID}(T)$ 是目标侧 gateway 候选读数；Runge 结果中它全部为正，说明许多目标节点的联合全系统输入 EI 高于跨节点单源 EI 之和。$BR(S)$ 是源侧 broadcaster 候选读数；Runge 结果中它全部为负，说明当前 MLP 没有显示一源多目标广播复制结构，而是更接近目标侧互补编码。因此，这组结果支持用 $\phi^{EID}(T)$ 辅助筛选 causal gateway，但不支持把 $BR(S)$ 解释为已经识别出正冗余 broadcaster。若仍要排序 broadcaster，只能报告“最不互补”的源节点，而不能称为强 broadcast redundancy。
+
 ## 5. 与已有文献的关系
 
 文献搜索结论是：`broadcast redundancy` 这个名字没有成为通用术语，但式 (3) 的 Shannon 形式已经存在。最近关于高阶信息指标的论文把
@@ -101,10 +136,10 @@ $$
 RSI(\mathbf{X};Y)
 =
 \sum_j I(X_j;Y)-I(\mathbf{X};Y)
-\tag{8}
+\tag{10}
 $$
 
-称为 redundancy-synergy index。若令 $\mathbf{X}$ 为目标块集合 $(\mathbf{Y}_{B_1},\dots,\mathbf{Y}_{B_m})$，令 $Y=S$，则式 (8) 与本文的 $BR_{\mathcal{Q}}$ 相同。本文的新意不在 Shannon 代数本身，而在于把它放到 PEID 的最大熵干预通道中，用来解释目标侧的一源多目标广播冗余。
+称为 redundancy-synergy index。若令 $\mathbf{X}$ 为目标块集合 $(\mathbf{Y}_{B_1},\dots,\mathbf{Y}_{B_m})$，令 $Y=S$，则式 (10) 与本文的 $BR_{\mathcal{Q}}$ 相同。本文的新意不在 Shannon 代数本身，而在于把它放到 PEID 的最大熵干预通道中，用来解释目标侧的一源多目标广播冗余。
 
 已有应用主要来自神经编码和高阶依赖分析：
 
@@ -128,6 +163,8 @@ $$
 
 连续机制上，应让所有 MI 项共享同一批干预样本和同一类估计器，例如同一套 Gaussian log-det 或 transport-map 密度估计流程。由于式 (3) 是多个 MI 的差，估计偏差会直接影响符号；正式实验应配套 bootstrap、permutation null 或跨 seed 稳定性检查。
 
+计算 $\phi^{EID}(T)$ 时，把目标变量 $T$ 固定，复用同一批全系统干预样本估计 $EI(\mathbf{x}\to T)$ 和所有 $EI(X_i\to T)$。用于 gateway 排名时，优先比较通过 null test 或跨 seed 稳定的正 $\phi^{EID}$，再用联合 EI 过滤弱信号变量。
+
 ## 7. 命名建议
 
 推荐字段名：
@@ -136,6 +173,8 @@ $$
 - `broadcast_redundancy_pos`：式 (6) 的正部分。
 - `broadcast_complementarity_pos`：式 (6) 的负部分取正。
 - `broadcast_redundancy_ratio`：可选归一化，定义为 $BR_{\mathcal{Q}} / EI(S\to \mathbf{Y})$，仅在联合 EI 明显大于零时报告。
+- `gateway_phi_eid`：式 (8) 的变量级 signed net value。
+- `gateway_phi_eid_pos`：$\max\{\phi^{EID}(T),0\}$，用于 causal gateway 排名。
 
 ## 参考文献
 
