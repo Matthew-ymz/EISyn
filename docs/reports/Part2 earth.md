@@ -1,121 +1,58 @@
 # Part 2: Runge 与 UniCM ENSO 时空因果机制证据
 
-## Runge 因果网：二阶协同改变了哪些节点
+## Runge SLP：ACE/ACS 的原文口径与 MLP+PEID 对齐
 
-这一组实验放在最前面，因为它直接检验 PEID 二阶协同对 gateway / mediator 解释的影响。实验使用 Runge 等人 [R1] 的 NCEP SLP 口径下得到的 60 维周尺度 Varimax 分量，输入最近 4 周状态，预测下一周状态；随后比较两种读出：
+这一组实验只展示 ACE 和 ACS，不再展示 AMCE 或一阶/二阶消融图。目的很窄：在同一套 1948-2026 NCEP SLP 周尺度 Varimax 分量上，对比 Runge 等人 [R1] 的线性 causal gateway / susceptibility 算法，与当前 MLP+PEID 的非线性 Hyper-ACE / Hyper-ACS 读数。输入为 60 维 component，使用最近 4 周状态预测下一周状态。
 
-- 不考虑二阶协同时，只用 pairwise MLP-TM-EI 构造路径效应，得到 path ACE / AMCE。
-- 考虑二阶协同时，用 PEID 的二阶 \(Syn^{\mathrm{EID}}\) 补充一阶 \(EI\) 节点效应和路径效应，得到源侧 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\)、目标侧 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\) 与 Hyper-AMCE。
+数据处理统一到旧实验口径：删除 2 月 29 日，按 365-day calendar day 做逐格点多年均值和标准差标准化，再沿时间轴线性去趋势。随后在 1948-2026 数据上重新拟合 60 个 Varimax component，并生成周尺度 component scores。MLP/Ridge 融合读出模型也在新数据上重训；有效 lagged samples 为 `4074`，验证集 RMSE / correlation 为 `0.70420 / 0.45116`。
 
-非线性读出使用同一组 60 维周尺度分量。保存运行中的 MLP/Ridge 融合模型 test RMSE 为 `0.714863`、MAE 为 `0.569984`、相关系数为 `0.450806`；相对 tuned Ridge 的 RMSE 改进为 `0.001376`，block bootstrap 95% CI 为 `[0.000893, 0.001825]`，单侧 \(p=0.0002\)。该提升很小，只用于支持“预测器没有失效，可以作为结构读出模型”，不应解释为显著提升天气或气候预测技能。
+Runge 面板使用原文算法的核心步骤：先用 PC-stable parent selection 得到 sparse causal graph，再用线性 SEM 估计跨 lag causal effect。此前本地复现误把 `run_pcmci` 的最终 MCI `p_matrix` 当成 parent set，导致 No.3 排名异常偏高；这里已改为 `run_pc_stable` parents，再做稀疏线性回归和 link-density threshold。修正后，1948-2026 新数据上 No.3 从 ACE 第 5、ACS 第 3 降为 ACE 第 12、ACS 第 13。
 
-![Runge MLP-TM-EI and PEID comparison map](assets/part2_runge_mlp_peid_comparison_map.png)
+记 \(C_{ij}\) 为源分量 \(i\) 到目标分量 \(j\) 的跨 lag 最大绝对 causal effect，则 Runge 原文口径下
 
-*图 1. 不考虑二阶协同与考虑二阶协同后的 Runge 地理对比。A、B：pairwise MLP-TM-EI path-effect；C、D：加入二阶 \(Syn^{\mathrm{EID}}\) 后的 PEID 源侧/目标侧 \(EI+Syn\) 聚合指标与 Hyper-AMCE。节点位置来自对应 Varimax loading 的高载荷中心。*
-
-图 1 比柱状排序更直接：加入二阶协同后，gateway 的高值区仍保留 Indo-Pacific、东太平洋、热带大西洋等热带核心节点，但源侧强度在更多远端模态上被抬高；mediator 图的变化更明显，Hyper-AMCE 不再只反映 pairwise path product，而更多反映节点是否经常作为二阶协同源成员参与目标读出。按当前结果文件，gateway 排序的 Spearman / Kendall 相关为 `0.8678` / `0.6780`，top-5 有 4 个节点重合；mediator 排序相关为 `0.9044` / `0.8531`，top-5 只重合 No.0 和 No.2。
-
-因此，二阶 PEID 没有推翻 pairwise path-effect，而是把解释重心从“单源路径强度”推进到“哪些空间模态需要和另一个源一起看”。空间分布的作用是给 No. 标签定下解释边界。No.0 位于海洋大陆/东印度洋附近，可理解为 Walker 环流西侧上升支和 Indo-Pacific 暖池对流区；No.1 对应东太平洋 ENSO 区；No.2 对应热带大西洋相关模态。ENSO 与 Walker 环流是全球遥相关的经典源区 [R2]，热带热源激发的大尺度罗斯贝波响应也为“热带异常影响远端中高纬”的解释提供动力学背景 [R3]。但是这些 No. 节点是旋转 PCA/Varimax 空间模态，不是地面站点或单一气候指数；低排名或未标注节点只能先按空间载荷位置理解，不能直接命名成确定气候过程。
-
-### 二源协同超边
-
-MLP-TM-EI/PEID 的源对综合排序按显著正二阶 \(Syn^{\mathrm{EID}}\) target 求和。前三个源对为 `{No.6, No.18}`、`{No.18, No.13}` 和 `{No.0, No.7}`，total positive \(Syn^{\mathrm{EID}}\) 分别为 `0.013160`、`0.011660` 和 `0.009892`。
-
-![Top integrated Runge MLP-TM-EI source-pair synergy map](assets/part2_runge_mlp_top_pair_synergy_map.png)
-
-*图 2. MLP-TM-EI/PEID 中按总正二阶协同排序最高的三个源对及其各自前五个正协同 target。紫色汇合点表示二源联合读出；面板角标标出源变量和目标变量的预测时间间隔。当前 Runge 读出使用 latest source，即 \(X_t \rightarrow X_{t+1}\)，所以图中超边均为 1 周间隔。汇合点沿源对到目标的路径交错展开，箭头宽度和颜色深浅随 \(Syn^{\mathrm{EID}}\) 增大而增强；节点位置来自对应 Varimax loading 的高载荷中心。*
-
-![Runge PEID synergy map](assets/part2_runge_peid_synergy_map.png)
-
-*图 3. No.0 与 No.1 附近的二阶 PEID 协同关系。节点外圈表示源侧 \(EI_{\mathrm{src}}^{(1)}+Syn_{\mathrm{src}}^{(2),\mathrm{EID}}\)，内圈表示目标侧 \(EI_{\mathrm{tgt}}^{(1)}+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}\)；紫色汇合箭头表示显著正二阶协同超边，面板角标中的 \(\Delta t=1\) week 表示 latest source \(X_t\) 到目标 \(X_{t+1}\) 的时间间隔。灰色小点只提供空间参照。*
-
-二阶 PEID 进一步问一个更强的问题：目标模态的变化，是否需要两个源模态一起看才解释得更好。图 3 中的紫色超边不是风场轨迹，也不是能量沿线传播路径，而是“两个空间模态联合起来比两个单独模态之和提供更多信息”的统计关系。当前图上的 \(\Delta t=1\) week 也限制了地理遥相关解释：跨洋或跨半球超边不能被说成异常在 1 周内从源区物理传播到目标区，更稳妥的解释是同一周背景态、低频模态记忆、共同驱动或已有遥相关型态对下一周目标读出的统计增量。No.0 相关超边有较强可读性：海洋大陆位于 Indo-Pacific 暖池和 Walker 环流上升支附近，这一区域的深对流和潜热释放容易影响大尺度环流 [R5]；ENSO 的 atmospheric bridge 也说明热带太平洋异常可以通过大气桥传到远端海盆 [R4]。因此，`{No.0, No.18} -> No.8`、`{No.0, No.14} -> No.1` 这类关系更适合作为 Indo-Pacific 背景态与远端模态共同调制目标区域的候选信号，而不是短时传播证据。
-
-但这还不是机制证明。印度洋偶极子会改变 ENSO 与印度夏季风之间的关系 [R6]，IOD 本身也对应热带印度洋的东西向异常模态 [R7]；ENSO 与年循环的相互作用还可以产生 combination mode [R8]。这些文献支持“两个气候模态联合影响第三个响应”的物理可能性，但不能自动证明每一条 PEID 超边都是真实大气过程。本文因此只把这些超边解释为可验证假说：它们提示哪些源对值得继续做季节分层、ENSO/IOD 位相分层和响应面检验。
-
-### Runge 指标公式
-
-记 \(n=60\) 为 Runge Varimax 分量数，\(E^{(0)}_{ij}\) 为源分量 \(i\) 到下一步目标分量 \(j\) 的 pairwise MLP-TM-EI。路径效应不直接使用完整 \(E^{(0)}\)，而是先构造稀疏非负直接边矩阵 \(D\)：当前使用 source-top-\(k\) 稀疏化并取 \(k=5\)，即保留每个源的 5 条最大正向出边，删除负值和自环，其余元素置零。再按谱半径得到路径矩阵
-
-```math
-A=cD,\qquad
-c=\min\left(1,\frac{\alpha}{\rho(D)}\right),
-\qquad \alpha=0.8 .
-```
-
-这里 \(\rho(D)\) 是 \(D\) 的谱半径；如果 \(\rho(D)\le \alpha\)，则 \(c=1\)，不做缩放。当前结果文件中的实际缩放因子就是 \(1\)。总路径效应用有限路径和表示：
-
-```math
-T=\sum_{\ell=1}^{L} A^\ell .
-```
-
-这里 \(L=60\)，\(T_{ij}\) 不是单条直接边，而是从 \(i\) 出发、经过最多 \(L\) 步传播后到达 \(j\) 的累计影响。于是三个 pairwise Runge-style 指标为：
-
-```math
-\mathrm{ACE}(i)=\frac{1}{n-1}\sum_{j\ne i}T_{ij},
+$$
+\mathrm{ACE}_{\mathrm{Runge}}(i)=\frac{1}{n-1}\sum_{j\ne i}C_{ij},
 \qquad
-\mathrm{ACS}(i)=\frac{1}{n-1}\sum_{j\ne i}T_{ji}.
-```
+\mathrm{ACS}_{\mathrm{Runge}}(i)=\frac{1}{n-1}\sum_{j\ne i}C_{ji},
+\qquad n=60 .
+$$
 
-```math
-\mathrm{AMCE}(m)=\frac{1}{(n-1)(n-2)}
-\sum_{\substack{s\ne m,\ t\ne m\\ s\ne t}}
-A_{sm}T_{mt}.
-```
+MLP+PEID 面板使用同一套 1948-2026 component scores，但读数来自非线性 MLP 干预。PEID 候选设置为旧口径：`candidate_top_sources=14`、`candidate_target_topk=10`、`order_max=2`、`null_reps=20`、显著门槛 \(|z|\ge2\)。记 \(EI_{i\to j}\) 为一阶有效信息，\(Syn_{K\Rightarrow j}^{\mathrm{EID}}\) 为二源集合 \(K\) 对目标 \(j\) 的 EID 协同项：
 
-ACE 看一个分量作为源头能往外影响多少对象，ACS 看一个分量作为目标被多少对象影响，AMCE 看一个分量是否常处在“别人先到它、再由它传出去”的中介位置。简单说，ACE 是 outgoing gateway，ACS 是 incoming susceptibility，AMCE 是 mediator。
-
-图中的 PEID 聚合指标用同一组 MLP 干预样本重新估计一阶 EI 和二阶 Syn。这里的 PEID 部分是 direct one-step hyperedge membership aggregation：它统计 \(X_t\to X_{t+1}\) 这一预测步上的直接一阶边和二阶超边，不把二阶超边再沿 \(T\) 传播到更远节点。记
-\(EI_{i\to j}:=EI(X_t^{(i)}\to X_{t+1}^{(j)})\)。对二源集合 \(K=\{i,k\}\) 和目标 \(j\)，按研究框架中的写法定义
-
-```math
+$$
 Syn_{K\Rightarrow j}^{\mathrm{EID}}
-:=
-Syn_{\mathcal{P}_{\mathrm{fine}}(K)}^{\mathrm{EID}}
-\bigl(X_t^K\to X_{t+1}^{(j)}\bigr)
 =
 EI\bigl(X_t^K\to X_{t+1}^{(j)}\bigr)
 -\sum_{a\in K}EI\bigl(X_t^{(a)}\to X_{t+1}^{(j)}\bigr).
-```
+$$
 
-当前图只把满足 \(|z_{K\Rightarrow j}|\ge2\) 的二阶 Syn 项计入聚合指标。注意一阶 EI 基线来自完整 order-1 PEID 表，包含 \(i=j\) 的 self-memory 项；这与上面删除自环的 pairwise 路径矩阵 \(A\) 不同。
+图中的 Hyper-ACE 和 Hyper-ACS 保留一阶 EI 基线，并只加入满足 \(|z_{K\Rightarrow j}|\ge2\) 的二阶协同项：
 
-图 C 的外圈不是只画二阶项，而是画一阶源侧强度加二阶源成员贡献：
-
-```math
-EI_{\mathrm{src}}^{(1)}(i)+Syn_{\mathrm{src}}^{(2),\mathrm{EID}}(i)
-=
+$$
+\mathrm{Hyper\text{-}ACE}(i)=
 \frac{1}{n-1}\left[
 \sum_j|EI_{i\to j}|
 +\sum_{\substack{(K,j):\,i\in K,\ |K|=2,\ |z_{K\Rightarrow j}|\ge2}}
 \frac{|Syn_{K\Rightarrow j}^{\mathrm{EID}}|}{|K|}
-\right].
-```
+\right],
+$$
 
-图 C 的内圈是目标侧的对应量：
-
-```math
-EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
-=
+$$
+\mathrm{Hyper\text{-}ACS}(i)=
 \frac{1}{n-1}\left[
 \sum_s|EI_{s\to i}|
 +\sum_{\substack{(K,j):\,j=i,\ |K|=2,\ |z_{K\Rightarrow i}|\ge2}}
 |Syn_{K\Rightarrow i}^{\mathrm{EID}}|
 \right].
-```
+$$
 
-图 D 的 Hyper-AMCE 则是在 pairwise 路径 AMCE 上加“节点作为显著二源组合成员”的直接超边贡献：
+这两个 Hyper 指标是一步预测读出上的直接一阶边和显著二阶超边聚合，不计算“二阶超边影响一个节点后再沿 causal graph 多步传播”的高阶路径中心性。当前原始量纲下二阶项整体只占一阶项约 `1.61%`，因此主排序主要由一阶 EI 决定；二阶项主要提供小幅修正。
 
-```math
-\mathrm{Hyper\text{-}AMCE}(m)=
-\mathrm{AMCE}(m)+
-\frac{1}{n-1}\sum_{\substack{(K,j):\,m\in K,\ |K|=2,\ |z_{K\Rightarrow j}|\ge2}}
-\frac{|Syn_{K\Rightarrow j}^{\mathrm{EID}}|}{|K|}.
-```
+![Runge original method vs MLP+PEID ACE/ACS](assets/runge_original_method_vs_mlp_peid_ace_acs_1948_2026.png)
 
-因此，图 C/D 与当前结果文件是对应的，但对应关系不是“只把二阶公式直接画出来”：源侧和目标侧聚合指标都含有一阶 EI 基线，Hyper-AMCE 含有 pairwise 路径 AMCE 基线。二阶 Syn 项的作用是把经常出现在“两个源一起看才有额外信息”的源成员或目标节点抬高；Hyper-AMCE 的二阶部分衡量协同源成员身份，不等同于严格证明信息真的经由该节点传播。
+*图 1. 同一套 1948-2026 SLP component 上，修正后的 Runge 2015 PC-stable ACE/ACS 与 MLP+PEID Hyper-ACE/Hyper-ACS 对比。外圈表示 ACE 或 Hyper-ACE，内圈表示 ACS 或 Hyper-ACS。两个面板使用独立 colorbar，因为线性 SEM 与 MLP+PEID 的数值尺度不同；b 面板的 0 号 Hyper-ACE 是单点极值，色标截断在非极值最大值，右端箭头表示仍有超上限值。*
 
-这也给图 C/D 的解释加了一个边界：pairwise ACE/ACS/AMCE 的 \(T\) 考虑了多步路径，但当前 \(EI^{(1)}+Syn^{(2),\mathrm{EID}}\) 聚合指标没有计算“\(\{i,k\}\) 先协同影响 \(j\)，再由 \(j\) 继续影响更远节点”的高阶路径传播。因此这些 Hyper 图更适合读作直接协同参与度图，而不是完整的高阶超路径中心性图。若后续要回答多步高阶传播问题，需要另定义 propagated hyper score，例如把每条 \(Syn_{K\Rightarrow j}^{\mathrm{EID}}\) 再按 \(j\) 到下游节点的 \(T_{ju}\) 进行扩散加权。
+修正后的 Runge 方法 ACE top-3 是 `No.1/0/16`，ACS top-3 是 `No.0/1/26`；MLP+PEID 的 ACE top-3 是 `component_01/02/04`，ACS top-3 是 `component_11/04/01`。源侧 ACE 仍有低阶热带节点重合，但目标侧 ACS 的差别更明显。需要保留两个限制：第一，修正后的 PC-stable graph 仍不等于原文 Fig. 4 的逐项复刻；第二，60 个 Varimax component 的编号不是官方固定标签，当前只对少数论文讨论节点做了视觉校准，因此不能把低排名或未校准节点直接命名为确定气候过程。
 
 ## UniCM ENSO 实验口径
 
@@ -130,7 +67,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 | intervention support | all 12 historical months x 11 mode dimensions sampled independently from `[-4, 4]` |
 | sampling seed | `20260619` |
 | bootstrap repeats | ENSO summary: `200`; IOD pair curve: seed mean only |
-| target mode | 图 6-7 和图 9 为 ENSO；图 8 为 all modes；图 10 为 IOD |
+| target mode | 图 3-4 和图 6 为 ENSO；图 5 为 all modes；图 7 为 IOD |
 | source modes | ENSO, NPMM, SPMM, IOB, IOD, SIOD, TNA, nino12, nino3, nino4, WWV |
 
 整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的目标 mode 输出估计 `EI(history; target_lead)`。本文保留二源 Syn 读数：
@@ -145,7 +82,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![UniCM mode geography](assets/unicm_mode_geography.png)
 
-*图 5. UniCM mode 输入的地理区域。ENSO 相关指数来自赤道太平洋不同经向区段；NPMM、SPMM 和 TNA 提供太平洋经向模态与热带北大西洋背景；IOD/SIOD/IOB 表示印度洋盆地和偶极型 SST 结构。*
+*图 2. UniCM mode 输入的地理区域。ENSO 相关指数来自赤道太平洋不同经向区段；NPMM、SPMM 和 TNA 提供太平洋经向模态与热带北大西洋背景；IOD/SIOD/IOB 表示印度洋盆地和偶极型 SST 结构。*
 
 这张图是解释后续 EI/Syn 的基础。`nino3`、`nino4` 和 `nino12` 不是 ENSO 之外的独立外部强迫，而是赤道太平洋内部空间结构的不同读数。因此当 `ENSO + nino3` 或 `ENSO + nino4` 出现高 Syn 时，更自然的解释是 ENSO 的当前强度需要和东西向 SST 型态一起读，才能判断未来几个月的演变。
 
@@ -157,7 +94,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![ENSO overall EI](assets/unicm_enso_overall_ei_seed_overlay.png)
 
-*图 6. ENSO target 的 full-history overall EI lead 曲线。彩色细线为 checkpoint seed，黑线为 seed mean，阴影为 seed standard deviation。*
+*图 3. ENSO target 的 full-history overall EI lead 曲线。彩色细线为 checkpoint seed，黑线为 seed mean，阴影为 seed standard deviation。*
 
 这张图说明，UniCM learned mechanism 对 ENSO 的有效信息主要集中在 lead 1 到 6 个月。短 lead 的 EI 明显高于后期，符合 ENSO 预测中短期记忆强、长期不确定性上升的物理直觉。三个 checkpoint 的曲线形状相近，Pearson min 达到 `0.950`；但 Spearman min 只有 `0.482`，说明不同 checkpoint 对具体 lead 排序仍不够稳定。因此 overall EI 可以支持“短中期记忆强”的方向性判断，但不能把每个 lead 的细粒度排序解释得太重。
 
@@ -169,7 +106,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![ENSO source EI lead curves](assets/unicm_enso_source_ei_rankings.png)
 
-*图 7. ENSO target 的单源 EI lead 曲线。左图单独显示 ENSO self source；右图显示按 24 个月平均 EI 选出的非自身 Top-5，并保留 NPMM/TNA。实线和浅色带分别为 checkpoint seed mean 和 standard deviation。*
+*图 4. ENSO target 的单源 EI lead 曲线。左图单独显示 ENSO self source；右图显示按 24 个月平均 EI 选出的非自身 Top-5，并保留 NPMM/TNA。实线和浅色带分别为 checkpoint seed mean 和 standard deviation。*
 
 单源 EI 曲线显示，ENSO 自身历史在短 lead 占绝对主导，但随后快速衰减。排除自身后，`nino3`、`nino12` 和 IOD 的 EI 随 lead 增长并在较长 lead 位于前列，NPMM 则在中期达到较高水平后回落；这些长 lead 曲线的 checkpoint 波动也明显扩大，因此不宜过度解释精细排序。TNA 的曲线始终较低，更稳妥的说法是，它可能只在 ENSO 背景态或其他太平洋/印度洋模态共同存在时提供弱增量。
 
@@ -179,7 +116,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![All-mode self EI lead curves](assets/unicm_all_modes_self_ei_leads.png)
 
-*图 8. UniCM 11 个 mode 的 self EI lead 曲线。实线为 checkpoint seed mean，浅色带为 seed standard deviation；横轴为 target lead，纵轴为该 mode 自身 12 个月历史到未来状态的 EI。*
+*图 5. UniCM 11 个 mode 的 self EI lead 曲线。实线为 checkpoint seed mean，浅色带为 seed standard deviation；横轴为 target lead，纵轴为该 mode 自身 12 个月历史到未来状态的 EI。*
 
 这张图说明，self EI 的绝对量级显著大于前面的二源 Syn：多数 mode 在 lead 1 都有约 `1.6-2.2` bits 的自身历史信息，而二源 Syn 通常只有 `10^{-3}` 到 `10^{-2}` bits。`NPMM`、`IOB`、`WWV`、`SPMM`、`TNA` 和 `SIOD` 的 self EI 衰减较慢，lead 12 仍约 `0.89-0.99` bits；相反，ENSO 相关的 `nino`、`nino3`、`nino4`、`nino12` 以及 `IOD` 在前 6 到 10 个月后快速下降，lead 24 基本接近 `0.05-0.08` bits。
 
@@ -200,7 +137,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![ENSO mode-pair Syn leads](assets/unicm_enso_mode_pair_syn_leads.png)
 
-*图 9. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn.*
+*图 6. ENSO target 的 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead 1..24 上的平均 Syn.*
 
 这张图的核心信息很直接：模型不是只看“ENSO 现在有多强”，还在看“暖异常更偏东、偏中太平洋，还是和其他海盆背景态一起出现”。前 1 到 7 个月，`ENSO + nino3` 和 `ENSO + nino4` 的 Syn 明显更高，说明 ENSO 的短期未来演变对赤道太平洋东西向 SST 结构很敏感。同样强度的 ENSO，如果空间型态不同，后续几个月的增长、衰减和位相演变也可能不同。
 
@@ -227,7 +164,7 @@ EI_{\mathrm{tgt}}^{(1)}(i)+Syn_{\mathrm{tgt}}^{(2),\mathrm{EID}}(i)
 
 ![IOD target mode-pair Syn leads](assets/unicm_iod_mode_pair_syn_leads.png)
 
-*图 10. IOD target 的二源 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead `1..24` 上的平均 Syn。*
+*图 7. IOD target 的二源 mode-pair Syn lead 曲线。实线为每个 lead 的 seed mean；同色浅虚线为该 pair 在 lead `1..24` 上的平均 Syn。*
 
 IOD 结果的主信号与 ENSO target 不同：排名靠前的 pair 大多包含 IOD 自身历史，说明 IOD 未来状态的主要可预测部分仍由自身 12 个月历史提供；但 `IOD + SIOD`、`ENSO + IOD`、`IOD + nino4`、`NPMM + IOD` 等组合有正的额外二源增益。`IOD + SIOD` 在 lead 1 达峰，`ENSO + IOD` 和 `IOD + nino4` 在 lead 8 附近更强，说明印度洋内部结构和 ENSO/太平洋背景态主要影响短中期 IOD 演变。到 lead 15 后多数曲线贴近 0，不能支持长期稳定二源协同。
 

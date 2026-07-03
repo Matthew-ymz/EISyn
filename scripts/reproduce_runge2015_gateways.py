@@ -370,16 +370,17 @@ def _discover_causal_edges_tigramite(
 
     data = pp.DataFrame(weekly_scores.to_numpy(dtype=float), var_names=list(weekly_scores.columns))
     pcmci = PCMCI(dataframe=data, cond_ind_test=ParCorr(significance="analytic"), verbosity=0)
-    result = pcmci.run_pcmci(tau_max=int(max_lag), pc_alpha=float(pc_alpha))
-    p_matrix = np.asarray(result["p_matrix"], dtype=float)
+    # Runge et al. use the PC step as variable selection for the subsequent
+    # sparse causal regression. The final PCMCI/MCI p-matrix is not the same
+    # object as the parent set listed in Supplementary Tables 2/3.
+    parents = pcmci.run_pc_stable(tau_min=1, tau_max=int(max_lag), pc_alpha=float(pc_alpha))
     n_components = weekly_scores.shape[1]
     parent_candidates: dict[int, list[tuple[int, int, float]]] = {target: [] for target in range(n_components)}
-    for source in range(n_components):
-        for target in range(n_components):
-            for lag in range(1, int(max_lag) + 1):
-                p_value = float(p_matrix[source, target, lag])
-                if np.isfinite(p_value) and p_value <= pc_alpha:
-                    parent_candidates[target].append((source, lag, p_value))
+    for target, target_parents in parents.items():
+        for source, negative_lag in target_parents:
+            lag = abs(int(negative_lag))
+            if 1 <= lag <= int(max_lag):
+                parent_candidates[int(target)].append((int(source), int(lag), float("nan")))
 
     candidates = _fit_sparse_standardized_regressions(weekly_scores, parent_candidates, max_lag=max_lag)
     return _threshold_edges_by_link_density(candidates, n_components=n_components, link_density=link_density)
