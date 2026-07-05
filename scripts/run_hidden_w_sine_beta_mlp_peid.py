@@ -21,12 +21,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.compare_granger_peid_mlp import (  # noqa: E402
+    BETA_COMMON_DRIVER_SWEEP_VALUES,
     DEFAULT_FIGURE_DIR,
     DEFAULT_RESULT_DIR,
     SimConfig,
     _beta_sweep_trend_stats,
     _intervention_features,
-    _sample_intervention_sources,
+    _plot_sine_beta_combined_readout_sweep,
+    estimate_shap_readout,
     make_lagged_dataset,
     simulate_system,
     train_mlp_transition_model,
@@ -37,9 +39,33 @@ DEFAULT_HIDDEN_W_FIGURE_PATH = DEFAULT_FIGURE_DIR / "sine_beta_hidden_w_mlp_peid
 DEFAULT_HIDDEN_W_COMPARISON_FIGURE_PATH = (
     DEFAULT_FIGURE_DIR / "sine_beta_hidden_vs_observed_w_syn_comparison.png"
 )
+DEFAULT_HIDDEN_W_COMBINED_FIGURE_PATH = DEFAULT_FIGURE_DIR / "sine_beta_combined_readout_sweep.png"
 DEFAULT_HIDDEN_W_REPORT_PATH = ROOT / "docs" / "reports" / "Part1_hidden_w_mlp_peid.md"
 DEFAULT_FULL_STATE_SUMMARY_PATH = DEFAULT_RESULT_DIR / "summary.json"
+DEFAULT_LIANG_RESULT_PATH = DEFAULT_RESULT_DIR / "sine_beta_liang_information_flow.json"
 OBSERVED_VARIABLES = ("x", "y", "z")
+DEFAULT_HIDDEN_W_READOUT_SUPPORT = {
+    "x": (-1.8, 1.8),
+    "y": (-1.8, 1.8),
+    "z": (-1.25, 1.25),
+}
+
+
+def sample_fixed_hidden_w_readout_states(
+    *,
+    samples: int,
+    seed: int,
+    support: Mapping[str, tuple[float, float]] | None = None,
+) -> pd.DataFrame:
+    fixed_support = dict(support or DEFAULT_HIDDEN_W_READOUT_SUPPORT)
+    rng = np.random.default_rng(int(seed))
+    rows: dict[str, np.ndarray] = {}
+    for name in OBSERVED_VARIABLES:
+        low, high = fixed_support[name]
+        if not np.isfinite(low) or not np.isfinite(high) or high <= low:
+            raise ValueError(f"invalid readout support for {name!r}")
+        rows[name] = rng.uniform(float(low), float(high), size=int(samples))
+    return pd.DataFrame(rows, columns=list(OBSERVED_VARIABLES))
 
 
 def _fixed_oracle_xy_z(
@@ -73,7 +99,7 @@ def _fixed_oracle_xy_z(
 
 def run_hidden_w_sine_beta_mlp_peid_sweep(
     *,
-    beta_values: Sequence[float] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+    beta_values: Sequence[float] = BETA_COMMON_DRIVER_SWEEP_VALUES,
     seeds: Sequence[int] = (0, 1, 2, 3),
     n_samples: int = 1100,
     alpha: float = 1.0,
@@ -81,6 +107,8 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
     mlp_epochs: int = 90,
     intervention_samples: int = 640,
     bins: int = 4,
+    readout_support: Mapping[str, tuple[float, float]] | None = None,
+    readout_seed: int = 17021,
     oracle_intervention_support: Mapping[str, tuple[float, float]] | None = None,
     oracle_intervention_seed: int = 17021,
 ) -> dict[str, object]:
@@ -100,6 +128,24 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
         seed=int(oracle_intervention_seed),
         support=oracle_support,
     )
+    fixed_support = dict(readout_support or DEFAULT_HIDDEN_W_READOUT_SUPPORT)
+    fixed_peid_samples = sample_fixed_hidden_w_readout_states(
+        samples=int(intervention_samples),
+        seed=int(readout_seed),
+        support=fixed_support,
+    )
+    fixed_shap_foreground = sample_fixed_hidden_w_readout_states(
+        samples=64,
+        seed=int(readout_seed) + 4049,
+        support=fixed_support,
+    )
+    fixed_shap_background = sample_fixed_hidden_w_readout_states(
+        samples=64,
+        seed=int(readout_seed) + 5051,
+        support=fixed_support,
+    )
+    fixed_shap_foreground_features = _intervention_features(fixed_shap_foreground, SimConfig(variable_names=OBSERVED_VARIABLES))
+    fixed_shap_background_features = _intervention_features(fixed_shap_background, SimConfig(variable_names=OBSERVED_VARIABLES))
 
     rows: list[dict[str, float]] = []
     for beta in beta_values:
@@ -138,7 +184,17 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             )
             features, targets = make_lagged_dataset(observed_series, lag=observed_config.lag)
             model = train_mlp_transition_model(features, targets, observed_config)
-            samples = _sample_intervention_sources(observed_series, observed_config)
+            shap_readout = estimate_shap_readout(
+                model,
+                features,
+                observed_series,
+                observed_config,
+                foreground_samples=64,
+                background_samples=64,
+                foreground_features=fixed_shap_foreground_features,
+                background_features=fixed_shap_background_features,
+            )
+            samples = fixed_peid_samples.copy()
             predictions = model.predict(_intervention_features(samples, observed_config))
             tm_peid = summarize_two_source_synergy_transport_map(
                 samples[["x"]].to_numpy(dtype=float),
@@ -155,6 +211,16 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             z_pred = train_pred[:, OBSERVED_VARIABLES.index("z")]
             z_mse = float(np.mean((z_target - z_pred) ** 2))
             z_baseline_mse = float(np.mean((z_target - float(np.mean(z_target))) ** 2))
+            shap_xy_z = shap_readout.shap_interaction_terms[
+                (shap_readout.shap_interaction_terms["sources"] == "x+y")
+                & (shap_readout.shap_interaction_terms["target"] == "z")
+            ].iloc[0]
+            shap_single_lookup = {
+                str(row["source"]): float(row["mean_abs_phi"])
+                for row in shap_readout.feature_attributions[
+                    shap_readout.feature_attributions["target"] == "z"
+                ].to_dict("records")
+            }
             rows.append(
                 {
                     "run_id": f"hidden_w_beta={float(beta):.2f}|seed={int(seed)}",
@@ -164,6 +230,10 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
                     "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
                     "z_train_mse": z_mse,
                     "z_train_r2": float(1.0 - z_mse / (z_baseline_mse + 1e-12)),
+                    "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
+                    "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
+                    "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
+                    "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
                     "mlp_peid_unique_x": float(tm_peid["left_ei"]),
                     "mlp_peid_unique_y": float(tm_peid["right_ei"]),
                     "mlp_peid_xy_joint": float(tm_peid["joint_ei"]),
@@ -189,6 +259,14 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             final_train_loss_std=("final_train_loss", "std"),
             z_train_r2_mean=("z_train_r2", "mean"),
             z_train_r2_std=("z_train_r2", "std"),
+            shap_x_to_z_mean_abs_mean=("shap_x_to_z_mean_abs", "mean"),
+            shap_x_to_z_mean_abs_std=("shap_x_to_z_mean_abs", "std"),
+            shap_y_to_z_mean_abs_mean=("shap_y_to_z_mean_abs", "mean"),
+            shap_y_to_z_mean_abs_std=("shap_y_to_z_mean_abs", "std"),
+            shap_xy_mean_abs_interaction_mean=("shap_xy_mean_abs_interaction", "mean"),
+            shap_xy_mean_abs_interaction_std=("shap_xy_mean_abs_interaction", "std"),
+            shap_xy_mean_interaction_mean=("shap_xy_mean_interaction", "mean"),
+            shap_xy_mean_interaction_std=("shap_xy_mean_interaction", "std"),
             mlp_peid_unique_x_mean=("mlp_peid_unique_x", "mean"),
             mlp_peid_unique_x_std=("mlp_peid_unique_x", "std"),
             mlp_peid_unique_y_mean=("mlp_peid_unique_y", "mean"),
@@ -220,7 +298,6 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
     trend_input = frame.rename(columns={"mlp_peid_xy_synergy": "tm_peid_xy_synergy"}).copy()
     for col in (
         "observational_wms",
-        "shap_xy_mean_abs_interaction",
         "neural_granger_xy_to_z",
         "pcmci_cmiknn_xy_to_z",
         "peid_xy_synergy",
@@ -242,6 +319,11 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             "bins": int(bins),
             "observed_variables": list(OBSERVED_VARIABLES),
             "hidden_variables": ["w"],
+            "readout_support": {
+                name: [float(bound) for bound in fixed_support[name]]
+                for name in OBSERVED_VARIABLES
+            },
+            "readout_seed": int(readout_seed),
             "oracle_intervention_support": {
                 name: [float(bound) for bound in oracle_support[name]]
                 for name in ("x", "y", "z")
@@ -370,6 +452,32 @@ def load_full_state_beta_sweep(summary_path: Path = DEFAULT_FULL_STATE_SUMMARY_P
     if not isinstance(beta_result, dict) or not beta_result.get("summary"):
         return None
     return beta_result
+
+
+def load_liang_beta_sweep(result_path: Path = DEFAULT_LIANG_RESULT_PATH) -> dict[str, object] | None:
+    if not result_path.exists():
+        return None
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or not payload.get("summary"):
+        return None
+    return payload
+
+
+def plot_combined_with_hidden_w_mlp_readouts(
+    hidden_result: dict[str, object],
+    full_result: dict[str, object] | None,
+    figure_dir: Path = DEFAULT_FIGURE_DIR,
+    *,
+    liang_result: dict[str, object] | None = None,
+) -> Path | None:
+    if not full_result:
+        return None
+    return _plot_sine_beta_combined_readout_sweep(
+        full_result,
+        figure_dir,
+        liang_result=liang_result,
+        mlp_readout_result=hidden_result,
+    )
 
 
 def compare_hidden_and_full_state(
@@ -585,7 +693,7 @@ def write_hidden_w_report(
 
 差别大小：隐藏 `w` 曲线相对观测 `w` 曲线的平均绝对差为 `{_fmt(comparison.get("mean_abs_delta"))}` bits，最大绝对差为 `{_fmt(comparison.get("max_abs_delta"))}` bits，出现在 `beta={_fmt(comparison.get("max_abs_delta_beta"))}`。斜率上，隐藏 `w` 为 `{_fmt(comparison.get("hidden_w_slope"))}` bits / beta，观测 `w` 为 `{_fmt(comparison.get("observed_w_slope"))}` bits / beta，差值约 `{_fmt(comparison.get("slope_delta_hidden_minus_observed"))}` bits / beta。
 
-因此，两条 MLP+PEID Syn 曲线在绝对值上非常接近，都位于约 `0.56-0.61` bits 的同一量级；隐藏 `w` 后主要变化不是整体抬高很多，而是随 `beta` 的上升趋势稍强。也就是说，在当前样本量、MLP 和 transport-map 设置下，未观测共同驱动会给 `{{x,y}}->z` 的 Syn 曲线带来可见的斜率偏移，但点位差距最大仍只有约 `0.016` bits。
+因此，两条 MLP+PEID Syn 曲线在绝对值上仍处于相近量级，但隐藏 `w` 后曲线更接近固定 Oracle，并呈现温和上升。也就是说，在当前样本量、MLP 和 transport-map 设置下，未观测共同驱动会给 `{{x,y}}->z` 的 Syn 曲线带来可见的斜率偏移；具体点位差距以上表和最大绝对差为准。
 """
     elif full_state_result is None:
         comparison_block = """
@@ -603,7 +711,7 @@ $$
 w_{{t+1}} &= 0.78w_t + \\eta^w_t,\\\\
 x_{{t+1}} &= 0.42x_t + 0.82\\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^x_t\\right) + \\eta^x_t,\\\\
 y_{{t+1}} &= 0.38y_t + 0.76\\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^y_t\\right) + \\eta^y_t,\\\\
-z_{{t+1}} &= 0.22z_t + \\sin(x_t y_t) + \\eta^z_t,
+z_{{t+1}} &= 0.22z_t + \\sin(x_t y_t) + 0.15\\beta w_t + \\eta^z_t,
 \\end{{aligned}}
 $$
 
@@ -650,8 +758,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--result-path", type=Path, default=DEFAULT_HIDDEN_W_RESULT_PATH)
     parser.add_argument("--figure-path", type=Path, default=DEFAULT_HIDDEN_W_FIGURE_PATH)
     parser.add_argument("--comparison-figure-path", type=Path, default=DEFAULT_HIDDEN_W_COMPARISON_FIGURE_PATH)
+    parser.add_argument("--combined-figure-path", type=Path, default=DEFAULT_HIDDEN_W_COMBINED_FIGURE_PATH)
     parser.add_argument("--report-path", type=Path, default=DEFAULT_HIDDEN_W_REPORT_PATH)
     parser.add_argument("--full-state-summary-path", type=Path, default=DEFAULT_FULL_STATE_SUMMARY_PATH)
+    parser.add_argument("--liang-result-path", type=Path, default=DEFAULT_LIANG_RESULT_PATH)
     return parser.parse_args()
 
 
@@ -671,6 +781,13 @@ def main() -> None:
         full_state_result,
         args.comparison_figure_path,
     )
+    liang_result = load_liang_beta_sweep(args.liang_result_path)
+    combined_figure_path = plot_combined_with_hidden_w_mlp_readouts(
+        result,
+        full_state_result,
+        args.combined_figure_path.parent,
+        liang_result=liang_result,
+    )
     report_path = write_hidden_w_report(
         result,
         figure_path,
@@ -685,6 +802,7 @@ def main() -> None:
                 "result_path": str(args.result_path),
                 "figure_path": str(figure_path),
                 "comparison_figure_path": str(comparison_figure_path) if comparison_figure_path else None,
+                "combined_figure_path": str(combined_figure_path) if combined_figure_path else None,
                 "report_path": str(report_path),
             },
             ensure_ascii=False,

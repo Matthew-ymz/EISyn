@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
@@ -554,6 +555,8 @@ def estimate_shap_readout(
     *,
     foreground_samples: int = 96,
     background_samples: int = 96,
+    foreground_features: np.ndarray | None = None,
+    background_features: np.ndarray | None = None,
 ) -> ShapReadout:
     """Read out SHAP-style single features and OLS product interactions from the same MLP."""
 
@@ -563,18 +566,28 @@ def estimate_shap_readout(
         raise ValueError("SHAP readout is currently defined for lag=1 examples.")
     if len(feature_values) == 0:
         raise ValueError("features must not be empty.")
-    foreground_idx = rng.choice(
-        len(feature_values),
-        size=min(int(foreground_samples), len(feature_values)),
-        replace=False,
-    )
-    background_idx = rng.choice(
-        len(feature_values),
-        size=min(int(background_samples), len(feature_values)),
-        replace=False,
-    )
-    foreground = feature_values[foreground_idx]
-    background = feature_values[background_idx]
+    if foreground_features is None:
+        foreground_idx = rng.choice(
+            len(feature_values),
+            size=min(int(foreground_samples), len(feature_values)),
+            replace=False,
+        )
+        foreground = feature_values[foreground_idx]
+    else:
+        foreground = np.asarray(foreground_features, dtype=float)
+    if background_features is None:
+        background_idx = rng.choice(
+            len(feature_values),
+            size=min(int(background_samples), len(feature_values)),
+            replace=False,
+        )
+        background = feature_values[background_idx]
+    else:
+        background = np.asarray(background_features, dtype=float)
+    if foreground.ndim != 2 or foreground.shape[1] != feature_values.shape[1]:
+        raise ValueError("foreground_features must match the feature width.")
+    if background.ndim != 2 or background.shape[1] != feature_values.shape[1]:
+        raise ValueError("background_features must match the feature width.")
     names = tuple(config.variable_names)
     n_features = len(names)
 
@@ -2739,6 +2752,56 @@ _BETA_NCS_METHOD_STYLES = {
     "liang_if": {"color": "#C44E52", "alpha": 0.74, "linewidth": 1.15},
 }
 
+_BETA_MLP_READOUT_OVERRIDE_COLUMNS = (
+    "mlp_peid_unique_x_mean",
+    "mlp_peid_unique_x_std",
+    "mlp_peid_unique_y_mean",
+    "mlp_peid_unique_y_std",
+    "mlp_peid_xy_joint_mean",
+    "mlp_peid_xy_joint_std",
+    "mlp_peid_xy_synergy_mean",
+    "mlp_peid_xy_synergy_std",
+    "shap_x_to_z_mean_abs_mean",
+    "shap_x_to_z_mean_abs_std",
+    "shap_y_to_z_mean_abs_mean",
+    "shap_y_to_z_mean_abs_std",
+    "shap_xy_mean_abs_interaction_mean",
+    "shap_xy_mean_abs_interaction_std",
+)
+
+
+def _override_beta_mlp_readouts(
+    beta_result: dict[str, object],
+    mlp_readout_result: dict[str, object] | None,
+) -> dict[str, object]:
+    """Return beta_result with MLP+PEID/SHAP summary columns replaced by another MLP readout."""
+
+    if not mlp_readout_result or not mlp_readout_result.get("summary"):
+        return copy.deepcopy(beta_result)
+    result = copy.deepcopy(beta_result)
+    replacement_by_beta = {
+        float(row["beta"]): dict(row)
+        for row in list(mlp_readout_result.get("summary", []))
+        if "beta" in row
+    }
+    updated_rows: list[dict[str, object]] = []
+    for row in list(result.get("summary", [])):
+        updated = dict(row)
+        replacement = replacement_by_beta.get(float(updated["beta"]))
+        if replacement is not None:
+            for column in _BETA_MLP_READOUT_OVERRIDE_COLUMNS:
+                if column in replacement:
+                    updated[column] = replacement[column]
+        updated_rows.append(updated)
+    result["summary"] = updated_rows
+    config = dict(mlp_readout_result.get("config", {}))
+    result["mlp_readout_override"] = {
+        "observed_variables": list(config.get("observed_variables", [])),
+        "hidden_variables": list(config.get("hidden_variables", [])),
+        "source": "hidden_w_mlp_readout",
+    }
+    return result
+
 
 def _configure_beta_ncs_style() -> None:
     import matplotlib as mpl
@@ -3087,7 +3150,9 @@ def _plot_sine_beta_combined_readout_sweep(
     beta_result: dict[str, object],
     figure_dir: Path,
     liang_result: dict[str, object] | None = None,
+    mlp_readout_result: dict[str, object] | None = None,
 ) -> Path | None:
+    beta_result = _override_beta_mlp_readouts(beta_result, mlp_readout_result)
     summary_rows = beta_result.get("summary", [])
     if not summary_rows:
         return None

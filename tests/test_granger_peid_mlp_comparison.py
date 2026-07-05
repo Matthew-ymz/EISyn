@@ -13,9 +13,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import scripts.compare_granger_peid_mlp as comparison
+import scripts.run_hidden_w_sine_beta_mlp_peid as hidden_w
 from scripts.compare_granger_peid_mlp import (
     SimConfig,
     _observational_wms,
+    _override_beta_mlp_readouts,
     _plot_sine_alpha_neural_granger_sweep,
     _plot_sine_alpha_sweep,
     _plot_sine_beta_combined_readout_sweep,
@@ -228,6 +230,81 @@ def test_common_driver_sine_synergy_adds_beta_scaled_driver_to_target() -> None:
         atol=1e-12,
     )
     assert ("w", "z") in truth["pairwise_edges"]
+
+
+def test_hidden_w_sweep_defaults_to_full_beta_grid_and_reports_hidden_driver() -> None:
+    signature = inspect.signature(hidden_w.run_hidden_w_sine_beta_mlp_peid_sweep)
+    beta_default = signature.parameters["beta_values"].default
+
+    assert tuple(beta_default) == comparison.BETA_COMMON_DRIVER_SWEEP_VALUES
+    assert len(beta_default) == 21
+
+    source = inspect.getsource(hidden_w.write_hidden_w_report)
+    assert "0.15\\\\beta w_t" in source
+    assert "观测变量：`{config[\"observed_variables\"]}`；隐藏变量：`{config[\"hidden_variables\"]}`" in source
+    assert "shap_xy_mean_abs_interaction" in inspect.getsource(hidden_w.run_hidden_w_sine_beta_mlp_peid_sweep)
+
+
+def test_override_beta_mlp_readouts_replaces_only_mlp_and_shap_columns() -> None:
+    beta_result = {
+        "summary": [
+            {
+                "beta": 0.0,
+                "observational_wms_mean": 0.2,
+                "mlp_peid_xy_synergy_mean": 0.9,
+                "mlp_peid_xy_synergy_std": 0.1,
+                "mlp_peid_unique_x_mean": 0.8,
+                "mlp_peid_unique_y_mean": 0.7,
+                "shap_xy_mean_abs_interaction_mean": 0.6,
+                "shap_x_to_z_mean_abs_mean": 0.5,
+                "shap_y_to_z_mean_abs_mean": 0.4,
+                "pcmci_cmiknn_x_to_z_mean": 0.3,
+            }
+        ],
+        "config": {"source": "full"},
+    }
+    hidden_result = {
+        "summary": [
+            {
+                "beta": 0.0,
+                "mlp_peid_xy_synergy_mean": 0.19,
+                "mlp_peid_xy_synergy_std": 0.01,
+                "mlp_peid_unique_x_mean": 0.18,
+                "mlp_peid_unique_y_mean": 0.17,
+                "shap_xy_mean_abs_interaction_mean": 0.16,
+                "shap_x_to_z_mean_abs_mean": 0.15,
+                "shap_y_to_z_mean_abs_mean": 0.14,
+            }
+        ],
+        "config": {"observed_variables": ["x", "y", "z"], "hidden_variables": ["w"]},
+    }
+
+    updated = _override_beta_mlp_readouts(beta_result, hidden_result)
+    row = updated["summary"][0]
+
+    assert row["mlp_peid_xy_synergy_mean"] == 0.19
+    assert row["mlp_peid_xy_synergy_std"] == 0.01
+    assert row["mlp_peid_unique_x_mean"] == 0.18
+    assert row["shap_xy_mean_abs_interaction_mean"] == 0.16
+    assert row["shap_x_to_z_mean_abs_mean"] == 0.15
+    assert row["observational_wms_mean"] == 0.2
+    assert row["pcmci_cmiknn_x_to_z_mean"] == 0.3
+    assert beta_result["summary"][0]["mlp_peid_xy_synergy_mean"] == 0.9
+    assert updated["mlp_readout_override"]["observed_variables"] == ["x", "y", "z"]
+    assert updated["mlp_readout_override"]["hidden_variables"] == ["w"]
+
+
+def test_hidden_w_fixed_readout_states_are_beta_independent() -> None:
+    first = hidden_w.sample_fixed_hidden_w_readout_states(samples=32, seed=17021)
+    second = hidden_w.sample_fixed_hidden_w_readout_states(samples=32, seed=17021)
+    different_seed = hidden_w.sample_fixed_hidden_w_readout_states(samples=32, seed=17022)
+
+    pd.testing.assert_frame_equal(first, second)
+    assert not first.equals(different_seed)
+    assert list(first.columns) == ["x", "y", "z"]
+    assert first["x"].between(-1.8, 1.8).all()
+    assert first["y"].between(-1.8, 1.8).all()
+    assert first["z"].between(-1.25, 1.25).all()
 
 
 def test_beta_peid_intervention_uses_fixed_source_support_only() -> None:

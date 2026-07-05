@@ -47,11 +47,25 @@ $$
 
 ![案例因果图](../../fig/granger_peid_mlp_comparison/causal_graph3.png)
 
-随着 `beta` 增大，观测冗余增强，但待比较的二源机制不变。Oracle+PEID `x+y` 曲线作为固定二源结构参照。
+随着 `beta` 增大，观测冗余增强，但待比较的二源机制不变。这里保留两个 MLP 口径的对照。第一组把 `w` 当作可观测状态，`MLP+PEID` 与 `SHAP` 用四维一步 MLP
+$$
+[w_t,x_t,y_t,z_t]\mapsto[w_{t+1},x_{t+1},y_{t+1},z_{t+1}]
+$$
+读出 `{x,y}->z`；这对应完整观测转移，但会让 MLP 显式看到共同驱动。第二组把 `w` 视为不可观测混杂因子，`MLP+PEID` 与 `SHAP` 只用 `x,y,z` 训练同一个一步 MLP，
+$$
+[x_t,y_t,z_t]\mapsto[x_{t+1},y_{t+1},z_{t+1}],
+$$
+然后在所有 `beta` 和 seed 上使用同一批固定干预读出样本读取 `{x,y}->z` 的 PEID 分解和 SHAP interaction，其中 `x,y∈[-1.8,1.8]`，`z∈[-1.25,1.25]`。这样避免 PEID/SHAP 的读出域随 `beta` 的经验分布一起漂移。WMS、MMI-PID 与 SURD 仍直接使用同一条 `x_t,y_t,z_{t+1}` 观测读数；PCMCI、Neural Granger 与 Liang IF 保留原生多变量读数，用来显示它们在观测到 `w` 时对单源方向信息的响应。Oracle+PEID `x+y` 曲线作为固定二源结构参照。
 
-![beta 扫描单源与高阶协同组合曲线](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep.png)
+**四维 `wxyz` MLP 口径。** `w` 进入 MLP 训练和预测输入，PEID/SHAP 从完整四维 surrogate 上读出 `{x,y}->z`。
 
-正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。
+![beta 扫描单源与高阶协同组合曲线：wxyz MLP](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_wxyz_mlp.png)
+
+**三维 `xyz` MLP 口径。** `w` 不进入 MLP 训练或预测输入，只作为隐藏共同驱动；PEID/SHAP 使用固定干预读出域。
+
+![beta 扫描单源与高阶协同组合曲线：xyz MLP 固定读出域](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_xyz_mlp_fixed_support.png)
+
+正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。四维 `wxyz` MLP 口径下，MLP+PEID synergy 从 `beta=0` 的约 `0.656` bits 降至 `beta=1` 的约 `0.508` bits，线性斜率约 `-0.108` bits / beta；SHAP interaction 从约 `0.180` 增至约 `0.415`，斜率约 `0.409` / beta。三维 `xyz` MLP 固定读出域口径下，MLP+PEID synergy 从约 `0.661` bits 降至约 `0.530` bits，线性斜率约 `-0.111` bits / beta；SHAP interaction 从约 `0.465` 降至约 `0.349`，斜率约 `-0.0437` / beta。两组实验的差别在于 MLP 是否显式观测共同驱动 `w`，以及三维实验是否把 PEID/SHAP 读出域固定为跨 beta 共享的干预支持。
 
 # 五方法协同比较
 
@@ -225,7 +239,7 @@ $$
 
 其中 $\mathbf{s}_t^i=(\cos\theta_i(t),\sin\theta_i(t))$ 是第 $i$ 个振子的相位特征，$\mathbf{y}_{t+\tau}=\{(\cos\theta_i(t+\tau),\sin\theta_i(t+\tau))\}_{i=1}^{N}$ 是系统整体未来相位状态。这里不再对差值做非负截断；若出现负值，应优先检查 EI 估计、source covariance 或数值正则化，而不是把负值裁掉。
 
-![Kuramoto oscillator-count appendix](assets/part1_kuramoto_size_phi_eid_appendix.png)
+![Kuramoto oscillator-count appendix](../../fig/part1_kuramoto_size_phi_eid_appendix.png)
 
 **小 $N=2$ classic Kuramoto。** 图 A 左列显示，同一 whole-state 口径下，`N=2` 的 Oracle $\Phi^{EID}$ 没有形成清楚的内部临界峰；它在当前扫描范围内主要随强耦合增强，到 `K=4.0` 约 `0.96` bits。learned 曲线在 `K=2.6` 附近出现更高峰值，约 `6.35` bits，但该峰明显高于 Oracle，主要反映 learned readout 的偏差。`N=2` 的 corrected order 也不是热力学意义下的相变曲线，而是有限二振子锁相读数。
 
@@ -241,12 +255,3 @@ $$
 
 随着 $K$ 增大，同步吸引会压缩相位差自由度，许多不同初始相位会被映射到更相似的未来状态，因此总的可区分信息下降。临界前沿附近，单个振子对未来全系统状态的解释力下降得更快，而联合状态仍保留对集体相位关系的解释力，所以两项差值扩大，$\Phi^{EID}$ 在 `K≈1.7` 达峰。到强同步区后，系统接近低维同步流形，联合 EI 本身也明显降低，差值随之回落。换言之，临界峰不是因为总 EI 最大，而是因为整体相对于部分之和的不可分解优势最大。
 
-## Liang information flow 对照
-
-Liang 对照实验使用完全相同的 `common_driver_sine_synergy` 配置：`alpha=1`、`noise=0.05`、`n_samples=1100`、`beta∈[0,1]` 步长 `0.05`、seed 为 `0,1,2,3`。输入只包含原始观测变量 `x,y,z,w`，不额外加入 `sin(x_t y_t)` 人工特征。因此这里检验的是 Liang 线性多变量信息流在同一观测序列上的 pairwise 读数，而不是给方法显式暴露二源非线性结构项。
-
-![Liang information flow beta sweep](../../fig/granger_peid_mlp_comparison/sine_beta_liang_information_flow.png)
-
-结果显示，Euler 版 Liang 信息流和有限时间 matrix-log 版读数一致地捕捉到随 `beta` 增强的 `w→z` 分量：Euler 信息流的 `w→z` 线性斜率约为 `0.0476`，归一化信息流斜率约为 `0.0629`，matrix-log 读数斜率约为 `0.0809`。相比之下，`x→z` 和 `y→z` 没有呈现固定二源结构所期望的稳定正向响应；`x→z` 在高 `beta` 区间转为负值，`y→z` 接近零且波动较大。
-
-这说明在该实验设置下，Liang 方法更像是在读出可线性投影的单源方向信息：弱边 `0.15\beta w_t` 和共同驱动诱导的线性相关会随 `beta` 被强化；固定的 `sin(x_t y_t)` 二源协同不会被标准 pairwise Liang 信息流稳定表示为 `x→z`、`y→z` 两条边。这个结果与 PEID/Oracle 曲线的解释边界不同：PEID 目标是刻画二源联合约束，Liang 信息流目标是方向性单源流量。
