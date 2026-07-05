@@ -1,0 +1,49 @@
+{
+  "node_count": 12,
+  "module_count": 6,
+  "phi_eid_bits": 3.95,
+  "greedy_tree_seconds": 0.010882791597396135,
+  "greedy_tree_checked_bipartitions": 2533,
+  "benchmark_rows": [
+    {
+      "n": 8.0,
+      "seconds": 0.0005096672102808952,
+      "checked_bipartitions": 177.0,
+      "root_bipartitions": 127.0,
+      "all_order_le_4_subsets": 162.0
+    },
+    {
+      "n": 10.0,
+      "seconds": 0.001899875234812498,
+      "checked_bipartitions": 571.0,
+      "root_bipartitions": 511.0,
+      "all_order_le_4_subsets": 385.0
+    },
+    {
+      "n": 12.0,
+      "seconds": 0.00841416697949171,
+      "checked_bipartitions": 2135.0,
+      "root_bipartitions": 2047.0,
+      "all_order_le_4_subsets": 793.0
+    },
+    {
+      "n": 14.0,
+      "seconds": 0.03506324999034405,
+      "checked_bipartitions": 8387.0,
+      "root_bipartitions": 8191.0,
+      "all_order_le_4_subsets": 1470.0
+    },
+    {
+      "n": 16.0,
+      "seconds": 0.15179937472566962,
+      "checked_bipartitions": 33395.0,
+      "root_bipartitions": 32767.0,
+      "all_order_le_4_subsets": 2516.0
+    }
+  ],
+  "outputs": {
+    "png": "docs/ref/assets/phi_eid_highdim/phi_eid_highdim_synergy_surfaces.png",
+    "svg": "docs/ref/assets/phi_eid_highdim/phi_eid_highdim_synergy_surfaces.svg",
+    "pdf": "docs/ref/assets/phi_eid_highdim/phi_eid_highdim_synergy_surfaces.pdf"
+  }
+}
