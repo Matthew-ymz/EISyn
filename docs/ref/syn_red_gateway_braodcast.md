@@ -117,7 +117,7 @@ $$
 
 在 Runge 1948-2026 daily SLP 的缓存 MLP transition model 上，我们用同一批最大熵干预预测样本和同一 Gaussian log-det MI 估计器，分别计算了 $\phi^{EID}(T)$ 与 $BR(S)$。为避免短期 persistence 主导结果，单源求和时默认排除自环项 $X_i(t)\to X_i(t+1)$。
 
-![Runge gateway phi and broadcast redundancy](../reports/assets/runge_gateway_phi_broadcast_redundancy_map.png)
+![Runge gateway phi and broadcast redundancy](../../fig/runge_gateway_phi_broadcast_redundancy_map.png)
 
 这张图显示两者确实有很强的经验重叠。原因是二者都在比较“联合 EI”和“单源/单目标 EI 之和”，只是固定的方向不同：
 

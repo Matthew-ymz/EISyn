@@ -33,7 +33,7 @@ $$
 
 充分强、充分久的联合点火会消除低态并把轨迹推入高态 basin。这个解析条件直接给出每个节点对是否可切换的真值标签。
 
-![单点保留低态而联合点火跨越 basin 分界](assets/part3_joint_required_mechanism.png)
+![单点保留低态而联合点火跨越 basin 分界](../../fig/part3_joint_required_mechanism.png)
 
 *图 1. 左：最强单点输入仍保留低态稳定零点，可切换节点对使低态零点消失。右：固定点火至 \(T=8\) 后释放；单点轨迹返回低态，联合轨迹保持在高态。*
 
@@ -58,7 +58,7 @@ $$
 
 这使高 synergy 具有清楚的操作含义：只有同时知道两个点火幅度，才能充分预测最终进入哪个 basin。
 
-![最终点火结果与 basin 标签 PEID synergy](assets/part3_joint_required_pair_screening.png)
+![最终点火结果与 basin 标签 PEID synergy](../../fig/part3_joint_required_pair_screening.png)
 
 *图 2. 一个代表性随机实例中，左图逐格用 \(0/1\) 表示最大联合点火并释放后的最终 basin 标签，右图逐格给出对应节点对的 PEID Syn 值。两图使用完全相同的节点对排列，可以直接检查点火成功区域与高 Syn 区域是否对应；本实例中二者完全对应。*
 
@@ -84,7 +84,7 @@ $$
 | 128 样本，10% 标签噪声 | PEID Syn | 0.739 | 0.640 | 0.900 |
 | 128 样本，10% 标签噪声 | Joint EI / 单节点 EI 和 / 固定响应 | 1.000 | 1.000 | 1.000 |
 
-![参数集成中的组合识别性能与噪声鲁棒性](assets/part3_joint_required_ensemble_performance.png)
+![参数集成中的组合识别性能与噪声鲁棒性](../../fig/part3_joint_required_ensemble_performance.png)
 
 *图 3. 左：无噪声精确网格上的 AUPRC。中、右：128 样本条件下随 basin 标签噪声变化的 AUPRC 与 top-\(k\) recall。图中重合曲线表示多个基线表现相同。*
 
@@ -104,7 +104,7 @@ $$
 
 需要强调的是，本节的 final basin label 不是一个多节点网络整体状态的 basin 标签，而是同一个一维目标模块 \(x(t)\) 在点火释放后落入低态 basin 还是高态 basin 的标签。候选源节点之间没有传播边、抑制边或社区结构；网络结构只体现在“哪些候选输入通道以多大权重 \(w_i\) 汇入目标模块”。因此这里的结论不能解释任意给定网络上的全局恢复 basin，只说明在受控 target-module 口径下，PEID synergy 能恢复由加性输入阈值诱导的联合必要组合。
 
-![受控目标模块的候选输入结构](assets/part3_domain_pair_control_structure.png)
+![受控目标模块的候选输入结构](../../fig/part3_domain_pair_control_structure.png)
 
 *图 4. 本节正对照使用的控制结构示意。8 个候选源节点没有源-源边，均作为外部输入通道汇入同一个双稳态目标模块；边宽表示归一化输入权重 \(w_i/u_c\)。final basin label \(Y\) 是目标模块释放后的高低 basin 标签，而不是整个源节点网络的 basin。*
 
@@ -140,11 +140,11 @@ $$
 | Allee effect | 0.0730 | 最小补种/移入率 | 1.000 | 1.000 | 1.000 | 0.973 |
 | Schlögl | 0.0866 | 最小进料通量 | 1.000 | 1.000 | 1.000 | 0.972 |
 
-![三个典型动力学中的最终 basin 标签与 PEID synergy](assets/part3_domain_pair_screening.png)
+![三个典型动力学中的最终 basin 标签与 PEID synergy](../../fig/part3_domain_pair_screening.png)
 
 *图 5. 三个领域模型中，最大双点点火后的最终 basin 标签与对应 PEID Syn 矩阵保持同一支持集。每个模型使用同一候选源节点生成规则，但 \(u_c\) 来自各自的物理鞍结阈值。*
 
-![三个典型动力学中的点火成功率与 PEID synergy](assets/part3_domain_pair_success_vs_synergy.png)
+![三个典型动力学中的点火成功率与 PEID synergy](../../fig/part3_domain_pair_success_vs_synergy.png)
 
 *图 6. 在代表性实例中，PEID Syn 与离散点火网格上的成功率呈强正相关。该图说明 synergy 不只恢复二值可行集合，也跟“该节点对在多少点火幅度组合下成功”保持一致趋势。*
 
@@ -156,7 +156,7 @@ $$
 
 这里的 basin label 是全网状态的标签。具体地，先估计低初值和高初值自由演化后的最终全网均值，以二者中点作为高低 basin 阈值；点火阶段固定一个或两个源节点，随后释放所有节点自由演化，最终全网均值超过阈值时记为 \(Y=1\)。因此这一节不再是单一目标模块的 basin，而是网络整体在释放后的 basin 转移。
 
-![ER 与小世界代表网络结构](assets/part3_network_basin_network_structure.png)
+![ER 与小世界代表网络结构](../../fig/part3_network_basin_network_structure.png)
 
 *图 7. 合成全网实验的代表网络结构。ER 网络呈随机连接，小世界网络保留环状局部连接并带有少量重连边；节点颜色表示加权度。*
 
@@ -167,15 +167,15 @@ $$
 | Eco | ER | 10 | 1.000 | 245 | 0.993 | 0.996 |
 | Eco | WS | 10 | 1.000 | 226 | 0.985 | 0.451 |
 
-![全网 basin 标签、PEID Syn 与成功率矩阵](assets/part3_network_basin_representative_heatmaps.png)
+![全网 basin 标签、PEID Syn 与成功率矩阵](../../fig/part3_network_basin_representative_heatmaps.png)
 
 *图 8. 每个模型-网络组合的代表实例。左列给出最大双点点火后的全网 basin 标签，对角线表示单节点同等总强度点火是否成功；中列为 basin-label PEID Syn；右列为离散点火网格上的成功率。*
 
-![全网点火成功率与 PEID Syn](assets/part3_network_basin_success_scatter.png)
+![全网点火成功率与 PEID Syn](../../fig/part3_network_basin_success_scatter.png)
 
 *图 9. 合格实例池中，节点对的 PEID Syn 与点火网格成功率整体正相关。该结果支持“Syn 越高，节点对成功概率越大”的弱排序主张，但 Eco 小世界网络的 top-\(k\) recall 较低，说明局部结构会让高成功率和最高 Syn 的排序不完全一致。*
 
-![全网 basin 实验的汇总指标](assets/part3_network_basin_summary_metrics.png)
+![全网 basin 实验的汇总指标](../../fig/part3_network_basin_summary_metrics.png)
 
 *图 10. 四个模型-网络组合的 pooled Spearman 相关和 top-\(k\) recall。Spearman 均保持较高，top-\(k\) recall 在 Eco 小世界网络上下降，提示网络传播几何会影响精确排序。*
 
@@ -201,15 +201,15 @@ Y = \mathbf{1}\{\bar{x}(t_{\mathrm{short}})-\bar{x}(0) > \operatorname{median}\}
 | Eco | ER | 91 | 0.055 | 0.024 | 0.222 |
 | Eco | WS | 91 | 0.063 | 0.068 | 0.321 |
 
-![初态代理 Syn 与原全网点火结果的矩阵对照](assets/part3_initial_state_syn_heatmaps.png)
+![初态代理 Syn 与原全网点火结果的矩阵对照](../../fig/part3_initial_state_syn_heatmaps.png)
 
 *图 11. 每个代表网络中，初态代理 Syn、原双点点火成功率和原 basin-label Syn 的矩阵对照。代理目标来自短时自由演化，不包含任何固定点火网格。*
 
-![初态代理 Syn 与原点火成功率](assets/part3_initial_state_syn_vs_success.png)
+![初态代理 Syn 与原点火成功率](../../fig/part3_initial_state_syn_vs_success.png)
 
 *图 12. 初态代理 Syn 与原点火成功率仅呈弱正相关。该结果说明初态-短时响应变量能提供少量排序信号，但丢失了最终 basin 转移所需的非线性阈值信息。*
 
-![初态代理 Syn 的汇总指标](assets/part3_initial_state_syn_summary.png)
+![初态代理 Syn 的汇总指标](../../fig/part3_initial_state_syn_summary.png)
 
 *图 13. 代理 Syn 相对原成功率和原 basin-label Syn 的 Spearman 相关均较弱，top-\(k\) recall 也明显低于 basin-label 主实验。*
 
@@ -233,11 +233,11 @@ Y = \mathbf{1}\{\bar{x}(t_{\mathrm{short}})-\bar{x}(0) > \operatorname{median}\}
 | Eco | ER | 30 | 0.030 | 0.045 | 0.222 |
 | Eco | WS | 30 | 0.211 | 0.204 | 0.444 |
 
-![transport-map 初态 Syn 与原点火成功率](assets/part3_transport_map_initial_state_syn_vs_success.png)
+![transport-map 初态 Syn 与原点火成功率](../../fig/part3_transport_map_initial_state_syn_vs_success.png)
 
 *图 14. transport-map 初态 Syn 与原点火成功率的关系。小世界网络中出现弱正相关，但 ER 网络尤其 Neural ER 不稳定。*
 
-![transport-map 初态 Syn 汇总](assets/part3_transport_map_initial_state_syn_summary.png)
+![transport-map 初态 Syn 汇总](../../fig/part3_transport_map_initial_state_syn_summary.png)
 
 *图 15. transport-map 连续估计没有带来整体改善。pooled \(\rho\)(TM Syn, 成功率) 为 0.033，低于离散初态代理的 0.060；top-\(k\) recall 也基本持平。*
 
@@ -247,9 +247,9 @@ Y = \mathbf{1}\{\bar{x}(t_{\mathrm{short}})-\bar{x}(0) > \operatorname{median}\}
 
 此前的三节点多吸引子实验允许持续单点干预直接切换到对应高态。三个节点的 synergy 分别为 \(0.262,0.370,0.371\)，最小成本分别为 \(0.150,0.100,0.125\)，Pearson 相关为 \(-0.864\)，但样本仅有三个节点，Spearman 相关也只有 \(-0.500\)。它说明当单点本身即可切换时，synergy 最多弱预测切换难度，不能证明联合点火必要性。
 
-![旧单节点多吸引子实验的干预景观](assets/part3_multistable_intervention_landscape.png)
+![旧单节点多吸引子实验的干预景观](../../fig/part3_multistable_intervention_landscape.png)
 
-![旧单节点多吸引子实验中的 synergy 与最小成本](assets/part3_multistable_synergy_vs_min_cost.png)
+![旧单节点多吸引子实验中的 synergy 与最小成本](../../fig/part3_multistable_synergy_vs_min_cost.png)
 
 *图 16. 旧单节点实验的结果图保留为反例对照：它展示成本差异，但不包含严格的组合发现问题。*
 

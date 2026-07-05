@@ -30,8 +30,8 @@
 **Files:**
 - Modify: `scripts/plot_unicm_enso_ei_syn_insight.py`
 - Modify: `docs/reports/Part2.md`
-- Regenerate: `docs/reports/assets/unicm_enso_source_ei_rankings.png`
-- Regenerate: `docs/reports/assets/unicm_enso_source_ei_rankings.svg`
+- Regenerate: `fig/unicm_enso_source_ei_rankings.png`
+- Regenerate: `fig/unicm_enso_source_ei_rankings.svg`
 
 - [x] Change `plot_source_ei` to draw a self-EI panel and a non-self panel, using seed means and standard-deviation bands.
 - [x] Put the non-self legend outside the right axes and preserve tight, unclipped export.
@@ -43,7 +43,7 @@
 **Files:**
 - Verify: `scripts/plot_unicm_enso_ei_syn_insight.py`
 - Verify: `docs/reports/Part2.md`
-- Verify: `docs/reports/assets/unicm_enso_source_ei_rankings.png`
+- Verify: `fig/unicm_enso_source_ei_rankings.png`
 
 - [x] Run the focused pytest file and `python -m py_compile scripts/plot_unicm_enso_ei_syn_insight.py`.
 - [x] Run targeted whitespace checks on the Python, test, and Markdown sources; generated Matplotlib SVG path data retains exporter-produced trailing spaces.

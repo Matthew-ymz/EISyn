@@ -7,7 +7,7 @@
 
 当前结论应保持克制：$\Phi^R$ 与 whole-system $\Phi^{EID}$ 都把不可约信息增强区定位在 $G\approx1.7\text{-}1.9$，但还不能声称某个单点就是唯一相变点。新增 target-burden 图给出了一个可解释的脑区级读数：哪些未来脑区的状态最依赖全脑联合源状态，而不是单个源脑区的简单相加。
 
-![DMF 全局耦合扫描中的 firing rate、PhiR、whole-system PhiEID 与 PhiR 峰值敏感性](assets/part2_dmf_phi_comparison.png)
+![DMF 全局耦合扫描中的 firing rate、PhiR、whole-system PhiEID 与 PhiR 峰值敏感性](../../fig/part2_dmf_phi_comparison.png)
 
 *图 1. 全局耦合 $G$ 扫描结果。A：平均放电率；B：不同经验采样方案下的 $\Phi^R$；C：最大熵源干预下的 whole-system $\Phi^{EID}$；D：各 $\Phi^R$ 曲线识别出的峰值位置 $G^*$。峰值分析统一排除扫描边界 $G=1.0$。*
 
@@ -109,7 +109,7 @@ $$
 
 参考 Luppi et al. 的可视化风格，重新绘图时采用了三个元素：按 canonical network 色条排序的信息矩阵、脑图上的高低分布、以及 top 区域排行。由于当前数据是 Lausanne-83 label，且本地没有可用的 fsaverage / nilearn surface 渲染环境，图 2 使用的是 schematic brain layout，不是正式皮层表面投影。
 
-![DMF PhiEID target burden brain distribution](assets/part2_dmf_phi_eid_target_burden_map.png)
+![DMF PhiEID target burden brain distribution](../../fig/part2_dmf_phi_eid_target_burden_map.png)
 
 *图 2. $G=1.7$ 下的 $\Phi^{EID}_{\rightarrow j}$ target-burden 分布。A：singleton EI source-target 矩阵，脑区按粗略功能模块排序，顶部色条模拟 Luppi 图中的 network ordering。B：四个示意脑视角上的 target-burden 热度，黑圈标出 top-12 target 区域。C：top-12 target burden 排名。*
 
@@ -154,7 +154,7 @@ Top target burden 区域为：
 | ACS | 区域作为终点接收的总路径效应 | incoming susceptibility 候选 |
 | AMCE | 区域作为中间节点参与路径的效应 | mediator / relay 候选 |
 
-![DMF 区域 EI path-effect 的 ACE、ACS 与 AMCE 分布](assets/part2_dmf_runge_path_scores.png)
+![DMF 区域 EI path-effect 的 ACE、ACS 与 AMCE 分布](../../fig/part2_dmf_runge_path_scores.png)
 
 *图 3. 在 $G=1.7$ 与 $G=1.8$ 上，把 singleton Gaussian EI 矩阵作为有向图后得到的 Runge-style ACE、ACS 和 AMCE 区域分布。每个点是一个 Lausanne 区域，箱线图显示区域分布。*
 
@@ -175,16 +175,16 @@ Top 区域如下：
 
 | 文件 | 含义 |
 |---|---|
-| `docs/reports/assets/part2_dmf_phi_comparison.png` | 图 1，原始 $\Phi^R$ / $\Phi^{EID}$ 临界扫描主图 |
-| `docs/reports/assets/part2_dmf_phi_eid_target_burden.csv` | $G=1.7$ target-burden 表，含 top 区域、metadata、ACE/ACS/AMCE |
-| `docs/reports/assets/part2_dmf_phi_eid_singleton_ei_matrix.csv` | singleton source-to-target EI 矩阵，用于图 2A 和 path-effect 计算 |
-| `docs/reports/assets/part2_dmf_phi_eid_target_burden_map.png` | 图 2 PNG |
-| `docs/reports/assets/part2_dmf_phi_eid_target_burden_map.svg` | 图 2 SVG |
-| `docs/reports/assets/part2_dmf_phi_eid_target_burden_map.pdf` | 图 2 PDF |
-| `docs/reports/assets/part2_dmf_runge_path_scores_g17_g18.csv` | $G=1.7$ 与 $G=1.8$ 的 ACE / ACS / AMCE 表 |
-| `docs/reports/assets/part2_dmf_runge_path_scores.png` | 图 3 PNG |
-| `docs/reports/assets/part2_dmf_runge_path_scores.svg` | 图 3 SVG |
-| `docs/reports/assets/part2_dmf_runge_path_scores.pdf` | 图 3 PDF |
+| `fig/part2_dmf_phi_comparison.png` | 图 1，原始 $\Phi^R$ / $\Phi^{EID}$ 临界扫描主图 |
+| `results/part2_dmf_phi_eid_target_burden.csv` | $G=1.7$ target-burden 表，含 top 区域、metadata、ACE/ACS/AMCE |
+| `results/part2_dmf_phi_eid_singleton_ei_matrix.csv` | singleton source-to-target EI 矩阵，用于图 2A 和 path-effect 计算 |
+| `fig/part2_dmf_phi_eid_target_burden_map.png` | 图 2 PNG |
+| `fig/part2_dmf_phi_eid_target_burden_map.svg` | 图 2 SVG |
+| `fig/part2_dmf_phi_eid_target_burden_map.pdf` | 图 2 PDF |
+| `results/part2_dmf_runge_path_scores_g17_g18.csv` | $G=1.7$ 与 $G=1.8$ 的 ACE / ACS / AMCE 表 |
+| `fig/part2_dmf_runge_path_scores.png` | 图 3 PNG |
+| `fig/part2_dmf_runge_path_scores.svg` | 图 3 SVG |
+| `fig/part2_dmf_runge_path_scores.pdf` | 图 3 PDF |
 | `scripts/plot_dmf_phi_eid_target_burden_map.py` | 重新计算 target burden、singleton EI 矩阵、Runge-style 分数并绘图 |
 
 ## 8. 下一步建议
