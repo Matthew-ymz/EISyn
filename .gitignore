@@ -55,6 +55,7 @@ tests/*
 !tests/test_henon_mmi_pid_vs_mlp_peid.py
 !tests/test_runge_t2m_daily_weekmean.py
 !tests/test_unicm_shap_surrogate.py
+!tests/test_hcp_lausanne_phi_eid_pilot.py
 *.pt
 *.pth
 *.ckpt

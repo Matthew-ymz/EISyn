@@ -1438,6 +1438,7 @@ def simulate_dmf(
     initial_se: np.ndarray | None = None,
     initial_si: np.ndarray | None = None,
     record_rate_trace: bool = False,
+    record_state_trace: bool = False,
 ) -> dict[str, np.ndarray | float]:
     """Simulate the E-I DMF dynamics for one global coupling value."""
 
@@ -1467,8 +1468,14 @@ def simulate_dmf(
     )
 
     rate_history = np.empty((n_steps, n_regions), dtype=float)
+    se_history = np.empty((n_steps, n_regions), dtype=float) if record_state_trace else None
+    si_history = np.empty((n_steps, n_regions), dtype=float) if record_state_trace else None
 
     for step in range(n_steps):
+        if record_state_trace:
+            se_history[step] = se
+            si_history[step] = si
+
         input_e = (
             parameters.w_e * parameters.i0
             + parameters.w_plus * parameters.j_nmda * se
@@ -1529,6 +1536,9 @@ def simulate_dmf(
         result["time_s"] = np.arange(n_steps, dtype=float) * dt
         result["mean_rate_full_trace_hz"] = mean_rate_full_trace_hz
         result["region_rate_trace_hz"] = rate_history
+    if record_state_trace:
+        result["state_se_trace"] = se_history
+        result["state_si_trace"] = si_history
     return result
 
 
