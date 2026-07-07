@@ -319,6 +319,26 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     seeds = [int(seed) for seed in args.seeds]
     mode_names = tuple(MODE_NAMES)
     full_subset = tuple(mode_names)
+    estimator_metadata: dict[str, object] = {
+        "estimator": str(args.estimator),
+        "backend": "gaussian_logdet",
+        "clip_negative": True,
+    }
+    if str(args.estimator) == "transport_map":
+        if int(args.tm_degree) != 1:
+            raise ValueError(
+                "Greedy all-subset PhiEID decomposition only supports --tm-degree 1. "
+                "Higher-degree polynomial TM over all 2047 source subsets is computationally prohibitive; "
+                "run selected subset probes instead."
+            )
+        estimator_metadata = {
+            "estimator": "transport_map",
+            "backend": "affine_triangular_transport_map_degree_1_fast_logdet_equivalent",
+            "tm_degree": 1,
+            "tm_jitter": float(args.jitter),
+            "clip_negative": True,
+            "note": "Uses the covariance/log-det closed form equivalent to an affine triangular TM.",
+        }
     history_modes = sample_full_history_mode_inputs(
         n_samples=int(args.n_samples),
         intervention_bound=float(args.intervention_bound),
@@ -421,6 +441,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "split_tolerance": float(args.split_tolerance),
         "tables": {key: str(path) for key, path in paths.items()},
         "figures": [str(path) for path in figures],
+        "estimator": estimator_metadata,
     }
     manifest_path = output_dir / "unicm_phi_eid_greedy_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -441,6 +462,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-month", type=int, default=0)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--jitter", type=float, default=1.0e-6)
+    parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="gaussian_logdet")
+    parser.add_argument("--tm-degree", type=int, default=1)
     parser.add_argument("--eps", type=float, default=1.0e-5)
     parser.add_argument("--split-tolerance", type=float, default=1.0e-4)
     return parser

@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.unicm_peid_syn_analysis import (  # noqa: E402
     MODE_NAMES,
+    create_ei_estimator,
     estimate_gaussian_mutual_information,
     load_full_history_prediction_cache,
     overall_prediction_cache_path,
@@ -251,7 +252,18 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
         for seed in seeds
     }
-    rows = compute_self_ei_rows(history_modes, targets_by_seed, leads=leads, source_scope=source_scope)
+    estimator, estimator_metadata = create_ei_estimator(
+        str(args.estimator),
+        tm_degree=int(args.tm_degree),
+        tm_jitter=float(args.tm_jitter),
+    )
+    rows = compute_self_ei_rows(
+        history_modes,
+        targets_by_seed,
+        leads=leads,
+        source_scope=source_scope,
+        estimator=estimator,
+    )
     summary = summarize_self_ei_leads(rows)
 
     rows_path = output_dir / "self_ei_rows.csv"
@@ -278,6 +290,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "sampling_seed": int(args.sampling_seed),
         "intervention_bound": float(args.intervention_bound),
         "cache_dir": str(args.cache_dir),
+        "estimator": estimator_metadata,
     }
     manifest_path = output_dir / "self_ei_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -298,6 +311,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--intervention-bound", type=float, default=4.0)
     parser.add_argument("--start-month", type=int, default=0)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="gaussian_logdet")
+    parser.add_argument("--tm-degree", type=int, default=3)
+    parser.add_argument("--tm-jitter", type=float, default=1.0e-6)
     return parser
 
 

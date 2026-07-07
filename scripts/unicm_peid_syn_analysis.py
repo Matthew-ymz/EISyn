@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 UNICM_SRC = ROOT / "data" / "UniCM-checkpoint" / "src"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from exp.TM.transport_map_density import estimate_mutual_information_transport_map
 
 MODE_NAMES = {
     "nino": 0,
@@ -403,6 +405,7 @@ def estimate_gaussian_mutual_information(
     target: np.ndarray,
     *,
     jitter: float = 1e-6,
+    clip_negative: bool = True,
 ) -> float:
     source_array = np.asarray(source, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -423,7 +426,89 @@ def estimate_gaussian_mutual_information(
     target_cov = _regularized_covariance(target_array, jitter=float(jitter))
     joint_cov = _regularized_covariance(np.concatenate([source_array, target_array], axis=1), jitter=float(jitter))
     mi = 0.5 * (_safe_logdet(source_cov) + _safe_logdet(target_cov) - _safe_logdet(joint_cov)) / np.log(2.0)
-    return max(0.0, float(mi))
+    value = float(mi)
+    return max(0.0, value) if bool(clip_negative) else value
+
+
+def estimate_transport_map_mutual_information(
+    source: np.ndarray,
+    target: np.ndarray,
+    *,
+    degree: int = 3,
+    jitter: float = 1.0e-6,
+    clip_negative: bool = True,
+) -> float:
+    summary = estimate_mutual_information_transport_map(
+        np.asarray(source, dtype=float),
+        np.asarray(target, dtype=float),
+        degree=int(degree),
+        jitter=float(jitter),
+    )
+    value = float(summary["mi_hat"])
+    return max(0.0, value) if bool(clip_negative) else value
+
+
+def create_ei_estimator(
+    estimator: str,
+    *,
+    tm_degree: int = 3,
+    tm_jitter: float = 1.0e-6,
+    clip_negative: bool = True,
+) -> tuple[Callable[[np.ndarray, np.ndarray], float], dict[str, object]]:
+    name = str(estimator)
+    if name == "gaussian_logdet":
+        return (
+            estimate_gaussian_mutual_information,
+            {
+                "estimator": "gaussian_logdet",
+                "backend": "gaussian_logdet",
+                "clip_negative": bool(clip_negative),
+            },
+        )
+    if name == "transport_map":
+        degree = int(tm_degree)
+        jitter = float(tm_jitter)
+        if degree == 1:
+            def _affine_estimator(source: np.ndarray, target: np.ndarray) -> float:
+                return estimate_gaussian_mutual_information(
+                    source,
+                    target,
+                    jitter=jitter,
+                    clip_negative=bool(clip_negative),
+                )
+
+            return (
+                _affine_estimator,
+                {
+                    "estimator": "transport_map",
+                    "backend": "affine_triangular_transport_map_degree_1_fast_logdet_equivalent",
+                    "tm_degree": 1,
+                    "tm_jitter": jitter,
+                    "clip_negative": bool(clip_negative),
+                    "note": "Uses the covariance/log-det closed form equivalent to an affine triangular TM.",
+                },
+            )
+
+        def _estimator(source: np.ndarray, target: np.ndarray) -> float:
+            return estimate_transport_map_mutual_information(
+                source,
+                target,
+                degree=degree,
+                jitter=jitter,
+                clip_negative=bool(clip_negative),
+            )
+
+        return (
+            _estimator,
+            {
+                "estimator": "transport_map",
+                "backend": f"polynomial_triangular_transport_map_degree_{degree}",
+                "tm_degree": degree,
+                "tm_jitter": jitter,
+                "clip_negative": bool(clip_negative),
+            },
+        )
+    raise ValueError(f"Unknown EI estimator: {estimator}")
 
 
 def flatten_full_history_modes(history_modes: np.ndarray) -> np.ndarray:
@@ -509,6 +594,8 @@ def summarize_full_history_mode_pair_syn(
     target: np.ndarray,
     *,
     bootstrap_indices: np.ndarray | None = None,
+    estimator: Callable[[np.ndarray, np.ndarray], float] = estimate_gaussian_mutual_information,
+    backend: str = "gaussian_logdet_full_history_pair",
 ) -> dict[str, float | str]:
     left_source = _extract_full_history_mode_source(history_modes, left_name)
     right_source = _extract_full_history_mode_source(history_modes, right_name)
@@ -521,11 +608,11 @@ def summarize_full_history_mode_pair_syn(
         raise ValueError("history_modes and target must share the sample axis.")
 
     joint_source = np.concatenate([left_source, right_source], axis=1)
-    left_ei = estimate_gaussian_mutual_information(left_source, target_array)
-    right_ei = estimate_gaussian_mutual_information(right_source, target_array)
-    joint_ei = estimate_gaussian_mutual_information(joint_source, target_array)
+    left_ei = estimator(left_source, target_array)
+    right_ei = estimator(right_source, target_array)
+    joint_ei = estimator(joint_source, target_array)
     result: dict[str, float | str] = {
-        "backend": "gaussian_logdet_full_history_pair",
+        "backend": str(backend),
         "left_ei": float(left_ei),
         "right_ei": float(right_ei),
         "joint_ei": float(joint_ei),
@@ -539,9 +626,9 @@ def summarize_full_history_mode_pair_syn(
             boot_target = target_array[indices]
             boot_joint = np.concatenate([boot_left, boot_right], axis=1)
             boot_syn.append(
-                estimate_gaussian_mutual_information(boot_joint, boot_target)
-                - estimate_gaussian_mutual_information(boot_left, boot_target)
-                - estimate_gaussian_mutual_information(boot_right, boot_target)
+                estimator(boot_joint, boot_target)
+                - estimator(boot_left, boot_target)
+                - estimator(boot_right, boot_target)
             )
         boot_array = np.asarray(boot_syn, dtype=float)
         result["syn_ci_low"] = float(np.nanpercentile(boot_array, 2.5))
@@ -559,16 +646,18 @@ def summarize_overall_ei_for_target(
     target: np.ndarray,
     *,
     bootstrap_indices: np.ndarray | None,
+    estimator: Callable[[np.ndarray, np.ndarray], float] = estimate_gaussian_mutual_information,
+    backend: str = "gaussian_logdet_full_history",
 ) -> dict[str, float]:
     source = flatten_full_history_modes(history_modes)
     target_array = np.asarray(target, dtype=float)
     if target_array.ndim == 1:
         target_array = target_array.reshape(-1, 1)
-    overall_ei = estimate_gaussian_mutual_information(source, target_array)
-    result = {"overall_ei": float(overall_ei), "backend": "gaussian_logdet_full_history"}
+    overall_ei = estimator(source, target_array)
+    result = {"overall_ei": float(overall_ei), "backend": str(backend)}
     if bootstrap_indices is not None and len(bootstrap_indices) > 0:
         boot_values = [
-            estimate_gaussian_mutual_information(source[indices], target_array[indices])
+            estimator(source[indices], target_array[indices])
             for indices in bootstrap_indices
         ]
         boot_array = np.asarray(boot_values, dtype=float)
@@ -1767,7 +1856,7 @@ def run_overall_ei_analysis(args: argparse.Namespace) -> dict[str, object]:
 
     output_dir = Path(args.output_dir)
     fig_dir = output_dir / "fig"
-    cache_dir = output_dir / "cache"
+    cache_dir = Path(args.overall_cache_dir) if args.overall_cache_dir else output_dir / "cache"
     report_path = Path(args.report_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_dir.mkdir(parents=True, exist_ok=True)
@@ -1778,6 +1867,11 @@ def run_overall_ei_analysis(args: argparse.Namespace) -> dict[str, object]:
     relations = [RELATIONS[key] for key in args.relations]
     target_names = _resolve_overall_targets(args, relations)
     leads = parse_leads(args.leads)
+    estimator, estimator_metadata = create_ei_estimator(
+        str(args.estimator),
+        tm_degree=int(args.tm_degree),
+        tm_jitter=float(args.tm_jitter),
+    )
     checkpoint_paths = resolve_checkpoint_paths(Path(args.checkpoint_root), seeds)
     history_modes = sample_full_history_mode_inputs(
         n_samples=int(args.n_samples),
@@ -1839,6 +1933,8 @@ def run_overall_ei_analysis(args: argparse.Namespace) -> dict[str, object]:
                     history_modes,
                     targets[:, [int(lead) - 1]],
                     bootstrap_indices=bootstrap_indices,
+                    estimator=estimator,
+                    backend=str(estimator_metadata["backend"]),
                 )
                 rows.append(
                     {
@@ -1885,6 +1981,7 @@ def run_overall_ei_analysis(args: argparse.Namespace) -> dict[str, object]:
         "lead_summary": str(lead_summary_path),
         "report": str(report_path),
         "figures": [str(path) for path in figure_paths],
+        "estimator": estimator_metadata,
     }
 
 
@@ -1912,6 +2009,11 @@ def run_full_history_mode_pair_syn_analysis(args: argparse.Namespace) -> dict[st
     source_modes = _resolve_source_modes(args)
     source_pairs = enumerate_full_history_mode_pairs(source_modes)
     leads = parse_leads(args.leads)
+    estimator, estimator_metadata = create_ei_estimator(
+        str(args.estimator),
+        tm_degree=int(args.tm_degree),
+        tm_jitter=float(args.tm_jitter),
+    )
     checkpoint_paths = resolve_checkpoint_paths(Path(args.checkpoint_root), seeds)
     history_modes = sample_full_history_mode_inputs(
         n_samples=int(args.n_samples),
@@ -1976,6 +2078,8 @@ def run_full_history_mode_pair_syn_analysis(args: argparse.Namespace) -> dict[st
                         right_name,
                         targets[:, [int(lead) - 1]],
                         bootstrap_indices=bootstrap_indices,
+                        estimator=estimator,
+                        backend=str(estimator_metadata["backend"]),
                     )
                     rows.append(
                         {
@@ -2036,6 +2140,7 @@ def run_full_history_mode_pair_syn_analysis(args: argparse.Namespace) -> dict[st
         "top_pairs": str(top_pairs_path),
         "report": str(report_path),
         "figures": [str(path) for path in figure_paths],
+        "estimator": estimator_metadata,
     }
 
 
@@ -2228,6 +2333,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--torch-threads", type=int, default=1)
     parser.add_argument("--overall-cache-dir", type=Path, default=None)
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="gaussian_logdet")
+    parser.add_argument("--tm-degree", type=int, default=3)
+    parser.add_argument("--tm-jitter", type=float, default=1.0e-6)
     parser.add_argument("--no-prediction-cache", action="store_false", dest="prediction_cache")
     parser.set_defaults(prediction_cache=True)
     return parser

@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 from scripts.plot_unicm_all_mode_target_pair_syn import extract_all_mode_target, parse_leads  # noqa: E402
 from scripts.unicm_peid_syn_analysis import (  # noqa: E402
     MODE_NAMES,
+    create_ei_estimator,
     estimate_gaussian_mutual_information,
     load_full_history_prediction_cache,
     overall_prediction_cache_path,
@@ -38,6 +39,7 @@ def compute_phi_eid_for_target(
     *,
     mode_names: Mapping[str, int] = MODE_NAMES,
     estimator: Estimator = estimate_gaussian_mutual_information,
+    clip_phi: bool = True,
 ) -> dict[str, float | dict[str, float]]:
     history = np.asarray(history_modes, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -60,7 +62,7 @@ def compute_phi_eid_for_target(
         "whole_ei": whole_ei,
         "singleton_ei_sum": singleton_sum,
         "raw_phi_eid": raw_phi,
-        "phi_eid": max(0.0, raw_phi),
+        "phi_eid": max(0.0, raw_phi) if bool(clip_phi) else raw_phi,
         "singleton_ei": singleton_ei,
     }
 
@@ -72,6 +74,7 @@ def compute_phi_eid_rows(
     mode_names: Mapping[str, int] = MODE_NAMES,
     leads: Sequence[int] | None = None,
     estimator: Estimator = estimate_gaussian_mutual_information,
+    clip_phi: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     lead_values = list(range(1, 25)) if leads is None else [int(lead) for lead in leads]
     rows: list[dict[str, object]] = []
@@ -85,6 +88,7 @@ def compute_phi_eid_rows(
                 target,
                 mode_names=mode_names,
                 estimator=estimator,
+                clip_phi=clip_phi,
             )
             rows.append(
                 {
@@ -215,7 +219,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
         for seed in seeds
     }
-    rows, singleton_rows = compute_phi_eid_rows(history_modes, targets_by_seed, leads=leads)
+    estimator, estimator_metadata = create_ei_estimator(
+        str(args.estimator),
+        tm_degree=int(args.tm_degree),
+        tm_jitter=float(args.tm_jitter),
+        clip_negative=not bool(args.no_mi_clip),
+    )
+    rows, singleton_rows = compute_phi_eid_rows(
+        history_modes,
+        targets_by_seed,
+        mode_names=MODE_NAMES,
+        leads=leads,
+        estimator=estimator,
+        clip_phi=not bool(args.no_phi_clip),
+    )
     summary = summarize_phi_eid_leads(rows)
 
     paths = {
@@ -230,7 +247,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     manifest = {
         "target_definition": "all 11 predicted UniCM modes at each lead as a multivariate target",
         "source_definition": "singleton partition over 11 mode histories; each source is one mode's 12-month history",
-        "phi_eid_definition": "max(0, I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target))",
+        "phi_eid_definition": (
+            "I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target)"
+            if bool(args.no_phi_clip)
+            else "max(0, I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target))"
+        ),
+        "clip_phi": not bool(args.no_phi_clip),
         "seeds": seeds,
         "leads": leads,
         "n_samples": int(args.n_samples),
@@ -240,6 +262,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "tables": {key: str(path) for key, path in paths.items()},
         "figures": [str(path) for path in figures],
         "cache_dir": str(args.cache_dir),
+        "estimator": estimator_metadata,
     }
     manifest_path = output_dir / "all_mode_target_phi_eid_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -259,6 +282,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--intervention-bound", type=float, default=4.0)
     parser.add_argument("--start-month", type=int, default=0)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="gaussian_logdet")
+    parser.add_argument("--tm-degree", type=int, default=3)
+    parser.add_argument("--tm-jitter", type=float, default=1.0e-6)
+    parser.add_argument("--no-phi-clip", action="store_true", help="Plot and summarize signed raw PhiEID values.")
+    parser.add_argument("--no-mi-clip", action="store_true", help="Do not clip individual MI estimates at zero.")
     return parser
 
 
