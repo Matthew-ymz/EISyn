@@ -181,9 +181,9 @@ def _validate_ranking(arrays: dict[str, np.ndarray], metadata: dict[str, object]
     triples = np.column_stack([arrays["source_a"], arrays["source_b"], arrays["target"]])
     if not np.all(np.equal(triples, np.floor(triples))):
         raise ValueError("Candidate indices must be integers.")
-    triples = triples.astype(np.int16)
     if np.any(triples < 0) or np.any(triples >= N_COMPONENTS):
         raise ValueError("Candidate indices must be in [0, 59].")
+    triples = triples.astype(np.int16)
     if not np.all(triples[:, 0] < triples[:, 1]):
         raise ValueError("Candidates require source_a < source_b.")
     if np.any(triples[:, 0] == triples[:, 2]) or np.any(triples[:, 1] == triples[:, 2]):

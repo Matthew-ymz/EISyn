@@ -139,6 +139,25 @@ class ExhaustiveTMMapInputTests(unittest.TestCase):
                     horizon=10,
                 )
 
+    def test_rejects_out_of_range_indices_before_integer_narrowing(self) -> None:
+        from scripts.plot_runge_exhaustive_tm_maps import load_exhaustive_top10
+
+        def wrap_target_index(arrays: dict[str, np.ndarray]) -> None:
+            target = arrays["target"].astype(np.int64)
+            target[0] = 65538  # Wraps to the valid local index 2 under int16.
+            arrays["target"] = target
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(ValueError, r"\[0, 59\]"):
+                load_exhaustive_top10(
+                    write_fixture(
+                        Path(tmpdir),
+                        mutate_arrays=wrap_target_index,
+                        metadata_updates={"candidate_order_hash": fingerprint_array(canonical_candidates())},
+                    ),
+                    horizon=10,
+                )
+
     def test_rejects_metadata_with_an_unsupported_schema_version(self) -> None:
         from scripts.plot_runge_exhaustive_tm_maps import load_exhaustive_top10
 
