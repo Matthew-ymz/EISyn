@@ -14,6 +14,12 @@
 - Treat machine-readable caches as internal support artifacts; the user-facing deliverable should prioritize the visualization figure and concise interpretation.
 - If an experiment is executed from a notebook, make sure it can reuse existing cache artifacts on subsequent runs when such artifacts are needed.
 
+## EI estimation
+
+- When computing EI over continuous variable spaces, prefer TM-based estimation first.
+- Use an alternative EI estimator only when TM is inapplicable, computationally prohibitive, or explicitly requested.
+- If using a non-TM estimator, state the reason and document the tradeoff.
+
 ## PEID theory literature
 
 - For tasks involving PEID-related theory, first use the Zotero plugin to search the local Zotero library for PEID papers and read the relevant literature before doing derivations, research-framework writing, method design, or implementation decisions.
