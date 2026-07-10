@@ -27,7 +27,7 @@ TM_RESULT_SUBDIR = Path("results/runge/pairwise_mlp_tm_ei")
 TM_FIG_SUBDIR = Path("fig/runge/pairwise_mlp_tm_ei")
 TM_PATH_RESULT_SUBDIR = Path("results/runge/pairwise_mlp_tm_ei_path_effects")
 TM_PATH_FIG_SUBDIR = Path("fig/runge/pairwise_mlp_tm_ei_path_effects")
-DEFAULT_COMPONENT_SCORES = Path("results/runge/2015_gateways/component_weekly_scores.csv")
+DEFAULT_COMPONENT_SCORES = Path("results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv")
 
 mpl.rcParams.update(
     {

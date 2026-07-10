@@ -20,7 +20,7 @@ from scipy.special import digamma
 
 
 DEFAULT_SELECTOR = Path("results/runge_transformer_forecast_sweep/horizon_selector_selection.csv")
-DEFAULT_COMPONENT_MAPS = Path("results/runge/2015_gateways/component_maps.npz")
+DEFAULT_COMPONENT_MAPS = Path("results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_maps.npz")
 DEFAULT_LINEAR_EDGES = Path("results/runge/2015_gateways/causal_edges.csv")
 RESULT_SUBDIR = Path("results/runge/transformer_full_pair_synergy")
 FIG_SUBDIR = Path("fig/runge/transformer_full_pair_synergy")

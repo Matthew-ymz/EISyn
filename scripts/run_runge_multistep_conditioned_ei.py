@@ -57,11 +57,13 @@ from scripts.run_runge_pairwise_mlp_ei import (  # noqa: E402
 )
 
 
-DEFAULT_PAIRWISE_MANIFEST = ROOT / "results" / "runge" / "pairwise_mlp_tm_ei_path_effects" / "manifest.json"
-DEFAULT_REFERENCE_GATEWAY = ROOT / "results" / "runge" / "pairwise_mlp_tm_ei_path_effects" / "gateway_scores.csv"
-DEFAULT_REFERENCE_MEDIATOR = ROOT / "results" / "runge" / "pairwise_mlp_tm_ei_path_effects" / "mediator_scores.csv"
-DEFAULT_RESULT_DIR = ROOT / "results" / "runge" / "multistep_conditioned_ei"
-DEFAULT_ASSET_DIR = ROOT / "docs" / "reports" / "assets"
+NEW_RUNGE_BASE = ROOT / "results" / "runge_slp_daily_1948_2026_20260628" / "mlp_tm_ei_lag04" / "results" / "runge"
+NEW_RUNGE_FIG_BASE = ROOT / "fig" / "runge_slp_daily_1948_2026_20260628" / "multistep_conditioned_ei"
+DEFAULT_PAIRWISE_MANIFEST = NEW_RUNGE_BASE / "pairwise_mlp_tm_ei_path_effects" / "manifest.json"
+DEFAULT_REFERENCE_GATEWAY = NEW_RUNGE_BASE / "pairwise_mlp_tm_ei_path_effects" / "gateway_scores.csv"
+DEFAULT_REFERENCE_MEDIATOR = NEW_RUNGE_BASE / "pairwise_mlp_tm_ei_path_effects" / "mediator_scores.csv"
+DEFAULT_RESULT_DIR = NEW_RUNGE_BASE / "multistep_conditioned_ei"
+DEFAULT_ASSET_DIR = NEW_RUNGE_FIG_BASE
 DEFAULT_REPORT = ROOT / "docs" / "reports" / "Runge_Multistep_EI_Path_Design.md"
 
 
@@ -724,7 +726,10 @@ def append_report_section(
 ) -> None:
     start = "<!-- multistep-conditioned-ei-results:start -->"
     end = "<!-- multistep-conditioned-ei-results:end -->"
-    rel_figure = figure_path.relative_to(report_path.parent)
+    try:
+        rel_figure = figure_path.relative_to(report_path.parent)
+    except ValueError:
+        rel_figure = Path(os.path.relpath(figure_path, report_path.parent))
     stop_text = "触发早停" if stopped_early else "未触发早停"
     checkpoint_table = ["| H | ACE top-5 overlap | ACS top-5 overlap | AMCE top-5 overlap | all matched |", "|---:|---:|---:|---:|:---:|"]
     for row in checkpoint_rows:

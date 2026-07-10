@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from scripts.run_runge_pairwise_mlp_ei import (
+    DEFAULT_COMPONENT_SCORES,
     PairwiseMlpEiConfig,
     build_lagged_dataset,
     compare_ei_to_linear_coefficients,
@@ -26,6 +27,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RungePairwiseMlpEiTests(unittest.TestCase):
+    def test_default_component_scores_use_1948_2026_data(self) -> None:
+        self.assertEqual(
+            DEFAULT_COMPONENT_SCORES,
+            Path("results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv"),
+        )
+
     def test_build_lagged_dataset_keeps_temporal_order(self) -> None:
         frame = pd.DataFrame(
             {

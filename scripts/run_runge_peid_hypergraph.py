@@ -94,6 +94,7 @@ class PeidHypergraphConfig:
     learning_rate: float = 1.0e-3
     batch_size: int = 256
     weight_decay: float = 1.0e-4
+    model_kind: str = "mlp"
     ridge_alpha: float = 1.0
     ensemble_ridge_alphas: tuple[float, ...] = ()
     linear_blend_grid_steps: int = 0
@@ -1091,52 +1092,81 @@ def run(config: PeidHypergraphConfig) -> dict[str, Path]:
         data_hash=data_hash,
     )
     ensemble_alphas = tuple(config.ensemble_ridge_alphas) if config.ensemble_ridge_alphas else (float(config.ridge_alpha),)
+    model_kind = str(config.model_kind).lower()
+    if model_kind not in {"mlp", "ridge"}:
+        raise ValueError("model_kind must be 'mlp' or 'ridge'.")
     model_dir = Path(config.output_dir) / MLP_CACHE_DIR
     model_dir.mkdir(parents=True, exist_ok=True)
     model_paths: list[Path] = []
-    models: list[object] = []
     member_summaries: list[dict[str, object]] = []
-    scalers = None
     cache_reused = True
     loss_history: list[float] = []
-    for member_index, alpha in enumerate(ensemble_alphas):
-        member_config = replace(proxy_pairwise_config, ridge_alpha=float(alpha), ensemble_ridge_alphas=())
-        member_hash = pairwise._model_config_hash(
-            member_config,
-            n_components=n_components,
-            n_rows=len(frame),
-            data_hash=data_hash,
-        )
-        if len(ensemble_alphas) == 1:
-            member_path = model_dir / "mlp_transition.pt"
-        else:
-            alpha_label = str(float(alpha)).replace("-", "m").replace(".", "p")
-            member_path = model_dir / f"mlp_transition_alpha{alpha_label}_{member_hash}.pt"
-        member_model, member_scalers, member_loss_history, member_cache_reused = pairwise.train_or_load_mlp(
+    if model_kind == "ridge":
+        x_train, y_train = splits["train"]
+        _, x_mean, x_std = pairwise._standardize(x_train, x_train)
+        _, y_mean, y_std = pairwise._standardize(y_train, y_train)
+        scalers = {
+            "x_mean": x_mean,
+            "x_std": x_std,
+            "y_mean": y_mean,
+            "y_std": y_std,
+        }
+        model = pairwise.build_scaled_ridge_transition(
             splits,
-            member_config,
-            member_path,
-            config_hash=member_hash,
+            scalers,
+            ridge_alpha=float(config.ridge_alpha),
         )
-        model_paths.append(member_path)
-        models.append(member_model)
-        scalers = member_scalers if scalers is None else scalers
-        cache_reused = cache_reused and bool(member_cache_reused)
-        if member_index == 0:
-            loss_history = member_loss_history
+        cache_reused = False
         member_summaries.append(
             {
-                "ridge_alpha": float(alpha),
-                "model_cache": str(member_path),
-                "model_config_hash": member_hash,
-                "cache_reused": bool(member_cache_reused),
-                "training": getattr(member_model, "training_summary", {}),
+                "ridge_alpha": float(config.ridge_alpha),
+                "model_cache": None,
+                "model_config_hash": None,
+                "cache_reused": False,
+                "training": getattr(model, "training_summary", {}),
             }
         )
-    model = models[0] if len(models) == 1 else pairwise.AveragedTransition(models)
-    assert scalers is not None
+    else:
+        models: list[object] = []
+        scalers = None
+        for member_index, alpha in enumerate(ensemble_alphas):
+            member_config = replace(proxy_pairwise_config, ridge_alpha=float(alpha), ensemble_ridge_alphas=())
+            member_hash = pairwise._model_config_hash(
+                member_config,
+                n_components=n_components,
+                n_rows=len(frame),
+                data_hash=data_hash,
+            )
+            if len(ensemble_alphas) == 1:
+                member_path = model_dir / "mlp_transition.pt"
+            else:
+                alpha_label = str(float(alpha)).replace("-", "m").replace(".", "p")
+                member_path = model_dir / f"mlp_transition_alpha{alpha_label}_{member_hash}.pt"
+            member_model, member_scalers, member_loss_history, member_cache_reused = pairwise.train_or_load_mlp(
+                splits,
+                member_config,
+                member_path,
+                config_hash=member_hash,
+            )
+            model_paths.append(member_path)
+            models.append(member_model)
+            scalers = member_scalers if scalers is None else scalers
+            cache_reused = cache_reused and bool(member_cache_reused)
+            if member_index == 0:
+                loss_history = member_loss_history
+            member_summaries.append(
+                {
+                    "ridge_alpha": float(alpha),
+                    "model_cache": str(member_path),
+                    "model_config_hash": member_hash,
+                    "cache_reused": bool(member_cache_reused),
+                    "training": getattr(member_model, "training_summary", {}),
+                }
+            )
+        model = models[0] if len(models) == 1 else pairwise.AveragedTransition(models)
+        assert scalers is not None
     linear_blend: dict[str, object] = {"enabled": False}
-    if int(config.linear_blend_grid_steps) > 1:
+    if model_kind == "mlp" and int(config.linear_blend_grid_steps) > 1:
         ridge_transition = pairwise.build_scaled_ridge_transition(
             splits,
             scalers,
@@ -1377,8 +1407,9 @@ def run(config: PeidHypergraphConfig) -> dict[str, Path]:
         "n_rows": int(len(frame)),
         "n_components": int(n_components),
         "n_lagged_samples": int(len(features)),
+        "model_kind": model_kind,
         "splits": {key: int(len(value[0])) for key, value in splits.items()},
-        "model_cache": str(model_paths[0]),
+        "model_cache": str(model_paths[0]) if model_paths else None,
         "model_caches": [str(path) for path in model_paths],
         "model_cache_reused": bool(cache_reused),
         "ensemble_members": member_summaries,
@@ -1403,7 +1434,7 @@ def run(config: PeidHypergraphConfig) -> dict[str, Path]:
     return {
         "result_dir": result_dir,
         "fig_dir": fig_dir,
-        "model_path": model_paths[0],
+        "model_path": model_paths[0] if model_paths else result_dir / "ridge_transition_in_memory",
         "manifest": result_dir / "manifest.json",
     }
 
@@ -1559,6 +1590,7 @@ def parse_args(argv: Sequence[str] | None = None) -> PeidHypergraphConfig:
     parser.add_argument("--learning-rate", type=float, default=1.0e-3)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--weight-decay", type=float, default=1.0e-4)
+    parser.add_argument("--model-kind", choices=["mlp", "ridge"], default="mlp")
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--ensemble-ridge-alphas", default="")
     parser.add_argument("--linear-blend-grid-steps", type=int, default=0)

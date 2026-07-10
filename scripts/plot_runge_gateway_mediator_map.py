@@ -17,7 +17,9 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_COMPONENT_MAPS = ROOT / "results" / "runge" / "2015_gateways" / "component_maps.npz"
+DEFAULT_COMPONENT_MAPS = (
+    ROOT / "results" / "runge_slp_daily_1948_2026_20260628" / "results" / "runge" / "2015_gateways" / "component_maps.npz"
+)
 DEFAULT_GATEWAY = ROOT / "results" / "runge" / "2015_gateways" / "gateway_scores.csv"
 DEFAULT_MEDIATOR = ROOT / "results" / "runge" / "2015_gateways" / "mediator_scores.csv"
 DEFAULT_OUTPUT = ROOT / "docs" / "reports" / "assets" / "part2_runge_gateway_mediator_map.png"
