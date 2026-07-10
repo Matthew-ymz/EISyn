@@ -39,6 +39,45 @@ class HcpLausannePhiEidPilotTests(unittest.TestCase):
             self.assertEqual(sorted(shifted[:, column].tolist()), sorted(series[:, column].tolist()))
         self.assertFalse(np.array_equal(shifted, series))
 
+    def test_load_cached_roi_timeseries_roundtrips_saved_npz(self) -> None:
+        labels = ["roi-a", "roi-b"]
+        series = np.arange(12, dtype=float).reshape(6, 2)
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp) / "roi_timeseries"
+            pilot.save_roi_timeseries(
+                cache_dir.parent,
+                subject="subj",
+                run="REST",
+                series=series,
+                labels=labels,
+                metadata={"synthetic": False},
+            )
+
+            loaded, metadata = pilot.load_cached_roi_timeseries(
+                cache_dir,
+                subject="subj",
+                run="REST",
+                expected_labels=labels,
+            )
+
+        np.testing.assert_array_equal(loaded, series)
+        self.assertEqual(metadata["synthetic"], False)
+
+    def test_hcp_result_run_name_distinguishes_rest_and_task_fmri(self) -> None:
+        self.assertEqual(pilot.hcp_result_run_name("REST1_LR"), "rfMRI_REST1_LR")
+        self.assertEqual(pilot.hcp_result_run_name("rfMRI_REST1_RL"), "rfMRI_REST1_RL")
+        self.assertEqual(pilot.hcp_result_run_name("WM_LR"), "tfMRI_WM_LR")
+        self.assertEqual(pilot.hcp_result_run_name("tfMRI_WM_RL"), "tfMRI_WM_RL")
+
+    def test_aws_command_prefers_executable_then_python_module(self) -> None:
+        command = pilot.aws_cli_command(aws_executable="/bin/aws", python_executable="/bin/python")
+        self.assertEqual(command, ["/bin/aws"])
+
+        module_command = pilot.aws_cli_command(aws_executable=None, python_executable="/bin/python")
+        self.assertEqual(module_command, ["/bin/python", "-m", "awscli"])
+
     def test_gaussian_phi_eid_distinguishes_additive_and_coupled_systems(self) -> None:
         rng = np.random.default_rng(11)
         source = rng.normal(size=(500, 3))
@@ -56,6 +95,23 @@ class HcpLausannePhiEidPilotTests(unittest.TestCase):
 
         self.assertLess(abs(float(additive["raw_phi"])), 0.35)
         self.assertGreater(float(coupled["raw_phi"]), float(additive["raw_phi"]) + 0.2)
+
+    def test_fit_mlp_transition_returns_validation_metrics(self) -> None:
+        rng = np.random.default_rng(21)
+        source = rng.normal(size=(80, 4))
+        target = np.tanh(source @ np.array(
+            [
+                [0.4, -0.1, 0.0, 0.2],
+                [0.2, 0.3, -0.2, 0.0],
+                [0.0, 0.1, 0.5, -0.3],
+                [-0.1, 0.0, 0.2, 0.4],
+            ]
+        ))
+
+        result = pilot.fit_mlp_transition(source, target, hidden_dim=8, epochs=2, seed=3)
+
+        self.assertIn("metrics", result)
+        self.assertTrue(np.isfinite(result["metrics"]["rmse"]))
 
     def test_greedy_module_atoms_sum_to_root_phi(self) -> None:
         ei_table = {

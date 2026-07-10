@@ -36,6 +36,7 @@ DEFAULT_SUBJECTS = (
 )
 DEFAULT_RUNS = ("REST1_LR",)
 HCP_S3_ROOT = "s3://hcp-openaccess/HCP_1200"
+TASK_RUN_PREFIXES = ("WM", "GAMBLING", "MOTOR", "LANGUAGE", "SOCIAL", "RELATIONAL", "EMOTION")
 MODULE_ORDER = ("DMN", "Som", "Vis", "VAN", "DAN", "FPN", "Lim", "Sub")
 MODULE_COLORS = {
     "DMN": "#D55E00",
@@ -369,7 +370,7 @@ def fit_mlp_transition(
         net.load_state_dict(best_state)
     net.eval()
     with torch.no_grad():
-        val_pred = net(vx_tensor).cpu().numpy()
+        val_pred = np.asarray(net(vx_tensor).detach().cpu().tolist(), dtype=float)
     return {
         "metrics": prediction_metrics(val_y_z, val_pred, val_x_z),
         "best_val_loss": best_val,
@@ -548,15 +549,39 @@ def check_neuro_dependencies() -> dict[str, str]:
     return missing
 
 
+def hcp_result_run_name(run: str) -> str:
+    name = str(run)
+    if name.startswith(("rfMRI_", "tfMRI_")):
+        return name
+    if name.startswith("REST"):
+        return f"rfMRI_{name}"
+    if any(name.startswith(prefix) for prefix in TASK_RUN_PREFIXES):
+        return f"tfMRI_{name}"
+    return f"rfMRI_{name}"
+
+
+def aws_cli_command(
+    *,
+    aws_executable: str | None = None,
+    python_executable: str | None = None,
+) -> list[str]:
+    if aws_executable is None:
+        aws_executable = shutil.which("aws")
+    if aws_executable:
+        return [aws_executable]
+    return [python_executable or sys.executable, "-m", "awscli"]
+
+
 def find_hcp_run_paths(hcp_root: Path, subject: str, run: str) -> HcpRunPaths:
     subject_roots = [hcp_root / "HCP_1200" / subject, hcp_root / subject]
+    hcp_run = hcp_result_run_name(run)
     functional_names = [
-        f"MNINonLinear/Results/rfMRI_{run}/rfMRI_{run}.nii.gz",
-        f"MNINonLinear/Results/rfMRI_{run}/rfMRI_{run}_hp2000_clean.nii.gz",
+        f"MNINonLinear/Results/{hcp_run}/{hcp_run}.nii.gz",
+        f"MNINonLinear/Results/{hcp_run}/{hcp_run}_hp2000_clean.nii.gz",
     ]
     motion_names = [
-        f"MNINonLinear/Results/rfMRI_{run}/Movement_RelativeRMS.txt",
-        f"MNINonLinear/Results/rfMRI_{run}/Movement_Regressors.txt",
+        f"MNINonLinear/Results/{hcp_run}/Movement_RelativeRMS.txt",
+        f"MNINonLinear/Results/{hcp_run}/Movement_Regressors.txt",
     ]
     for root in subject_roots:
         aparc = root / "MNINonLinear" / "aparc+aseg.nii.gz"
@@ -567,24 +592,23 @@ def find_hcp_run_paths(hcp_root: Path, subject: str, run: str) -> HcpRunPaths:
                 return HcpRunPaths(functional=functional, aparc_aseg=aparc, motion=motion)
     raise FileNotFoundError(
         f"Missing HCP files for subject={subject} run={run} under {hcp_root}. "
-        "Expected MNINonLinear/Results/rfMRI_<RUN>/rfMRI_<RUN>.nii.gz and MNINonLinear/aparc+aseg.nii.gz."
+        "Expected MNINonLinear/Results/<rfMRI_or_tfMRI_RUN>/<rfMRI_or_tfMRI_RUN>.nii.gz and MNINonLinear/aparc+aseg.nii.gz."
     )
 
 
 def download_hcp_subject_run(hcp_root: Path, subject: str, run: str) -> None:
-    aws = shutil.which("aws")
-    if aws is None:
-        raise RuntimeError("aws CLI is required for --download but was not found on PATH.")
+    aws = aws_cli_command()
+    hcp_run = hcp_result_run_name(run)
     targets = [
         (f"{HCP_S3_ROOT}/{subject}/MNINonLinear/aparc+aseg.nii.gz", hcp_root / "HCP_1200" / subject / "MNINonLinear" / "aparc+aseg.nii.gz"),
-        (f"{HCP_S3_ROOT}/{subject}/MNINonLinear/Results/rfMRI_{run}/rfMRI_{run}.nii.gz", hcp_root / "HCP_1200" / subject / "MNINonLinear" / "Results" / f"rfMRI_{run}" / f"rfMRI_{run}.nii.gz"),
-        (f"{HCP_S3_ROOT}/{subject}/MNINonLinear/Results/rfMRI_{run}/Movement_RelativeRMS.txt", hcp_root / "HCP_1200" / subject / "MNINonLinear" / "Results" / f"rfMRI_{run}" / "Movement_RelativeRMS.txt"),
+        (f"{HCP_S3_ROOT}/{subject}/MNINonLinear/Results/{hcp_run}/{hcp_run}.nii.gz", hcp_root / "HCP_1200" / subject / "MNINonLinear" / "Results" / hcp_run / f"{hcp_run}.nii.gz"),
+        (f"{HCP_S3_ROOT}/{subject}/MNINonLinear/Results/{hcp_run}/Movement_RelativeRMS.txt", hcp_root / "HCP_1200" / subject / "MNINonLinear" / "Results" / hcp_run / "Movement_RelativeRMS.txt"),
     ]
     for source, destination in targets:
         if destination.exists():
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
-        command = [aws, "s3", "cp", source, str(destination)]
+        command = [*aws, "s3", "cp", source, str(destination)]
         completed = subprocess.run(command, text=True, capture_output=True)
         if completed.returncode != 0:
             raise RuntimeError(
@@ -669,6 +693,29 @@ def save_roi_timeseries(
         metadata=json.dumps(dict(metadata), sort_keys=True),
     )
     return target
+
+
+def roi_timeseries_path(cache_dir: Path, *, subject: str, run: str) -> Path:
+    return Path(cache_dir) / f"sub-{subject}_{run}_lausanne83_timeseries.npz"
+
+
+def load_cached_roi_timeseries(
+    cache_dir: Path,
+    *,
+    subject: str,
+    run: str,
+    expected_labels: Sequence[str],
+) -> tuple[np.ndarray, dict[str, object]]:
+    path = roi_timeseries_path(Path(cache_dir), subject=subject, run=run)
+    with np.load(path, allow_pickle=True) as payload:
+        series = np.asarray(payload["series"], dtype=float)
+        labels = [str(label) for label in payload["labels"].tolist()]
+        metadata_text = str(payload["metadata"])
+    if labels != list(map(str, expected_labels)):
+        raise ValueError(f"Cached ROI labels do not match expected Lausanne-83 order: {path}")
+    metadata = json.loads(metadata_text)
+    metadata["loaded_from_cache"] = str(path)
+    return series, metadata
 
 
 def synthetic_timeseries(*, n_time: int, n_roi: int, seed: int) -> np.ndarray:
@@ -895,11 +942,20 @@ def write_report(
 def run_pipeline(args: argparse.Namespace) -> dict[str, object]:
     labels = ordered_roi_labels()
     output_dir = Path(args.output_dir).expanduser().resolve()
+    roi_cache_dir = None if args.roi_cache_dir is None else Path(args.roi_cache_dir).expanduser().resolve()
     rows = []
     roi_files = []
     subjects = [part.strip() for part in str(args.subjects).split(",") if part.strip()]
     runs = [part.strip() for part in str(args.runs).split(",") if part.strip()]
-    if not args.synthetic:
+    needs_extraction = False
+    if not args.synthetic and roi_cache_dir is not None:
+        for subject in subjects:
+            for run in runs:
+                if not roi_timeseries_path(roi_cache_dir, subject=subject, run=run).exists():
+                    needs_extraction = True
+    elif not args.synthetic:
+        needs_extraction = True
+    if needs_extraction:
         missing = check_neuro_dependencies()
         if missing:
             details = "; ".join(f"{name} ({reason})" for name, reason in sorted(missing.items()))
@@ -909,6 +965,13 @@ def run_pipeline(args: argparse.Namespace) -> dict[str, object]:
             if args.synthetic:
                 series = synthetic_timeseries(n_time=int(args.synthetic_timepoints), n_roi=len(labels), seed=int(args.seed) + subject_index)
                 metadata = {"synthetic": True, "time_count": int(series.shape[0]), "roi_count": int(series.shape[1])}
+            elif roi_cache_dir is not None and roi_timeseries_path(roi_cache_dir, subject=subject, run=run).exists():
+                series, metadata = load_cached_roi_timeseries(
+                    roi_cache_dir,
+                    subject=subject,
+                    run=run,
+                    expected_labels=labels,
+                )
             else:
                 if args.download:
                     download_hcp_subject_run(Path(args.hcp_root), subject, run)
@@ -958,6 +1021,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runs", default=",".join(DEFAULT_RUNS))
     parser.add_argument("--hcp-root", default=str(DEFAULT_HCP_ROOT))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    parser.add_argument("--roi-cache-dir", default=None)
     parser.add_argument("--null-figure-base", default=str(DEFAULT_FIG_NULL))
     parser.add_argument("--decomposition-figure-base", default=str(DEFAULT_FIG_DECOMP))
     parser.add_argument("--report", default=str(DEFAULT_REPORT))
