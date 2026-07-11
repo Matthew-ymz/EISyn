@@ -2350,6 +2350,50 @@ def _aggregate_large_kuramoto_oracle_nsource_rows(rows: list[dict[str, object]])
     return summaries
 
 
+def _aggregate_large_kuramoto_oracle_nsource_tau_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    frame = pd.DataFrame(rows)
+    summaries: list[dict[str, object]] = []
+    metrics = (
+        "natural_order",
+        "natural_order_raw",
+        "raw_order_mean",
+        "raw_order_q95",
+        "raw_order_q99",
+        "raw_order_max",
+        "raw_order_strong_fraction",
+        "oracle_phi",
+        "oracle_raw_phi",
+        "oracle_observed_phi",
+        "oracle_observed_raw_phi",
+        "oracle_null_phi",
+        "oracle_null_phi_std",
+        "oracle_null_corrected_phi",
+        "oracle_joint_ei",
+        "oracle_singleton_ei_sum",
+        "oracle_joint_determinism",
+        "oracle_joint_degeneracy",
+        "oracle_singleton_determinism_sum",
+        "oracle_singleton_degeneracy_sum",
+        "oracle_target_entropy",
+        "oracle_target_reference_entropy",
+        "target_mean",
+        "target_std",
+    )
+    for (tau, coupling), group in frame.groupby(["tau", "coupling"], sort=True):
+        row: dict[str, object] = {
+            "tau": float(tau),
+            "coupling": float(coupling),
+            "n_seeds": int(group["seed"].nunique()),
+        }
+        for metric in metrics:
+            values = group[metric].astype(float)
+            row[f"{metric}_mean"] = float(values.mean())
+            row[f"{metric}_std"] = float(values.std(ddof=0))
+            row[f"{metric}_sem"] = float(values.std(ddof=0) / math.sqrt(max(1, len(values))))
+        summaries.append(row)
+    return summaries
+
+
 def _large_kuramoto_phi_diagnostic(
     summary: list[dict[str, object]],
     *,
@@ -2462,6 +2506,21 @@ def _large_kuramoto_oracle_nsource_diagnostic(
         "oracle_observed_phi_peak_coupling": float(couplings[observed_index]),
         "target_susceptibility_std_peak_coupling": float(couplings[target_index]),
     }
+
+
+def _large_kuramoto_oracle_nsource_tau_diagnostic(
+    summary: list[dict[str, object]],
+    *,
+    critical_coupling: float,
+) -> dict[str, object]:
+    diagnostics: dict[str, object] = {}
+    for tau in sorted({float(row["tau"]) for row in summary}):
+        tau_summary = [row for row in summary if float(row["tau"]) == tau]
+        diagnostics[str(tau)] = _large_kuramoto_oracle_nsource_diagnostic(
+            tau_summary,
+            critical_coupling=critical_coupling,
+        )
+    return {"by_tau": diagnostics}
 
 
 def _aggregate_lorenz_rho_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -3461,6 +3520,58 @@ def _plot_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
             axis.axvline(float(diagnostic["theoretical_critical_coupling"]), color="#333333", linestyle=":", linewidth=1.1, label="theory Kc")
         if "order_transition_coupling" in diagnostic:
             axis.axvline(float(diagnostic["order_transition_coupling"]), color="#777777", linestyle="--", linewidth=1.0, label="max d r / dK")
+        axis.set_xlabel("Kuramoto coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_large_kuramoto_oracle_nsource_whole_state_tau_sweep(
+    summary: list[dict[str, object]],
+    diagnostic: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib.pyplot as plt
+
+    taus = sorted({float(row["tau"]) for row in summary})
+    colors = plt.get_cmap("viridis")(np.linspace(0.15, 0.85, max(1, len(taus))))
+    fig, axes = plt.subplots(1, 2, figsize=(11.8, 3.8), constrained_layout=True)
+    for tau, color in zip(taus, colors, strict=True):
+        tau_summary = [row for row in summary if float(row["tau"]) == tau]
+        couplings = np.asarray([float(row["coupling"]) for row in tau_summary], dtype=float)
+        order_mean = np.asarray([float(row["raw_order_q99_mean"]) for row in tau_summary], dtype=float)
+        order_sem = np.asarray([float(row.get("raw_order_q99_sem", 0.0)) for row in tau_summary], dtype=float)
+        phi_mean = np.asarray([float(row["oracle_phi_mean"]) for row in tau_summary], dtype=float)
+        phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in tau_summary], dtype=float)
+        label = rf"$\tau={tau:g}$"
+        axes[0].plot(couplings, order_mean, color=color, marker="o", linewidth=1.9, markersize=4.4, label=label)
+        axes[0].fill_between(couplings, order_mean - order_sem, order_mean + order_sem, color=color, alpha=0.12, linewidth=0)
+        axes[1].plot(couplings, phi_mean, color=color, marker="D", linewidth=1.9, markersize=4.4, label=label)
+        axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color=color, alpha=0.12, linewidth=0)
+
+    axes[0].axhline(0.8, color="#B23A48", linewidth=1.1, linestyle="--", label=r"$R=0.8$ guard")
+    axes[0].set_ylabel(r"Raw global order $R$ (q99)")
+    axes[0].set_title("a  Raw global-order guard across horizons", loc="left", fontweight="bold")
+    axes[1].axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
+    axes[1].set_ylabel("Oracle N-source Phi (bits)")
+    axes[1].set_title("b  Whole-state Phi across horizons", loc="left", fontweight="bold")
+    by_tau = diagnostic.get("by_tau", {})
+    if isinstance(by_tau, Mapping) and by_tau:
+        first = next(iter(by_tau.values()))
+        if isinstance(first, Mapping) and "theoretical_critical_coupling" in first:
+            for axis in axes:
+                axis.axvline(
+                    float(first["theoretical_critical_coupling"]),
+                    color="#333333",
+                    linestyle=":",
+                    linewidth=1.1,
+                    label="theory Kc",
+                )
+    for axis in axes:
         axis.set_xlabel("Kuramoto coupling K")
         axis.grid(True, alpha=0.22, linewidth=0.8)
         axis.spines["top"].set_visible(False)
@@ -4817,6 +4928,223 @@ def run_large_kuramoto_oracle_nsource_whole_state_phi_sweep(
     return {**result, "result_path": str(result_path)}
 
 
+def run_large_kuramoto_oracle_nsource_whole_state_tau_sweep(
+    *,
+    mode: str = "full",
+    oscillator_count: int = 64,
+    couplings: Sequence[float] = LARGE_KURAMOTO_ORACLE_WHOLE_STATE_COUPLINGS,
+    taus: Sequence[float] = (0.5, 0.75, 1.0, 1.5, 2.0, 4.0),
+    seeds: Sequence[int] = (0, 1, 2),
+    frequency_sigma: float = 1.0,
+    nsource_transport_degree: int = 1,
+    nsource_null_shuffles: int | None = None,
+    result_path: Path = DEFAULT_RESULT_DIR / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.json",
+    figure_path: Path = DEFAULT_FIGURE_DIR / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.png",
+) -> dict[str, object]:
+    if mode not in {"smoke", "full"}:
+        raise ValueError("mode must be 'smoke' or 'full'.")
+    if oscillator_count < 4:
+        raise ValueError("oscillator_count must be at least 4.")
+
+    def normalize_finite_unique(values: Sequence[object], name: str) -> tuple[float, ...]:
+        try:
+            normalized = tuple(float(value) for value in values)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{name} must contain numeric values.") from error
+        if not normalized:
+            raise ValueError(f"{name} must be nonempty.")
+        if not all(math.isfinite(value) for value in normalized):
+            raise ValueError(f"{name} must contain only finite values.")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError(f"{name} must not contain duplicate values.")
+        return normalized
+
+    taus = normalize_finite_unique(taus, "taus")
+    if any(tau <= 0.0 for tau in taus):
+        raise ValueError("taus must contain only positive values.")
+    couplings = normalize_finite_unique(couplings, "couplings")
+    normalized_seed_values = normalize_finite_unique(seeds, "seeds")
+    if any(not value.is_integer() for value in normalized_seed_values):
+        raise ValueError("seeds must contain integer values.")
+    seeds = tuple(int(value) for value in normalized_seed_values)
+    readout_samples = 40 if mode == "smoke" else 220
+    natural_samples = 60 if mode == "smoke" else 360
+    dt = 0.05 if mode == "smoke" else 0.04
+    nsource_transport_degree = int(nsource_transport_degree)
+    if nsource_transport_degree < 1:
+        raise ValueError("nsource_transport_degree must be positive.")
+    if nsource_null_shuffles is None:
+        nsource_null_shuffles = 1 if mode == "smoke" else 2
+    nsource_null_shuffles = int(nsource_null_shuffles)
+    if nsource_null_shuffles < 0:
+        raise ValueError("nsource_null_shuffles must be nonnegative.")
+
+    raw_order_strong_threshold = 0.8
+    critical_coupling = _classic_kuramoto_critical_coupling(frequency_sigma)
+    rows: list[dict[str, object]] = []
+    for seed_value in seeds:
+        seed = int(seed_value)
+        frequency_seed = seed + 50017
+        frequencies = _classic_kuramoto_frequencies(oscillator_count, frequency_seed, frequency_sigma)
+        readout_rng = np.random.default_rng(seed + 61003)
+        readout_states = readout_rng.uniform(0.0, 2.0 * math.pi, size=(readout_samples, oscillator_count))
+        source_blocks = _large_kuramoto_singleton_source_blocks(readout_states)
+        natural_rng = np.random.default_rng(seed + 71003)
+        natural_initial = natural_rng.uniform(0.0, 2.0 * math.pi, size=(natural_samples, oscillator_count))
+        for tau in taus:
+            for coupling in couplings:
+                readout_next = _classic_kuramoto_integrate(
+                    readout_states,
+                    frequencies,
+                    coupling=float(coupling),
+                    tau=tau,
+                    dt=dt,
+                )
+                oracle_targets = _large_kuramoto_phase_features(readout_next)
+                oracle_phi = _transport_nsource_phi_with_target_shuffle_null(
+                    source_blocks,
+                    oracle_targets,
+                    degree=nsource_transport_degree,
+                    n_shuffles=nsource_null_shuffles,
+                    seed=seed + 148003 + int(round(float(coupling) * 1000)) + int(round(tau * 10000)),
+                )
+                natural_next = _classic_kuramoto_integrate(
+                    natural_initial,
+                    frequencies,
+                    coupling=float(coupling),
+                    tau=tau,
+                    dt=dt,
+                )
+                raw_order = _kuramoto_global_order(natural_next)
+                natural_order = _large_kuramoto_order_excess(natural_next)
+                rows.append(
+                    {
+                        "tau": tau,
+                        "coupling": float(coupling),
+                        "seed": seed,
+                        "frequency_seed": frequency_seed,
+                        "natural_order": float(np.mean(natural_order)),
+                        "natural_order_raw": float(np.mean(raw_order)),
+                        "raw_order_mean": float(np.mean(raw_order)),
+                        "raw_order_q95": float(np.quantile(raw_order, 0.95)),
+                        "raw_order_q99": float(np.quantile(raw_order, 0.99)),
+                        "raw_order_max": float(np.max(raw_order)),
+                        "raw_order_strong_fraction": float(np.mean(raw_order >= raw_order_strong_threshold)),
+                        "oracle_phi": float(oracle_phi["phi"]),
+                        "oracle_raw_phi": float(oracle_phi["raw_phi"]),
+                        "oracle_observed_phi": float(oracle_phi["observed_phi"]),
+                        "oracle_observed_raw_phi": float(oracle_phi["observed_raw_phi"]),
+                        "oracle_null_phi": float(oracle_phi["null_phi"]),
+                        "oracle_null_phi_std": float(oracle_phi["null_phi_std"]),
+                        "oracle_null_corrected_phi": float(oracle_phi["null_corrected_phi"]),
+                        "oracle_joint_ei": float(oracle_phi["joint_ei"]),
+                        "oracle_singleton_ei_sum": float(oracle_phi["singleton_ei_sum"]),
+                        "oracle_joint_determinism": float(oracle_phi["joint_determinism"]),
+                        "oracle_joint_degeneracy": float(oracle_phi["joint_degeneracy"]),
+                        "oracle_singleton_determinism_sum": float(oracle_phi["singleton_determinism_sum"]),
+                        "oracle_singleton_degeneracy_sum": float(oracle_phi["singleton_degeneracy_sum"]),
+                        "oracle_target_entropy": float(oracle_phi["target_entropy"]),
+                        "oracle_target_reference_entropy": float(oracle_phi["target_reference_entropy"]),
+                        "target_mean": float(np.mean(oracle_targets)),
+                        "target_std": float(np.std(oracle_targets, ddof=0)),
+                        "source_state_digest": _digest(readout_states),
+                        "readout_state_digest": _digest(readout_states),
+                        "natural_state_digest": _digest(natural_initial),
+                        "oracle_target_digest": _digest(oracle_targets),
+                        "frequency_digest": _digest(frequencies),
+                    }
+                )
+
+    _renormalize_oracle_nsource_detdeg_rows(rows, source_count=oscillator_count)
+    summary = _aggregate_large_kuramoto_oracle_nsource_tau_rows(rows)
+    diagnostic = _large_kuramoto_oracle_nsource_tau_diagnostic(summary, critical_coupling=critical_coupling)
+    synchronization_guard_by_tau = []
+    for tau in taus:
+        tau_summary = [row for row in summary if float(row["tau"]) == tau]
+        failing_couplings = [
+            float(row["coupling"])
+            for row in tau_summary
+            if float(row["raw_order_q99_mean"]) >= raw_order_strong_threshold
+        ]
+        synchronization_guard_by_tau.append(
+            {
+                "tau": tau,
+                "verdict": "pass" if not failing_couplings else "fail",
+                "failing_couplings": failing_couplings,
+            }
+        )
+    paired_seed_records = []
+    for seed_value in seeds:
+        seed = int(seed_value)
+        seed_rows = [row for row in rows if int(row["seed"]) == seed]
+        paired_seed_records.append(
+            {
+                "seed": seed,
+                "frequency_digest": seed_rows[0]["frequency_digest"],
+                "readout_state_digest": seed_rows[0]["readout_state_digest"],
+                "natural_state_digest": seed_rows[0]["natural_state_digest"],
+                "all_frequency_vectors_paired": len({row["frequency_digest"] for row in seed_rows}) == 1,
+                "all_readout_states_paired": len({row["readout_state_digest"] for row in seed_rows}) == 1,
+                "all_natural_states_paired": len({row["natural_state_digest"] for row in seed_rows}) == 1,
+            }
+        )
+    paired_state_guard = {
+        "all_frequency_vectors_paired": all(record["all_frequency_vectors_paired"] for record in paired_seed_records),
+        "all_readout_states_paired": all(record["all_readout_states_paired"] for record in paired_seed_records),
+        "all_natural_states_paired": all(record["all_natural_states_paired"] for record in paired_seed_records),
+        "per_seed": paired_seed_records,
+    }
+    result = {
+        "mode": mode,
+        "system": "classic_large_n_kuramoto_oracle_nsource_whole_state_tau_sweep",
+        "target": "oracle_finite_time_whole_system_phase_state",
+        "target_components": ["cos(theta_tau)_all", "sin(theta_tau)_all"],
+        "target_dimension": int(2 * oscillator_count),
+        "target_protocol": "For each (K, tau), integrate the fixed uniform readout state to its finite-horizon whole-system phase target.",
+        "source_partition": "singleton_oscillators",
+        "source_count": int(oscillator_count),
+        "source_feature": "per-oscillator cos(theta), sin(theta)",
+        "source_protocol": "Singleton oscillator phase features extracted once from the fixed per-seed readout state matrix.",
+        "oscillator_count": int(oscillator_count),
+        "couplings": [float(coupling) for coupling in couplings],
+        "taus": list(taus),
+        "seeds": [int(seed) for seed in seeds],
+        "dt": float(dt),
+        "paired_support": True,
+        "paired_support_protocol": "For each seed, one Gaussian frequency vector plus one uniform readout and natural state matrix are reused across every coupling and horizon.",
+        "paired_state_guard": paired_state_guard,
+        "frequency_distribution": "zero-mean Gaussian, rescaled to requested sigma per seed",
+        "frequency_sigma": float(frequency_sigma),
+        "critical_coupling_theory": critical_coupling,
+        "raw_order_strong_threshold": raw_order_strong_threshold,
+        "raw_order_diagnostics": ["raw_order_mean", "raw_order_q95", "raw_order_q99", "raw_order_max", "raw_order_strong_fraction"],
+        "raw_order_diagnostic_protocol": "Raw global order evaluated on finite-horizon natural target states; strong fraction uses raw order >= threshold.",
+        "synchronization_guard": {
+            "metric": "raw_order_q99",
+            "threshold": raw_order_strong_threshold,
+            "comparison": "all aggregated q99 raw order values < threshold",
+            "by_tau": synchronization_guard_by_tau,
+        },
+        "estimator": "oracle_transport_map",
+        "estimator_protocol": "Oracle target features with target-shuffle-null-corrected N-source transport-map effective information.",
+        "transport_map": _transport_map_config(),
+        "nsource_transport_map_degree": int(nsource_transport_degree),
+        "nsource_null_shuffles": int(nsource_null_shuffles),
+        "phi_null_model": "target_shuffle",
+        "phi_definition": "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)",
+        "determinism_degeneracy_definition": "Det = H0 - H(Y|source set), Deg = H0 - H(Y), with fixed H0 set to the maximum Gaussian target entropy over this sweep.",
+        "null_corrected_phi_definition": "phi - mean target-shuffle Phi; signed estimator-bias audit, not PEID Phi",
+        "criticality_diagnostic": diagnostic,
+        "rows": rows,
+        "summary": summary,
+        "figure_path": str(figure_path),
+    }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _plot_large_kuramoto_oracle_nsource_whole_state_tau_sweep(summary, diagnostic, figure_path)
+    return {**result, "result_path": str(result_path)}
+
+
 def run_sis_gate_sweep(
     *,
     mode: str = "full",
@@ -5419,6 +5747,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--large-kuramoto-learned-nsource-phi-sweep", action="store_true", help="Run learned transport-map N-source Phi sweep for classic Kuramoto.")
     parser.add_argument("--large-kuramoto-oracle-nsource-phi-susceptibility-sweep", action="store_true", help="Run Oracle N-source Phi sweep using coupling-susceptibility targets.")
     parser.add_argument("--large-kuramoto-oracle-nsource-whole-state-phi-sweep", action="store_true", help="Run Oracle N-source Phi sweep using whole future phase-state targets.")
+    parser.add_argument("--large-kuramoto-oracle-nsource-whole-state-tau-sweep", action="store_true", help="Run Oracle N-source whole-state Phi across finite-time horizons.")
     parser.add_argument("--kuramoto-peid-detail-sweep", action="store_true", help="Run the dense Kuramoto Oracle/MLP PEID component sweep.")
     parser.add_argument("--sis-gate-sweep", action="store_true", help="Run only the Part1 SIS gate synergy sweep.")
     parser.add_argument("--lorenz-rho-sweep", action="store_true", help="Run only the Part1 Lorenz rho synergy sweep.")
@@ -5517,6 +5846,18 @@ def main() -> None:
             nsource_null_shuffles=args.nsource_null_shuffles,
             result_path=args.result_dir / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.json",
             figure_path=args.figure_dir / "large_kuramoto_oracle_nsource_whole_state_phi_sweep.png",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+    if args.large_kuramoto_oracle_nsource_whole_state_tau_sweep:
+        result = run_large_kuramoto_oracle_nsource_whole_state_tau_sweep(
+            mode=args.mode,
+            oscillator_count=64 if args.kuramoto_n is None else args.kuramoto_n,
+            seeds=tuple(args.seeds),
+            nsource_transport_degree=args.nsource_transport_degree,
+            nsource_null_shuffles=args.nsource_null_shuffles,
+            result_path=args.result_dir / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.json",
+            figure_path=args.figure_dir / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.png",
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return

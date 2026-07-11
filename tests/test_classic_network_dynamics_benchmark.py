@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import json
 import sys
+from inspect import signature
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts import classic_network_dynamics_benchmark as classic_benchmark
 from scripts.classic_network_dynamics_benchmark import (
     BENCHMARK_MODEL_NAMES,
     KURAMOTO_COUPLING_VALUES,
@@ -65,6 +68,116 @@ from scripts.discrete_iteration_dynamics_benchmark import (
     _run_map_sweep,
     build_wilson_cowan_refractory_spec,
 )
+
+
+def test_parse_args_recognizes_large_kuramoto_oracle_nsource_whole_state_tau_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["classic_network_dynamics_benchmark.py"])
+    assert not classic_benchmark.parse_args().large_kuramoto_oracle_nsource_whole_state_tau_sweep
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "classic_network_dynamics_benchmark.py",
+            "--large-kuramoto-oracle-nsource-whole-state-tau-sweep",
+        ],
+    )
+    assert classic_benchmark.parse_args().large_kuramoto_oracle_nsource_whole_state_tau_sweep
+
+
+def test_main_dispatches_large_kuramoto_oracle_nsource_whole_state_tau_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_tau_runner(**kwargs: object) -> dict[str, bool]:
+        calls.append(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        classic_benchmark,
+        "run_large_kuramoto_oracle_nsource_whole_state_tau_sweep",
+        fake_tau_runner,
+    )
+    monkeypatch.setattr(classic_benchmark, "run_benchmark", lambda **kwargs: {"fallback": True})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "classic_network_dynamics_benchmark.py",
+            "--large-kuramoto-oracle-nsource-whole-state-tau-sweep",
+            "--mode",
+            "smoke",
+            "--kuramoto-n",
+            "12",
+            "--seeds",
+            "4",
+            "8",
+            "--nsource-transport-degree",
+            "3",
+            "--nsource-null-shuffles",
+            "5",
+            "--result-dir",
+            str(tmp_path / "results"),
+            "--figure-dir",
+            str(tmp_path / "figures"),
+        ],
+    )
+
+    classic_benchmark.main()
+
+    assert calls == [
+        {
+            "mode": "smoke",
+            "oscillator_count": 12,
+            "seeds": (4, 8),
+            "nsource_transport_degree": 3,
+            "nsource_null_shuffles": 5,
+            "result_path": tmp_path / "results" / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.json",
+            "figure_path": tmp_path / "figures" / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.png",
+        }
+    ]
+
+
+def test_main_prioritizes_existing_whole_state_phi_sweep_over_tau_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_whole_state_phi_runner(**kwargs: object) -> dict[str, bool]:
+        calls.append("whole_state_phi")
+        return {"ok": True}
+
+    def fake_tau_runner(**kwargs: object) -> dict[str, bool]:
+        calls.append("tau")
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        classic_benchmark,
+        "run_large_kuramoto_oracle_nsource_whole_state_phi_sweep",
+        fake_whole_state_phi_runner,
+    )
+    monkeypatch.setattr(
+        classic_benchmark,
+        "run_large_kuramoto_oracle_nsource_whole_state_tau_sweep",
+        fake_tau_runner,
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "classic_network_dynamics_benchmark.py",
+            "--large-kuramoto-oracle-nsource-whole-state-phi-sweep",
+            "--large-kuramoto-oracle-nsource-whole-state-tau-sweep",
+        ],
+    )
+
+    classic_benchmark.main()
+
+    assert calls == ["whole_state_phi"]
 
 
 def test_model_specs_expose_distinct_source_and_derivative_target_names() -> None:
@@ -725,6 +838,101 @@ def test_large_kuramoto_oracle_nsource_whole_state_phi_sweep_matches_dmf_style_t
     assert payload["phi_definition"] == "EI(all oscillator sources; target) - sum_i EI(oscillator_i; target)"
     assert {"oracle_phi_mean", "oracle_joint_ei_mean", "oracle_singleton_ei_sum_mean"} <= set(payload["summary"][0])
     assert "oracle_phi_peak_coupling" in payload["criticality_diagnostic"]
+
+
+def test_large_kuramoto_oracle_nsource_whole_state_tau_sweep_pairs_states_across_horizons_and_couplings(
+    tmp_path: Path,
+) -> None:
+    runner = getattr(classic_benchmark, "run_large_kuramoto_oracle_nsource_whole_state_tau_sweep", None)
+    assert callable(runner)
+    result = runner(
+        mode="smoke",
+        oscillator_count=4,
+        couplings=(0.0, 1.6),
+        taus=(0.5, 2.0),
+        seeds=(0,),
+        nsource_null_shuffles=1,
+        result_path=tmp_path / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.json",
+        figure_path=tmp_path / "large_kuramoto_oracle_nsource_whole_state_tau_sweep.png",
+    )
+
+    payload = json.loads(Path(result["result_path"]).read_text(encoding="utf-8"))
+    assert Path(result["figure_path"]).exists()
+    assert payload["system"] == "classic_large_n_kuramoto_oracle_nsource_whole_state_tau_sweep"
+    assert payload["paired_support"] is True
+    assert payload["taus"] == [0.5, 2.0]
+    assert payload["raw_order_strong_threshold"] == 0.8
+    assert payload["target_components"] == ["cos(theta_tau)_all", "sin(theta_tau)_all"]
+    assert payload["source_partition"] == "singleton_oscillators"
+    assert payload["source_feature"] == "per-oscillator cos(theta), sin(theta)"
+    assert payload["estimator"] == "oracle_transport_map"
+    assert payload["phi_null_model"] == "target_shuffle"
+    assert payload["paired_state_guard"]["all_frequency_vectors_paired"] is True
+    assert payload["paired_state_guard"]["all_readout_states_paired"] is True
+    assert payload["paired_state_guard"]["all_natural_states_paired"] is True
+    assert payload["paired_state_guard"]["per_seed"][0]["all_frequency_vectors_paired"] is True
+    assert payload["paired_state_guard"]["per_seed"][0]["frequency_digest"] == payload["rows"][0]["frequency_digest"]
+    assert len({row["readout_state_digest"] for row in payload["rows"]}) == 1
+    assert len({row["natural_state_digest"] for row in payload["rows"]}) == 1
+    assert len({row["frequency_digest"] for row in payload["rows"]}) == 1
+    raw_order_metrics = (
+        "raw_order_mean",
+        "raw_order_q95",
+        "raw_order_q99",
+        "raw_order_max",
+        "raw_order_strong_fraction",
+    )
+    assert {
+        "oracle_phi_mean",
+        "oracle_joint_ei_mean",
+        "oracle_singleton_ei_sum_mean",
+    } <= set(payload["summary"][0])
+    assert all(
+        f"{metric}_{statistic}" in payload["summary"][0]
+        for metric in raw_order_metrics
+        for statistic in ("mean", "std", "sem")
+    )
+    synchronization_guard = payload["synchronization_guard"]
+    assert synchronization_guard["metric"] == "raw_order_q99"
+    assert synchronization_guard["threshold"] == 0.8
+    assert synchronization_guard["comparison"] == "all aggregated q99 raw order values < threshold"
+    for tau_guard in synchronization_guard["by_tau"]:
+        tau_summary = [row for row in payload["summary"] if row["tau"] == tau_guard["tau"]]
+        expected_failures = [row["coupling"] for row in tau_summary if row["raw_order_q99_mean"] >= 0.8]
+        assert tau_guard["failing_couplings"] == expected_failures
+        assert tau_guard["verdict"] == ("pass" if not expected_failures else "fail")
+
+
+def test_large_kuramoto_oracle_nsource_whole_state_tau_sweep_defaults_include_short_horizons() -> None:
+    runner = getattr(classic_benchmark, "run_large_kuramoto_oracle_nsource_whole_state_tau_sweep", None)
+
+    assert callable(runner)
+    assert signature(runner).parameters["taus"].default == (0.5, 0.75, 1.0, 1.5, 2.0, 4.0)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"taus": ()}, "taus must be nonempty"),
+        ({"taus": (0.5, np.nan)}, "taus must contain only finite values"),
+        ({"taus": (0.5, 0.5)}, "taus must not contain duplicate values"),
+        ({"couplings": ()}, "couplings must be nonempty"),
+        ({"couplings": (0.0, np.inf)}, "couplings must contain only finite values"),
+        ({"couplings": (0.0, 0.0)}, "couplings must not contain duplicate values"),
+        ({"seeds": ()}, "seeds must be nonempty"),
+        ({"seeds": (0, np.nan)}, "seeds must contain only finite values"),
+        ({"seeds": (0, 0)}, "seeds must not contain duplicate values"),
+    ),
+)
+def test_large_kuramoto_oracle_nsource_whole_state_tau_sweep_rejects_invalid_paired_inputs(
+    kwargs: dict[str, object],
+    message: str,
+) -> None:
+    runner = getattr(classic_benchmark, "run_large_kuramoto_oracle_nsource_whole_state_tau_sweep", None)
+    assert callable(runner)
+
+    with pytest.raises(ValueError, match=message):
+        runner(mode="smoke", oscillator_count=4, **kwargs)
 
 
 def test_large_kuramoto_n64_ei_decomposition_plot_uses_only_oracle_ab_panels(
