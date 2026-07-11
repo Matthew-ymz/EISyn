@@ -7,6 +7,11 @@
 - After completing work on the main branch, do not ask whether to merge, open a pull request, keep the branch, or discard the work.
 - Only use a separate branch, worktree, pull request, or branch-completion workflow when the user explicitly requests it.
 
+## Delegation and heavy workflows
+
+- Before invoking subagents or starting a materially complex workflow, first explain in writing why its scope is necessary, what lighter alternative exists, and its expected cost.
+- Obtain the user's explicit approval before proceeding. If the user considers the additional rigor unnecessary, use the lighter approach and do not expand the work.
+
 ## Long-running experiments
 
 - For long or expensive experiments, persist reusable computed results only when recomputation would be costly or the user asks for reusable data.
