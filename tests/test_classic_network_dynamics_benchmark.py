@@ -990,6 +990,109 @@ def test_large_kuramoto_n64_ei_decomposition_plot_uses_only_oracle_ab_panels(
     assert not any("theory" in label or "max d order" in label for label in captured["line_labels"])
 
 
+def test_large_kuramoto_n64_detdeg_plot_combines_four_components_into_two_panels(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import matplotlib.figure
+
+    captured: dict[str, object] = {}
+    original_savefig = matplotlib.figure.Figure.savefig
+
+    def capture_savefig(self, *args, **kwargs):
+        captured["axis_count"] = len(self.axes)
+        captured["titles"] = [axis.get_title(loc="left") for axis in self.axes]
+        captured["yscales"] = [axis.get_yscale() for axis in self.axes]
+        captured["minimum_reference_positions"] = [
+            [float(line.get_xdata()[0]) for line in axis.lines if line.get_label() == "whole Det. minimum"]
+            for axis in self.axes
+        ]
+        captured["xtick_labels"] = [[tick.get_text() for tick in axis.get_xticklabels()] for axis in self.axes]
+        captured["annotation_text"] = [[text.get_text() for text in axis.texts] for axis in self.axes]
+        return original_savefig(self, *args, **kwargs)
+
+    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", capture_savefig)
+    payload = {
+        "summary": [
+            {
+                "coupling": 0.0,
+                "oracle_joint_determinism_mean": 10.0,
+                "oracle_joint_determinism_sem": 0.1,
+                "oracle_joint_degeneracy_mean": 0.1,
+                "oracle_joint_degeneracy_sem": 0.01,
+                "oracle_singleton_determinism_sum_mean": 12.0,
+                "oracle_singleton_determinism_sum_sem": 0.2,
+                "oracle_singleton_degeneracy_sum_mean": 1.0,
+                "oracle_singleton_degeneracy_sum_sem": 0.1,
+            },
+            {
+                "coupling": 1.6,
+                "oracle_joint_determinism_mean": 8.0,
+                "oracle_joint_determinism_sem": 0.1,
+                "oracle_joint_degeneracy_mean": 4.0,
+                "oracle_joint_degeneracy_sem": 0.1,
+                "oracle_singleton_determinism_sum_mean": 20.0,
+                "oracle_singleton_determinism_sum_sem": 0.2,
+                "oracle_singleton_degeneracy_sum_mean": 18.0,
+                "oracle_singleton_degeneracy_sum_sem": 0.2,
+            },
+        ]
+    }
+
+    classic_benchmark._plot_large_kuramoto_n64_determinism_degeneracy(payload, tmp_path / "detdeg.png")
+
+    assert captured["axis_count"] == 2
+    assert captured["titles"] == ["a  Whole-source components", "b  Singleton-sum components"]
+    assert captured["yscales"] == ["linear", "log"]
+    assert captured["minimum_reference_positions"] == [[1.6], [1.6]]
+    assert captured["xtick_labels"] == [["0", "0.05", "0.1", "1", "1.6", "4"]] * 2
+    assert captured["annotation_text"] == [[], []]
+
+
+def test_kuramoto_size_appendix_plot_keeps_only_oracle_phi_and_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import matplotlib.figure
+
+    captured: dict[str, object] = {}
+    original_savefig = matplotlib.figure.Figure.savefig
+
+    def capture_savefig(self, *args, **kwargs):
+        captured["axis_count"] = len(self.axes)
+        captured["titles"] = [axis.get_title(loc="left") for axis in self.axes]
+        captured["line_labels"] = [line.get_label() for axis in self.axes for line in axis.lines]
+        return original_savefig(self, *args, **kwargs)
+
+    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", capture_savefig)
+    summary = [
+        {
+            "coupling": 0.0,
+            "oracle_phi_mean": 0.0,
+            "oracle_phi_sem": 0.0,
+            "natural_order_mean": 0.1,
+            "natural_order_sem": 0.01,
+        },
+        {
+            "coupling": 1.6,
+            "oracle_phi_mean": 2.0,
+            "oracle_phi_sem": 0.1,
+            "natural_order_mean": 0.8,
+            "natural_order_sem": 0.02,
+        },
+    ]
+
+    classic_benchmark._plot_kuramoto_size_oracle_appendix(
+        {"summary": summary},
+        {"summary": summary},
+        tmp_path / "kuramoto_size_oracle.png",
+    )
+
+    assert captured["axis_count"] == 4
+    assert captured["titles"] == ["a  Classic Kuramoto N=2", "b  Classic Kuramoto N=64", "", ""]
+    assert set(captured["line_labels"]) == {"Oracle Phi", "corrected order"}
+
+
 def test_gaussian_kernel_smoothing_spreads_local_phi_peak_without_changing_grid() -> None:
     couplings = np.array([1.2, 1.4, 1.6])
     phi = np.array([0.0, 0.03, 0.0])

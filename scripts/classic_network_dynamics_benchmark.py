@@ -3681,31 +3681,178 @@ def _plot_large_kuramoto_n64_determinism_degeneracy(payload: Mapping[str, object
 
     summary = list(payload["summary"])  # type: ignore[index]
     couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
-    fig, axes = plt.subplots(2, 2, figsize=(11.0, 7.2), constrained_layout=True, sharex=True)
+    fig, axes = plt.subplots(1, 2, figsize=(11.8, 4.0), constrained_layout=True)
+    whole_axis, singleton_axis = axes
 
-    panels = (
-        (axes[0, 0], "oracle_joint_determinism", r"$Det(all;Y)$", "#4C78A8", "a  Whole EI determinism", False),
-        (axes[0, 1], "oracle_joint_degeneracy", r"$Deg(all;Y)$", "#4C78A8", "b  Whole EI degeneracy", True),
-        (axes[1, 0], "oracle_singleton_determinism_sum", r"$\sum_i Det(i;Y)$", "#D98C2F", "c  Singleton-sum determinism", True),
-        (axes[1, 1], "oracle_singleton_degeneracy_sum", r"$\sum_i Deg(i;Y)$", "#D98C2F", "d  Singleton-sum degeneracy", True),
-    )
-    for axis, key, label, color, title, use_log_y in panels:
+    def draw_component(
+        axis,
+        key: str,
+        label: str,
+        color: str,
+        *,
+        linestyle: str = "-",
+        marker: str = "o",
+        log_y: bool = False,
+    ):
         mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
         sem = np.asarray([float(row.get(f"{key}_sem", 0.0)) for row in summary], dtype=float)
-        axis.plot(couplings, mean, color=color, marker="o", linewidth=2.0, markersize=4.5, label=label)
+        line = axis.plot(
+            couplings,
+            mean,
+            color=color,
+            marker=marker,
+            linestyle=linestyle,
+            linewidth=2.0,
+            markersize=4.5,
+            label=label,
+        )[0]
         lower = mean - sem
         upper = mean + sem
-        if use_log_y:
+        if log_y:
             positive = np.concatenate([mean[mean > 0.0], upper[upper > 0.0]])
             floor = float(np.min(positive)) * 0.5 if positive.size else 1.0e-6
             lower = np.maximum(lower, floor)
             axis.set_yscale("log")
-        axis.fill_between(couplings, lower, upper, color=color, alpha=0.14, linewidth=0)
-        axis.set_ylabel("Information component (bits)")
-        axis.set_title(title, loc="left", fontweight="bold")
-        axis.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+        axis.fill_between(couplings, lower, upper, color=color, alpha=0.12, linewidth=0)
+        return line
 
-    for axis in axes.flat:
+    handles = [
+        draw_component(
+            whole_axis,
+            "oracle_joint_determinism",
+            r"$Det(all;Y)$",
+            "#3B6EA5",
+        ),
+        draw_component(
+            whole_axis,
+            "oracle_joint_degeneracy",
+            r"$Deg(all;Y)$",
+            "#2A9D8F",
+            linestyle="--",
+            marker="D",
+        ),
+        draw_component(
+            singleton_axis,
+            "oracle_singleton_determinism_sum",
+            r"$\sum_i Det(i;Y)$",
+            "#D9822B",
+            log_y=True,
+        ),
+        draw_component(
+            singleton_axis,
+            "oracle_singleton_degeneracy_sum",
+            r"$\sum_i Deg(i;Y)$",
+            "#B65B2A",
+            linestyle="--",
+            marker="D",
+            log_y=True,
+        ),
+    ]
+    whole_determinism = np.asarray(
+        [float(row["oracle_joint_determinism_mean"]) for row in summary], dtype=float
+    )
+    minimum_index = int(np.argmin(whole_determinism))
+    minimum_coupling = float(couplings[minimum_index])
+    for axis in (whole_axis, singleton_axis):
+        axis.axvline(
+            minimum_coupling,
+            color="#777777",
+            linestyle=":",
+            linewidth=1.1,
+            label="whole Det. minimum",
+            zorder=0,
+        )
+    whole_axis.set_ylabel("Whole component (bits)")
+    singleton_axis.set_ylabel("Singleton-sum component (bits; log)")
+    whole_axis.set_title("a  Whole-source components", loc="left", fontweight="bold")
+    singleton_axis.set_title("b  Singleton-sum components", loc="left", fontweight="bold")
+
+    for axis in (whole_axis, singleton_axis):
+        axis.set_xscale("symlog", linthresh=0.05)
+        axis.set_xlim(-0.01, max(float(np.max(couplings)), 4.0) * 1.03)
+        ticks = sorted({0.0, 0.05, 0.1, 1.0, minimum_coupling, 4.0})
+        axis.set_xticks(ticks)
+        axis.set_xticklabels([f"{tick:g}" for tick in ticks])
+        axis.set_xlabel("Coupling K")
+        axis.grid(True, alpha=0.22, linewidth=0.8)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+
+    labels = [handle.get_label() for handle in handles]
+    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.06), ncol=4, frameon=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    fig.savefig(path.with_suffix(".svg"), bbox_inches="tight")
+    fig.savefig(path.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_kuramoto_size_oracle_appendix(
+    n2_payload: Mapping[str, object],
+    n64_payload: Mapping[str, object],
+    path: Path,
+) -> None:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 8,
+            "axes.linewidth": 0.8,
+            "legend.frameon": False,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+        }
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.8), constrained_layout=True)
+    handles = []
+    for index, (axis, payload, title) in enumerate(
+        (
+            (axes[0], n2_payload, "a  Classic Kuramoto N=2"),
+            (axes[1], n64_payload, "b  Classic Kuramoto N=64"),
+        )
+    ):
+        summary = list(payload["summary"])  # type: ignore[index]
+        couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
+        phi = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+        phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
+        order = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
+        order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
+
+        phi_line = axis.plot(
+            couplings,
+            phi,
+            color="#625BA6",
+            marker="o",
+            linewidth=2.0,
+            markersize=4.3,
+            label="Oracle Phi",
+        )[0]
+        axis.fill_between(couplings, phi - phi_sem, phi + phi_sem, color="#625BA6", alpha=0.13, linewidth=0)
+        axis.set_ylabel(r"Oracle N-source $\Phi^{EID}$ (bits)")
+        axis.set_title(title, loc="left", fontweight="bold")
+
+        order_axis = axis.twinx()
+        order_line = order_axis.plot(
+            couplings,
+            order,
+            color="#777777",
+            marker="^",
+            linewidth=1.7,
+            markersize=4.1,
+            label="corrected order",
+        )[0]
+        order_axis.fill_between(couplings, order - order_sem, order + order_sem, color="#777777", alpha=0.11, linewidth=0)
+        order_axis.set_ylim(-0.04, 1.04)
+        order_axis.spines["top"].set_visible(False)
+        if index == 1:
+            order_axis.set_ylabel("Corrected order")
+        else:
+            order_axis.set_yticks([])
+
         axis.set_xscale("symlog", linthresh=0.05)
         axis.set_xlim(-0.01, max(float(np.max(couplings)), 4.0) * 1.03)
         axis.set_xticks([0.0, 0.05, 0.1, 1.0, 4.0])
@@ -3714,7 +3861,10 @@ def _plot_large_kuramoto_n64_determinism_degeneracy(payload: Mapping[str, object
         axis.grid(True, alpha=0.22, linewidth=0.8)
         axis.spines["top"].set_visible(False)
         axis.spines["right"].set_visible(False)
+        if index == 0:
+            handles = [phi_line, order_line]
 
+    fig.legend(handles, [handle.get_label() for handle in handles], loc="lower center", bbox_to_anchor=(0.5, -0.06), ncol=2, frameon=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=300, bbox_inches="tight")
     fig.savefig(path.with_suffix(".svg"), bbox_inches="tight")
