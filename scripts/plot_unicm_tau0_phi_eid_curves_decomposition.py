@@ -191,9 +191,9 @@ def compute_tau0_greedy_atoms(
                     "whole_ei": float(ei_table[full_subset]),
                     "singleton_ei_sum": float(sum(singleton_ei.values())),
                     "raw_phi_eid": float(raw_phi),
-                    "phi_eid": float(max(0.0, raw_phi)),
+                    "phi_eid": float(raw_phi),
                     "phi_atom_sum": atom_sum,
-                    "residual_to_phi": float(max(0.0, raw_phi) - atom_sum),
+                    "residual_to_phi": float(raw_phi - atom_sum),
                     "n_atoms": int(len(atoms)),
                 }
             )

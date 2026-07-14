@@ -39,7 +39,6 @@ def compute_phi_eid_for_target(
     *,
     mode_names: Mapping[str, int] = MODE_NAMES,
     estimator: Estimator = estimate_gaussian_mutual_information,
-    clip_phi: bool = True,
 ) -> dict[str, float | dict[str, float]]:
     history = np.asarray(history_modes, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -62,7 +61,7 @@ def compute_phi_eid_for_target(
         "whole_ei": whole_ei,
         "singleton_ei_sum": singleton_sum,
         "raw_phi_eid": raw_phi,
-        "phi_eid": max(0.0, raw_phi) if bool(clip_phi) else raw_phi,
+        "phi_eid": raw_phi,
         "singleton_ei": singleton_ei,
     }
 
@@ -74,7 +73,6 @@ def compute_phi_eid_rows(
     mode_names: Mapping[str, int] = MODE_NAMES,
     leads: Sequence[int] | None = None,
     estimator: Estimator = estimate_gaussian_mutual_information,
-    clip_phi: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     lead_values = list(range(1, 25)) if leads is None else [int(lead) for lead in leads]
     rows: list[dict[str, object]] = []
@@ -88,7 +86,6 @@ def compute_phi_eid_rows(
                 target,
                 mode_names=mode_names,
                 estimator=estimator,
-                clip_phi=clip_phi,
             )
             rows.append(
                 {
@@ -223,7 +220,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         str(args.estimator),
         tm_degree=int(args.tm_degree),
         tm_jitter=float(args.tm_jitter),
-        clip_negative=not bool(args.no_mi_clip),
+        clip_negative=False,
     )
     rows, singleton_rows = compute_phi_eid_rows(
         history_modes,
@@ -231,7 +228,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         mode_names=MODE_NAMES,
         leads=leads,
         estimator=estimator,
-        clip_phi=not bool(args.no_phi_clip),
     )
     summary = summarize_phi_eid_leads(rows)
 
@@ -247,12 +243,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     manifest = {
         "target_definition": "all 11 predicted UniCM modes at each lead as a multivariate target",
         "source_definition": "singleton partition over 11 mode histories; each source is one mode's 12-month history",
-        "phi_eid_definition": (
-            "I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target)"
-            if bool(args.no_phi_clip)
-            else "max(0, I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target))"
-        ),
-        "clip_phi": not bool(args.no_phi_clip),
+        "phi_eid_definition": "I(all mode histories; all-mode target) - sum_i I(mode_i history; all-mode target)",
+        "signed_outputs": True,
         "seeds": seeds,
         "leads": leads,
         "n_samples": int(args.n_samples),
@@ -285,8 +277,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="gaussian_logdet")
     parser.add_argument("--tm-degree", type=int, default=3)
     parser.add_argument("--tm-jitter", type=float, default=1.0e-6)
-    parser.add_argument("--no-phi-clip", action="store_true", help="Plot and summarize signed raw PhiEID values.")
-    parser.add_argument("--no-mi-clip", action="store_true", help="Do not clip individual MI estimates at zero.")
     return parser
 
 

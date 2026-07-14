@@ -60,7 +60,6 @@ def compute_month_resolved_phi_eid_for_target(
     tau: int,
     mode_names: Mapping[str, int] = MODE_NAMES,
     estimator: Estimator = estimate_gaussian_mutual_information,
-    clip_phi: bool = True,
 ) -> dict[str, float | dict[str, float]]:
     history = np.asarray(history_modes, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -90,7 +89,7 @@ def compute_month_resolved_phi_eid_for_target(
         "singleton_ei_sum": singleton_sum,
         "singleton_ei_mean": singleton_sum / float(len(mode_names)),
         "raw_phi_eid": raw_phi,
-        "phi_eid": max(0.0, raw_phi) if bool(clip_phi) else raw_phi,
+        "phi_eid": raw_phi,
         "singleton_ei": singleton_ei,
     }
 
@@ -103,7 +102,6 @@ def compute_month_resolved_rows(
     leads: Sequence[int],
     mode_names: Mapping[str, int] = MODE_NAMES,
     estimator: Estimator = estimate_gaussian_mutual_information,
-    clip_phi: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     rows: list[dict[str, object]] = []
     singleton_rows: list[dict[str, object]] = []
@@ -118,7 +116,6 @@ def compute_month_resolved_rows(
                     tau=tau,
                     mode_names=mode_names,
                     estimator=estimator,
-                    clip_phi=clip_phi,
                 )
                 singleton_sum = float(metrics["singleton_ei_sum"])
                 singleton_mean = float(metrics["singleton_ei_mean"])
@@ -304,7 +301,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         str(args.estimator),
         tm_degree=int(args.tm_degree),
         tm_jitter=float(args.tm_jitter),
-        clip_negative=not bool(args.no_mi_clip),
+        clip_negative=False,
     )
     rows, singleton_rows = compute_month_resolved_rows(
         history_modes,
@@ -313,7 +310,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         leads=leads,
         mode_names=MODE_NAMES,
         estimator=estimator,
-        clip_phi=not bool(args.no_phi_clip),
     )
     summary = summarize_month_resolved(rows)
     tau_summary = summarize_tau(summary)
@@ -332,12 +328,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     manifest = {
         "target_definition": "all 11 predicted UniCM modes at each lead as a multivariate target",
         "source_definition": "month-resolved singleton partition; each source is one mode at one history lag tau",
-        "phi_eid_definition": (
-            "I(all modes at tau; all-mode target) - sum_i I(mode_i at tau; all-mode target)"
-            if bool(args.no_phi_clip)
-            else "max(0, I(all modes at tau; all-mode target) - sum_i I(mode_i at tau; all-mode target))"
-        ),
-        "clip_phi": not bool(args.no_phi_clip),
+        "phi_eid_definition": "I(all modes at tau; all-mode target) - sum_i I(mode_i at tau; all-mode target)",
+        "signed_outputs": True,
         "seeds": seeds,
         "taus": taus,
         "leads": leads,
@@ -372,8 +364,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--estimator", choices=["gaussian_logdet", "transport_map"], default="transport_map")
     parser.add_argument("--tm-degree", type=int, default=1)
     parser.add_argument("--tm-jitter", type=float, default=1.0e-6)
-    parser.add_argument("--no-phi-clip", action="store_true", help="Plot and summarize signed raw PhiEID values.")
-    parser.add_argument("--no-mi-clip", action="store_true", help="Do not clip individual MI estimates at zero.")
     return parser
 
 

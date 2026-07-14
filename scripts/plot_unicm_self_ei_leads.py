@@ -87,7 +87,7 @@ def estimate_fixed_source_univariate_mi(
         schur = target_var + joint_ridge - float(np.sum((projected_cross**2) / shifted_eigvals))
         joint_logdet = _safe_logdet_from_eigenvalues(shifted_eigvals) + float(np.log(schur))
         mi = 0.5 * (source_logdet + target_logdet - joint_logdet) / np.log(2.0)
-        values.append(max(0.0, float(mi)))
+        values.append(float(mi))
     return np.asarray(values, dtype=float)
 
 

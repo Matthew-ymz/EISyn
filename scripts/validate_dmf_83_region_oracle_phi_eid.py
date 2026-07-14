@@ -81,7 +81,8 @@ def gaussian_singleton_source_phi(
     target_cov = transition @ source_cov @ transition.T + noise_cov
     target_cov = 0.5 * (target_cov + target_cov.T) + float(ridge) * np.eye(target_dim)
     source_target_cov = source_cov @ transition.T
-    conditional_source_cov = source_cov - source_target_cov @ np.linalg.pinv(target_cov) @ source_target_cov.T
+    target_cov_pinv = np.linalg.pinv(target_cov)
+    conditional_source_cov = source_cov - source_target_cov @ target_cov_pinv @ source_target_cov.T
     conditional_source_cov = (
         0.5 * (conditional_source_cov + conditional_source_cov.T)
         + float(ridge) * np.eye(source_dim)
@@ -89,23 +90,37 @@ def gaussian_singleton_source_phi(
 
     joint_ei = 0.5 * (safe_logdet_psd(source_cov) - safe_logdet_psd(conditional_source_cov)) / math.log(2.0)
     singleton_ei = np.empty(source_dim, dtype=float)
+    gaussian_entropy_constant = target_dim * math.log(2.0 * math.pi * math.e)
+    target_entropy = 0.5 * (gaussian_entropy_constant + safe_logdet_psd(target_cov)) / math.log(2.0)
+    joint_conditional_entropy = 0.5 * (
+        gaussian_entropy_constant + safe_logdet_psd(noise_cov)
+    ) / math.log(2.0)
+    singleton_conditional_entropy = np.empty(source_dim, dtype=float)
+    singleton_target_base_cov = target_cov + float(ridge) * np.eye(target_dim)
+    singleton_target_base_logdet = safe_logdet_psd(singleton_target_base_cov)
+    singleton_target_base_pinv = np.linalg.pinv(singleton_target_base_cov)
     singleton_conditional_logdet_sum = 0.0
     for index in range(source_dim):
         prior = source_cov[index : index + 1, index : index + 1]
         conditional = conditional_source_cov[index : index + 1, index : index + 1]
         singleton_ei[index] = 0.5 * (safe_logdet_psd(prior) - safe_logdet_psd(conditional)) / math.log(2.0)
         singleton_conditional_logdet_sum += safe_logdet_psd(conditional)
+        singleton_source_target_cov = source_target_cov[index : index + 1, :]
+        explained_fraction = float(
+            (singleton_source_target_cov @ singleton_target_base_pinv @ singleton_source_target_cov.T)[0, 0]
+            / float(prior[0, 0])
+        )
+        target_given_singleton_logdet = singleton_target_base_logdet + math.log(
+            max(1.0 - explained_fraction, 1.0e-12)
+        )
+        singleton_conditional_entropy[index] = 0.5 * (
+            gaussian_entropy_constant + target_given_singleton_logdet
+        ) / math.log(2.0)
     singleton_sum = float(np.sum(singleton_ei))
     phi = float(joint_ei - singleton_sum)
     conditional_total_correlation = float(
         0.5 * (singleton_conditional_logdet_sum - safe_logdet_psd(conditional_source_cov)) / math.log(2.0)
     )
-    target_entropy = 0.5 * (
-        target_dim * math.log(2.0 * math.pi * math.e) + safe_logdet_psd(target_cov)
-    ) / math.log(2.0)
-    joint_conditional_entropy = 0.5 * (
-        target_dim * math.log(2.0 * math.pi * math.e) + safe_logdet_psd(noise_cov)
-    ) / math.log(2.0)
     return {
         "sample_count": int(sample_count),
         "source_dim": int(source_dim),
@@ -118,6 +133,7 @@ def gaussian_singleton_source_phi(
         "singleton_ei": singleton_ei,
         "target_entropy": float(target_entropy),
         "joint_conditional_entropy": float(joint_conditional_entropy),
+        "singleton_conditional_entropy_sum": float(np.sum(singleton_conditional_entropy)),
         "noise_condition_number": float(np.linalg.cond(noise_cov)),
         "source_condition_number": float(np.linalg.cond(source_cov)),
     }
@@ -170,6 +186,7 @@ def build_intervention_samples(
     return {
         "gaussian": rng.standard_normal((sample_count, dimension)),
         "uniform": rng.uniform(-np.sqrt(3.0), np.sqrt(3.0), size=(sample_count, dimension)),
+        "fixed_uniform": rng.uniform(0.0, 1.0, size=(sample_count, dimension)),
     }
 
 
@@ -198,14 +215,18 @@ def run_single_g(
     background_indices = rng.integers(0, se_trace.shape[0] - tau, size=sample_count)
     background_si = si_trace[background_indices]
     out: dict[str, dict[str, object]] = {}
-    for distribution, intervention_z in build_intervention_samples(
+    for distribution, intervention_values in build_intervention_samples(
         rng,
         sample_count=sample_count,
         dimension=connectivity.shape[0],
     ).items():
-        physical_source = source_mean.reshape(1, -1) + intervention_z * source_scale.reshape(1, -1)
-        out_of_bounds = (physical_source < 0.0) | (physical_source > 1.0)
-        source_se = np.clip(physical_source, 0.0, 1.0)
+        if distribution == "fixed_uniform":
+            source_se = intervention_values
+            out_of_bounds = np.zeros_like(source_se, dtype=bool)
+        else:
+            physical_source = source_mean.reshape(1, -1) + intervention_values * source_scale.reshape(1, -1)
+            out_of_bounds = (physical_source < 0.0) | (physical_source > 1.0)
+            source_se = np.clip(physical_source, 0.0, 1.0)
         actual_source_z = (source_se - source_mean.reshape(1, -1)) / source_scale.reshape(1, -1)
         target_se = source_se
         target_si = background_si.copy()
@@ -440,6 +461,31 @@ def parse_int_list(raw: str) -> tuple[int, ...]:
     return tuple(int(part.strip()) for part in str(raw).split(",") if part.strip())
 
 
+def parse_distribution_list(raw: str) -> tuple[str, ...]:
+    names = tuple(part.strip() for part in str(raw).split(",") if part.strip())
+    allowed = {"gaussian", "uniform", "fixed_uniform"}
+    if not names or any(name not in allowed for name in names):
+        raise argparse.ArgumentTypeError("distributions must be drawn from gaussian, uniform, fixed_uniform.")
+    return names
+
+
+def format_progress_message(
+    *,
+    seed: int,
+    coupling_g: float,
+    distribution_names: Sequence[str],
+    phi_values: np.ndarray,
+    clip_values: np.ndarray,
+) -> str:
+    scores = " ".join(
+        f"{name}={float(value):.4g}" for name, value in zip(distribution_names, phi_values, strict=True)
+    )
+    return (
+        f"seed={seed} G={coupling_g:.1f} {scores} "
+        f"clip={float(np.nanmean(clip_values)):.2%}"
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate Kuramoto-aligned 83-region DMF oracle PhiEID.")
     parser.add_argument("--source-results", type=Path, default=DEFAULT_SOURCE_RESULTS)
@@ -447,6 +493,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--figure-base", type=Path, default=DEFAULT_FIGURE_BASE)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--seeds", type=parse_int_list, default=(0, 1, 2, 3, 4, 5, 6, 7))
+    parser.add_argument("--distributions", type=parse_distribution_list, default=("gaussian", "uniform"))
     parser.add_argument("--g-stride", type=int, default=1)
     parser.add_argument("--sample-count", type=int, default=4096)
     parser.add_argument("--tau", type=int, default=1)
@@ -482,7 +529,7 @@ def main() -> None:
         tolerance_hz=float(args.stabilization_tolerance),
         confirm_windows=int(args.stabilization_confirm_windows),
     )
-    distribution_names = ("gaussian", "uniform")
+    distribution_names = tuple(args.distributions)
     seed_values = tuple(args.seeds)
     shape = (len(distribution_names), len(seed_values), len(g_values))
     phi = np.full(shape, np.nan, dtype=float)
@@ -535,10 +582,13 @@ def main() -> None:
             initial_se = np.asarray(simulation["final_se"], dtype=float)
             initial_si = np.asarray(simulation["final_si"], dtype=float)
             print(
-                f"seed={seed} G={coupling_g:.1f} "
-                f"gaussian={phi[0, s_index, g_index]:.4g} "
-                f"uniform={phi[1, s_index, g_index]:.4g} "
-                f"clip={np.nanmean(clip_fraction[:, s_index, g_index]):.2%}",
+                format_progress_message(
+                    seed=int(seed),
+                    coupling_g=float(coupling_g),
+                    distribution_names=distribution_names,
+                    phi_values=phi[:, s_index, g_index],
+                    clip_values=clip_fraction[:, s_index, g_index],
+                ),
                 flush=True,
             )
 

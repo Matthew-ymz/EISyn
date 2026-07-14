@@ -405,7 +405,7 @@ def estimate_gaussian_mutual_information(
     target: np.ndarray,
     *,
     jitter: float = 1e-6,
-    clip_negative: bool = True,
+    clip_negative: bool = False,
 ) -> float:
     source_array = np.asarray(source, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -427,7 +427,7 @@ def estimate_gaussian_mutual_information(
     joint_cov = _regularized_covariance(np.concatenate([source_array, target_array], axis=1), jitter=float(jitter))
     mi = 0.5 * (_safe_logdet(source_cov) + _safe_logdet(target_cov) - _safe_logdet(joint_cov)) / np.log(2.0)
     value = float(mi)
-    return max(0.0, value) if bool(clip_negative) else value
+    return value
 
 
 def estimate_transport_map_mutual_information(
@@ -436,7 +436,7 @@ def estimate_transport_map_mutual_information(
     *,
     degree: int = 3,
     jitter: float = 1.0e-6,
-    clip_negative: bool = True,
+    clip_negative: bool = False,
 ) -> float:
     summary = estimate_mutual_information_transport_map(
         np.asarray(source, dtype=float),
@@ -445,7 +445,7 @@ def estimate_transport_map_mutual_information(
         jitter=float(jitter),
     )
     value = float(summary["mi_hat"])
-    return max(0.0, value) if bool(clip_negative) else value
+    return value
 
 
 def create_ei_estimator(
@@ -453,7 +453,7 @@ def create_ei_estimator(
     *,
     tm_degree: int = 3,
     tm_jitter: float = 1.0e-6,
-    clip_negative: bool = True,
+    clip_negative: bool = False,
 ) -> tuple[Callable[[np.ndarray, np.ndarray], float], dict[str, object]]:
     name = str(estimator)
     if name == "gaussian_logdet":
@@ -769,9 +769,9 @@ def summarize_two_source_syn_affine(
     if left_array.shape[1] != 1 or right_array.shape[1] != 1:
         raise ValueError("left_source and right_source must each contain exactly one source dimension.")
 
-    left_ei = max(0.0, _estimate_mutual_information_affine(left_array, target_array))
-    right_ei = max(0.0, _estimate_mutual_information_affine(right_array, target_array))
-    joint_ei = max(0.0, _estimate_mutual_information_affine(np.concatenate([left_array, right_array], axis=1), target_array))
+    left_ei = _estimate_mutual_information_affine(left_array, target_array)
+    right_ei = _estimate_mutual_information_affine(right_array, target_array)
+    joint_ei = _estimate_mutual_information_affine(np.concatenate([left_array, right_array], axis=1), target_array)
     return {
         "backend": "polynomial_triangular_transport_map_degree_3",
         "left_ei": float(left_ei),
@@ -816,9 +816,9 @@ def _summarize_syn_with_source_logs(
     right_joint_log = _mean_polynomial_tm_log_prob(np.concatenate([target, right_source], axis=1))
     joint_log = _mean_polynomial_tm_log_prob(np.concatenate([target, left_source, right_source], axis=1))
     log_2 = float(np.log(2.0))
-    left_ei = max(0.0, float((left_joint_log - source_logs["left"] - target_log) / log_2))
-    right_ei = max(0.0, float((right_joint_log - source_logs["right"] - target_log) / log_2))
-    joint_ei = max(0.0, float((joint_log - source_logs["joint"] - target_log) / log_2))
+    left_ei = float((left_joint_log - source_logs["left"] - target_log) / log_2)
+    right_ei = float((right_joint_log - source_logs["right"] - target_log) / log_2)
+    joint_ei = float((joint_log - source_logs["joint"] - target_log) / log_2)
     return {
         "left_ei": float(left_ei),
         "right_ei": float(right_ei),

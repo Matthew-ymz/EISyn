@@ -121,7 +121,7 @@ def compute_subset_ei_table_from_covariance(
         selected = [*cols, *target_cols]
         joint_logdet = _regularized_logdet(joint_cov[np.ix_(selected, selected)], jitter=jitter)
         value = 0.5 * (float(source_logdets[subset]) + target_logdet - joint_logdet) / np.log(2.0)
-        table[subset] = max(0.0, float(value))
+        table[subset] = float(value)
     return table
 
 
@@ -178,12 +178,12 @@ def greedy_phi_atoms(
             best = (captured, residual, left, right)
 
     if best is None or best[0] <= float(eps):
-        return [GreedyAtom(subset, max(0.0, block_phi), "terminal", int(depth))]
+        return [GreedyAtom(subset, block_phi, "terminal", int(depth))]
 
     captured, residual, left, right = best
     atoms: list[GreedyAtom] = []
     if residual > float(eps):
-        atoms.append(GreedyAtom(subset, max(0.0, residual), "split_residual", int(depth)))
+        atoms.append(GreedyAtom(subset, residual, "split_residual", int(depth)))
     atoms.extend(
         greedy_phi_atoms(
             left,
@@ -322,7 +322,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     estimator_metadata: dict[str, object] = {
         "estimator": str(args.estimator),
         "backend": "gaussian_logdet",
-        "clip_negative": True,
+        "clip_negative": False,
     }
     if str(args.estimator) == "transport_map":
         if int(args.tm_degree) != 1:
@@ -336,7 +336,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "backend": "affine_triangular_transport_map_degree_1_fast_logdet_equivalent",
             "tm_degree": 1,
             "tm_jitter": float(args.jitter),
-            "clip_negative": True,
+            "clip_negative": False,
             "note": "Uses the covariance/log-det closed form equivalent to an affine triangular TM.",
         }
     history_modes = sample_full_history_mode_inputs(
@@ -380,9 +380,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     "whole_ei": float(ei_table[full_subset]),
                     "singleton_ei_sum": float(sum(singleton_ei.values())),
                     "raw_phi_eid": float(raw_phi),
-                    "phi_eid": float(max(0.0, raw_phi)),
+                    "phi_eid": float(raw_phi),
                     "phi_atom_sum": atom_sum,
-                    "residual_to_phi": float(max(0.0, raw_phi) - atom_sum),
+                    "residual_to_phi": float(raw_phi - atom_sum),
                     "n_atoms": int(len(atoms)),
                 }
             )
@@ -432,6 +432,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "target_definition": "all 11 predicted UniCM modes at each lead as a multivariate target",
         "source_definition": "singleton partition over 11 mode histories; each source is one mode's 12-month history",
         "decomposition": "top-down greedy bipartition using hierarchical additivity residual EI(C)-EI(L)-EI(R)",
+        "signed_outputs": True,
         "seeds": seeds,
         "leads": leads,
         "n_samples": int(args.n_samples),
