@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import pickle
+import sys
 from collections import Counter
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -23,8 +24,8 @@ from scipy.io import loadmat
 from scipy.signal import welch
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from scripts.hcp_schaefer500_subject_models import (
     DeltaRidge,
@@ -169,6 +170,29 @@ def choose_champion(rows: Sequence[Mapping[str, object]], *, practical_margin: f
             name,
         ),
     )
+
+
+def paired_subject_bootstrap(
+    rows: Sequence[Mapping[str, object]], *, reference: str, replicates: int = 10_000, seed: int = 90210
+) -> dict[str, dict[str, float]]:
+    """Paired subject-level bootstrap of model minus reference primary score."""
+    by_model_subject: dict[str, dict[str, float]] = {}
+    for row in rows:
+        by_model_subject.setdefault(str(row["model"]), {})[str(row["subject"])] = float(row["mean_skill_ratio"])
+    subject_order = tuple(sorted(by_model_subject[reference]))
+    rng = np.random.default_rng(seed)
+    output = {}
+    reference_values = np.asarray([by_model_subject[reference][subject] for subject in subject_order])
+    for model, values in by_model_subject.items():
+        delta = np.asarray([values[subject] for subject in subject_order]) - reference_values
+        draws = np.mean(delta[rng.integers(0, len(delta), size=(replicates, len(delta)))], axis=1)
+        output[model] = {
+            "mean_delta_vs_reference": float(np.mean(delta)),
+            "ci95_low": float(np.quantile(draws, 0.025)),
+            "ci95_high": float(np.quantile(draws, 0.975)),
+            "subjects_worse_than_reference": int(np.sum(delta > 0.0)),
+        }
+    return output
 
 
 def candidate_grid(*, smoke: bool) -> dict[str, tuple[Candidate, ...]]:
@@ -353,7 +377,8 @@ def _plot(rows: Sequence[Mapping[str, object]], destination: Path) -> None:
         axes[0].plot([position - 0.2, position + 0.2], [np.median(values)] * 2, color="black", linewidth=1.2)
     axes[0].axhline(1.0, color="#555555", linestyle="--", linewidth=0.8)
     axes[0].set_xticks(range(len(names)), names, rotation=50, ha="right")
-    axes[0].set_ylabel("Mean rollout skill ratio (lower is better)")
+    axes[0].set_yscale("log")
+    axes[0].set_ylabel("Mean rollout skill ratio (log; lower is better)")
     for name in names:
         horizon_values = {str(horizon): [] for horizon in HORIZONS}
         for row in by_model[name]:
@@ -361,7 +386,8 @@ def _plot(rows: Sequence[Mapping[str, object]], destination: Path) -> None:
                 horizon_values[str(horizon)].append(float(value))
         axes[1].plot(HORIZONS, [np.median(horizon_values[str(horizon)]) for horizon in HORIZONS], marker="o", label=name)
     axes[1].axhline(1.0, color="#555555", linestyle="--", linewidth=0.8)
-    axes[1].set(xlabel="Forecast horizon", ylabel="Median skill ratio")
+    axes[1].set_yscale("log")
+    axes[1].set(xlabel="Forecast horizon", ylabel="Median skill ratio (log)")
     axes[1].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=6)
     fc = [np.median([float(row["fc_error"]) for row in by_model[name]]) for name in names]
     psd = [np.median([float(row["psd_error"]) for row in by_model[name]]) for name in names]
@@ -458,8 +484,10 @@ def run_benchmark(
         chosen_key = Counter(choice.key for choice in winner_choices).most_common(1)[0][0]
         final_choice = next(choice for choice in winner_choices if choice.key == chosen_key)
         final_refit = _refit_full_cohort(final_choice, normalized=normalized, calibration_end=calibration_end, output_dir=output_dir)
-    summary = {"smoke": smoke, "n_outer_folds": len(active_folds), "n_subjects_evaluated": len({row["subject"] for row in all_rows}), "winner": champion, "models": summary_by_model, "selected_candidates": {model: [asdict(value) for value in values] for model, values in selected.items()}, "final_refit": final_refit, "rows": all_rows}
+    paired_bootstrap = paired_subject_bootstrap(all_rows, reference=champion)
+    summary = {"smoke": smoke, "n_outer_folds": len(active_folds), "n_subjects_evaluated": len({row["subject"] for row in all_rows}), "winner": champion, "models": summary_by_model, "paired_subject_bootstrap": paired_bootstrap, "selected_candidates": {model: [asdict(value) for value in values] for model, values in selected.items()}, "final_refit": final_refit, "rows": all_rows}
     _write(output_dir / "summary.json", json.dumps(summary, indent=2, default=_json_default) + "\n")
+    _write(output_dir / "paired_subject_bootstrap.json", json.dumps(paired_bootstrap, indent=2, default=_json_default) + "\n")
     _plot(all_rows, output_dir / "subject_generalization_benchmark")
     leaderboard = ["# Leaderboard", "", "| Model | Median rollout skill ratio | FC error | Log-PSD MAE |", "|---|---:|---:|---:|"]
     for model, metrics in sorted(summary_by_model.items(), key=lambda item: item[1]["median_mean_skill_ratio"]):

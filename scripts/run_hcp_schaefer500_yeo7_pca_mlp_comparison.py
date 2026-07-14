@@ -25,6 +25,34 @@ DEFAULT_LOG_DIR = ROOT / "docs" / "log" / "hcp_schaefer500_yeo7_pca_mlp_comparis
 NETWORK_ORDER = ("Vis", "SomMot", "DorsAttn", "SalVentAttn", "Limbic", "Cont", "Default")
 
 
+def default_yeo7_labels(parcel_count: int) -> Path:
+    """Return the bundled Yeo7 label file for a supported Schaefer resolution."""
+    count = int(parcel_count)
+    if count not in {500, 1000}:
+        raise ValueError("parcel_count must be 500 or 1000.")
+    return DEFAULT_LABELS.with_name(f"Schaefer2018_{count}Parcels_7Networks_order.txt")
+
+
+def default_data_key(parcel_count: int) -> str:
+    count = int(parcel_count)
+    if count not in {500, 1000}:
+        raise ValueError("parcel_count must be 500 or 1000.")
+    return f"Schaefer{count}"
+
+
+def load_hcp_series(data_path: Path, *, parcel_count: int = 500, data_key: str | None = None) -> np.ndarray:
+    """Load and validate one 1200-point Schaefer time series from a MAT file."""
+    count = int(parcel_count)
+    key = data_key or default_data_key(count)
+    payload = loadmat(data_path)
+    if key not in payload:
+        raise ValueError(f"MAT file {data_path} does not contain {key!r}.")
+    values = np.asarray(payload[key], dtype=float)
+    if values.shape != (1200, count) or not np.isfinite(values).all():
+        raise ValueError(f"Expected finite [1200, {count}] {key} data in {data_path}, got {values.shape}.")
+    return values
+
+
 @dataclass(frozen=True)
 class Yeo7Pc1:
     network_order: tuple[str, ...]
@@ -38,7 +66,7 @@ class Yeo7Pc1:
         )
 
 
-def load_yeo7_groups(path: Path) -> dict[str, list[int]]:
+def load_yeo7_groups(path: Path, *, expected_parcels: int = 500) -> dict[str, list[int]]:
     groups = {name: [] for name in NETWORK_ORDER}
     for expected_index, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines()):
         fields = line.split()
@@ -54,8 +82,8 @@ def load_yeo7_groups(path: Path) -> dict[str, list[int]]:
         if network not in groups:
             raise ValueError(f"Unknown Yeo7 network: {network!r}")
         groups[network].append(index)
-    if sum(map(len, groups.values())) != 500 or any(not groups[name] for name in NETWORK_ORDER):
-        raise ValueError("Expected exactly 500 parcels with every Yeo7 network represented.")
+    if sum(map(len, groups.values())) != int(expected_parcels) or any(not groups[name] for name in NETWORK_ORDER):
+        raise ValueError(f"Expected exactly {expected_parcels} parcels with every Yeo7 network represented.")
     return groups
 
 

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.run_hcp_schaefer500_yeo7_pca_mlp_comparison import DEFAULT_DATA, DEFAULT_LABELS, load_yeo7_groups
+from scripts.run_hcp_schaefer500_yeo7_pca_mlp_comparison import DEFAULT_DATA, DEFAULT_LABELS, default_data_key, default_yeo7_labels, load_hcp_series, load_yeo7_groups
 
 
 DEFAULT_DATA_ROOT = DEFAULT_DATA.parents[1]
@@ -28,8 +28,11 @@ DEFAULT_FIGURE = ROOT / "results" / "hcp_schaefer500_yeo7_pc1" / "subject_time_s
 COLORS = ("#4C78A8", "#72B7B2", "#F2CF5B", "#E45756", "#B279A2", "#59A14F", "#9D755D")
 
 
-def reduce_subject(series: np.ndarray, groups: Mapping[str, Sequence[int]]) -> dict[str, np.ndarray]:
+def reduce_subject(series: np.ndarray, groups: Mapping[str, Sequence[int]], *, fit_end: int | None = None) -> dict[str, np.ndarray]:
     values = np.asarray(series, dtype=float)
+    stop = len(values) if fit_end is None else int(fit_end)
+    if stop < 3 or stop > len(values):
+        raise ValueError("fit_end must contain at least three rows and lie within series.")
     network_names = list(groups)
     scores = np.empty((values.shape[0], len(network_names)), dtype=float)
     explained = np.empty(len(network_names), dtype=float)
@@ -37,7 +40,7 @@ def reduce_subject(series: np.ndarray, groups: Mapping[str, Sequence[int]]) -> d
     parcel_network_index = np.empty(values.shape[1], dtype=int)
     for network_index, name in enumerate(network_names):
         indices = np.asarray(groups[name], dtype=int)
-        model = PCA(n_components=1, svd_solver="full").fit(values[:, indices])
+        model = PCA(n_components=1, svd_solver="full").fit(values[:stop, indices])
         weights = np.asarray(model.components_[0], dtype=float)
         projected = model.transform(values[:, indices])[:, 0]
         if float(weights.sum()) < 0.0:
@@ -55,8 +58,8 @@ def reduce_subject(series: np.ndarray, groups: Mapping[str, Sequence[int]]) -> d
     }
 
 
-def cache_subject(cache_dir: Path, *, subject: str, series: np.ndarray, groups: Mapping[str, Sequence[int]]) -> Path:
-    payload = reduce_subject(series, groups)
+def cache_subject(cache_dir: Path, *, subject: str, series: np.ndarray, groups: Mapping[str, Sequence[int]], fit_end: int | None = None) -> Path:
+    payload = reduce_subject(series, groups, fit_end=fit_end)
     destination = Path(cache_dir) / f"{subject}_yeo7_pc1.npz"
     destination.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(destination, subject=np.asarray(subject), input_shape=np.asarray(series.shape), **payload)
@@ -96,8 +99,10 @@ def plot_subject_time_series(cache_paths: Sequence[Path], destination: Path) -> 
         fig.savefig(destination.with_suffix(suffix), bbox_inches="tight", **kwargs)
 
 
-def run(data_root: Path, labels: Path, cache_dir: Path, figure: Path, plot_subjects: Sequence[str]) -> dict[str, object]:
-    groups = load_yeo7_groups(labels)
+def run(data_root: Path, labels: Path, cache_dir: Path, figure: Path, plot_subjects: Sequence[str], *, parcel_count: int = 500, data_key: str | None = None, development_end: int = 900) -> dict[str, object]:
+    count = int(parcel_count)
+    key = data_key or default_data_key(count)
+    groups = load_yeo7_groups(labels, expected_parcels=count)
     files = sorted(Path(data_root).glob("sub-*/*.mat"))
     if not files:
         raise FileNotFoundError(f"No HCP MAT files found below {data_root}.")
@@ -105,10 +110,8 @@ def run(data_root: Path, labels: Path, cache_dir: Path, figure: Path, plot_subje
     rows = []
     for path in files:
         subject = path.parent.name
-        series = np.asarray(loadmat(path)["Schaefer500"], dtype=float)
-        if series.shape != (1200, 500) or not np.isfinite(series).all():
-            raise ValueError(f"Expected finite [1200, 500] Schaefer500 data in {path}.")
-        cache_path = cache_subject(cache_dir, subject=subject, series=series, groups=groups)
+        series = load_hcp_series(path, parcel_count=count, data_key=key)
+        cache_path = cache_subject(cache_dir, subject=subject, series=series, groups=groups, fit_end=development_end)
         cache_paths.append(cache_path)
         payload = load_cache(cache_path)
         rows.append({"subject": subject, "cache": str(cache_path), "mean_pc1_explained_variance": float(payload["explained_variance_ratio"].mean())})
@@ -119,7 +122,7 @@ def run(data_root: Path, labels: Path, cache_dir: Path, figure: Path, plot_subje
     if len(selected) != 4 or any(subject not in paths_by_subject for subject in selected):
         raise ValueError("plot_subjects must name exactly four cached subjects.")
     plot_subject_time_series([paths_by_subject[subject] for subject in selected], figure)
-    summary = {"n_subjects": len(rows), "network_order": list(groups), "network_sizes": {name: len(indices) for name, indices in groups.items()}, "plot_subjects": selected, "rows": rows}
+    summary = {"n_subjects": len(rows), "parcel_count": count, "data_key": key, "labels": str(labels), "development_end": int(development_end), "network_order": list(groups), "network_sizes": {name: len(indices) for name, indices in groups.items()}, "plot_subjects": selected, "rows": rows}
     figure.parent.joinpath("cache_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
 
@@ -127,13 +130,17 @@ def run(data_root: Path, labels: Path, cache_dir: Path, figure: Path, plot_subje
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
-    parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS)
+    parser.add_argument("--labels", type=Path)
+    parser.add_argument("--parcel-count", type=int, choices=(500, 1000), default=500)
+    parser.add_argument("--data-key", default="", help="MAT variable name; defaults to Schaefer<parcel-count>.")
+    parser.add_argument("--development-end", type=int, default=900)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--figure", type=Path, default=DEFAULT_FIGURE)
     parser.add_argument("--plot-subjects", default="sub-100206,sub-100307,sub-100408,sub-100610")
     args = parser.parse_args(argv)
     subjects = [part.strip() for part in str(args.plot_subjects).split(",") if part.strip()]
-    print(json.dumps(run(args.data_root, args.labels, args.cache_dir, args.figure, subjects), indent=2))
+    labels = args.labels or default_yeo7_labels(args.parcel_count)
+    print(json.dumps(run(args.data_root, labels, args.cache_dir, args.figure, subjects, parcel_count=args.parcel_count, data_key=args.data_key or None, development_end=args.development_end), indent=2))
     return 0
 
 
