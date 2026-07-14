@@ -333,19 +333,19 @@ $$
 
 ### 4.3 系统级 PhiEID 的中期增强
 
-以全部 11 个模态的未来状态为共同目标，先计算未经截断的系统级联合增量
+以全部 11 个模态的未来状态为共同目标，计算系统级联合增量
 
 $$
-\widetilde{\Phi}^{\mathrm{EID}}_{\ell}
+\Phi^{\mathrm{EID}}_{\ell}
 = I(\mathbf{X}^{1:12}_{1:11};\mathbf{y}_{\ell}^{\mathrm{all}})
 - \sum_{m=1}^{11} I(\mathbf{X}^{1:12}_{m};\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.2}
 $$
 
-式（4.2）的源划分由 11 个单模态块组成，每个块包含该模态 12 个月的历史。原始差值 \(\widetilde{\Phi}^{\mathrm{EID}}\) 可为负；结果表保留原始值，图中报告 \(\Phi^{\mathrm{EID}}=\max(0,\widetilde{\Phi}^{\mathrm{EID}})\)。这一高维读数仍采用 Gaussian log-det 筛查，不等同于最终的非线性 transport-map PEID。
+式（4.2）的源划分由 11 个单模态块组成，每个块包含该模态 12 个月的历史。实现不对单项 EI、\(\Phi^{\mathrm{EID}}\) 或分解残差施加非负截断；在当前结果中它们均保持理论预期的非负性。若未来运行出现负值，将作为估计或数值诊断直接报告，而不会改写为零。这一高维读数仍采用 Gaussian log-det 筛查，不等同于最终的非线性 transport-map PEID。
 
 ![全模态目标的系统级 PhiEID 曲线](../../fig/unicm_all_mode_target_phi_eid_leads.png)
 
-*图 13. 系统级 \(\Phi^{\mathrm{EID}}\) 在 lead 8 达峰，而非在最短预测期最大。上图为 checkpoint seed 均值和标准差，下图比较整体 EI 与单模态 EI 之和；非负曲线采用式（4.2）之后的截断口径，因此不显示原始负差值。*
+*图 13. 系统级 \(\Phi^{\mathrm{EID}}\) 在 lead 8 达峰，而非在最短预测期最大。上图为 checkpoint seed 均值和标准差，下图比较整体 EI 与单模态 EI 之和；所有曲线均为未截断的 signed Gaussian log-det 读数。*
 
 整体 EI 与单模态 EI 之和都随 lead 增长而下降，但两者差值并不单调。\(\Phi^{\mathrm{EID}}\) 在 lead 1—5 约为 `0.05-0.07` bits，随后在 lead 7—10 增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 维持在约 `0.09-0.15` bits。系统级联合增量因而不是短期最大，而是在中期更明显。
 
@@ -365,7 +365,7 @@ $$
 -\sum_{i\in C}EI(\mathbf{x}_i;\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.3}
 $$
 
-式（4.3）先计算集合联合历史的 EI，再减去各单模态 EI 之和。正值表示联合读出包含单模态相加无法解释的信息；负值保留为数值诊断，不直接记录为非负原子。
+式（4.3）先计算集合联合历史的 EI，再减去各单模态 EI 之和。正值表示联合读出包含单模态相加无法解释的信息；若出现负值，保留其 signed 数值作为估计或数值诊断。
 
 现在把当前节点 $C$ 拆成两个互不重叠、并且并起来等于 $C$ 的子块：
 
@@ -392,33 +392,33 @@ $$
 \right]. \tag{4.6}
 $$
 
-选定二分后，仅当残差超过 `eps` \(\varepsilon=10^{-5}\) 时，才把父块不能由两个子块解释的部分记录为非负残差原子：
+选定二分后，仅当残差超过 `eps` \(\varepsilon=10^{-5}\) 时，才把父块不能由两个子块解释的部分记录为残差原子：
 
 $$
 \gamma_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=\max\!\left\{0,
+=
 \widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}})
 -\widetilde{\Phi}^{\mathrm{EID}}(L^\star;\mathbf{y}_{\ell}^{\mathrm{all}})
--\widetilde{\Phi}^{\mathrm{EID}}(R^\star;\mathbf{y}_{\ell}^{\mathrm{all}})
-\right\}. \tag{4.7}
+-\widetilde{\Phi}^{\mathrm{EID}}(R^\star;\mathbf{y}_{\ell}^{\mathrm{all}}).
+\tag{4.7}
 $$
 
 因为 $L^\star$ 和 $R^\star$ 正好二分 $C$，单源项会相互抵消，所以上式也可以写成更直接的 EI 差：
 
 $$
 \gamma_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=\max\!\left\{0,
+=
 EI(\mathbf{x}_C;\mathbf{y}_{\ell}^{\mathrm{all}})
 -EI(\mathbf{x}_{L^\star};\mathbf{y}_{\ell}^{\mathrm{all}})
--EI(\mathbf{x}_{R^\star};\mathbf{y}_{\ell}^{\mathrm{all}})
-\right\}. \tag{4.8}
+-EI(\mathbf{x}_{R^\star};\mathbf{y}_{\ell}^{\mathrm{all}}).
+\tag{4.8}
 $$
 
 如果 \(\gamma_C>\varepsilon\)，它表示分别联合读取两个子块后仍有信息只能由整个 \(C\) 读出。算法随后递归处理 \(L^\star\) 和 \(R^\star\)。当子块为 singleton、原始联合增量不超过 \(\varepsilon\)，或不存在捕获量超过 \(\varepsilon\) 的可容许二分时递归终止。最后一种情况没有对应的 \((L^\star,R^\star)\)，因此单独定义 terminal 原子
 
 $$
 \eta_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=\max\!\left\{0,\widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}})\right\}. \tag{4.9}
+=\widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.9}
 $$
 
 因此，对根节点 $S$，算法得到一棵二分树、split-residual 原子集合 \(\mathcal{R}_{\ell}\) 和 terminal 原子集合 \(\mathcal{U}_{\ell}\)。在分解容差内，两类原子之和闭合到报告的系统级联合增量：
@@ -432,7 +432,7 @@ $$
 
 图中的阶数为 \(|C|\)：二阶表示源对残差，五阶表示五个模态必须一起读出的残差，`all 11 modes` 则表示根节点未被两个子块完全解释的全局残差。
 
-式（4.3）定义原始集合联合增量，式（4.4）—（4.6）在容差约束下选择最能解释父块协同的二分，式（4.7）—（4.8）给出非负 split-residual 原子，式（4.9）定义无可用正分解时的 terminal 原子，式（4.10）检验两类原子对总量的数值闭合。该输出是贪婪层级下的非负残差分布，不是严格的 Möbius 纯阶原子；其结果依赖二分路径、\(\tau\) 和 \(\varepsilon\)，应解释为“沿当前贪婪树仍需联合读取的模态集合”，而不是唯一的高阶信息分解。
+式（4.3）定义原始集合联合增量，式（4.4）—（4.6）在容差约束下选择最能解释父块协同的二分，式（4.7）—（4.8）给出 signed split-residual 原子，式（4.9）定义无可用正分解时的 terminal 原子，式（4.10）检验两类原子对总量的数值闭合。该输出是贪婪层级下的 signed 残差分布，不是严格的 Möbius 纯阶原子；其结果依赖二分路径、\(\tau\) 和 \(\varepsilon\)，应解释为“沿当前贪婪树仍需联合读取的模态集合”，而不是唯一的高阶信息分解。
 
 ![UniCM 全模态 PhiEID 的贪婪层级分解](../../fig/unicm_phi_eid_greedy_decomposition.png)
 
@@ -500,7 +500,7 @@ Runge 与 UniCM 给出尺度互补的高阶证据。Runge 结果表明，二源�
 
 - 本文只分析 frozen UniCM checkpoint 的 Modeformer learned mechanism，不使用 reanalysis 数据做预测复现，也不做单个历史事件归因。
 - UniCM 的 overall EI 与 mode-pair Syn 使用 Gaussian log-det MI；这适合快速筛查，不等同于 transport-map PEID 的最终非线性分解。
-- Syn 可以为负，表示 pair 的联合读数低于两个单源读数之和；除明确说明的 `PhiEID` 图外，本文不对 Syn 做非负截断。
+- Syn 可以为负，表示 pair 的联合读数低于两个单源读数之和；本文所有 EI、\(\Phi^{\mathrm{EID}}\)、Syn 与分解残差均不做非负截断。
 - Overall EI 的 ENSO/nino 与 IOD target 均未通过 lead 排序的 seed 鲁棒性标准；因此应解释稳定方向和量级，不应解释单个 lead 的精细排序。
 - Runge SLP 面板中的 PC-stable graph 仍不是原文 Fig. 4 的逐项复刻；当前 60 个 Varimax component 是在 1948—2026 扩展样本上重新拟合得到的，编号也不是官方固定标签，不能把未校准节点直接命名为确定气候过程。
 - 图 2—5、表 1 和跨尺度复现结论均来自每个 \(H\) 的全部 `102660` 条三阶 TM 候选；离散前 1000 候选只在图 5 中用于诊断初筛覆盖偏差。全量穷举解决了覆盖偏差，但尚未进行 block-bootstrap 显著性筛选。

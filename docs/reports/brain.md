@@ -1,438 +1,372 @@
-# HCP Lausanne-83 PhiEID 综合报告
+# 脑科学实验：83 ROI 临界识别与 HCP500/1000 Yeo7 Phi 分解
+
+## 结论
+
+本报告保留两个互补实验。
+
+1. **83 ROI 临界相变识别。**在 83 区 DMF 中，对全部兴奋性与抑制性门控变量实施独立均匀干预。无裁剪的 8-seed 主确认在 Kuramoto 理论临界点 $K_c=1.5958$ 附近识别到 $\Phi^{EID}$ 宽峰：$G=1.7$ 的均值为 $12.384\pm0.041$ bits，$G=1.6\text{-}1.8$ 的临界窗显著高于前、后窗口。整体 EI 与区域 EI 和在全部种子上严格下降，且归一化后与 Kuramoto 曲线方向对齐。
+2. **HCP500/1000 PCA–Yeo7 Phi 分解。**在相同 30 名 HCP REST1_LR 被试中，Schaefer-500（$p=8,\alpha=10$）与重新验证的 Schaefer-1000（$p=5,\alpha=1$）均在 30/30 名被试中高于独立 PC1 circular-shift null。两种粒度的全七网络核都常进入 top-3，但不高于 matched null；相对地，缺少 Limbic 的六网络核均高于 matched null cohort（500：17/30 对 8.65/30；1000：12/30 对 6.35/30；各 20-null 未校正 $p=0.047619$）。
+
+这两项实验分别回答不同问题：DMF 实验检验 $\Phi^{EID}$ 是否能定位可控模型中的临界动力学带；HCP 实验检验降维后的真实静息态网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构。它们不构成对特定脑机制、因果方向或精确稀疏 atom 的证明。
 
 ## 目录
 
-1. [综合结论](#1-综合结论)
-2. [研究逻辑和证据层级](#2-研究逻辑和证据层级)
-3. [DMF 中的 PhiEID 临界增强](#3-dmf-中的-phieid-临界增强)
-4. [HCP REST1 Lausanne-83 PhiEID pilot](#4-hcp-rest1-lausanne-83-phieid-pilot)
-5. [REST1 vs Working Memory PhiEID 对照](#5-rest1-vs-working-memory-phieid-对照)
-6. [方法口径](#6-方法口径)
-7. [解释边界和下一步](#7-解释边界和下一步)
-8. [产物索引](#8-产物索引)
+1. **83 ROI DMF：临界相变识别**
+   1. 全状态最大熵干预与临界判据
+   2. 临界窗中的 $\Phi^{EID}$ 峰与 EI 形状对齐
+   3. 确定性 / 简并性分解与变化率
+   4. 解释边界
+2. **HCP500 PCA–Yeo7：Phi 分解**
+   1. 数据、降维与动力学表征
+   2. History-source $\Phi^{EID}$ 与 circular-shift null
+   3. Yeo7 模块历史分解
+3. **HCP1000 PCA–Yeo7：Phi 分解**
+   1. 数据、降维与模型选择
+   2. History-source $\Phi^{EID}$ 与 circular-shift null
+   3. Yeo7 模块历史分解与 500 对照
+4. **讨论：解释边界与可复现性**
+   1. 结论的适用范围
+   2. 结果与图形产物
+5. [**附录 A：Kuramoto 振子数与 whole-state $\Phi^{EID}$ 曲线形状**](#appendix-a)
+   1. [临界峰的 EI 与 effectiveness 机制](#appendix-a-1)
+   2. [时间窗、相变前检测与系统规模边界](#appendix-a-2)
 
-## 1. 综合结论
+## 1. 83 ROI DMF：临界相变识别
 
-三组结果共同支持一个克制的主线：$\Phi^{EID}$ 可以作为跨脑区、跨网络高阶动态整合的筛查指标，但当前证据最适合支持“候选机制和网络家族”，不适合写成单一精确 atom 或采样协议无关的绝对相变常数。
+### 1.1 全状态最大熵干预与临界判据
 
-在 DMF 模型中，83 区 whole-state uniform 干预口径的 signed $\Phi^{EID}$ 稳定把增强定位在 $G\approx1.7\text{-}1.9$ 的 firing-rate 快速转变带。模块级 greedy hierarchy 进一步显示，这个增强不是单个 pair 主导，而是从 `DMN+Sub`、`DMN+FPN+Sub` 到更大跨模块集合的嵌套联合读出。
-
-在真实 HCP-YA REST1 数据中，10 个 subject、2 个 run 的 Lausanne-83 ROI 动力学显示 observed whole-state PhiEID 在 20 / 20 个 subject-run 中均高于 ROI-wise circular-shift null。REST1 的稳定分解读法不是 exact greedy atom，而是 top atom family 和 module participation：Visual、VAN、FPN 和 DMN 的 participation 显著高于 null，且 LR/RL 稳定性较高。
-
-REST1 与 Working Memory 的对照显示，WM 任务态的整体 PhiEID 更高，并在扣除 null 后仍保留更强的跨 ROI / 跨网络高阶结构。WM 不是换成一套完全不同的网络家族，而是在 REST 已出现的 DMN、Visual、VAN 和 FPN 结构上进一步增强，并扩展到 Lim 和 Sub 等更大范围的多网络组合。
-
-最稳妥的一句话表述是：在 Lausanne-83 ROI 动力学中，$\Phi^{EID}$ 捕捉到高于 circular-shift null 的 high-order cross-network transition structure；REST 中该结构主要落在 Visual、VAN、FPN 和 DMN，WM 进一步增强 Visual、FPN、DMN 以及更大范围多网络 atom，但 exact greedy atom 仍应作为候选示例而不是稳定机制本身。
-
-## 2. 研究逻辑和证据层级
-
-这三份报告对应三个层级。
-
-第一层是 DMF 方法验证。它回答：当一个可控全脑动力学系统进入 firing-rate 快速转变区时，$\Phi^{EID}$ 是否能识别临界增强；如果能，增强来自简单 pair 还是跨模块层级联合读出。
-
-第二层是 HCP REST1 pilot。它回答：在真实 resting-state fMRI ROI transition 中，whole-state PhiEID 是否高于保留单 ROI 时间结构、破坏跨 ROI 同步关系的 circular-shift null；分解层面哪些网络家族最稳定。
-
-第三层是 REST1 vs Working Memory 对照。它回答：任务态是否只是在整体动态信息上升，还是在扣除 null 后仍增强了跨网络 high-order PhiEID；增强是否改变了模块家族。
-
-因此，证据从“可控模型中的机制可识别性”推进到“真实 REST 数据中的高于 null 信号”，再推进到“任务态相对静息态的网络家族变化”。这条链条比单独报告某一个 greedy atom 更稳。
-
-## 3. DMF 中的 PhiEID 临界增强
-
-### 3.1 数据和目标
-
-DMF 部分参考 Mediano et al. (2025) Fig. 6 的问题设定：扫描全局耦合强度 $G$，观察系统从低 firing-rate 状态进入高 firing-rate 状态时，信息分解指标是否在转变附近出现峰值。
-
-本报告不是原文数值的严格复现。原文使用基于 DTI 的结构连接矩阵，并报告 $\Phi^R$；这里使用 F-TRACT atlas 的 Lausanne2008-33 子包中第一个 `count` 矩阵作为代理耦合矩阵，保留 83 个 Lausanne 脑区，按最大值归一化后乘以 0.2，得到代理耦合矩阵 $\mathbf{C}$。主指标是 83 区 whole-state uniform 干预下的 signed $\Phi^{EID}$。
-
-扫描范围为
+该实验使用 83 区 DMF、原始结构连接、直接长程兴奋耦合和 JFIC。每个试验同时干预全部兴奋性与抑制性门控变量，并将完整 166 维未来状态作为 target：
 
 $$
-G=1.1,\ldots,3.0.
+\mathbf{s}_E,\mathbf{s}_I\overset{\mathrm{ind}}{\sim}U(0.30,0.70)^{83}.
 $$
 
-临界区先由 firing-rate 曲线定义，而不是先由 $\Phi^{EID}$ 定义。平均放电率从 $G=1.6$ 的 $4.727\ \mathrm{Hz}$ 上升到 $G=1.9$ 的 $8.195\ \mathrm{Hz}$；离散斜率在 $G=1.8$ 附近最大，$G=1.8$ 与 $G=1.9$ 的斜率几乎相同。因此这里把 $G=1.7\text{-}1.9$ 作为快速转变带，而不是把某一个网格点写成精确相变常数。
+该分布是声明的生理支持 $[0.30,0.70]^{166}$ 内的最大熵分布；初态和 300 个 Euler 步的演化均不裁剪。主确认在 8 个独立种子、2048 个干预样本下评估 $G=1.0,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.2,3.0$。Gaussian block conditional-total-correlation 用于 166 维连续 EI；高维 transport map 在此样本规模下计算代价过高。
 
-### 3.2 Whole-state PhiEID 主结果
+临界位置以可比 Kuramoto 全状态参照的理论 $K_c=1.5958$ 定义，而不再以旧的放电率阴影区替代。主判据是 $\Phi^{EID}$ 在该临界点附近形成内部峰/平台，并在高耦合端回落。
 
-主结果使用 83 区 whole-state uniform 干预口径。source 是 83 个 singleton region 的当前状态 $\{s_E^i(t)\}_{i=1}^{83}$，target 是下一步 whole-system 83D 状态 $\mathbf{s}_E(t+\tau)$。每个 $G$ 和 seed 下，都用当前 trace 的 source 均值与尺度把方差匹配的 uniform 最大熵干预映射回物理 $s_E$ 空间，再用 DMF 方程推进一步。最后把 source 和 target 标准化，使用 Gaussian block conditional total correlation 读取 signed raw $\Phi^{EID}$，不对负值做非负截断。
-
-具体计算为
+### 1.2 临界窗中的 $\Phi^{EID}$ 峰与 EI 形状对齐
 
 $$
-\Phi^{EID}
-= EI_{\mathrm{do}}(\{s_E^i(t)\}_{i=1}^{83};\mathbf{s}_E(t+\tau))
--\sum_{i=1}^{83}EI_{\mathrm{do}}(s_E^i(t);\mathbf{s}_E(t+\tau)).
+\Phi^{EID}=EI_{\mathrm{do}}(\mathbf{s}_t;\mathbf{s}_{t+\tau})-
+\sum_{i=1}^{166}EI_{\mathrm{do}}(s_{t,i};\mathbf{s}_{t+\tau}).
 $$
 
-![DMF 83 区 whole-state PhiEID 主结果](../../fig/dmf_83_region_oracle_phi_eid_main_g11.png)
+![DMF 全状态临界确认](../../fig/dmf_fullstate_maxent_critical_confirmation.png)
 
-*图 1. 83 区 Kuramoto-aligned whole-state $\Phi^{EID}$ 主结果。灰色带为 $G=1.7\text{-}1.9$。$G=1.0$ 不参与主结果峰值判定，只作为边界点审计。*
+*图 1. 无裁剪的全状态 DMF 主确认。竖虚线为 Kuramoto 理论临界点 $K_c=1.5958$，灰带表示 DMF 的临界平台 $G=1.6\text{-}1.8$；阴影为 8 个种子的标准误。*
 
-| 证据 | 结果 | 读法 |
-|---|---:|---|
-| Firing-rate 快速上升段 | $G=1.7\text{-}1.9$ | 先用动力学曲线定义候选临界带 |
-| 最大 firing-rate 离散斜率 | $G=1.8$，约 $13.060\ \mathrm{Hz}/G$ | 与 $G=1.9$ 的 $13.027$ 很接近，不写成精确单点 |
-| 83 区 whole-state uniform 复验 | 8/8 seeds 峰值位于 $G=1.7$ | 主结果口径，稳定命中临界带 |
-| Long-trace continuation 复验 | 8/8 seeds 峰值位于 $G=1.7$ | 支持 continuation 协议下的鲁棒识别 |
-| Independent restart 复验 | 0/8 seeds 峰值落入 $G=1.7\text{-}1.9$ | 说明结论依赖采样协议 |
+$\Phi^{EID}$ 在 $G=1.6\text{-}1.8$ 形成宽峰，最高均值位于 $G=1.7$：$12.384\pm0.041$ bits。它相对 $G=1.6$ 高 $0.106$ bits（配对单侧 $p=0.039$，7/8 个种子为正）；临界窗均值同时高于前、后窗口（两项 $p<1.2\times10^{-10}$，均为 8/8 个种子同向）。到 $G=3.0$，$\Phi^{EID}$ 降至 $8.144\pm0.022$ bits。
 
-这条证据链的关键顺序是：先从 firing rate 确定转变带，再看 $\Phi^{EID}$ 是否在同一区域出现内部峰。结果显示，uniform 干预下 8 个 seed 的 whole-state $\Phi^{EID}$ 全部在 $G=1.7$ 达峰，clip fraction 为 0，说明峰值不是由边界裁剪制造的。
+整体 EI 与区域 EI 和在全部 8 个种子、每个相邻耦合点上严格下降。归一化后，它们与 Kuramoto 的相应曲线在共同区间的秩相关均为 $1.00$；协同曲线的秩相关为 $0.967$。这支持临界识别来自“整体 EI 相对于局部 EI 和的暂时优势”，而不是总 EI 的上升。
 
-Long-trace continuation 进一步检查了短 trace 的不稳定性。把模拟长度从 `t_total=0.55` 增加到 `1.05` 后，8/8 条曲线的全局峰值都在 $G=1.7$，均值曲线也在 $G=1.7$ 达到最大值，$G=1.8$ 次高。短 trace 下少数低有效样本点会产生尖峰；过滤 `sample_count<300` 后，原短 trace continuation 结果同样有 8/8 个 seed 的峰值回到 $G=1.8$。
+![DMF 与 Kuramoto 的形状对齐](../../fig/dmf_kuramoto_fullstate_shape_alignment.png)
 
-### 3.3 边界点和尺度敏感性
+*图 2. 跨模型比较只使用归一化形状与峰位；DMF 的 Gaussian 近似与 Kuramoto 的 transport-map 估计不用于比较绝对 bits。*
 
-$G=1.0$ 的高 $\Phi$ 值不应解释为另一个相变，也不应简单写成算法缺陷。EI 衡量的是“当前干预状态能多可区分地预测未来状态”。在低耦合、低放电率边界，DMF 状态变化很小，$s_E(t)$ 到 $s_E(t+\tau)$ 接近自保持映射，残差小，因此 whole EI 和由它构成的 $\Phi^{EID}$ 都可能偏高。
+### 1.3 确定性 / 简并性分解与变化率
 
-判断临界点时需要同时满足两个条件：峰值位于扫描内部，并且与 firing-rate 快速上升区一致。$G=1.0$ 是扫描左边界，没有对应动力学转变，所以只保留为 boundary audit，峰值识别排除它。
-
-![DMF PhiEID robustness](../../fig/dmf_phi_eid_robustness_longtrace.png)
-
-*图 2. Long-trace continuation 鲁棒性验证。8/8 个 seed 的全局峰值都在 $G=1.7$，top-2 与 top-3 也全部命中 $G=1.7\text{-}1.9$。*
-
-主结果使用“每个 $G$ 下独立做 source-scale matching 和 target z-scoring”的口径。这个处理比较的是同一 $G$ 附近的机制结构，而不是让跨 $G$ 的物理尺度变化直接支配 entropy 和 EI。
-
-如果取消逐 $G$ 标准化，改为每个 seed 在整个 $G$ sweep 上共用一套 source 标准化参数，并在物理 $s_E$ 单位下计算 target entropy，那么 uniform 干预的峰值不再落在临界带。8/8 个 seed 都错过 $G=1.7\text{-}1.9$，median peak 移动到 $G=2.3$；均值曲线的最高点在 $G=2.1$，且 $G=2.0\text{-}2.5$ 一带整体偏高。
-
-![DMF 83 区 no-per-G standardization PhiEID 对照](../../fig/dmf_83_region_oracle_no_g_standardization.png)
-
-*图 3. 取消逐 $G$ 标准化后的 83 区 whole-state $\Phi^{EID}$ 对照。该图是尺度敏感性审计，不作为主结果口径。*
-
-### 3.4 模块级层级分解
-
-临界区识别回答“什么时候”全脑不可约信息最高；模块级分解回答“它由哪些源共同贡献”。直接在 83 个脑区上枚举所有二分不可行，因此这里先把 83 个 Lausanne 区域粗略映射到 7 个显示模块：
+令 $H_0$ 为本 sweep 的固定目标参考熵，则
 
 $$
-\{\mathrm{DMN},\mathrm{Som},\mathrm{Vis},\mathrm{VAN},\mathrm{FPN},\mathrm{Lim},\mathrm{Sub}\}.
+D_{\mathrm{whole}}=H_0-H(\mathbf{T}\mid\mathbf{S}),\qquad
+G_{\mathrm{whole}}=H_0-H(\mathbf{T}),
 $$
 
-对任意模块集合 $C$，定义模块级协同残差
-
 $$
-\Phi(C;Y)
-= EI_{\mathrm{do}}(\mathbf{x}_C;Y)
--\sum_{i\in C}EI_{\mathrm{do}}(\mathbf{x}_i;Y),
+D_{\Sigma}=166H_0-\sum_{i=1}^{166}H(\mathbf{T}\mid S_i),\qquad
+G_{\Sigma}=166G_{\mathrm{whole}}.
 $$
 
-其中 $Y$ 是全脑下一时刻状态，$\mathbf{x}_i$ 是第 $i$ 个模块内所有当前脑区状态。
+![DMF 原始确定性 / 简并性曲线](../../fig/dmf_fullstate_maxent_detdeg_integrated_raw.png)
 
-贪婪二分从当前模块块 $C$ 开始，枚举所有非平凡二分 $C=L\cup R$，选择 $\Phi(L;Y)+\Phi(R;Y)$ 最大的二分，并把父块还不能被两个子块解释的非负差值记为当前层残差：
+*图 3. 原始 bits 曲线。左轴为整体项，右轴为区域项之和；双轴仅保留真实量级，不能据此比较变化速度。*
+
+![DMF 归一化确定性 / 简并性与变化率](../../fig/dmf_fullstate_maxent_detdeg_integrated_rate.png)
+
+*图 4. 左图将每个种子内的四项缩放到各自 sweep 的 $[0,1]$ 范围；右图为相对于 $G$ 的变化率。因此该图比较的是形状与速度，而非 bits 大小。*
+
+整体确定性在临界前接近平台、随后较平缓地下降；区域确定性和与两项简并性则在临界窗前快速上升，并在 $G\approx1.7$ 后翻转为下降。整体与区域简并性归一化后完全重合，因为 $G_{\Sigma}=166G_{\mathrm{whole}}$ 是定义上的比例关系，并不表示两种独立速度。简并性在临界窗的峰表示目标熵相对 $H_0$ 最低；高耦合端它回落，表示目标熵回到参考水平。区域确定性和的高耦合回落说明单一区域对未来完整状态的预测性变弱，而完整 source 的联合预测优势仍保留到临界窗附近。这一相对差异产生 $\Phi^{EID}$ 的临界峰。
+
+### 1.4 解释边界
+
+$U(0,1)^{166}$ 是物理立方体上的绝对最大熵初态，但在该阴性对照中 $\Phi^{EID}$ 随 $G$ 下降，不能识别临界峰。因此本节的结论依赖于明确声明的 $[0.30,0.70]$ 生理支持，而不适用于无条件的 $[0,1]^{166}$ 干预。
+
+该实验识别的是此 DMF、该代理结构连接、该时间窗和该连续高斯估计口径下的临界样动力学窗口，不对应人体大脑的固定耦合常数。确定性/简并性曲线提供与峰相容的熵分解，而不是同步、饱和或因果机制的直接测量。
+
+## 2. HCP500 PCA–Yeo7：Phi 分解
+
+### 2.1 数据、降维与动力学表征
+
+数据为 30 名 HCP S1200 被试的 `REST1_LR` Schaefer-500 BOLD 时序，每名被试包含 $1200\times500$ 个时间点与皮层 parcel。500 个 parcel 按 Yeo7 标签分为 Vis、SomMot、DorsAttn、SalVentAttn、Limbic、Cont 和 Default；每个网络仅保留训练段拟合的一维 PCA（PC1），形成 7 维网络状态 $\mathbf{x}_t$。
+
+Phi 实验使用 `sub-100206` 的时间验证选出的八阶 $\Delta$-Ridge，$p=8$、$\alpha=10$。模型以当前与过去七个时刻的网络状态为 source：
 
 $$
-\gamma(C\rightarrow L,R;Y)
-=\Phi(C;Y)-\Phi(L;Y)-\Phi(R;Y).
+\mathbf{h}_t=
+\left[\mathbf{x}_t^\top,\mathbf{x}_{t-1}^\top,\ldots,\mathbf{x}_{t-7}^\top\right]^\top
+\in\mathbb{R}^{56},
+\qquad
+\Delta\mathbf{x}_{t+1}=\mathbf{x}_{t+1}-\mathbf{x}_t.
 $$
 
-这个 $\gamma$ 是 greedy hierarchy 下的 residual atom，不是严格的 Möbius 纯阶原子。它回答的是“沿这条贪婪二分树，哪些模块集合仍需要被联合读取”。
+PCA、标准化器和 Ridge 均仅以每名被试的前 900 个时间点拟合；后 300 点不参与本 Phi 计算、参数选择或 null 重拟合。这里的目标是比较固定表征与固定模型下的 observed 和 null，而不是把该单被试模型推广为全体被试的预测最优模型。
 
-![DMF 模块级 PhiEID 层级贪婪分解](../../fig/dmf_phi_eid_greedy_decomposition.png)
+### 2.2 History-source $\Phi^{EID}$ 与 circular-shift null
 
-*图 4. DMF 模块级 $\Phi^{EID}$ 层级贪婪分解。*
+本实验的量是 56 维历史 source 到下一时刻 7 维状态的量，而不是 7 维一阶 whole-state $\Phi^{EID}$：
 
-模块级分解得到三点结论。
+$$
+\Phi^{EID}_{\mathrm{hist}\to\mathrm{next}}
+=EI\!\left(\mathbf{h}_t;\mathbf{x}_{t+1}\right)
+-\sum_{j=1}^{56}EI\!\left(h_{t,j};\mathbf{x}_{t+1}\right).
+$$
 
-第一，模块级 $\Phi^{EID}$ 的峰值仍落在临界区附近。模块级 TM 复验中，uniform 干预为 8/8 seeds 峰值命中 $G=1.7\text{-}1.9$，clip fraction 为 0。这说明模块级结果可以作为 source-side 机制审计，但它和 83 区 whole-state 主结果不是同一数值口径，不能直接比较绝对值。
+估计使用 Gaussian log-det 口径，而非 TM。这样可在 56 维 history source、30 名被试、重复 null 重拟合和贪婪分解下保持可计算性；代价是结果依赖 Gaussian 近似，不能直接外推到非高斯的精确干预信息量。
 
-第二，临界区 residual 不由某一个二阶 pair 独占。跨所有 $G$ 汇总后，order 2 到 order 7 都有正贡献，累积量分别约为 4.886、7.211、9.270、10.008、9.940 和 10.086。
+null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在相同的 $p$、$\alpha$ 与 900 点训练预算下重新拟合模型。它保留每条网络 PC1 的边际取值与自相关结构，但破坏网络间的时间对齐，检验观测到的跨网络结构是否超出网络内时间结构本身。
 
-第三，峰值 $G=1.8$ 处形成一条可读的嵌套链。
+在 30 被试、每人 20-null 的扩展中，observed $\Phi^{EID}$ 的均值与中位数为 6.188481 与 6.068454 bits；observed-minus-null-mean 的均值与中位数为 1.984600 与 2.051671 bits，范围为 0.492521–4.096287 bits。30/30 名被试的 observed 都高于各自 null 均值，且未校正经验 $p<0.05$；由于仅有 20 个 null，每个被试的最小 p 值分辨率为 $1/21=0.047619$。
 
-| Atom | Order | Depth | Residual |
+![30 被试 Yeo7-PC1 observed-minus-null PhiEID](../../results/hcp_schaefer500_yeo7_pc1_phi_null_all/observed_minus_null.png)
+
+该结果支持在这一固定的 reduced-state、history-source 定义与 null 下，跨网络时间对齐带来额外的高阶结构；它不排除低频漂移、运动、生理噪声、PCA 表征选择或 Gaussian 近似造成的影响。
+
+### 2.3 Yeo7 模块历史分解
+
+在全部 30 名被试上进行贪婪分解。为避免将同一网络的八阶历史误作 8 个独立脑区，属于同一个 Yeo7 网络的全部 8 个滞后 PC1 值被绑定为一个不可拆模块原子；候选空间因此是 7 个网络模块，而不是 56 个逐滞后变量。
+
+| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | 固定集合未校正 $p<0.05$ |
 |---|---:|---:|---:|
-| `DMN+Vis+VAN+FPN+Lim+Sub` | 6 | 1 | 1.502 |
-| `DMN+Som+Vis+VAN+FPN+Lim+Sub` | 7 | 0 | 1.486 |
-| `DMN+Vis+FPN+Lim+Sub` | 5 | 2 | 1.359 |
-| `DMN+FPN+Lim+Sub` | 4 | 3 | 1.324 |
-| `DMN+FPN+Sub` | 3 | 4 | 0.970 |
-| `DMN+Sub` | 2 | 5 | 0.667 |
+| 全部 7 个 Yeo 网络 | **20 / 30** | 1.314357 bits | 20 / 20 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **17 / 30** | 1.227709 bits | 17 / 17 |
+| SomMot + DorsAttn + SalVentAttn + Cont + Default | 9 / 30 | 0.956657 bits | 8 / 9 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.086753 bits | 7 / 8 |
 
-这条链说明，临界增强更像一个层级联合读出过程：局部组合有贡献，但最高 residual 仍需要跨多个功能系统一起读。
+![30 被试模块级 greedy PhiEID 核](../../results/hcp_schaefer500_yeo7_module_phi_decomposition/top_core_consistency.png)
 
-83 区预算受限局部二分用来检查“如果不先压缩成模块，脑区级分解会不会自然给出清楚的小组合”。答案是否定的。无额外约束时，局部搜索会退化成 single-region vs rest；加入 `min-split-size=5` 后，峰值仍在 $G=1.8$，但 top residual 变成粗块二分。这支持模块合并的必要性：83 区组合空间不会自然压缩成少数稳定、可命名的 pair。
+全 7 网络核最常出现（20/30），但它在 matched null cohort 中反而更常出现（均值 26.65/30；经验 $p=1$），因此不能将其读为真实数据特异的协同核。缺少 Limbic 的六网络广域核在真实数据中为 17/30，而 matched null cohort 的频率为 $8.65/30$（最大 12/30；经验 $p=1/21=0.047619$）；两个较小的候选核也分别为 9/30 对 $1.40/30$、8/30 对 $2.45/30$，同为该分辨率下的未校正 $p=1/21$。这支持真实静息态中若干非全网络模块核的出现频率和贡献高于该 circular-shift null；但 20 个 null 的 p 值分辨率有限，且统计未校正跨模块集合与 greedy 选择，因此不构成唯一生物学 atom 的确证。
 
-## 4. HCP REST1 Lausanne-83 PhiEID pilot
+## 3. HCP1000 PCA–Yeo7：Phi 分解
 
-### 4.1 数据和运行状态
+### 3.1 数据、降维与模型选择
 
-HCP pilot 使用 10 个 subject 的 `REST1_LR` 和 `REST1_RL` resting-state fMRI，提取 Lausanne/Desikan-83 ROI 时间序列，用 Ridge 一步 transition model 计算 Gaussian log-det whole-state PhiEID，并和每个 ROI 独立 circular-shift null 对比。当前结果仍是 pilot，不是完整 HCP S1200 群体推断。
+同一 30 名 `REST1_LR` 被试的 `Schaefer1000` 矩阵为 $1200\times1000$。1000 个 parcel 按同一 Yeo7 顺序分为 Vis 162、SomMot 194、DorsAttn 122、SalVentAttn 121、Limbic 60、Cont 129 与 Default 212 个 parcel；每名被试的各网络 PC1 均只以前 900 点拟合并投影完整时序。
 
-| 项目 | 设置 |
+在 `sub-100206` 的训练段内以 600/700/800 三个时间验证折，从 $p\in\{1,2,3,5,8\}$ 与既有 Ridge $\alpha$ 网格选择模型。最优冻结配置为五阶 $\Delta$-Ridge，$p=5$、$\alpha=1$，平均 validation skill ratio 为 0.794433；因此 source 是 35 维网络历史，target 为下一时刻 7D 网络状态。后 300 点未参与 PC1、模型或参数选择。
+
+### 3.2 History-source $\Phi^{EID}$ 与 circular-shift null
+
+对每名被试固定上述表征与模型，并以每条 PC1 独立、非零 circular shift 后重拟合同一模型生成 20 个 null。1000-parcel observed $\Phi^{EID}$ 的均值/中位数为 7.783676/7.734082 bits；observed-minus-null-mean 的均值/中位数为 2.997670/3.032261 bits，范围为 0.814450–6.085586 bits。30/30 名被试的 observed 均高于其 null 均值，未校正经验 p 均小于 0.05（最小分辨率 $1/21=0.047619$）。
+
+![30 被试 Schaefer1000 Yeo7-PC1 observed-minus-null PhiEID](../../results/hcp_schaefer1000_yeo7_pc1_phi_null_all/observed_minus_null.png)
+
+### 3.3 Yeo7 模块历史分解与 500 对照
+
+分解中，同一网络的全部五个 PC1 历史滞后绑定为一个不可拆模块原子；每个 observed 与 null 都完整运行 greedy top-3。1000-parcel 的常见核如下。
+
+| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | matched-null 频率均值；经验 p |
+|---|---:|---:|---:|
+| 全部 7 个 Yeo 网络 | **21 / 30** | 1.637465 bits | 21.80 / 30；0.761905 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **12 / 30** | 1.575094 bits | 6.35 / 30；0.047619 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.500212 bits | 2.40 / 30；0.047619 |
+| Vis + SomMot + DorsAttn + Cont + Default | 7 / 30 | 1.579938 bits | 2.90 / 30；0.047619 |
+
+![30 被试 Schaefer1000 模块级 greedy PhiEID 核](../../results/hcp_schaefer1000_yeo7_module_phi_decomposition/top_core_consistency.png)
+
+| 描述性比较 | Schaefer-500 | Schaefer-1000 |
+|---|---:|---:|
+| observed $\Phi^{EID}$ 均值（bits） | 6.188481 | 7.783676 |
+| observed − null 均值（bits） | 1.984600 | 2.997670 |
+| observed 高于 null mean | 30 / 30 | 30 / 30 |
+| 全七网络核 top-3 频率 | 20 / 30 | 21 / 30 |
+| 缺 Limbic 六网络核 top-3 频率 | 17 / 30 | 12 / 30 |
+
+两种粒度都复现了跨网络时间对齐高于 circular-shift null 的方向性证据，并都将缺 Limbic 的六网络广域核识别为高于 matched-null 频率的候选结构。绝对 bits、最优滞后阶数和 atom 频率受分区粒度、PC1 表征与单被试调参影响；上表仅作描述性对照，不能当作空间粒度的正式统计检验，也不将 greedy 核解释为唯一生物学 atom。
+
+## 4. 讨论：解释边界与可复现性
+
+### 4.1 结论的适用范围
+
+- DMF 结果支持 $\Phi^{EID}$ 在该代理结构连接、无裁剪全状态干预与 $[0.30,0.70]^{166}$ 生理支持下定位 Kuramoto 对齐的临界窗；它不等同于人体大脑存在同一精确耦合常数，也不外推到绝对最大熵 $[0,1]^{166}$ 干预。
+- HCP 结果来自 REST1_LR、30 名被试、7 个 PC1 网络状态及固定的八阶 Ridge；尚未检验独立 run、去趋势、运动或生理混杂回归、GSR、其他分区或其他 null 构造。
+- HCP 的全体被试 Phi 结果使用 20 个 null，p 值分辨率有限，且未校正跨被试、跨模块集合和 greedy 选择造成的多重比较。
+- 贪婪 atom 用于描述候选协同结构；它依赖分解顺序与候选空间，不是 exhaustive 的唯一高阶分解。
+
+### 4.2 结果与图形产物
+
+| 实验 | 关键图与结果 |
 |---|---|
-| HCP release | 2017 S1200 |
-| Subjects | 100307, 103414, 105115, 110411, 111312, 113619, 115320, 117122, 118528, 118730 |
-| Runs | REST1_LR, REST1_RL |
-| Subject-run 数 | 20 |
-| ROI | Lausanne/Desikan-83 |
-| Time points | 1200 per subject-run |
-| Null repetitions | 100 per subject-run |
-| Main model | Ridge one-step transition |
-| Main estimator | Gaussian log-det PhiEID screening |
+| 83 ROI 临界识别 | `fig/dmf_fullstate_maxent_critical_confirmation.{png,svg,pdf}`、`fig/dmf_kuramoto_fullstate_shape_alignment.{png,svg,pdf}`、`fig/dmf_fullstate_maxent_detdeg_integrated_raw.{png,svg,pdf}`、`fig/dmf_fullstate_maxent_detdeg_integrated_rate.{png,svg,pdf}`、`results/dmf_fullstate_uniform_support/confirm_c050_h020_tau300_n2048_no_clip_seeds3_10.npz` |
+| HCP500 Yeo7-PCA Phi/null | `results/hcp_schaefer500_yeo7_pc1_phi_null/summary.json`、`results/hcp_schaefer500_yeo7_pc1_phi_null_all/summary.json`、对应 null 图 |
+| HCP500 Yeo7 模块分解 | `results/hcp_schaefer500_yeo7_module_phi_decomposition/summary.json`、`results/hcp_schaefer500_yeo7_module_phi_decomposition/top_core_consistency.png` |
+| HCP1000 Yeo7-PCA Phi/null | `results/hcp_schaefer1000_yeo7_ridge_selection/summary.json`、`results/hcp_schaefer1000_yeo7_pc1_phi_null_all/summary.json`、对应 null 图 |
+| HCP1000 Yeo7 模块分解 | `results/hcp_schaefer1000_yeo7_module_phi_decomposition/summary.json`、`results/hcp_schaefer1000_yeo7_module_phi_decomposition/top_core_consistency.png` |
 
-所有 subject-run 都成功提取出 `1200 x 83` ROI time series，且 `synthetic = false`。
+<a id="appendix-a"></a>
 
-### 4.2 Whole-state PhiEID
+## 附录 A：Kuramoto 振子数与 whole-state $\Phi^{EID}$ 曲线形状
 
-当前 10-subject、2-run pilot 显示：真实 HCP ROI 动力学的 raw PhiEID 在每个 subject-run 上都高于 circular-shift null。
-
-| 指标 | 数值 |
-|---|---:|
-| Subject-run 数 | 20 |
-| 平均 observed raw PhiEID | 12.530882 bits |
-| 平均 null raw PhiEID | 6.667682 bits |
-| 平均 observed - null | 5.863200 bits |
-| observed - null 范围 | 2.878884 到 14.772958 bits |
-| empirical p-value <= 0.01 | 20 / 20 |
-| median empirical p-value | 0.009901 |
-| Ridge validation correlation 均值 | 0.840262 |
-| Ridge RMSE / persistence RMSE 均值 | 1.035518 |
-| Ridge 优于 persistence 的 subject-run 数 | 10 / 20 |
-| 默认纯 MLP validation correlation 均值 | 0.774280 |
-| 默认纯 MLP RMSE / persistence RMSE 均值 | 1.208291 |
-| 默认纯 MLP 优于 Ridge 的 subject-run 数 | 0 / 20 |
-| 默认纯 MLP 优于 persistence 的 subject-run 数 | 1 / 20 |
-
-按 run 分开看：
-
-| Run | Observed mean | Null mean | Difference mean | p <= 0.01 |
-|---|---:|---:|---:|---:|
-| REST1_LR | 13.624457 | 6.877152 | 6.747305 | 10 / 10 |
-| REST1_RL | 11.437308 | 6.458213 | 4.979095 | 10 / 10 |
-
-LR/RL 的 subject-level `observed - null` 相关为 `r = 0.779166`。这说明 whole-state PhiEID 的方向不依赖单个 phase-encoding direction；同一 subject 在 LR 和 RL 中的强弱排序也有较高一致性。
-
-![HCP Lausanne-83 PhiEID null comparison](../../fig/hcp_lausanne_phi_eid_null_comparison.png)
-
-*图 5. 每个 subject-run 的 observed raw PhiEID 和 null 均值。所有 observed 值都高于各自 100 个 null 的全部取值，因此每个 subject-run 的经验 p-value 都是当前 null 数下的最小值 `1 / 101 = 0.009901`。*
-
-需要同时注意一个限制：Ridge validation correlation 较高，但只有 10 / 20 个 subject-run 的 RMSE 优于 persistence baseline。把一步预测器换成默认纯 MLP 后，MLP 没有改善 RMSE：平均 RMSE 从 Ridge 的 `0.725452` 升到 `0.843234`，20 / 20 个 subject-run 都未优于 Ridge，且只有 1 / 20 个 subject-run 优于 persistence。因此当前结果支持“真实数据中存在高于 circular-shift null 的高阶整合信号候选”，但不支持把当前 pilot 的拟合器直接从 Ridge 换成默认纯 MLP。
-
-| 模型 | Mean RMSE | Mean RMSE / persistence | Mean validation corr | 优于 Ridge | 优于 persistence |
-|---|---:|---:|---:|---:|---:|
-| Ridge | 0.725452 | 1.035518 | 0.840262 | - | 10 / 20 |
-| Pure MLP | 0.843234 | 1.208291 | 0.774280 | 0 / 20 | 1 / 20 |
-
-### 4.3 Phi 分解鲁棒性
-
-这次 pilot 对每个 null time series 不只计算 whole PhiEID，也重复计算 module greedy decomposition 和 ROI leave-one-out burden。这样可以检验：观察到的模块 atom 和 ROI burden 是否也高于 null，而不只是 whole-state PhiEID 高于 null。
-
-结论分三层。
-
-1. Whole-state PhiEID 很稳：20 / 20 个 subject-run 都显著高于 null，LR/RL 相关也较高。
-2. Module participation 是最稳的分解读法：Visual、VAN、FPN、DMN、Som 和 Lim 的 participation 都高于 null，其中 Visual、VAN、FPN、DMN 是最强四个模块；module participation 的 LR/RL 平均相关为 `r = 0.926870`。
-3. Exact greedy atom 只能作为候选示例：多数 top module atoms 高于 null，FDR q = 0.010801；top-5 atom overlap 为 `0.700000`。但 module atom value vector 的 LR/RL 平均相关只有 `r = 0.077896`，说明 exact greedy atom 数值结构不够稳定。
-
-![HCP Lausanne-83 PhiEID robustness](../../fig/hcp_lausanne_phi_eid_robustness.png)
-
-### 4.4 Module atoms, participation 和 ROI burden
-
-Top module atoms vs null 如下。
-
-| Module atom | Observed mean | Null mean | Difference | Empirical p | FDR q |
-|---|---:|---:|---:|---:|---:|
-| DMN + Vis + VAN + FPN | 1.528929 | 0.002861 | 1.526068 | 0.009901 | 0.010801 |
-| DMN + Som + Vis + VAN + FPN + Lim + Sub | 2.148013 | 1.120604 | 1.027408 | 0.009901 | 0.010801 |
-| DMN + Vis + FPN | 1.003373 | 0.057502 | 0.945871 | 0.009901 | 0.010801 |
-| DMN + Vis + VAN + FPN + Lim | 0.907978 | 0.022205 | 0.885773 | 0.009901 | 0.010801 |
-| DMN + Som + Vis + VAN + FPN + Lim | 0.888630 | 0.009292 | 0.879338 | 0.009901 | 0.010801 |
-| DMN + FPN | 0.647563 | 0.221752 | 0.425811 | 0.009901 | 0.010801 |
-| DMN + Som + Vis + VAN + FPN | 0.418866 | 0.000000 | 0.418866 | 0.009901 | 0.010801 |
-| DMN + Vis + VAN + FPN + Lim + Sub | 0.969511 | 0.669098 | 0.300413 | 0.009901 | 0.010801 |
-| DMN + Vis + VAN + FPN + Sub | 0.308474 | 0.028310 | 0.280164 | 0.009901 | 0.010801 |
-| DMN + Vis | 0.247279 | 0.018912 | 0.228368 | 0.009901 | 0.010801 |
-
-模块层面的稳定读法是：高于 null 的 atom 反复包含 DMN、FPN、VAN 和 Visual networks，说明 high-order residual 主要是跨网络结构，而不是单一 ROI 或单一网络内部效应。
-
-Module participation 把每个 atom 的 value 加到它包含的所有模块上。这个指标不要求 LR/RL 在 exact atom label 上完全一致，只检验“哪些脑网络反复参与高阶 residual”。
-
-| Module | Observed mean | Null mean | Difference | Empirical p | FDR q |
-|---|---:|---:|---:|---:|---:|
-| Vis | 9.360290 | 3.597209 | 5.763081 | 0.009901 | 0.013201 |
-| VAN | 7.707466 | 1.981929 | 5.725537 | 0.009901 | 0.013201 |
-| FPN | 9.999290 | 5.090643 | 4.908646 | 0.009901 | 0.013201 |
-| DMN | 10.390576 | 5.690235 | 4.700342 | 0.009901 | 0.013201 |
-| Som | 3.711921 | 1.703675 | 2.008246 | 0.009901 | 0.013201 |
-| Lim | 5.623079 | 4.506312 | 1.116766 | 0.009901 | 0.013201 |
-| DAN | 0.000000 | 0.000000 | 0.000000 | 1.000000 | 1.000000 |
-| Sub | 3.919978 | 4.995912 | -1.075934 | 1.000000 | 1.000000 |
-
-最强、也最容易解释的模块是 Visual、VAN、FPN 和 DMN。Visual participation 提示高阶 transition structure 包含感知输入相关的低层状态；VAN 提示注意重定向或显著性相关网络参与；FPN 指向前额顶叶控制系统；DMN 说明 resting-state 内在网络不是孤立背景，而是和视觉、注意、控制网络一起进入高阶整合结构。
-
-ROI burden 的稳定读法是：候选贡献集中在 inferior/superior parietal、rostral/superior frontal、lateral occipital、middle temporal 和部分 sensorimotor 区域，主要覆盖 VAN、FPN、Visual 和 DMN/Som 节点。由于 ROI burden 是 leave-one-out score，它仍然不是精确的 83D high-order atom。
-
-| ROI | Module | Observed mean | Null mean | Difference | Empirical p | FDR q |
-|---|---|---:|---:|---:|---:|---:|
-| ctx-rh-inferiorparietal | VAN | 0.558481 | 0.170939 | 0.387543 | 0.009901 | 0.009901 |
-| ctx-lh-inferiorparietal | VAN | 0.546062 | 0.165618 | 0.380443 | 0.009901 | 0.009901 |
-| ctx-lh-lateraloccipital | Vis | 0.529049 | 0.165914 | 0.363136 | 0.009901 | 0.009901 |
-| ctx-rh-rostralmiddlefrontal | FPN | 0.525255 | 0.180825 | 0.344430 | 0.009901 | 0.009901 |
-| ctx-rh-lateraloccipital | Vis | 0.497892 | 0.162754 | 0.335138 | 0.009901 | 0.009901 |
-| ctx-lh-superiorfrontal | FPN | 0.500848 | 0.186228 | 0.314620 | 0.009901 | 0.009901 |
-| ctx-rh-superiorparietal | VAN | 0.482703 | 0.169515 | 0.313188 | 0.009901 | 0.009901 |
-| ctx-lh-rostralmiddlefrontal | FPN | 0.494682 | 0.183535 | 0.311147 | 0.009901 | 0.009901 |
-| ctx-lh-superiorparietal | VAN | 0.475582 | 0.166095 | 0.309487 | 0.009901 | 0.009901 |
-| ctx-rh-superiorfrontal | FPN | 0.495426 | 0.187717 | 0.307710 | 0.009901 | 0.009901 |
-| ctx-lh-supramarginal | VAN | 0.473689 | 0.174533 | 0.299156 | 0.009901 | 0.009901 |
-| ctx-lh-middletemporal | DMN | 0.452318 | 0.173729 | 0.278589 | 0.009901 | 0.009901 |
-| ctx-lh-postcentral | Som | 0.441847 | 0.170460 | 0.271387 | 0.009901 | 0.009901 |
-| ctx-lh-precuneus | Vis | 0.434895 | 0.167127 | 0.267768 | 0.009901 | 0.009901 |
-| ctx-rh-middletemporal | DMN | 0.433478 | 0.169790 | 0.263688 | 0.009901 | 0.009901 |
-
-## 5. REST1 vs Working Memory PhiEID 对照
-
-REST1 与 Working Memory 对照使用同一 Lausanne-83 ROI pipeline、Ridge one-step transition model、circular-shift null 和 greedy module atom decomposition。
-
-中文结论是：Working Memory 任务态下，整体 PhiEID 明显高于静息态，但 module atom 的核心网络家族并没有完全换一套。更准确的读法是，WM 在 REST 已经出现的 DMN、Visual、VAN 和 FPN 跨网络结构上进一步增强，并把部分 high-order atom 扩展到 Lim 和 Sub 等更大范围的多网络组合。
-
-### 5.1 Whole-state PhiEID
-
-| Condition | Observed mean | Null mean | Difference mean | Median empirical p | LR/RL r | Top-5 atom overlap |
-|---|---:|---:|---:|---:|---:|---:|
-| REST1 | 12.530882 | 6.667682 | 5.863200 | 0.009901 | 0.779166 | 0.700000 |
-| Working Memory | 24.919033 | 17.976072 | 6.942961 | 0.009901 | 0.439262 | 0.680000 |
-
-从 whole-state 结果看，REST1 的 observed raw PhiEID 均值为 `12.530882`，WM 为 `24.919033`。不过更应该看 observed - null：REST1 为 `5.863200`，WM 为 `6.942961`。这说明 WM 任务下不仅整体动态信息更大，在扣除 ROI-wise circular-shift null 后，仍保留更强的跨 ROI / 跨网络高阶结构。
-
-### 5.2 Module atom distribution
-
-Top-10 atom Jaccard overlap between REST1 and Working Memory is `0.538462`.
-
-| Module atom | REST rank | WM rank | REST difference | WM difference | REST FDR q | WM FDR q |
-|---|---:|---:|---:|---:|---:|---:|
-| DMN+Vis+VAN+FPN+Lim+Sub | 8 | 1 | 0.300413 | 1.816711 | 0.010801 | 0.016973 |
-| DMN+Vis+FPN | 3 | 2 | 0.945871 | 1.716589 | 0.010801 | 0.016973 |
-| DMN+Vis+VAN+FPN+Sub | 9 | 3 | 0.280164 | 1.625304 | 0.010801 | 0.016973 |
-| DMN+Vis+VAN+FPN | 1 | 5 | 1.526068 | 0.748855 | 0.010801 | 0.016973 |
-| DMN+Som+Vis+VAN+FPN+Lim+Sub | 2 | 4 | 1.027408 | 1.336998 | 0.010801 | 0.016973 |
-| DMN+Vis+VAN+FPN+Lim | 4 |  | 0.885773 | 0.000000 | 0.010801 |  |
-| DMN+Som+Vis+VAN+FPN+Lim | 5 |  | 0.879338 | 0.000000 | 0.010801 |  |
-| DMN+Vis+FPN+Lim | 11 | 6 | 0.169639 | 0.596508 | 0.010801 | 0.016973 |
-| DMN+Vis | 10 | 7 | 0.228368 | 0.427115 | 0.010801 | 0.016973 |
-| DMN+FPN | 6 | 8 | 0.425811 | 0.297159 | 0.010801 | 0.029703 |
-| DMN+Som+Vis+VAN+FPN | 7 |  | 0.418866 | 0.000000 | 0.010801 |  |
-| DMN+FPN+Sub |  | 11 | 0.000000 | -0.769192 |  | 1.000000 |
-
-REST1 最强 atom 是 `DMN+Vis+VAN+FPN`；WM 最强 atom 是 `DMN+Vis+VAN+FPN+Lim+Sub`。因此，WM 更像是在原来的 DMN-Visual-attention-control 结构上，把任务相关的高阶动态整合扩展到更大范围，而不是产生一个完全无关的新结构。
-
-### 5.3 Module participation
-
-| Module | REST difference | WM difference | WM - REST | REST FDR q | WM FDR q |
-|---|---:|---:|---:|---:|---:|
-| DMN | 4.700342 | 5.705215 | 1.004873 | 0.013201 | 0.011315 |
-| Som | 2.008246 | 1.174670 | -0.833576 | 0.013201 | 0.011315 |
-| Vis | 5.763081 | 6.884611 | 1.121530 | 0.013201 | 0.011315 |
-| VAN | 5.725537 | 5.669473 | -0.056064 | 0.013201 | 0.011315 |
-| DAN | 0.000000 | 0.000000 | 0.000000 | 1.000000 | 1.000000 |
-| FPN | 4.908646 | 5.769435 | 0.860788 | 0.013201 | 0.011315 |
-| Lim | 1.116766 | 2.027885 | 0.911119 | 0.013201 | 0.011315 |
-| Sub | -1.075934 | 1.799319 | 2.875253 | 1.000000 | 0.011315 |
-
-WM 中 Visual、FPN、DMN、Lim 和 Sub 的 participation 增强。Visual 和 FPN 增强符合视觉刺激输入、规则保持和执行控制；VAN 仍然较高，符合任务中注意重定向和显著性检测；DMN 没有消失也不意外，因为复杂认知任务中 DMN 可以和控制网络动态耦合，而不只是简单地“任务时关闭”。Lim 和 Sub 在 WM 中的增强应谨慎解释为更广泛状态调节、皮层下参与或任务态全局动力学的一部分，目前还不能写成具体边缘系统或皮层下机制。
-
-Som participation 在 WM 中相对 REST 下降：REST difference 为 `2.008246`，WM difference 为 `1.174670`，WM - REST 为 `-0.833576`。这个下降不表示体感运动系统“不参与任务”，而是表示在这个 PhiEID 分解口径下，WM 的 high-order cross-network residual 更集中在视觉-控制-注意-内在/调节网络组合上。
-
-### 5.4 Atom order distribution
-
-| Atom order | REST observed mean | WM observed mean |
-|---:|---:|---:|
-| 2 | 0.894842 | 1.637446 |
-| 3 | 1.003373 | 2.503890 |
-| 4 | 1.792642 | 3.385153 |
-| 5 | 1.948835 | 3.857060 |
-| 6 | 1.858141 | 4.551771 |
-| 7 | 2.148013 | 4.946505 |
-
-Treat differences as strongest when the corresponding atom or module is above null after FDR correction and has meaningful LR/RL stability in both conditions. Exact greedy atom labels remain less stable than module participation, so the safest contrast is the network-family shift rather than a single exact atom.
-
-## 6. 方法口径
-
-### 6.1 HCP Gaussian log-det PhiEID
-
-令 $\mathbf{x}_t$ 表示 83 维 ROI 状态。动力学模型拟合一步预测：
+为避免把方程差异误读成振子数效应，这里重新使用同一个经典全局耦合 Kuramoto 方程，只改变振子数：
 
 $$
-\mathbf{x}_t \rightarrow \mathbf{x}_{t+1}.
+\dot{\theta}_i
+=\omega_i+\frac{K}{N}\sum_{j=1}^{N}\sin(\theta_j-\theta_i).
 $$
 
-whole-state PhiEID 使用 Gaussian log-det screening：
+除振子数外，两组实验使用同一协议：频率 $\omega_i$ 从零均值 Gaussian 抽样，随后对每个 seed 去均值并重缩放到 `sigma=1`；`N=2` 时这个协议退化为一对符号相反、标准差为 1 的频率。source 是全部振子的当前相位特征，target 是全部振子的未来相位状态，而不是整体速度；两组都直接计算与 Part2 大脑动力学 $\Phi^{EID}$ 相同的源侧 whole-minus-sum 结构：
 
 $$
 \Phi^{EID}
-= EI(\mathbf{x}_t;\mathbf{x}_{t+1})
-- \sum_i EI(x_t^i;\mathbf{x}_{t+1}).
+=
+EI_{\mathrm{do}}(\{\mathbf{s}_t^i\}_{i=1}^{N};\mathbf{y}_{t+\tau})
+-\sum_{i=1}^{N} EI_{\mathrm{do}}(\mathbf{s}_t^i;\mathbf{y}_{t+\tau})
+.
 $$
 
-当前 full 83D 主结果使用 Gaussian log-det，是轻量筛查。full-dimensional TM 对这个 pilot 过重；TM 更适合放在低维模块级复核中。
+其中 $\mathbf{s}_t^i=(\cos\theta_i(t),\sin\theta_i(t))$ 是第 $i$ 个振子的相位特征，$\mathbf{y}_{t+\tau}=\{(\cos\theta_i(t+\tau),\sin\theta_i(t+\tau))\}_{i=1}^{N}$ 是系统整体未来相位状态。$\Phi^{EID}$ 由该定义保证非负，因此无需引入人工非负截断。
 
-### 6.2 Circular-shift null
+下文首先以 `N=64` Oracle 结果解释临界峰的机制；振子数对照作为系统规模边界证据，统一放在附录末尾。
 
-null 使用每个 ROI 独立 circular shift。具体做法是：对每个 ROI 的完整时间序列分别随机平移一个不同的时间偏移量，并在序列末尾循环接回开头。因此，每个 ROI 自身的时间结构不会变，例如均值、方差、频谱和自相关模式基本保留；但不同 ROI 在同一时间点上的对齐关系被打乱。
+<a id="appendix-a-1"></a>
 
-这个 null 问的是：如果每个脑区都有同样的自身慢波和自相关，但跨脑区同步关系是随机错位的，那么 PhiEID 会有多高？它适合当前问题，因为我们关心的是跨 ROI 的同步、协同和 high-order integration 是否贡献了额外 PhiEID，而不是单个 ROI 自身的时间平滑性或自相关是否足以产生高 PhiEID。
+### A.1 临界峰的 EI 与 effectiveness 机制
 
-经验 p-value 为
+为了检查这个峰值来自哪一项，进一步把 `N=64` Oracle whole-state 结果分解为联合 EI 与单独 EI 之和：
+
+![Large-N Kuramoto EI decomposition](../../fig/classic_network_dynamics_benchmark/large_kuramoto_n64_ei_decomposition.png)
+
+分解结果显示，$EI_{\mathrm{do}}(\{\mathbf{s}_t^i\}_{i=1}^{N};\mathbf{y}_{t+\tau})$ 和 $\sum_i EI_{\mathrm{do}}(\mathbf{s}_t^i;\mathbf{y}_{t+\tau})$ 都随 $K$ 增大而整体下降。这不是反常现象，因为这里的 EI 衡量的是最大熵相位干预下，当前相位状态有多少可区分信息保留到未来 whole-state target 中。`K=0` 时，每个振子近似独立转动，当前相位到未来相位接近一一映射，所以联合 EI 和单独 EI 之和都很高，并且二者几乎相等，$\Phi^{EID}\approx0$。
+
+随着 $K$ 增大，同步吸引会压缩相位差自由度，许多不同初始相位会被映射到更相似的未来状态，因此总的可区分信息下降。临界前沿附近，单个振子对未来全系统状态的解释力下降得更快，而联合状态仍保留对集体相位关系的解释力，所以两项差值扩大，$\Phi^{EID}$ 在 `K≈1.7` 达峰。到强同步区后，系统接近低维同步流形，联合 EI 本身也明显降低，差值随之回落。换言之，临界峰不是因为总 EI 最大，而是因为整体相对于部分之和的不可分解优势最大。
+
+同一组 `N=64` Oracle 结果还可以按 effectiveness 的 determinism/degeneracy 口径拆开。这里固定参考熵 $H_0$ 为本 sweep 中最大的 Gaussian target entropy，并定义
 
 $$
-p
-= \frac{1 + \#\{\Phi_{\mathrm{null}} \ge \Phi_{\mathrm{obs}}\}}
-{1 + N_{\mathrm{null}}}.
+Det(\mathcal{S};\mathbf{Y})=H_0-H(\mathbf{Y}\mid \mathcal{S}),\qquad
+Deg(\mathcal{S};\mathbf{Y})=H_0-H(\mathbf{Y}).
 $$
 
-表中的 FDR q-value 是对多个并行检验做 false discovery rate 校正后的显著性指标。本文中的 `FDR q` 可以读作经过多重比较校正后的 p-value。
+其中 $\mathcal{S}$ 可以是全部振子的联合 source，也可以是某个单振子 source；$\mathbf{Y}$ 是 whole-state future target。为避免将四个高度相关的曲线拆散，左图把 whole-source determinism 与 degeneracy 合并到同一**线性**轴，从而突出 determinism 的低谷；右图在单一对数轴上并列 singleton-sum 的两项，保留其跨数量级的共同膨胀与接近。两图的同一条竖虚线标出 whole-source determinism 的最小点，便于把这两个尺度上的变化对齐。
 
-## 7. 解释边界和下一步
+![Large-N Kuramoto determinism and degeneracy decomposition](../../fig/classic_network_dynamics_benchmark/n64_detdeg/large_kuramoto_oracle_nsource_whole_state_phi_sweep_determinism_degeneracy.png)
 
-当前结果已经形成了比较清楚的证据链，但仍有边界。
+这个分解补足了临界峰的解释。whole-state determinism 从 `K=0` 的约 `1110.05` bits 下降，在 `K=2.0` 附近降到约 `475.95` bits，随后强同步区又回升到 `K=4.0` 的约 `1078.10` bits；whole-state degeneracy 则从近零单调升高到 `K=4.0` 的约 `1044.37` bits。也就是说，强耦合同步并不是简单地让整体映射“更确定”；它同时把许多微观相位状态折叠到相似的未来同步状态，导致 degeneracy 急剧增加。EI 是二者的差，因此强同步区即便 determinism 回升，也会被更大的 degeneracy 抵消。
 
-- HCP REST1 pilot 样本量只有 10 个 subject，虽然每个 subject 有 LR/RL 两个 run。
-- 每个 subject-run 只有 100 个 null，因此最小可达 p-value 是 0.009901；后续若要更强统计分辨率，可以提高到 500 或 1000。
-- Ridge 只有 10 / 20 个 subject-run 在 RMSE 上优于 persistence；默认纯 MLP 进一步降到 1 / 20，且 0 / 20 优于 Ridge，说明 transition model 仍需更系统的模型选择。
-- 当前没有做 REST2，也没有做 motion、tSNR、mean FC 等混杂控制。
-- Module participation 相比 null 显著且 LR/RL 稳定，但 exact greedy atom value vector 相关很低；模块结论应解释为跨网络 atom family / participation，而不是精确 partition。
-- ROI burden 是 leave-one-out candidate score，不是 exhaustive high-order decomposition。
-- DMF 临界增强结论依赖 continuation 采样和逐 $G$ 标准化口径；independent restart 与 raw-scale 敏感性分析不支持把峰值写成采样协议无关的绝对相变指标。
+右图显示了为什么 $\Phi^{EID}$ 在临界附近最大。单振子口径的 degeneracy 被对每个 source 重复计算，随 $K$ 增大从 `K=1.0` 的约 `696.91` bits 快速升到 `K=4.0` 的约 `66839.89` bits；singleton-sum determinism 也在强同步区急剧放大，到 `K=4.0` 约 `66860.03` bits。两者都变大且彼此接近，说明单个振子在高同步区会获得大量共享的、重复的 whole-state 预测信息，但这些信息主要是同一个同步流形的冗余读出。临界附近则不同：联合状态仍能保留相位关系和集体模式，而单振子解释已经开始失效，所以 whole-minus-sum 差值在 `K≈1.7` 达到约 `279.63` bits。
 
-下一步建议：
+<a id="appendix-a-2"></a>
 
-1. 增加 `REST2_LR` 和 `REST2_RL`，做更完整的 test-retest。
-2. 把 null repetitions 提高到 500 或更多，获得更细的 empirical p-value。
-3. 加入 Ridge regularization sweep、MLP 容量/正则 sweep、GRU 或其他 transition model，对预测质量进行系统鲁棒性验证。
-4. 报告 motion 与 PhiEID 的相关性，避免把运动混杂解释成整合信息。
-5. 在低维模块空间做 TM-based EI 复核。
-6. 对 DMF 模块级 greedy 分解做 bootstrap，检查 `DMN+FPN+Sub`、`DMN+Sub` 等嵌套 atom 是否稳定。
-7. 如果后续扩展脑区级分解，需要沿用 uniform 干预口径，并先做独立鲁棒性验证。
+### A.2 时间窗、相变前检测与系统规模边界
 
-## 8. 产物索引
+#### A.2.1 时间窗鲁棒性：避免强同步后，短窗不复现临界内部峰
 
-### 8.1 DMF 产物
+基准 whole-state 曲线的 `tau=4` 结果保留为主对照。为检验其峰值是否只是高 $K$ 同步饱和造成的，新增一个严格配对的 multi-horizon Oracle sweep：对每个 seed，频率向量、均匀相位 intervention states 和 natural readout states 都固定并复用于全部 $(K,\tau)$ 条件；只改变统一的预测时间窗 $\tau\in\{0.5,0.75,1,1.5,2,4\}$，而不允许 $\tau$ 随 $K$ 自适应变化。所有条件仍使用 `N=64`、3 个 seeds、whole-state future phase target 与同一 N-source transport-map estimator。
 
-| 文件 | 含义 |
-|---|---|
-| `fig/dmf_83_region_oracle_phi_eid_main_g11.{png,svg,pdf}` | DMF 83 区 whole-state 主结果曲线图 |
-| `fig/dmf_83_region_oracle_no_g_standardization.{png,svg,pdf}` | 取消逐 $G$ 标准化后的 83 区 whole-state $\Phi^{EID}$ 对照 |
-| `fig/dmf_83_region_oracle_no_g_standardization_detdeg.{png,svg,pdf}` | 取消逐 $G$ 标准化后的 determinism / degeneracy 分解 |
-| `fig/dmf_phi_eid_greedy_decomposition.{png,svg,pdf,npz}` | 模块级 greedy 分解 |
-| `fig/dmf_phi_eid_region_local_split_min5_decomposition.{png,npz}` | 83 区局部二分搜索 |
-| `fig/part2_dmf_phi_comparison.{png,svg,pdf}` | Uniform 干预口径下的 DMF 综合复现图 |
-| `fig/dmf_phi_eid_robustness_longtrace.{png,svg,pdf}` | $\Phi^{EID}$ 多 seed 长 trace 鲁棒性验证图 |
-| `fig/dmf_83_region_oracle_phi_eid_robustness.{png,svg,pdf}` | 83 区 Kuramoto-aligned whole-state $\Phi^{EID}$ 完整扫描图 |
-| `fig/dmf_module_tm_phi_eid_robustness.{png,svg,pdf}` | 模块级 TM-$\Phi^{EID}$ uniform 干预复验图 |
-| `results/dmf_83_region_oracle_phi_eid/` | 83 区 whole-state 复验缓存与 summary |
-| `results/dmf_phi_eid_robustness_longtrace/` | 长 trace continuation 验证缓存、曲线表和峰值汇总 |
-| `results/dmf_83_region_oracle_no_g_standardization/` | 取消逐 $G$ 标准化的 83 区 whole-state 对照缓存与 summary |
-| `results/dmf_phi_eid_robustness/` | 短 trace continuation / independent restart 诊断缓存 |
-| `results/dmf_module_tm_phi_eid/` | 模块级 TM-$\Phi^{EID}$ 复验缓存与 summary |
+![Paired large-N Kuramoto horizon sweep](../../fig/classic_network_dynamics_benchmark/large_kuramoto_oracle_nsource_whole_state_tau_sweep.png)
 
-### 8.2 HCP 产物
+图 A 以未来 target 的 raw global order 的 $99\%$ 分位数 $R_{0.99}$ 审计强同步。预先设定 guard 为：对所有 $K$ 都要求 $R_{0.99}<0.8$。`tau=0.5` 在最强耦合 `K=4` 仍只有 $R_{0.99}=0.583$，完全通过；`tau=0.75` 为 $0.746$，也通过（仅约 $0.37\%$ target samples 的 $R\ge0.8$）。从 `tau=1` 起该 guard 开始失效：`tau=1` 仅 `K=4` 失败，`tau=1.5` 在 `K=3.2,4` 失败，`tau=2` 在 `K\ge2.6` 失败，而 `tau=4` 在 `K\ge2.2` 失败。
 
-| 文件 | 含义 |
-|---|---|
-| `results/hcp_lausanne_phi_eid_pilot/summary.json` | HCP REST1 pilot summary |
-| `results/hcp_lausanne_phi_eid_pilot/robustness_summary.json` | HCP REST1 分解鲁棒性 summary |
-| `results/hcp_lausanne_phi_eid_pilot/roi_timeseries/*.npz` | Lausanne-83 ROI time series cache |
-| `fig/hcp_lausanne_phi_eid_null_comparison.{png,svg,pdf}` | REST1 observed vs null 对照图 |
-| `fig/hcp_lausanne_phi_eid_decomposition.{png,svg,pdf}` | REST1 decomposition 图 |
-| `fig/hcp_lausanne_phi_eid_robustness.{png,svg,pdf}` | REST1 robustness 图 |
-| `docs/log/hcp_lausanne_phi_eid_pilot.md` | REST1 pilot 日志 |
-| `docs/log/hcp_lausanne_phi_eid_robustness.md` | REST1 robustness 日志 |
-| `docs/log/hcp_lausanne_ridge_mlp_rmse_comparison.md` | Ridge vs pure MLP RMSE 对照日志 |
-| `results/hcp_lausanne_ridge_mlp_rmse_comparison.json` | Ridge vs pure MLP RMSE 对照结果 |
+关键结果在图 B：**通过 guard 的两个短窗并没有给出与原图相同的临界内部峰。** `tau=0.5` 的 $\Phi^{EID}$ 从 `K=0` 的约 $0$ bits 持续升至 `K=4` 的 $229.69$ bits；`tau=0.75` 同样在 `K=4` 最大，为 $262.20$ bits。因此，在目标尚未进入强同步区的有限短时间内，耦合增强主要表现为 whole-state 联合可预测性的持续增强，而非在 $K_c\approx1.596$ 附近形成回落前的峰。随着时间窗变长，最大值才逐步向低 $K$ 移动：`tau=1` 的峰在 `K=4`（$279.54$ bits），`tau=1.5` 在 `K=3.2`（$281.00$ bits），`tau=2` 在 `K=2.6`（$280.27$ bits），配对的 `tau=4` 在 `K=1.8`（$278.92$ bits），与原 `tau=4` 图中 `K\approx1.7` 的峰一致到扫描分辨率。
 
+因此，原始临界前沿峰的正确表述应收紧为：它是**中等有限观测时间（此处约 $\tau=4$）下**，在高 $K$ 同步吸引已压缩 whole-state 信息后出现的 whole-minus-sum 优势峰；它不是对所有预测时间窗都成立的、时间尺度无关的临界指标。短窗结果同时排除了一个较弱的替代解释：该峰并非仅由高 $K$ target 已完全同步所产生，因为在明确未强同步的 `tau=0.5,0.75` 条件下，曲线反而没有内部峰。
+
+#### A.2.2 更长时间窗：峰位穿过而非收敛于理论 $K_c$
+
+为直接检验“继续增大 $\tau$ 后，峰是否会停在临界相变点”的假设，保持同一配对 protocol、`N=64`、3 个 seeds 和 full-sample TM estimator，将时间窗扩展为 $\tau\in\{4,6,8,10,12\}$。扫描在转变区加密到 $K=0.8,0.9,\ldots,2.6$，并保留 $K=0,0.4,3.2,4.0$ 锚点，以区分内部峰和扫描端点峰。
+
+![Long-horizon paired large-N Kuramoto sweep](../../fig/classic_network_dynamics_benchmark/large_kuramoto_oracle_nsource_whole_state_tau_long_horizon_refined.png)
+
+结果不支持单调收敛后固定在理论 $K_c=1.596$ 的解释。随着 $\tau$ 从 4 增至 12，$\Phi^{EID}$ 的内部峰位依次为 $K_{\rm peak}=1.8,1.6,1.5,1.4,1.3$（峰值分别为 $278.92,274.52,272.83,271.65,269.61$ bits）。因此，`tau=6` 的 $K_{\rm peak}=1.6$ 只是在当前 $0.1$ 网格上恰好贴近 $K_c$；继续增加时间窗后，峰越过 $K_c$ 并持续移向更低的 $K$，而非在 $K_c$ 停留。所有这些峰都是加密区内部点，且其 $R_{0.99}$ 仅为 $0.644,0.561,0.523,0.492,0.492$，strong fraction 均为零；故该左移不是由峰落在高 $K$ 强同步 guard 失效区造成的。
+
+更稳妥的结论是：$K_{\rm peak}(\tau)$ 是有限时间有效信息的时间尺度依赖 crossover，可能在某一中等时间窗掠过临界区，但不能把 $\tau\to\infty$ 的峰位等同于静态 Kuramoto 临界点。长窗极限还可能受相位混合和吸引子压缩控制；若要定义渐近临界指标，需要另行研究固定有限尺寸下的长时间衰减、再做 $N\to\infty$ 的有限尺寸标度，而不能从当前峰位外推。
+
+#### A.2.3 相变前检测：共同早期弛豫窗中的 $\Phi(\tau)$ 谱
+
+前述长窗峰位不能直接用作预警器。为检验能否在 future target 尚未同步时识别系统的**最终动力学区间**，对全部 $K\in[0,4]$ 保留同一短时间窗，而不是为高 $K$ 自适应延长或截短 horizon。已有的 `tau=0.5,0.75` 结果与新增的 $\tau\in\{0.1,0.2,0.3,0.4,0.6\}$ 配对合并，得到共同谱 $\tau\in\{0.1,0.2,0.3,0.4,0.5,0.6,0.75\}$。所有 $(K,\tau)$ 条件都满足 $R_{0.99}<0.8$；即使在 $K=4$、$\tau=0.75$，$R_{0.99}\approx0.75$，因此该谱只观测初始相位分布向同步吸引子弛豫的早期，而没有把已同步 target 当作特征。
+
+![Pre-transition Kuramoto Phi-tau phase detection](../../fig/classic_network_dynamics_benchmark/large_kuramoto_pretransition_phi_tau_phase_detection.png)
+
+图 B 显示：超临界 $K>K_c$ 条件在整个共同早期窗内已有更陡、更高的 whole-state $\Phi^{EID}(\tau)$ 谱，而此时图 A 证明其 target 尚未发生强同步。以已知的 $K_c=1.596$ 作为模拟中的超临界参考标签，只输入 7 个早期 $\Phi(\tau)$ 值，使用 leave-one-$K$-out（完整留出该 $K$ 的 3 个 seed）逻辑回归，得到超临界识别 AUROC 为 $0.983$。将每一条谱除以自身最大值、仅保留形状后，AUROC 仍为 $0.972$；因此区分力不只是 $\Phi$ 的整体幅度，时间尺度上的增长形状也携带信息。图 C 展示了留出 $K$ 后的预测概率。
+
+##### A.2.3.1 识别算法与 AUROC 的计算
+
+这个实验不是在单条真实轨迹上拟合未来标签，而是一个受控的 Oracle 可辨识性检验。数据单位是一个固定耦合和随机 seed 的组合 $(K,s)$。共有 17 个 $K$ 值、3 个 seed，因此有 $17\times3=51$ 个样本。对每个样本，先从同一 seed 的均匀初始相位 intervention support 出发，分别积分到 7 个早期 horizon，并计算 whole-state N-source 指标。输入特征向量为
+
+$$
+\mathbf{x}_{K,s}=
+\left[
+\Phi^{EID}_{K,s}(0.1),
+\Phi^{EID}_{K,s}(0.2),
+\Phi^{EID}_{K,s}(0.3),
+\Phi^{EID}_{K,s}(0.4),
+\Phi^{EID}_{K,s}(0.5),
+\Phi^{EID}_{K,s}(0.6),
+\Phi^{EID}_{K,s}(0.75)
+\right].
+$$
+
+这里的每个 $\Phi^{EID}_{K,s}(\tau)$ 都是同一 whole-state 目标和同一 N-source transport-map estimator 下的
+
+$$
+\Phi^{EID}=EI_{\mathrm{do}}(\mathbf{S};\mathbf{Y}_{\tau})
+-\sum_{i=1}^{64}EI_{\mathrm{do}}(\mathbf{s}_i;\mathbf{Y}_{\tau}),
+$$
+
+其中 $\mathbf{S}$ 是 64 个振子的联合当前相位特征，$\mathbf{s}_i$ 是第 $i$ 个振子的二维相位特征，$\mathbf{Y}_{\tau}$ 是 $\tau$ 后的 128 维 whole-state phase target。保留一个特征前，先审计自然 readout target 的 $R_{0.99}$；只有本实验中全部 $51$ 个样本都满足 $R_{0.99}<0.8$ 的共同 horizon 才进入上式。故模型没有看到已经强同步的 future target。
+
+二分类标签不由 $\Phi$、早期 $R$ 或长时间 $R$ 阈值产生，而是由生成模型中已知的理论边界独立给出：
+
+$$
+y_K=\mathbb{I}(K>K_c),\qquad K_c=1.595769\ldots .
+$$
+
+这样标签表示“若继续演化，该参数属于超临界动力学区间”，而不是声称有限 $N$ 系统在一个任意 order 阈值处发生严格相变。每个样本另计算到 $\tau=20$ 的 raw order，作为连续审计量，但它不参与标签和分类器训练。
+
+评估采用真正的 leave-one-$K$-out（LOKO）流程。对每个待测耦合 $K_*$：
+
+1. 从训练集删除 $K_*$ 的全部 3 个 seed，只用其余 $16\times3=48$ 个样本。
+2. 仅在这 48 个训练样本上，对每个特征维度计算均值 $\mu_j^{\mathrm{train}}$ 和标准差 $\sigma_j^{\mathrm{train}}$，并做标准化：
+
+   $$
+   \widetilde{x}_{ij}=\frac{x_{ij}-\mu_j^{\mathrm{train}}}{\sigma_j^{\mathrm{train}}}.
+   $$
+
+3. 在标准化后的训练集拟合固定正则强度 $C=1$ 的 logistic regression：
+
+   $$
+   \widehat p_{K,s}=\sigma\left(b+\mathbf{w}^{\mathsf T}\widetilde{\mathbf{x}}_{K,s}\right),
+   \qquad
+   \sigma(z)=\frac{1}{1+e^{-z}}.
+   $$
+
+4. 用该模型预测被完整留出的 3 个 $(K_*,s)$ 样本；遍历 17 个 $K_*$ 后，得到 51 个没有使用自身 $K$ 训练过的预测概率 $\widehat p_{K,s}$。
+
+AUROC 不取某一个分类阈值，而检验这些概率是否把超临界样本整体排在次临界样本之前。令 $\mathcal{P}$ 是 24 个正类样本（8 个超临界 $K$、每个 3 个 seed），$\mathcal{N}$ 是 27 个负类样本（9 个次临界 $K$、每个 3 个 seed），则
+
+$$
+\operatorname{AUROC}
+=
+\frac{1}{|\mathcal{P}|\,|\mathcal{N}|}
+\sum_{p\in\mathcal{P}}\sum_{n\in\mathcal{N}}
+\left[
+\mathbb{I}(\widehat p_p>\widehat p_n)
++\frac{1}{2}\mathbb{I}(\widehat p_p=\widehat p_n)
+\right].
+$$
+
+本结果的 raw-spectrum AUROC 为 $0.9830247$，即 648 个正负样本对中有 637 对被正确排序（无并列时为 $637/648$）。shape-only 版本先将每个样本的谱除以该谱的最大值，再重复完全相同的 LOKO 流程；其 AUROC 为 $0.9722222$，即 630/648 对正确排序。后者是“谱形仍可分”的证据，而不是额外使用了 $K$、order parameter 或未来同步状态。
+
+这里应把次临界状态称为**去相干／次临界动力学**，而不是默认称为“混沌相”：经典全局耦合 Kuramoto 的 $K<K_c$ 解一般可以是非同步的准周期运动，但不由本实验自动证明为严格混沌。有限 $N$ 下同步是 crossover，长时间 raw order 因而保留为连续审计量而未被任意阈值二分。当前结果的含义是：在这个已知方程、已知 $K_c$ 的 Oracle setting 中，早期 $\Phi(\tau)$ 谱可以预报未来进入超临界区；要转化为真实观测数据的预警器，仍需在未知参数、噪声、部分观测和独立时变轨迹上重新校准。
+
+#### A.2.4 系统规模边界：只有大系统提供临界峰参照
+
+![Kuramoto oscillator-count appendix](../../fig/part1_kuramoto_size_phi_eid_appendix.png)
+
+该对照只展示 Oracle $\Phi^{EID}$ 与 corrected order，不再混入学习模型读出。**小 $N=2$ classic Kuramoto。** 在相同 whole-state 口径下，Oracle $\Phi^{EID}$ 没有形成清楚的内部临界峰；它在当前扫描范围内主要随强耦合增强，到 `K=4.0` 约为 `0.96` bits。`N=2` 的 corrected order 也不是热力学意义下的相变曲线，而是有限二振子锁相读数。
+
+**大 $N=64$ classic Kuramoto。** 在完全相同的方程、source partition、whole-state target 和 $\Phi^{EID}$ 公式下，corrected global order 从低 $K$ 的近零状态进入高 $K$ 同步饱和区。理论临界耦合为 $K_c\approx1.596$；有限时间读出下最大斜率出现在 `K=2.2`。对应 Oracle N-source $\Phi^{EID}$ 从 `K=0` 的 `0` bits 升高，在 `K=1.7` 达峰，约 `279.63` bits；随后进入强同步区后明显回落，`K=4.0` 约 `13.58` bits。
+
+这个边界对照说明，在方程形式、source/target 和 EI 分解公式都固定后，是否出现临界内部峰主要取决于系统规模。`N=2` 没有经典 Kuramoto 的热力学同步相变，所以不能期待它给出与大系统相同的 $\Phi^{EID}$ 峰；`N=64` 才提供清晰的 order-parameter 转变参照。
+
+因此，Kuramoto 临界相变实验的核心证据链是三步：order parameter 给出同步转变区，whole-state $\Phi^{EID}$ 在转变前沿形成峰值，determinism/degeneracy 分解说明该峰来自“联合相位构型仍可区分、单振子读出快速冗余化”的差异，而不是来自总 EI、determinism 或 degeneracy 任一单项的简单最大化。
