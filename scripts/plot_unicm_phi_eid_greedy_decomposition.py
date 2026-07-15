@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
-from dataclasses import dataclass
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -19,6 +17,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.plot_unicm_all_mode_target_pair_syn import extract_all_mode_target, parse_leads  # noqa: E402
+from scripts.phi_hierarchy import (  # noqa: E402
+    PhiAtom as GreedyAtom,
+    all_nonempty_subsets,
+    greedy_phi_atoms,
+    nontrivial_bipartitions,
+    subset_phi_raw,
+)
 from scripts.unicm_peid_syn_analysis import (  # noqa: E402
     MODE_NAMES,
     load_full_history_prediction_cache,
@@ -29,14 +34,6 @@ from scripts.unicm_peid_syn_analysis import (  # noqa: E402
 DEFAULT_CACHE_DIR = ROOT / "results" / "unicm_overall_ei_cpu_bound4_n8192" / "cache"
 DEFAULT_OUTPUT_DIR = ROOT / "results" / "unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192"
 DEFAULT_ASSET_BASE = ROOT / "fig" / "unicm_phi_eid_greedy_decomposition"
-
-
-@dataclass(frozen=True)
-class GreedyAtom:
-    sources: tuple[str, ...]
-    value: float
-    kind: str
-    depth: int
 
 
 def _safe_logdet(matrix: np.ndarray) -> float:
@@ -56,11 +53,7 @@ def _regularized_logdet(covariance: np.ndarray, *, jitter: float = 1.0e-6) -> fl
 
 
 def _all_mode_subsets(mode_names: Sequence[str]) -> list[tuple[str, ...]]:
-    names = tuple(str(name) for name in mode_names)
-    subsets: list[tuple[str, ...]] = []
-    for size in range(1, len(names) + 1):
-        subsets.extend(tuple(combo) for combo in itertools.combinations(names, size))
-    return subsets
+    return all_nonempty_subsets(mode_names)
 
 
 def _source_columns_for_subset(
@@ -123,88 +116,6 @@ def compute_subset_ei_table_from_covariance(
         value = 0.5 * (float(source_logdets[subset]) + target_logdet - joint_logdet) / np.log(2.0)
         table[subset] = float(value)
     return table
-
-
-def subset_phi_raw(subset: tuple[str, ...], ei_table: Mapping[tuple[str, ...], float], singleton_ei: Mapping[str, float]) -> float:
-    return float(ei_table[subset] - sum(float(singleton_ei[name]) for name in subset))
-
-
-def nontrivial_bipartitions(subset: Sequence[str]) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
-    ordered = tuple(str(name) for name in subset)
-    if len(ordered) <= 1:
-        return []
-    first = ordered[0]
-    rest = ordered[1:]
-    full = set(ordered)
-    splits: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
-    for mask in range(1 << len(rest)):
-        left = {first}
-        for idx, name in enumerate(rest):
-            if mask & (1 << idx):
-                left.add(name)
-        if len(left) == len(ordered):
-            continue
-        right = full - left
-        left_tuple = tuple(name for name in ordered if name in left)
-        right_tuple = tuple(name for name in ordered if name in right)
-        splits.append((left_tuple, right_tuple))
-    return splits
-
-
-def greedy_phi_atoms(
-    subset: tuple[str, ...],
-    ei_table: Mapping[tuple[str, ...], float],
-    *,
-    eps: float = 1.0e-5,
-    split_tolerance: float = 1.0e-4,
-    depth: int = 0,
-    singleton_ei: Mapping[str, float] | None = None,
-) -> list[GreedyAtom]:
-    if singleton_ei is None:
-        singleton_ei = {name: float(ei_table[(name,)]) for name in subset}
-    block_phi = subset_phi_raw(subset, ei_table, singleton_ei)
-    if len(subset) <= 1 or block_phi <= float(eps):
-        return []
-
-    best: tuple[float, float, tuple[str, ...], tuple[str, ...]] | None = None
-    for left, right in nontrivial_bipartitions(subset):
-        left_phi = subset_phi_raw(left, ei_table, singleton_ei)
-        right_phi = subset_phi_raw(right, ei_table, singleton_ei)
-        residual = block_phi - left_phi - right_phi
-        if residual < -float(split_tolerance):
-            continue
-        captured = left_phi + right_phi
-        if best is None or captured > best[0] or (np.isclose(captured, best[0]) and residual < best[1]):
-            best = (captured, residual, left, right)
-
-    if best is None or best[0] <= float(eps):
-        return [GreedyAtom(subset, block_phi, "terminal", int(depth))]
-
-    captured, residual, left, right = best
-    atoms: list[GreedyAtom] = []
-    if residual > float(eps):
-        atoms.append(GreedyAtom(subset, residual, "split_residual", int(depth)))
-    atoms.extend(
-        greedy_phi_atoms(
-            left,
-            ei_table,
-            eps=eps,
-            split_tolerance=split_tolerance,
-            depth=depth + 1,
-            singleton_ei=singleton_ei,
-        )
-    )
-    atoms.extend(
-        greedy_phi_atoms(
-            right,
-            ei_table,
-            eps=eps,
-            split_tolerance=split_tolerance,
-            depth=depth + 1,
-            singleton_ei=singleton_ei,
-        )
-    )
-    return atoms
 
 
 def summarize_atom_rows(rows: pd.DataFrame, totals: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:

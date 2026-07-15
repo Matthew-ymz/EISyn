@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-import itertools
 import json
 import math
 import os
@@ -32,6 +31,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from exp.TM.transport_map_density import estimate_mutual_information_transport_map
+from scripts.phi_hierarchy import (  # noqa: E402
+    SIGNED,
+    PhiAtom as SignedAtom,
+    all_nonempty_subsets,
+    greedy_phi_atoms,
+    subset_phi_raw,
+)
 
 
 DEFAULT_DATA = ROOT / "data/platform_topic_heat_index_hourly_model_ready.csv"
@@ -70,14 +76,6 @@ class FittedTransition:
     models: list[Ridge]
     residual_covariance: np.ndarray
     feature_columns: int
-
-
-@dataclass(frozen=True)
-class SignedAtom:
-    sources: tuple[str, ...]
-    value: float
-    kind: str
-    depth: int
 
 
 def sigmoid(values: np.ndarray) -> np.ndarray:
@@ -263,46 +261,16 @@ def nearest_positive_definite(matrix: np.ndarray, floor: float = 1.0e-8) -> np.n
 
 
 def all_subsets(names: Sequence[str]) -> list[tuple[str, ...]]:
-    return [combo for size in range(1, len(names) + 1) for combo in itertools.combinations(names, size)]
+    return all_nonempty_subsets(names)
 
 
 def subset_phi(subset: tuple[str, ...], ei: Mapping[tuple[str, ...], float]) -> float:
-    return float(ei[subset] - sum(float(ei[(name,)]) for name in subset))
-
-
-def bipartitions(names: tuple[str, ...]) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
-    if len(names) <= 1:
-        return []
-    first, rest = names[0], names[1:]
-    partitions = []
-    for mask in range(1 << len(rest)):
-        left_set = {first, *(name for bit, name in enumerate(rest) if mask & (1 << bit))}
-        if len(left_set) == len(names):
-            continue
-        left = tuple(name for name in names if name in left_set)
-        right = tuple(name for name in names if name not in left_set)
-        partitions.append((left, right))
-    return partitions
+    return subset_phi_raw(subset, ei)
 
 
 def signed_greedy_atoms(names: tuple[str, ...], ei: Mapping[tuple[str, ...], float], depth: int = 0) -> list[SignedAtom]:
-    block_phi = subset_phi(names, ei)
-    if len(names) <= 1:
-        return []
-    candidates = []
-    for left, right in bipartitions(names):
-        captured = subset_phi(left, ei) + subset_phi(right, ei)
-        residual = block_phi - captured
-        candidates.append((captured, abs(residual), left, right, residual))
-    captured, _, left, right, residual = max(candidates, key=lambda item: (item[0], -item[1]))
-    if captured <= EPS:
-        return [SignedAtom(names, block_phi, "terminal", depth)]
-    atoms = []
-    if abs(residual) > EPS:
-        atoms.append(SignedAtom(names, residual, "split_residual", depth))
-    atoms.extend(signed_greedy_atoms(left, ei, depth + 1))
-    atoms.extend(signed_greedy_atoms(right, ei, depth + 1))
-    return atoms
+    """Backward-compatible platform adapter for the shared signed hierarchy."""
+    return greedy_phi_atoms(names, ei, policy=SIGNED, eps=EPS, depth=depth)
 
 
 def interventional_samples(
@@ -312,6 +280,7 @@ def interventional_samples(
     *,
     sample_count: int,
     seed: int,
+    distribution: str = "bounded_uniform",
 ) -> tuple[np.ndarray, np.ndarray, dict[str, list[int]], list[list[float]]]:
     x, _, _, x_observed = make_supervised(values, observed, fit.config.order)
     x_z = (x - fit.x_mean) / fit.x_scale
@@ -323,7 +292,12 @@ def interventional_samples(
         if upper[column] - lower[column] < 1.0e-8:
             lower[column], upper[column] = lower[column] - 0.5, upper[column] + 0.5
     rng = np.random.default_rng(seed)
-    source_z = rng.uniform(lower, upper, size=(int(sample_count), x.shape[1]))
+    if distribution == "bounded_uniform":
+        source_z = rng.uniform(lower, upper, size=(int(sample_count), x.shape[1]))
+    elif distribution == "standard_normal":
+        source_z = rng.normal(size=(int(sample_count), x.shape[1]))
+    else:
+        raise ValueError(f"Unsupported intervention distribution: {distribution!r}")
     design = expanded_features(source_z, fit.config)
     mean_target = np.column_stack([model.predict(design) for model in fit.models])
     noise = rng.multivariate_normal(np.zeros(len(PLATFORMS)), fit.residual_covariance, size=int(sample_count))
@@ -341,8 +315,16 @@ def compute_phi(
     sample_count: int,
     seed: int,
     tm_degree: int,
+    intervention_distribution: str = "bounded_uniform",
 ) -> tuple[pd.DataFrame, list[SignedAtom], dict[str, Any]]:
-    source, target, blocks, bounds = interventional_samples(values, observed, fit, sample_count=sample_count, seed=seed)
+    source, target, blocks, bounds = interventional_samples(
+        values,
+        observed,
+        fit,
+        sample_count=sample_count,
+        seed=seed,
+        distribution=intervention_distribution,
+    )
     ei: dict[tuple[str, ...], float] = {}
     for subset in all_subsets(PLATFORMS):
         columns = [column for name in subset for column in blocks[name]]
@@ -358,7 +340,7 @@ def compute_phi(
         "seed": int(seed),
         "tm_degree": int(tm_degree),
         "tm_backend": f"polynomial_triangular_transport_map_degree_{int(tm_degree)}",
-        "intervention": "independent bounded-uniform over every platform-history coordinate",
+        "intervention": f"independent {intervention_distribution} over every platform-history coordinate",
         "source_bounds_standardized": bounds,
         "source_blocks": blocks,
         "overall_phi_bits": subset_phi(full, ei),
@@ -369,8 +351,18 @@ def compute_phi(
     return pd.DataFrame(rows), atoms, audit
 
 
-def config_digest(config: Config, sample_count: int, tm_degree: int) -> str:
-    payload = json.dumps({"config": asdict(config), "sample_count": sample_count, "tm_degree": tm_degree}, sort_keys=True, ensure_ascii=False)
+def config_digest(
+    config: Config,
+    sample_count: int,
+    tm_degree: int,
+    intervention_distribution: str = "bounded_uniform",
+) -> str:
+    payload_data: dict[str, Any] = {"config": asdict(config), "sample_count": sample_count, "tm_degree": tm_degree}
+    # Preserve compatibility with the existing bounded-uniform cache while
+    # ensuring alternate intervention semantics never share its null samples.
+    if intervention_distribution != "bounded_uniform":
+        payload_data["intervention_distribution"] = intervention_distribution
+    payload = json.dumps(payload_data, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -431,12 +423,13 @@ def null_distribution(
     replicates: int,
     sample_count: int,
     tm_degree: int,
+    intervention_distribution: str,
     seed: int,
     cache_path: Path,
     status_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     started_at = time.monotonic()
-    digest = config_digest(config, sample_count, tm_degree)
+    digest = config_digest(config, sample_count, tm_degree, intervention_distribution)
     cached = {int(row["replicate"]): row for row in read_null_cache(cache_path, digest)}
     write_progress_status(
         status_path,
@@ -458,7 +451,15 @@ def null_distribution(
             shifted_observed = np.column_stack([np.roll(observed[:, column], int(shifts[replicate, column])) for column in range(len(PLATFORMS))])
             x, y, y_observed, _ = make_supervised(shifted_values, shifted_observed, config.order)
             fit = fit_transition(x, y, y_observed, np.arange(len(x), dtype=int), config)
-            _, atoms, audit = compute_phi(shifted_values, shifted_observed, fit, sample_count=sample_count, seed=seed + 10_000 + replicate, tm_degree=tm_degree)
+            _, atoms, audit = compute_phi(
+                shifted_values,
+                shifted_observed,
+                fit,
+                sample_count=sample_count,
+                seed=seed + 10_000 + replicate,
+                tm_degree=tm_degree,
+                intervention_distribution=intervention_distribution,
+            )
         except Exception as error:
             write_progress_status(status_path, started_at=started_at, current=len(results), total=int(replicates), phase="failed", message=str(error))
             raise
@@ -545,11 +546,30 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     write_csv(test_predictions, output / "test_predictions.csv")
     x, y, y_observed, _ = make_supervised(values, observed, config.order)
     final_fit = fit_transition(x, y, y_observed, np.arange(len(x), dtype=int), config)
-    subset_table, atoms, phi_audit = compute_phi(values, observed, final_fit, sample_count=int(args.tm_samples), seed=int(args.seed), tm_degree=int(args.tm_degree))
+    subset_table, atoms, phi_audit = compute_phi(
+        values,
+        observed,
+        final_fit,
+        sample_count=int(args.tm_samples),
+        seed=int(args.seed),
+        tm_degree=int(args.tm_degree),
+        intervention_distribution=str(args.intervention_distribution),
+    )
     write_csv(subset_table, output / "subset_ei_phi.csv")
     atom_table = pd.DataFrame([{"sources": " + ".join(atom.sources), "value_bits": atom.value, "kind": atom.kind, "depth": atom.depth} for atom in atoms])
     write_csv(atom_table, output / "hierarchy_atoms.csv")
-    null_rows = null_distribution(values, observed, config, replicates=int(args.null_replicates), sample_count=int(args.tm_samples), tm_degree=int(args.tm_degree), seed=int(args.seed), cache_path=output / "null_replicates.jsonl", status_path=args.status_path)
+    null_rows = null_distribution(
+        values,
+        observed,
+        config,
+        replicates=int(args.null_replicates),
+        sample_count=int(args.tm_samples),
+        tm_degree=int(args.tm_degree),
+        intervention_distribution=str(args.intervention_distribution),
+        seed=int(args.seed),
+        cache_path=output / "null_replicates.jsonl",
+        status_path=args.status_path,
+    )
     observed_phi = float(phi_audit["overall_phi_bits"])
     null_values = np.asarray([float(row["overall_phi_bits"]) for row in null_rows])
     null_summary = {
@@ -572,7 +592,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "residual_covariance_standardized": final_fit.residual_covariance.tolist(),
         "phi": phi_audit,
         "null": {"method": "independent non-zero circular shifts by platform; selected hyperparameters fixed", **null_summary},
-        "limitations": ["Zotero connector unavailable; TM/PEID method follows repository implementation.", "Small sample and 43 imputed Kuaishou values limit inferential power.", "Phi concerns the fitted transition under a bounded uniform intervention, not observed-platform absolute volume."],
+        "limitations": ["Zotero connector unavailable; TM/PEID method follows repository implementation.", "Small sample and 43 imputed Kuaishou values limit inferential power.", f"Phi concerns the fitted transition under an independent {args.intervention_distribution} intervention, not observed-platform absolute volume."],
     }
     (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return summary
@@ -586,6 +606,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--status-path", type=Path, default=DEFAULT_STATUS)
     parser.add_argument("--tm-samples", type=int, default=8192)
     parser.add_argument("--tm-degree", type=int, default=2)
+    parser.add_argument("--intervention-distribution", choices=["bounded_uniform", "standard_normal"], default="bounded_uniform")
     parser.add_argument("--null-replicates", type=int, default=200)
     parser.add_argument("--seed", type=int, default=20260714)
     return parser

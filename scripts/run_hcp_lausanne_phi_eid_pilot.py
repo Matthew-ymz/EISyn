@@ -17,6 +17,11 @@ from sklearn.linear_model import Ridge
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.phi_hierarchy import PhiAtom as GreedyAtom, greedy_phi_atoms as _greedy_phi_atoms, subset_phi_raw
+
 DEFAULT_OUTPUT_DIR = ROOT / "results" / "hcp_lausanne_phi_eid_pilot"
 DEFAULT_FIG_NULL = ROOT / "fig" / "hcp_lausanne_phi_eid_null_comparison"
 DEFAULT_FIG_DECOMP = ROOT / "fig" / "hcp_lausanne_phi_eid_decomposition"
@@ -55,14 +60,6 @@ class HcpRunPaths:
     functional: Path
     aparc_aseg: Path
     motion: Path | None
-
-
-@dataclass(frozen=True)
-class GreedyAtom:
-    sources: tuple[str, ...]
-    value: float
-    kind: str
-    depth: int
 
 
 def build_freesurfer_lausanne83_mapping() -> dict[int, str]:
@@ -409,34 +406,6 @@ def module_indices_from_labels(labels: Sequence[str]) -> dict[str, list[int]]:
     return {name: indices for name, indices in grouped.items() if indices}
 
 
-def subset_phi_raw(
-    subset: tuple[str, ...],
-    ei_table: Mapping[tuple[str, ...], float],
-    singleton_ei: Mapping[str, float],
-) -> float:
-    return float(ei_table[tuple(subset)] - sum(float(singleton_ei[name]) for name in subset))
-
-
-def nontrivial_bipartitions(subset: Sequence[str]) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
-    ordered = tuple(str(name) for name in subset)
-    if len(ordered) <= 1:
-        return []
-    first = ordered[0]
-    rest = ordered[1:]
-    full = set(ordered)
-    splits: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
-    for mask in range(1 << len(rest)):
-        left = {first}
-        for index, name in enumerate(rest):
-            if mask & (1 << index):
-                left.add(name)
-        if len(left) == len(ordered):
-            continue
-        right = full - left
-        splits.append((tuple(name for name in ordered if name in left), tuple(name for name in ordered if name in right)))
-    return splits
-
-
 def greedy_phi_atoms(
     subset: tuple[str, ...],
     ei_table: Mapping[tuple[str, ...], float],
@@ -446,33 +415,15 @@ def greedy_phi_atoms(
     depth: int = 0,
     singleton_ei: Mapping[str, float] | None = None,
 ) -> list[GreedyAtom]:
-    if singleton_ei is None:
-        singleton_ei = {name: float(ei_table[(name,)]) for name in subset}
-    block_phi = subset_phi_raw(subset, ei_table, singleton_ei)
-    if len(subset) <= 1 or block_phi <= float(eps):
-        return []
-
-    best: tuple[float, float, tuple[str, ...], tuple[str, ...]] | None = None
-    for left, right in nontrivial_bipartitions(subset):
-        left_phi = subset_phi_raw(left, ei_table, singleton_ei)
-        right_phi = subset_phi_raw(right, ei_table, singleton_ei)
-        residual = block_phi - left_phi - right_phi
-        if residual < -float(split_tolerance):
-            continue
-        captured = left_phi + right_phi
-        if best is None or captured > best[0] or (np.isclose(captured, best[0]) and residual < best[1]):
-            best = (captured, residual, left, right)
-
-    if best is None or best[0] <= float(eps):
-        return [GreedyAtom(subset, max(0.0, block_phi), "terminal", int(depth))]
-
-    _, residual, left, right = best
-    atoms: list[GreedyAtom] = []
-    if residual > float(eps):
-        atoms.append(GreedyAtom(subset, max(0.0, residual), "split_residual", int(depth)))
-    atoms.extend(greedy_phi_atoms(left, ei_table, eps=eps, split_tolerance=split_tolerance, depth=depth + 1, singleton_ei=singleton_ei))
-    atoms.extend(greedy_phi_atoms(right, ei_table, eps=eps, split_tolerance=split_tolerance, depth=depth + 1, singleton_ei=singleton_ei))
-    return atoms
+    """Backward-compatible Brain adapter for the shared nonnegative hierarchy."""
+    return _greedy_phi_atoms(
+        subset,
+        ei_table,
+        eps=eps,
+        split_tolerance=split_tolerance,
+        depth=depth,
+        singleton_ei=singleton_ei,
+    )
 
 
 def ei_for_source_indices(transition: np.ndarray, noise: np.ndarray, selected: Sequence[int], *, ridge: float) -> float:
