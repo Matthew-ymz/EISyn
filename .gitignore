@@ -56,6 +56,7 @@ tests/*
 !tests/test_runge_t2m_daily_weekmean.py
 !tests/test_unicm_shap_surrogate.py
 !tests/test_hcp_lausanne_phi_eid_pilot.py
+!tests/test_brain_surface_plot.py
 *.pt
 *.pth
 *.ckpt

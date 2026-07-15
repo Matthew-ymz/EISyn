@@ -15,6 +15,7 @@ from scripts.plot_dmf_fixed_uniform_multihorizon import configure_matplotlib, sa
 
 
 DMF_PATH = ROOT / "results" / "dmf_fullstate_uniform_support" / "confirm_c050_h020_tau300_n2048_no_clip_seeds3_10.npz"
+MEAN_RATE_PATH = ROOT / "exp" / "brain" / "result_lausanne_fig6" / "count_00_fig6b_mean_rate.npz"
 KURAMOTO_PATH = ROOT / "results" / "classic_network_dynamics_benchmark" / "large_kuramoto_oracle_nsource_whole_state_tau_sweep_n64.json"
 OUTPUT_DIR = ROOT / "fig"
 CRITICAL_COUPLING = 1.5957691216057306
@@ -37,6 +38,16 @@ def load_dmf() -> dict[str, np.ndarray]:
                 archive["singleton_conditional_entropy_sum"], dtype=float,
             )[direct_index],
         }
+
+
+def load_mean_rate() -> dict[str, np.ndarray]:
+    """Load the dense spontaneous-DMF firing-rate sweep used as order parameter."""
+    with np.load(MEAN_RATE_PATH) as archive:
+        rate_g = np.asarray(archive["G"], dtype=float)
+        mean_rate = np.asarray(archive["mean_rate_hz"], dtype=float)
+    if rate_g.shape != mean_rate.shape or rate_g.ndim != 1:
+        raise ValueError("Mean-rate G and value arrays must be matching one-dimensional curves.")
+    return {"G": rate_g, "mean_rate_hz": mean_rate}
 
 
 def load_kuramoto() -> dict[str, np.ndarray]:
@@ -73,21 +84,28 @@ def format_axis(axis, ylabel: str, panel: str) -> None:
     axis.text(-0.18, 1.05, panel, transform=axis.transAxes, fontsize=12, fontweight="bold")
 
 
-def plot_dmf_confirmation(dmf: dict[str, np.ndarray]) -> None:
+def plot_dmf_confirmation(dmf: dict[str, np.ndarray], mean_rate: dict[str, np.ndarray]) -> None:
     import matplotlib.pyplot as plt
 
     configure_matplotlib()
-    fig, axes = plt.subplots(1, 2, figsize=(7.9, 3.0), constrained_layout=True)
-    add_mean_sem(axes[0], dmf["G"], dmf["whole_ei"], color="#0072B2", label="Whole EI")
-    add_mean_sem(
-        axes[0], dmf["G"], dmf["singleton_ei_sum"], color="#D55E00", label="Sum of regional EI",
-    )
-    format_axis(axes[0], "Effective information (bits)", "A")
-    axes[0].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+    fig, axes = plt.subplots(1, 3, figsize=(11.2, 3.0), constrained_layout=True)
+    axes[0].plot(mean_rate["G"], mean_rate["mean_rate_hz"], color="0.35", lw=1.2, zorder=1)
+    axes[0].scatter(mean_rate["G"], mean_rate["mean_rate_hz"], color="black", s=15, zorder=2)
+    format_axis(axes[0], "Mean firing rate (Hz)", "A")
 
-    add_mean_sem(axes[1], dmf["G"], dmf["phi_eid"], color="#6A3D9A", label=r"$\Phi^{EID}$")
-    axes[1].axhline(0.0, color="0.55", lw=0.8, ls="--")
-    format_axis(axes[1], r"$\Phi^{EID}$ (bits)", "B")
+    add_mean_sem(axes[1], dmf["G"], dmf["whole_ei"], color="#0072B2", label="Whole EI")
+    add_mean_sem(
+        axes[1], dmf["G"], dmf["singleton_ei_sum"], color="#D55E00", label="Sum of regional EI",
+    )
+    format_axis(axes[1], "Effective information (bits)", "B")
+    axes[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.23), ncol=2, frameon=False)
+
+    add_mean_sem(axes[2], dmf["G"], dmf["phi_eid"], color="#6A3D9A", label=r"$\Phi^{EID}$")
+    axes[2].scatter(
+        dmf["G"], np.mean(dmf["phi_eid"], axis=0), color="#6A3D9A", s=18, zorder=3,
+    )
+    axes[2].axhline(0.0, color="0.55", lw=0.8, ls="--")
+    format_axis(axes[2], r"$\Phi^{EID}$ (bits)", "C")
     save_figure(fig, OUTPUT_DIR / "dmf_fullstate_maxent_critical_confirmation")
 
 
@@ -252,7 +270,7 @@ def plot_integrated_determinism_degeneracy(dmf: dict[str, np.ndarray]) -> None:
 
 def main() -> None:
     dmf = load_dmf()
-    plot_dmf_confirmation(dmf)
+    plot_dmf_confirmation(dmf, load_mean_rate())
     plot_shape_alignment(dmf, load_kuramoto())
     plot_determinism_degeneracy(dmf)
     plot_integrated_determinism_degeneracy_raw(dmf)

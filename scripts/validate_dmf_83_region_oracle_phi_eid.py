@@ -57,6 +57,7 @@ def gaussian_singleton_source_phi(
     target: np.ndarray,
     *,
     ridge: float,
+    factorize_source_covariance: bool = True,
 ) -> dict[str, object]:
     source_array = np.asarray(source, dtype=float)
     target_array = np.asarray(target, dtype=float)
@@ -69,7 +70,11 @@ def gaussian_singleton_source_phi(
     target_dim = target_array.shape[1]
     empirical_source_cov = np.cov(source_array, rowvar=False, bias=False)
     empirical_source_cov = np.atleast_2d(empirical_source_cov)
-    source_cov = np.diag(np.diag(empirical_source_cov))
+    source_cov = (
+        np.diag(np.diag(empirical_source_cov))
+        if factorize_source_covariance
+        else empirical_source_cov.copy()
+    )
     source_cov += float(ridge) * np.eye(source_dim)
 
     coefficient, *_ = np.linalg.lstsq(source_array, target_array, rcond=None)
@@ -136,6 +141,7 @@ def gaussian_singleton_source_phi(
         "singleton_conditional_entropy_sum": float(np.sum(singleton_conditional_entropy)),
         "noise_condition_number": float(np.linalg.cond(noise_cov)),
         "source_condition_number": float(np.linalg.cond(source_cov)),
+        "factorized_source_covariance": bool(factorize_source_covariance),
     }
 
 
