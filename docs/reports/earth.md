@@ -333,12 +333,12 @@ $$
 
 ### 4.3 系统级 PhiEID 的中期增强
 
-以全部 11 个模态的未来状态为共同目标，计算系统级联合增量
+令 $\mathbf{x}_t$ 表示截至时刻 $t$ 的 12 个月系统历史，$\mathbf{x}_t^m$ 表示其中第 $m$ 个模态的历史，$\mathbf{x}_{t+\ell}$ 表示 lead $\ell$ 的全模态未来状态。系统级联合增量为
 
 $$
 \Phi^{\mathrm{EID}}_{\ell}
-= I(\mathbf{X}^{1:12}_{1:11};\mathbf{y}_{\ell}^{\mathrm{all}})
-- \sum_{m=1}^{11} I(\mathbf{X}^{1:12}_{m};\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.2}
+= EI(\mathbf{x}_t;\mathbf{x}_{t+\ell})
+- \sum_{m=1}^{11} EI(\mathbf{x}_t^m;\mathbf{x}_{t+\ell}). \tag{4.2}
 $$
 
 式（4.2）的源划分由 11 个单模态块组成，每个块包含该模态 12 个月的历史。实现不对单项 EI、\(\Phi^{\mathrm{EID}}\) 或分解残差施加非负截断；在当前结果中它们均保持理论预期的非负性。若未来运行出现负值，将作为估计或数值诊断直接报告，而不会改写为零。这一高维读数仍采用 Gaussian log-det 筛查，不等同于最终的非线性 transport-map PEID。
@@ -357,82 +357,48 @@ $$
 
 #### 分解定义与闭合关系
 
-设全集为 $S=\{1,\ldots,11\}$，每个元素对应一个 UniCM 模态。对任意非空集合 $C\subseteq S$，令 $\mathbf{x}_C$ 表示集合内所有模态的 12 个月历史，$\mathbf{y}_{\ell}^{\mathrm{all}}$ 表示 lead $\ell$ 的全模态目标。集合的原始联合增量定义为
+分解直接从式（4.2）的系统级 $\Phi^{\mathrm{EID}}_{\ell}$ 开始，不再为根集合另设符号。在固定 lead $\ell$ 下，对递归中的任意非空模态块 $C$，用 $\mathbf{x}_t^C$ 表示块内模态的历史，并简写
 
 $$
-\widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}})
-= EI(\mathbf{x}_C;\mathbf{y}_{\ell}^{\mathrm{all}})
--\sum_{i\in C}EI(\mathbf{x}_i;\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.3}
+\Phi^{\mathrm{EID}}(C)
+=EI(\mathbf{x}_t^C;\mathbf{x}_{t+\ell}). \tag{4.3}
 $$
 
-式（4.3）先计算集合联合历史的 EI，再减去各单模态 EI 之和。正值表示联合读出包含单模态相加无法解释的信息；若出现负值，保留其 signed 数值作为估计或数值诊断。
+当 $C=\{i\}$ 时，式（4.3）自然退化为节点 $i$ 单独到未来状态的 EI。单节点只是递归的终点，不产生原子。
 
-现在把当前节点 $C$ 拆成两个互不重叠、并且并起来等于 $C$ 的子块：
+算法把当前块 $C$ 拆成两个非空子块：
 
 $$
 L\cap R=\varnothing,\qquad L\cup R=C,\qquad L\neq\varnothing,\qquad R\neq\varnothing. \tag{4.4}
 $$
 
-对每个候选二分 $(L,R)$，先计算两个子块已经能解释的协同量：
-
-$$
-B(L,R;\mathbf{y}_{\ell}^{\mathrm{all}})
-=\widetilde{\Phi}^{\mathrm{EID}}(L;\mathbf{y}_{\ell}^{\mathrm{all}})
-+\widetilde{\Phi}^{\mathrm{EID}}(R;\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.5}
-$$
-
-对每个二分先计算原始残差 \(r(C;L,R)=\widetilde{\Phi}^{\mathrm{EID}}(C)-B(L,R)\)。实现只保留满足 \(r(C;L,R)\ge-\tau\) 的可容许二分，其中 `split_tolerance` \(\tau=10^{-4}\)。在可容许集合 \(\mathcal{A}_{\tau}(C)\) 中，贪婪步骤选择 \(B\) 最大的二分；若 \(B\) 近似相同，则选择残差更小者：
+由分解的非负性，父块减去两个子块后的残差在理论上必为非负，因此直接在所有二分中选择两个子块 $\Phi^{\mathrm{EID}}$ 之和最大的一个：
 
 $$
 (L^\star,R^\star)
-=\underset{(L,R)\in\mathcal{A}_{\tau}(C)}{\arg\max}
-\left[
-\widetilde{\Phi}^{\mathrm{EID}}(L;\mathbf{y}_{\ell}^{\mathrm{all}})
-+\widetilde{\Phi}^{\mathrm{EID}}(R;\mathbf{y}_{\ell}^{\mathrm{all}})
-\right]. \tag{4.6}
+=\underset{L\cap R=\varnothing,\;L\cup R=C}{\arg\max}
+\,[\Phi^{\mathrm{EID}}(L)+\Phi^{\mathrm{EID}}(R)]. \tag{4.5}
 $$
 
-选定二分后，仅当残差超过 `eps` \(\varepsilon=10^{-5}\) 时，才把父块不能由两个子块解释的部分记录为残差原子：
+理论优化不需要额外的非负约束。实现中的 `split_tolerance` $\tau=10^{-4}$ 只用于吸收有限样本估计和浮点计算造成的微小负偏差；若候选值近似相同，则选择残差更小者。选定二分后，当前块留下的原子为
 
 $$
-\gamma_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=
-\widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}})
--\widetilde{\Phi}^{\mathrm{EID}}(L^\star;\mathbf{y}_{\ell}^{\mathrm{all}})
--\widetilde{\Phi}^{\mathrm{EID}}(R^\star;\mathbf{y}_{\ell}^{\mathrm{all}}).
-\tag{4.7}
+a_C=\Phi^{\mathrm{EID}}(C)-\Phi^{\mathrm{EID}}(L^\star)-\Phi^{\mathrm{EID}}(R^\star). \tag{4.6}
 $$
 
-因为 $L^\star$ 和 $R^\star$ 正好二分 $C$，单源项会相互抵消，所以上式也可以写成更直接的 EI 差：
+随后对 $L^\star$ 和 $R^\star$ 继续二分，直到每个分支只剩一个节点。特别地，当当前块只含两个节点 $C=\{i,j\}$ 时，唯一的二分是 $L=\{i\}$、$R=\{j\}$；此时式（4.6）中的 $\Phi^{\mathrm{EID}}(L)$ 和 $\Phi^{\mathrm{EID}}(R)$ 分别退化为节点 $i$ 和节点 $j$ 的单节点 EI。残差原子只定义在 $|C|\ge2$ 的内部节点上，不存在单节点原子 $a_{\{i\}}$。
+
+理论上，算法递归到所有叶节点均为单节点。把全部内部节点的式（4.6）相加时，每个非根内部节点的 $\Phi^{\mathrm{EID}}$ 都出现一次正号和一次负号，因而两两抵消；单节点 $\Phi^{\mathrm{EID}}$ 只作为叶项被减去。最终留下系统整体的联合 EI 减去所有单节点 EI，正好等于式（4.2）。因此闭合关系是严格恒等式：
 
 $$
-\gamma_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=
-EI(\mathbf{x}_C;\mathbf{y}_{\ell}^{\mathrm{all}})
--EI(\mathbf{x}_{L^\star};\mathbf{y}_{\ell}^{\mathrm{all}})
--EI(\mathbf{x}_{R^\star};\mathbf{y}_{\ell}^{\mathrm{all}}).
-\tag{4.8}
+\Phi^{\mathrm{EID}}_{\ell}=\sum_{|C|\ge2}a_C. \tag{4.7}
 $$
 
-如果 \(\gamma_C>\varepsilon\)，它表示分别联合读取两个子块后仍有信息只能由整个 \(C\) 读出。算法随后递归处理 \(L^\star\) 和 \(R^\star\)。当子块为 singleton、原始联合增量不超过 \(\varepsilon\)，或不存在捕获量超过 \(\varepsilon\) 的可容许二分时递归终止。最后一种情况没有对应的 \((L^\star,R^\star)\)，因此单独定义 terminal 原子
-
-$$
-\eta_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-=\widetilde{\Phi}^{\mathrm{EID}}(C;\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.9}
-$$
-
-因此，对根节点 $S$，算法得到一棵二分树、split-residual 原子集合 \(\mathcal{R}_{\ell}\) 和 terminal 原子集合 \(\mathcal{U}_{\ell}\)。在分解容差内，两类原子之和闭合到报告的系统级联合增量：
-
-$$
-\Phi^{\mathrm{EID}}(S;\mathbf{y}_{\ell}^{\mathrm{all}})
-\simeq
-\sum_{C\in\mathcal{R}_{\ell}}\gamma_C(\mathbf{y}_{\ell}^{\mathrm{all}})
-+\sum_{C\in\mathcal{U}_{\ell}}\eta_C(\mathbf{y}_{\ell}^{\mathrm{all}}). \tag{4.10}
-$$
+实现中等价地使用 $EI(C)$ 减去块内全部单节点 EI 的中心化值。由于 $L$ 和 $R$ 正好二分 $C$，这些单节点项在式（4.6）中严格抵消，并且对式（4.5）的所有候选二分都是同一个常数，因此不会改变二分选择或残差原子。实现可不记录 $a_C\le\varepsilon$ 的数值零项，其中 `eps` $\varepsilon=10^{-5}$；这只会使实际输出在浮点精度内近似闭合，不改变式（4.7）的数学等号。
 
 图中的阶数为 \(|C|\)：二阶表示源对残差，五阶表示五个模态必须一起读出的残差，`all 11 modes` 则表示根节点未被两个子块完全解释的全局残差。
 
-式（4.3）定义原始集合联合增量，式（4.4）—（4.6）在容差约束下选择最能解释父块协同的二分，式（4.7）—（4.8）给出 signed split-residual 原子，式（4.9）定义无可用正分解时的 terminal 原子，式（4.10）检验两类原子对总量的数值闭合。该输出是贪婪层级下的 signed 残差分布，不是严格的 Möbius 纯阶原子；其结果依赖二分路径、\(\tau\) 和 \(\varepsilon\)，应解释为“沿当前贪婪树仍需联合读取的模态集合”，而不是唯一的高阶信息分解。
+式（4.3）定义任意块的 $\Phi^{\mathrm{EID}}$，并在单节点处退化为该节点的 EI；式（4.4）—（4.5）选择最能解释父块的二分，式（4.6）定义至少二阶的残差原子，式（4.7）给出全部内部节点原子与系统总量的严格闭合关系。该输出不是严格的 Möbius 纯阶原子；其结果依赖二分路径和 $\varepsilon$，数值实现还会受到估计误差与容差设置的影响。因此，它应解释为“沿当前贪婪树仍需联合读取的模态集合”，而不是唯一的高阶信息分解。
 
 ![UniCM 全模态 PhiEID 的贪婪层级分解](../../fig/unicm_phi_eid_greedy_decomposition.png)
 
