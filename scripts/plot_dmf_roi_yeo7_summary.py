@@ -34,7 +34,7 @@ from scripts.plot_dmf_kuramoto_aligned_fullstate import (
 
 DEFAULT_TOPOLOGY = ROOT / "results" / "dmf_phi_eid_hierarchical_topology" / "critical_hierarchy.npz"
 DEFAULT_YEO7 = ROOT / "results" / "dmf_phi_eid_yeo7_hierarchy" / "critical_yeo7_hierarchy.npz"
-DEFAULT_WMS = ROOT / "results" / "dmf_83_whole_system_wms" / "aligned_observational_tau300_n2048_seeds3_10.npz"
+DEFAULT_WMS = ROOT / "results" / "dmf_83_whole_system_wms" / "aligned_observational_tau300_n2048_seeds3_10_dense_g01.npz"
 DEFAULT_OUTPUT = ROOT / "fig" / "dmf_roi_yeo7_critical_summary_wms.png"
 DEFAULT_PANEL_C_OUTPUT = ROOT / "fig" / "dmf_roi_yeo7_panel_c_observational_whole_system_wms.png"
 DEFAULT_BASE_FIGURE = ROOT / "fig" / "dmf_roi_yeo7_critical_summary_phi_axis_8_13.png"
@@ -63,10 +63,9 @@ def load_whole_system_wms(path: Path) -> dict[str, np.ndarray]:
         if str(np.asarray(archive["source_state"]).item()) != "se_si":
             raise ValueError("Aligned WMS cache must use the complete E/I source state.")
         g_values = np.asarray(archive["G"], dtype=float)
-        keep = g_values > 1.0
         return {
-            "G": g_values[keep],
-            "phi_wms": np.asarray(archive["phi_wms"], dtype=float)[:, keep],
+            "G": g_values,
+            "phi_wms": np.asarray(archive["phi_wms"], dtype=float),
         }
 
 
