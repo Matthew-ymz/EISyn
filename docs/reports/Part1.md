@@ -30,16 +30,16 @@ $$
 
 # 共同驱动冗余增强且二源结构协同固定
 
-这里固定 `alpha=1`，用 `beta` 增强 `x,y` 的共同驱动和弱边 `w→z`，同时保持二源结构项 `sin(x_t y_t)` 不变。
+这里固定 `alpha=1`，用 `beta` 增强 `x,y` 的共同驱动和直接边 `w→z`，同时保持二源结构项 `sin(x_t y_t)` 不变。为避免系数呈现出调参痕迹，结构系数只取 `1` 或 `0.5`：自回归项统一设为 `0.5`，`w→x/y` 的载荷统一设为 `1`，并消除原方程中 `x/y` 的人为不对称。
 
 动力学为
 
 $$
 \begin{aligned}
-w_{t+1} &= 0.78w_t + \eta^w_t,\\
-x_{t+1} &= 0.42x_t + 0.82\left(\beta w_t + \sqrt{1-\beta^2}\,\xi^x_t\right) + \eta^x_t,\\
-y_{t+1} &= 0.38y_t + 0.76\left(\beta w_t + \sqrt{1-\beta^2}\,\xi^y_t\right) + \eta^y_t,\\
-z_{t+1} &= 0.22z_t + \sin\left(x_t y_t\right) + 0.15\beta w_t + \eta^z_t.
+w_{t+1} &= 0.5w_t + \eta^w_t,\\
+x_{t+1} &= 0.5x_t + \left(\beta w_t + \sqrt{1-\beta^2}\,\xi^x_t\right) + \eta^x_t,\\
+y_{t+1} &= 0.5y_t + \left(\beta w_t + \sqrt{1-\beta^2}\,\xi^y_t\right) + \eta^y_t,\\
+z_{t+1} &= 0.5z_t + \sin\left(x_t y_t\right) + 0.5\beta w_t + \eta^z_t.
 \end{aligned}
 $$
 
@@ -47,25 +47,47 @@ $$
 
 ![案例因果图](../../fig/granger_peid_mlp_comparison/causal_graph3.png)
 
-随着 `beta` 增大，观测冗余增强，但待比较的二源机制不变。这里保留两个 MLP 口径的对照。第一组把 `w` 当作可观测状态，`MLP+PEID` 与 `SHAP` 用四维一步 MLP
+随着 `beta` 增大，`w` 在 `x,y` 中形成更强的共同成分，但待比较的 `sin(x_ty_t)` 二源机制不变。正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。除是否向 MLP 提供 `w_t` 外，轨迹、时间切分、训练轮数、优化器、标准化和评估协议均保持一致。
+
+## 三维 MLP：隐藏共同驱动下的主结果
+
+正文采用更接近隐混杂场景的三维 MLP：`w` 不进入训练或预测输入，模型只学习
+
+$$
+[x_t,y_t,z_t]\mapsto[x_{t+1},y_{t+1},z_{t+1}].
+$$
+
+`MLP+PEID` 与 `SHAP` 共享这个 fitted MLP，并在所有 `beta` 和 seed 上使用同一批固定干预读出样本，其中 `x,y∈[-1.8,1.8]`，`z∈[-1.25,1.25]`。固定读出域可避免 PEID 和 SHAP 随自然轨迹分布一起漂移。WMS、MMI-PID 与 SURD 仍直接使用同一条 `x_t,y_t,z_{t+1}` 观测读数；PCMCI、Neural Granger 与 Liang IF 保留各自的原生读数。Oracle+PEID 则在固定支持上直接评估真实方程，作为不随 `beta` 改变的二源结构参照。
+
+![简化系数方程下的三维 MLP beta 扫描对比曲线](../../fig/granger_peid_mlp_comparison/sine_beta_simple_coefficients_3d_mlp.png)
+
+图 a 比较 `x→z` 与 `y→z` 的单源读数，图 b 比较 `{x,y}→z` 的二源协同。曲线为 `4` 个 seeds 的均值；跨 seed 标准差保存在结果数据中，但未叠加到这张密集多方法图上，以免遮挡曲线。随着 `beta` 从 `0` 增至 `1`，自然轨迹中的 `corr(x,y)` 从 `0.014` 增至 `0.880`，observational WMS 从 `0.308` 降至 `-0.181` bits，说明观测分布由协同占优转为冗余占优。与此同时，固定真实结构的 Oracle+PEID synergy 始终为 `0.465` bits，beta 斜率的绝对值小于 `10^{-15}`。
+
+三维 MLP 的读数没有把这一观测冗余变化误写成真实结构增强：MLP+PEID synergy 从 `0.560` bits 降至 `0.409` bits，线性斜率为 `-0.140` bits / beta（bootstrap 95% CI `[-0.175,-0.106]`）；SHAP interaction 从 `0.504` 降至 `0.383`，斜率为 `-0.0795` / beta。两者都没有随共同驱动增强而上升，但它们的绝对量纲不同：前者是固定干预域上的信息分解，后者是预测响应的背景替换式交互归因。
+
+## 四维完整状态的敏感性检查
+
+作为完整观测对照，第二组把 `w` 纳入一步 MLP：
+
 $$
 [w_t,x_t,y_t,z_t]\mapsto[w_{t+1},x_{t+1},y_{t+1},z_{t+1}]
 $$
-读出 `{x,y}->z`；这对应完整观测转移，但会让 MLP 显式看到共同驱动。第二组把 `w` 视为不可观测混杂因子，`MLP+PEID` 与 `SHAP` 只用 `x,y,z` 训练同一个一步 MLP，
-$$
-[x_t,y_t,z_t]\mapsto[x_{t+1},y_{t+1},z_{t+1}],
-$$
-然后在所有 `beta` 和 seed 上使用同一批固定干预读出样本读取 `{x,y}->z` 的 PEID 分解和 SHAP interaction，其中 `x,y∈[-1.8,1.8]`，`z∈[-1.25,1.25]`。这样避免 PEID/SHAP 的读出域随 `beta` 的经验分布一起漂移。WMS、MMI-PID 与 SURD 仍直接使用同一条 `x_t,y_t,z_{t+1}` 观测读数；PCMCI、Neural Granger 与 Liang IF 保留原生多变量读数，用来显示它们在观测到 `w` 时对单源方向信息的响应。Oracle+PEID `x+y` 曲线作为固定二源结构参照。
 
-**四维 `wxyz` MLP 口径。** `w` 进入 MLP 训练和预测输入，PEID/SHAP 从完整四维 surrogate 上读出 `{x,y}->z`。
+![beta 扫描单源与高阶协同组合曲线：wxyz MLP](../../fig/granger_peid_mlp_comparison/sine_beta_simple_coefficients_wxyz_mlp.png)
 
-![beta 扫描单源与高阶协同组合曲线：wxyz MLP](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_wxyz_mlp.png)
+四维 `wxyz` MLP 口径下，MLP+PEID synergy 从 `beta=0` 的 `0.607` bits 降至 `beta=1` 的 `0.424` bits，线性斜率为 `-0.177` bits / beta（bootstrap 95% CI `[-0.220,-0.137]`）；SHAP interaction 从 `0.259` 增至 `0.525`，斜率为 `0.331` / beta。SHAP 在三维和四维口径下方向不同，说明它对模型是否显式条件化于共同驱动较敏感；MLP+PEID 在两个口径下均随 `beta` 下降，方向更稳定。
 
-**三维 `xyz` MLP 口径。** `w` 不进入 MLP 训练或预测输入，只作为隐藏共同驱动；PEID/SHAP 使用固定干预读出域。
+## 三维与四维 MLP 的配对训练对比
 
-![beta 扫描单源与高阶协同组合曲线：xyz MLP 固定读出域](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_xyz_mlp_fixed_support.png)
+为单独检验隐藏共同驱动对预测训练的影响，进一步使用同一条轨迹、同一个 seed 和同一个 80/20 时间切分，训练两个只预测标量 `z_{t+1}` 的 MLP。三维模型输入为 `[x_t,y_t,z_t]`，四维模型输入为 `[x_t,y_t,z_t,w_t]`；两者均使用两层 32-unit `tanh` 网络、90 epochs、相同优化器和相同标准化协议。因此，唯一处理因素是模型是否观察 `w_t`。
 
-正式扫描在 `beta∈[0,1]` 上使用步长 `0.05` 的 `21` 个取值，并对每个取值运行 `4` 个 seed（`0,1,2,3`）。图中只绘制跨 seed 均值，以避免密集曲线中的误差棒遮挡趋势；各方法的跨 seed 标准差仍完整保存在结果 JSON 中。四维 `wxyz` MLP 口径下，MLP+PEID synergy 从 `beta=0` 的约 `0.656` bits 降至 `beta=1` 的约 `0.508` bits，线性斜率约 `-0.108` bits / beta；SHAP interaction 从约 `0.180` 增至约 `0.415`，斜率约 `0.409` / beta。三维 `xyz` MLP 固定读出域口径下，MLP+PEID synergy 从约 `0.661` bits 降至约 `0.530` bits，线性斜率约 `-0.111` bits / beta；SHAP interaction 从约 `0.465` 降至约 `0.349`，斜率约 `-0.0437` / beta。两组实验的差别在于 MLP 是否显式观测共同驱动 `w`，以及三维实验是否把 PEID/SHAP 读出域固定为跨 beta 共享的干预支持。
+![三维与四维 MLP 的 beta 配对预测对比](../../fig/granger_peid_mlp_comparison/sine_beta_3d_vs_4d_mlp_forecast.png)
+
+图中曲线为 `4` 个 seeds 的均值，阴影为 `mean ± std`；下图直接给出每个 beta 上的配对差值 `R²(3D)-R²(4D)`。在 `beta=0` 时，两者几乎等价：三维和四维测试 `R²` 分别为 `0.966` 和 `0.964`，配对差仅为 `0.002`。随着共同驱动增强，四维模型保持稳定，测试 `R²` 的 beta 斜率仅为 `0.002`；三维模型则以 `-0.149` / beta 的斜率下降，在 `beta=1` 时达到 `0.823`，而四维模型仍为 `0.964`。全部 `84` 个 `beta × seed` 配对中，四维模型在 `78` 个配对上更优；总体平均 `R²(3D)-R²(4D)=-0.054`，bootstrap 95% CI 为 `[-0.065,-0.044]`。四个 seed 的配对差 beta 斜率均为负，说明随着 `w` 的作用增强，隐藏 `w` 带来的预测损失是稳定的，而不是由单个随机种子造成。
+
+这个结果同时限定了前述三维 MLP+PEID 曲线的解释：三维模型在整个扫描内仍保持较高测试 `R²`（最低单次运行约 `0.786`），因此不是完全失效；但高 beta 下它学习的是边际化后的 `[x,y,z]` 转移，无法像四维模型一样直接条件化于 `w_t`。不可避免的容量差异是四维模型首层多出 `32` 个输入权重，总参数量由 `1217` 增至 `1249`（约 `2.6%`）；其余隐藏层、输出层和训练预算完全相同。
+
+综合三维主结果、四维敏感性检查和配对预测实验，简化系数后仍得到同一结论：共同驱动增强会增加观测冗余，但不会改变固定的 `sin(x_ty_t)` 二源结构。原小数系数方程及其完整曲线移至附录 A，用作系数替换前的稳健性对照。
 
 # 五方法协同比较
 
@@ -218,3 +240,33 @@ $$
 
 当 $a=0$ 时，$P_t$ 不影响目标；当 $a>0$ 时，指数项形成乘性门控。随着攻击效率继续增大，指数响应逐渐饱和，因此信息协同表现为平台而非线性增长。
 
+# 附录 A：原小数系数共同驱动实验
+
+本附录保留系数简化前的共同驱动实验。该版本固定 `alpha=1`，扫描设置、seeds、样本量、噪声、MLP 预算、PCMCI 设置、TM 估计器、干预支持和 Oracle 样本均与正文实验一致，但动力学使用原始小数系数：
+
+$$
+\begin{aligned}
+w_{t+1} &= 0.78w_t + \eta^w_t,\\
+x_{t+1} &= 0.42x_t + 0.82\left(\beta w_t + \sqrt{1-\beta^2}\,\xi^x_t\right) + \eta^x_t,\\
+y_{t+1} &= 0.38y_t + 0.76\left(\beta w_t + \sqrt{1-\beta^2}\,\xi^y_t\right) + \eta^y_t,\\
+z_{t+1} &= 0.22z_t + \sin\left(x_t y_t\right) + 0.15\beta w_t + \eta^z_t.
+\end{aligned}
+$$
+
+## A.1 四维 `wxyz` MLP 结果
+
+![原小数系数下的四维 MLP beta 扫描](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_wxyz_mlp.png)
+
+在原小数系数下，四维 MLP+PEID synergy 从 `beta=0` 的 `0.656` bits 降至 `beta=1` 的 `0.508` bits，线性斜率为 `-0.108` bits / beta（bootstrap 95% CI `[-0.151,-0.068]`）；SHAP interaction 从 `0.180` 增至 `0.415`，斜率为 `0.409` / beta（bootstrap 95% CI `[0.357,0.460]`）。因此，四维口径下 SHAP 对共同驱动的代理作用较敏感，而 MLP+PEID 没有把共同驱动增强解释成二源结构增强。
+
+## A.2 三维 `xyz` MLP 结果
+
+![原小数系数下的三维 MLP beta 扫描](../../fig/granger_peid_mlp_comparison/sine_beta_combined_readout_sweep_xyz_mlp_fixed_support.png)
+
+原小数系数的三维 MLP 使用与正文相同的隐藏 `w` 和固定干预读出协议。MLP+PEID synergy 从 `0.661` bits 降至 `0.530` bits，线性斜率为 `-0.111` bits / beta（bootstrap 95% CI `[-0.146,-0.077]`）；SHAP interaction 从 `0.465` 降至 `0.349`，斜率为 `-0.0437` / beta（bootstrap 95% CI `[-0.0723,-0.0198]`）。三维 MLP 的两种读数均未随共同驱动增强而上升。
+
+## A.3 与简化系数版本的结论一致性
+
+原小数系数下，`corr(x,y)` 从 `0.014` 增至 `0.905`，observational WMS 从 `0.330` 降至 `-0.0868` bits，MMI-PID synergy 从 `0.335` 降至 `0.0256` bits；固定真实结构的 Oracle+PEID synergy 始终为 `0.603` bits。与正文的 `1/0.5` 系数版本做严格配对比较后，`corr(x,y)` 的 beta 斜率在两组中均为正，observational WMS 与 MMI-PID synergy 的斜率在两组中均为负，而且三个方向都达到 `4/4` seeds 一致。
+
+因此，系数简化改变了部分读数的绝对值，但没有改变核心结论：共同驱动增强观测冗余，而固定的 `sin(x_ty_t)` 二源结构不随 `beta` 改变。正文采用 `1/0.5` 系数版本，是为了使系统定义更简洁、对称，并降低读者将结果误解为精细调参产物的风险。

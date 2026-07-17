@@ -28,7 +28,13 @@ DEFAULT_RESULT_DIR = ROOT / "results" / "granger_peid_mlp_comparison"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "granger_peid_mlp_comparison"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "granger_peid_mlp_comparison.md"
 VARIABLE_NAMES = ("x", "y", "z", "w")
-COMMON_DRIVER_TARGET_COEFFICIENT = 0.15
+# Deliberately simple coefficients for the common-driver sine experiment.
+# Recurrence terms stay below one for stationarity; structural loadings use 1.
+COMMON_DRIVER_MEMORY_COEFFICIENT = 0.5
+SOURCE_MEMORY_COEFFICIENT = 0.5
+COMMON_DRIVER_SOURCE_COEFFICIENT = 1.0
+TARGET_MEMORY_COEFFICIENT = 0.5
+COMMON_DRIVER_TARGET_COEFFICIENT = 0.5
 BETA_COMMON_DRIVER_SWEEP_VALUES = tuple(round(value, 2) for value in np.linspace(0.0, 1.0, 21))
 
 
@@ -175,20 +181,22 @@ def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]
         data[0, 2] = rng.normal(0.0, 0.2)
         data[0, 3] = rng.normal(0.0, 0.8)
         for t in range(n - 1):
-            data[t + 1, 3] = 0.78 * data[t, 3] + rng.normal(0.0, 0.45)
+            data[t + 1, 3] = COMMON_DRIVER_MEMORY_COEFFICIENT * data[t, 3] + rng.normal(0.0, 0.45)
             data[t + 1, 0] = (
-                0.42 * data[t, 0]
-                + 0.82 * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
+                SOURCE_MEMORY_COEFFICIENT * data[t, 0]
+                + COMMON_DRIVER_SOURCE_COEFFICIENT
+                * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
                 + rng.normal(0.0, 0.25)
             )
             data[t + 1, 1] = (
-                0.38 * data[t, 1]
-                + 0.76 * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
+                SOURCE_MEMORY_COEFFICIENT * data[t, 1]
+                + COMMON_DRIVER_SOURCE_COEFFICIENT
+                * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
                 + rng.normal(0.0, 0.25)
             )
             sine_signal = config.synergy_strength * np.sin(data[t, 0] * data[t, 1])
             data[t + 1, 2] = (
-                0.22 * data[t, 2]
+                TARGET_MEMORY_COEFFICIENT * data[t, 2]
                 + sine_signal
                 + COMMON_DRIVER_TARGET_COEFFICIENT * beta * data[t, 3]
                 + rng.normal(0.0, config.noise)
@@ -2288,6 +2296,7 @@ def run_sine_beta_common_driver_sweep(
     peid_source_support: tuple[float, float] = (-1.8, 1.8),
     oracle_intervention_support: Mapping[str, tuple[float, float]] | None = None,
     oracle_intervention_seed: int = 17021,
+    show_progress: bool = False,
 ) -> dict[str, object]:
     from yrd.transport_map import summarize_two_source_synergy_transport_map
     from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
@@ -2317,7 +2326,7 @@ def run_sine_beta_common_driver_sweep(
     oracle_y = np.concatenate([oracle_y_base, oracle_x_base])[: int(intervention_samples)].reshape(-1, 1)
     oracle_z_state = np.concatenate([oracle_z_base, oracle_z_base])[: int(intervention_samples)]
     oracle_target = (
-        0.22 * oracle_z_state
+        TARGET_MEMORY_COEFFICIENT * oracle_z_state
         + float(alpha) * np.sin(oracle_x[:, 0] * oracle_y[:, 0])
     ).reshape(-1, 1)
     fixed_oracle_peid_xy_z = summarize_two_source_synergy_transport_map(
@@ -2327,192 +2336,205 @@ def run_sine_beta_common_driver_sweep(
     )
 
     rows: list[dict[str, float]] = []
-    for beta in beta_values:
-        for seed in seeds:
-            config = SimConfig(
-                mechanism="common_driver_sine_synergy",
-                n_samples=int(n_samples),
-                noise=float(noise),
-                seed=int(seed),
-                synergy_strength=float(alpha),
-                common_driver_strength=float(beta),
-                mlp_epochs=int(mlp_epochs),
-                intervention_samples=int(intervention_samples),
-                bins=int(bins),
-            )
-            series, _ = simulate_system(config)
-            pcmci_cmiknn = run_pcmci_cmiknn_readout(
-                series,
-                variable_names=config.variable_names,
-                tau_max=config.lag,
-                pc_alpha=0.05,
-                q_threshold=0.05,
-                knn=float(pcmci_cmiknn_knn),
-                sig_samples=int(pcmci_cmiknn_sig_samples),
-                workers=-1,
-            )
-            features, targets = make_lagged_dataset(series, lag=config.lag)
-            model = train_mlp_transition_model(features, targets, config)
-            intervention_samples_frame = _sample_sine_beta_peid_intervention_sources(
-                series,
-                config,
-                source_support=peid_source_support,
-            )
-            peid = estimate_peid_graph(
-                model,
-                series,
-                config,
-                intervention_states=intervention_samples_frame,
-            )
-            neural_granger = run_neural_granger_readout(
-                features,
-                targets,
-                variable_names=config.variable_names,
-                max_lag=config.lag,
-                epochs=int(neural_granger_epochs),
-                seed=int(seed) + 9301 + int(round(float(beta) * 1000)),
-            )
-            shap_readout = estimate_shap_readout(
-                model,
-                features,
-                series,
-                config,
-                foreground_samples=64,
-                background_samples=64,
-            )
-            intervention_predictions = model.predict(
-                _intervention_features(intervention_samples_frame, config)
-            )
-            tm_peid_xy_z = summarize_two_source_synergy_transport_map(
-                intervention_samples_frame[["x"]].to_numpy(dtype=float),
-                intervention_samples_frame[["y"]].to_numpy(dtype=float),
-                intervention_predictions[:, [config.variable_names.index("z")]],
-            )
-            surd_xy_z = decompose_surd_2source_transport_map(
-                series["x"].to_numpy(dtype=float)[:-1],
-                series["y"].to_numpy(dtype=float)[:-1],
-                series["z"].to_numpy(dtype=float)[1:],
-                degree=3,
-                target_anchors=128,
-                conditional_samples=64,
-                seed=int(seed),
-            )
-            observational_wms = _observational_wms(
-                series["x"].to_numpy(dtype=float)[:-1],
-                series["y"].to_numpy(dtype=float)[:-1],
-                series["z"].to_numpy(dtype=float)[1:],
-                bins=int(config.bins),
-            )
-            mmi_pid_xy_z = _mmi_pid_from_mi_triplet(
-                left_mi=float(observational_wms["x_mi"]),
-                right_mi=float(observational_wms["y_mi"]),
-                joint_mi=float(observational_wms["joint_mi"]),
-            )
-            peid_xy_z = peid.synergy_edges[
-                (peid.synergy_edges["sources"] == "x+y")
-                & (peid.synergy_edges["target"] == "z")
-            ].iloc[0]
-            shap_xy_z = shap_readout.shap_interaction_terms[
-                (shap_readout.shap_interaction_terms["sources"] == "x+y")
-                & (shap_readout.shap_interaction_terms["target"] == "z")
-            ].iloc[0]
-            product_xy_z = shap_readout.interaction_terms[
-                (shap_readout.interaction_terms["sources"] == "x+y")
-                & (shap_readout.interaction_terms["target"] == "z")
-            ].iloc[0]
-            shap_single_lookup = {
-                str(row["source"]): float(row["mean_abs_phi"])
-                for row in shap_readout.feature_attributions[
-                    shap_readout.feature_attributions["target"] == "z"
-                ].to_dict("records")
+    beta_seed_pairs = [
+        (float(beta), int(seed)) for beta in beta_values for seed in seeds
+    ]
+    if show_progress:
+        from tqdm.auto import tqdm
+
+        beta_seed_pairs = tqdm(
+            beta_seed_pairs, desc="simple sine beta", unit="run", mininterval=1.0
+        )
+    for beta, seed in beta_seed_pairs:
+        config = SimConfig(
+            mechanism="common_driver_sine_synergy",
+            n_samples=int(n_samples),
+            noise=float(noise),
+            seed=int(seed),
+            synergy_strength=float(alpha),
+            common_driver_strength=float(beta),
+            mlp_epochs=int(mlp_epochs),
+            intervention_samples=int(intervention_samples),
+            bins=int(bins),
+        )
+        series, _ = simulate_system(config)
+        pcmci_cmiknn = run_pcmci_cmiknn_readout(
+            series,
+            variable_names=config.variable_names,
+            tau_max=config.lag,
+            pc_alpha=0.05,
+            q_threshold=0.05,
+            knn=float(pcmci_cmiknn_knn),
+            sig_samples=int(pcmci_cmiknn_sig_samples),
+            workers=-1,
+        )
+        features, targets = make_lagged_dataset(series, lag=config.lag)
+        model = train_mlp_transition_model(features, targets, config)
+        intervention_samples_frame = _sample_sine_beta_peid_intervention_sources(
+            series,
+            config,
+            source_support=peid_source_support,
+        )
+        peid = estimate_peid_graph(
+            model,
+            series,
+            config,
+            intervention_states=intervention_samples_frame,
+        )
+        neural_granger = run_neural_granger_readout(
+            features,
+            targets,
+            variable_names=config.variable_names,
+            max_lag=config.lag,
+            epochs=int(neural_granger_epochs),
+            seed=int(seed) + 9301 + int(round(float(beta) * 1000)),
+        )
+        shap_readout = estimate_shap_readout(
+            model,
+            features,
+            series,
+            config,
+            foreground_samples=64,
+            background_samples=64,
+        )
+        intervention_predictions = model.predict(
+            _intervention_features(intervention_samples_frame, config)
+        )
+        tm_peid_xy_z = summarize_two_source_synergy_transport_map(
+            intervention_samples_frame[["x"]].to_numpy(dtype=float),
+            intervention_samples_frame[["y"]].to_numpy(dtype=float),
+            intervention_predictions[:, [config.variable_names.index("z")]],
+        )
+        surd_xy_z = decompose_surd_2source_transport_map(
+            series["x"].to_numpy(dtype=float)[:-1],
+            series["y"].to_numpy(dtype=float)[:-1],
+            series["z"].to_numpy(dtype=float)[1:],
+            degree=3,
+            target_anchors=128,
+            conditional_samples=64,
+            seed=int(seed),
+        )
+        observational_wms = _observational_wms(
+            series["x"].to_numpy(dtype=float)[:-1],
+            series["y"].to_numpy(dtype=float)[:-1],
+            series["z"].to_numpy(dtype=float)[1:],
+            bins=int(config.bins),
+        )
+        mmi_pid_xy_z = _mmi_pid_from_mi_triplet(
+            left_mi=float(observational_wms["x_mi"]),
+            right_mi=float(observational_wms["y_mi"]),
+            joint_mi=float(observational_wms["joint_mi"]),
+        )
+        peid_xy_z = peid.synergy_edges[
+            (peid.synergy_edges["sources"] == "x+y")
+            & (peid.synergy_edges["target"] == "z")
+        ].iloc[0]
+        shap_xy_z = shap_readout.shap_interaction_terms[
+            (shap_readout.shap_interaction_terms["sources"] == "x+y")
+            & (shap_readout.shap_interaction_terms["target"] == "z")
+        ].iloc[0]
+        product_xy_z = shap_readout.interaction_terms[
+            (shap_readout.interaction_terms["sources"] == "x+y")
+            & (shap_readout.interaction_terms["target"] == "z")
+        ].iloc[0]
+        shap_single_lookup = {
+            str(row["source"]): float(row["mean_abs_phi"])
+            for row in shap_readout.feature_attributions[
+                shap_readout.feature_attributions["target"] == "z"
+            ].to_dict("records")
+        }
+        neural_granger_lookup = {
+            str(row["source"]): float(row["group_norm"])
+            for row in list(neural_granger["rows"])
+            if str(row["target"]) == "z"
+        }
+        pcmci_lookup = {
+            str(row["source"]): float(row["score"])
+            for row in list(pcmci_cmiknn["rows"])
+            if str(row["target"]) == "z" and int(row["lag"]) == 1
+        }
+        pcmci_q_lookup = {
+            str(row["source"]): float(row["q_value"])
+            for row in list(pcmci_cmiknn["rows"])
+            if str(row["target"]) == "z" and int(row["lag"]) == 1
+        }
+        rows.append(
+            {
+                "run_id": f"beta={float(beta):.2f}|seed={int(seed)}",
+                "beta": float(beta),
+                "seed": float(seed),
+                "xy_observed_corr": float(series[["x", "y"]].corr().iloc[0, 1]),
+                "observational_x_to_z_mi": float(observational_wms["x_mi"]),
+                "observational_y_to_z_mi": float(observational_wms["y_mi"]),
+                "observational_xy_to_z_joint_mi": float(observational_wms["joint_mi"]),
+                "observational_wms": float(observational_wms["wms"]),
+                "wms_estimator": str(observational_wms["estimator"]),
+                "mmi_pid_redundancy": float(mmi_pid_xy_z["redundancy"]),
+                "mmi_pid_unique_x": float(mmi_pid_xy_z["unique_x"]),
+                "mmi_pid_unique_y": float(mmi_pid_xy_z["unique_y"]),
+                "mmi_pid_xy_synergy": float(mmi_pid_xy_z["synergy"]),
+                "mmi_pid_xy_joint": float(mmi_pid_xy_z["joint"]),
+                "final_train_loss": float(model.loss_history[-1])
+                if model.loss_history
+                else float("nan"),
+                "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
+                "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
+                "shap_xy_mean_abs_interaction": float(
+                    shap_xy_z["mean_abs_interaction"]
+                ),
+                "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
+                "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
+                "neural_granger_x_to_z": float(neural_granger_lookup.get("x", 0.0)),
+                "neural_granger_y_to_z": float(neural_granger_lookup.get("y", 0.0)),
+                "neural_granger_w_to_z": float(neural_granger_lookup.get("w", 0.0)),
+                "neural_granger_xy_to_z": float(
+                    neural_granger_lookup.get("x", 0.0)
+                    + neural_granger_lookup.get("y", 0.0)
+                ),
+                "pcmci_cmiknn_x_to_z": float(pcmci_lookup.get("x", 0.0)),
+                "pcmci_cmiknn_y_to_z": float(pcmci_lookup.get("y", 0.0)),
+                "pcmci_cmiknn_w_to_z": float(pcmci_lookup.get("w", 0.0)),
+                "pcmci_cmiknn_xy_to_z": float(
+                    pcmci_lookup.get("x", 0.0) + pcmci_lookup.get("y", 0.0)
+                ),
+                "pcmci_cmiknn_x_to_z_q": float(pcmci_q_lookup.get("x", 1.0)),
+                "pcmci_cmiknn_y_to_z_q": float(pcmci_q_lookup.get("y", 1.0)),
+                "pcmci_cmiknn_w_to_z_q": float(pcmci_q_lookup.get("w", 1.0)),
+                "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
+                "peid_xy_synergy": float(peid_xy_z["synergy"]),
+                "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
+                "tm_peid_xy_left_ei": float(tm_peid_xy_z["left_ei"]),
+                "tm_peid_xy_right_ei": float(tm_peid_xy_z["right_ei"]),
+                "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                "surd_redundancy": float(surd_xy_z["redundancy"]),
+                "surd_unique_x": float(surd_xy_z["unique_x"]),
+                "surd_unique_y": float(surd_xy_z["unique_y"]),
+                "surd_xy_synergy": float(surd_xy_z["synergy"]),
+                "surd_xy_joint": float(surd_xy_z["joint_ei"]),
+                "mlp_peid_redundancy": 0.0,
+                "mlp_peid_unique_x": float(tm_peid_xy_z["left_ei"]),
+                "mlp_peid_unique_y": float(tm_peid_xy_z["right_ei"]),
+                "mlp_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
+                "mlp_peid_xy_joint": float(tm_peid_xy_z["joint_ei"]),
+                "oracle_peid_redundancy": 0.0,
+                "oracle_peid_unique_x": float(fixed_oracle_peid_xy_z["left_ei"]),
+                "oracle_peid_unique_y": float(fixed_oracle_peid_xy_z["right_ei"]),
+                "oracle_peid_xy_synergy": float(fixed_oracle_peid_xy_z["syn"]),
+                "oracle_peid_xy_joint": float(fixed_oracle_peid_xy_z["joint_ei"]),
+                "peid_x_to_z": float(
+                    peid.pairwise_edges[
+                        (peid.pairwise_edges["source"] == "x")
+                        & (peid.pairwise_edges["target"] == "z")
+                    ].iloc[0]["ei"]
+                ),
+                "peid_y_to_z": float(
+                    peid.pairwise_edges[
+                        (peid.pairwise_edges["source"] == "y")
+                        & (peid.pairwise_edges["target"] == "z")
+                    ].iloc[0]["ei"]
+                ),
             }
-            neural_granger_lookup = {
-                str(row["source"]): float(row["group_norm"])
-                for row in list(neural_granger["rows"])
-                if str(row["target"]) == "z"
-            }
-            pcmci_lookup = {
-                str(row["source"]): float(row["score"])
-                for row in list(pcmci_cmiknn["rows"])
-                if str(row["target"]) == "z" and int(row["lag"]) == 1
-            }
-            pcmci_q_lookup = {
-                str(row["source"]): float(row["q_value"])
-                for row in list(pcmci_cmiknn["rows"])
-                if str(row["target"]) == "z" and int(row["lag"]) == 1
-            }
-            rows.append(
-                {
-                    "run_id": f"beta={float(beta):.2f}|seed={int(seed)}",
-                    "beta": float(beta),
-                    "seed": float(seed),
-                    "xy_observed_corr": float(series[["x", "y"]].corr().iloc[0, 1]),
-                    "observational_x_to_z_mi": float(observational_wms["x_mi"]),
-                    "observational_y_to_z_mi": float(observational_wms["y_mi"]),
-                    "observational_xy_to_z_joint_mi": float(observational_wms["joint_mi"]),
-                    "observational_wms": float(observational_wms["wms"]),
-                    "wms_estimator": str(observational_wms["estimator"]),
-                    "mmi_pid_redundancy": float(mmi_pid_xy_z["redundancy"]),
-                    "mmi_pid_unique_x": float(mmi_pid_xy_z["unique_x"]),
-                    "mmi_pid_unique_y": float(mmi_pid_xy_z["unique_y"]),
-                    "mmi_pid_xy_synergy": float(mmi_pid_xy_z["synergy"]),
-                    "mmi_pid_xy_joint": float(mmi_pid_xy_z["joint"]),
-                    "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
-                    "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
-                    "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
-                    "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
-                    "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
-                    "product_xy_incremental_r2": float(product_xy_z["incremental_r2"]),
-                    "neural_granger_x_to_z": float(neural_granger_lookup.get("x", 0.0)),
-                    "neural_granger_y_to_z": float(neural_granger_lookup.get("y", 0.0)),
-                    "neural_granger_w_to_z": float(neural_granger_lookup.get("w", 0.0)),
-                    "neural_granger_xy_to_z": float(
-                        neural_granger_lookup.get("x", 0.0) + neural_granger_lookup.get("y", 0.0)
-                    ),
-                    "pcmci_cmiknn_x_to_z": float(pcmci_lookup.get("x", 0.0)),
-                    "pcmci_cmiknn_y_to_z": float(pcmci_lookup.get("y", 0.0)),
-                    "pcmci_cmiknn_w_to_z": float(pcmci_lookup.get("w", 0.0)),
-                    "pcmci_cmiknn_xy_to_z": float(
-                        pcmci_lookup.get("x", 0.0) + pcmci_lookup.get("y", 0.0)
-                    ),
-                    "pcmci_cmiknn_x_to_z_q": float(pcmci_q_lookup.get("x", 1.0)),
-                    "pcmci_cmiknn_y_to_z_q": float(pcmci_q_lookup.get("y", 1.0)),
-                    "pcmci_cmiknn_w_to_z_q": float(pcmci_q_lookup.get("w", 1.0)),
-                    "peid_xy_joint_ei": float(peid_xy_z["joint_ei"]),
-                    "peid_xy_synergy": float(peid_xy_z["synergy"]),
-                    "tm_peid_xy_joint_ei": float(tm_peid_xy_z["joint_ei"]),
-                    "tm_peid_xy_left_ei": float(tm_peid_xy_z["left_ei"]),
-                    "tm_peid_xy_right_ei": float(tm_peid_xy_z["right_ei"]),
-                    "tm_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
-                    "surd_redundancy": float(surd_xy_z["redundancy"]),
-                    "surd_unique_x": float(surd_xy_z["unique_x"]),
-                    "surd_unique_y": float(surd_xy_z["unique_y"]),
-                    "surd_xy_synergy": float(surd_xy_z["synergy"]),
-                    "surd_xy_joint": float(surd_xy_z["joint_ei"]),
-                    "mlp_peid_redundancy": 0.0,
-                    "mlp_peid_unique_x": float(tm_peid_xy_z["left_ei"]),
-                    "mlp_peid_unique_y": float(tm_peid_xy_z["right_ei"]),
-                    "mlp_peid_xy_synergy": float(tm_peid_xy_z["syn"]),
-                    "mlp_peid_xy_joint": float(tm_peid_xy_z["joint_ei"]),
-                    "oracle_peid_redundancy": 0.0,
-                    "oracle_peid_unique_x": float(fixed_oracle_peid_xy_z["left_ei"]),
-                    "oracle_peid_unique_y": float(fixed_oracle_peid_xy_z["right_ei"]),
-                    "oracle_peid_xy_synergy": float(fixed_oracle_peid_xy_z["syn"]),
-                    "oracle_peid_xy_joint": float(fixed_oracle_peid_xy_z["joint_ei"]),
-                    "peid_x_to_z": float(
-                        peid.pairwise_edges[
-                            (peid.pairwise_edges["source"] == "x")
-                            & (peid.pairwise_edges["target"] == "z")
-                        ].iloc[0]["ei"]
-                    ),
-                    "peid_y_to_z": float(
-                        peid.pairwise_edges[
-                            (peid.pairwise_edges["source"] == "y")
-                            & (peid.pairwise_edges["target"] == "z")
-                        ].iloc[0]["ei"]
-                    ),
-                }
-            )
+        )
     frame = pd.DataFrame(rows)
     summary = (
         frame.groupby("beta", as_index=False)
@@ -2523,8 +2545,14 @@ def run_sine_beta_common_driver_sweep(
             observational_x_to_z_mi_std=("observational_x_to_z_mi", "std"),
             observational_y_to_z_mi_mean=("observational_y_to_z_mi", "mean"),
             observational_y_to_z_mi_std=("observational_y_to_z_mi", "std"),
-            observational_xy_to_z_joint_mi_mean=("observational_xy_to_z_joint_mi", "mean"),
-            observational_xy_to_z_joint_mi_std=("observational_xy_to_z_joint_mi", "std"),
+            observational_xy_to_z_joint_mi_mean=(
+                "observational_xy_to_z_joint_mi",
+                "mean",
+            ),
+            observational_xy_to_z_joint_mi_std=(
+                "observational_xy_to_z_joint_mi",
+                "std",
+            ),
             observational_wms_mean=("observational_wms", "mean"),
             observational_wms_std=("observational_wms", "std"),
             mmi_pid_redundancy_mean=("mmi_pid_redundancy", "mean"),
@@ -2619,6 +2647,14 @@ def run_sine_beta_common_driver_sweep(
             "seeds": [int(value) for value in seeds],
             "n_samples": int(n_samples),
             "alpha": float(alpha),
+            "dynamics_coefficients": {
+                "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
+                "x_y_memory": float(SOURCE_MEMORY_COEFFICIENT),
+                "w_to_x_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+                "z_memory": float(TARGET_MEMORY_COEFFICIENT),
+                "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+                "sin_xy": float(alpha),
+            },
             "common_driver_target_coefficient": float(COMMON_DRIVER_TARGET_COEFFICIENT),
             "noise": float(noise),
             "mlp_epochs": int(mlp_epochs),
@@ -3151,6 +3187,7 @@ def _plot_sine_beta_combined_readout_sweep(
     figure_dir: Path,
     liang_result: dict[str, object] | None = None,
     mlp_readout_result: dict[str, object] | None = None,
+    stem: str = "sine_beta_combined_readout_sweep",
 ) -> Path | None:
     beta_result = _override_beta_mlp_readouts(beta_result, mlp_readout_result)
     summary_rows = beta_result.get("summary", [])
@@ -3370,7 +3407,7 @@ def _plot_sine_beta_combined_readout_sweep(
         columnspacing=1.0,
     )
 
-    path = _save_beta_figure(fig, figure_dir, "sine_beta_combined_readout_sweep")
+    path = _save_beta_figure(fig, figure_dir, stem)
     plt.close(fig)
     return path
 
@@ -4469,21 +4506,21 @@ def _write_chinese_report(
             )
         beta_sweep_block = (
             "### beta 扫描：共同驱动冗余增强且二源结构协同固定\n\n"
-            "这里固定 `alpha=1`，用 `beta` 同时增强 `x,y` 的共同驱动以及弱直接边 `w->z`。"
-            "`z_{t+1}` 中的 `sin(x_t y_t)` 二源结构项保持不变；新增的 `0.15 beta w_t` 使高 beta 自然轨迹中的共同驱动信息可通过 `x,y` 重复投影到目标，"
+            "这里固定 `alpha=1`，用 `beta` 同时增强 `x,y` 的共同驱动以及直接边 `w->z`。"
+            "`z_{t+1}` 中的 `sin(x_t y_t)` 二源结构项保持不变；新增的 `0.5 beta w_t` 使高 beta 自然轨迹中的共同驱动信息可通过 `x,y` 重复投影到目标，"
             "用于检验 observational WMS 是否转为冗余占优。\n\n"
             "beta 扫描对应的动力学为\n\n"
             "$$\n"
             "\\begin{aligned}\n"
-            "w_{t+1} &= 0.78w_t + \\eta^w_t,\\\\\n"
-            "x_{t+1} &= 0.42x_t + 0.82\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^x_t\\right) + \\eta^x_t,\\\\\n"
-            "y_{t+1} &= 0.38y_t + 0.76\\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^y_t\\right) + \\eta^y_t,\\\\\n"
-            "z_{t+1} &= 0.22z_t + \\sin\\left(x_t y_t\\right) + 0.15\\beta w_t + \\eta^z_t.\n"
+            "w_{t+1} &= 0.5w_t + \\eta^w_t,\\\\\n"
+            "x_{t+1} &= 0.5x_t + \\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^x_t\\right) + \\eta^x_t,\\\\\n"
+            "y_{t+1} &= 0.5y_t + \\left(\\beta w_t + \\sqrt{1-\\beta^2}\\,\\xi^y_t\\right) + \\eta^y_t,\\\\\n"
+            "z_{t+1} &= 0.5z_t + \\sin\\left(x_t y_t\\right) + 0.5\\beta w_t + \\eta^z_t.\n"
             "\\end{aligned}\n"
             "$$\n\n"
             "其中 `beta=0` 时，`x` 与 `y` 主要由各自私有扰动驱动；`beta=1` 时，它们的新增驱动完全共享同一个 `w_t`。"
             "`\\sqrt{1-\\beta^2}` 是 `beta` 的互补私有驱动权重，使共享驱动项和私有驱动项的平方权重和保持为 1；"
-            "这样 beta 扫描不简单放大或缩小 `x,y` 的总驱动强度，但会同时增强源相关性和真实弱边 `w->z`。"
+            "这样 beta 扫描不简单放大或缩小 `x,y` 的总驱动强度，但会同时增强源相关性和真实边 `w->z`。"
             "`z` 的二源结构项始终是同一个 `sin(x_t y_t)`，因此 beta 不改变待比较的二源机制本身。\n\n"
             + (
                 f"![beta 扫描单源与高阶协同组合曲线]({beta_combined_rel})\n\n"
@@ -4500,7 +4537,7 @@ def _write_chinese_report(
             "MLP+SHAP 与 MLP+PEID 共享同一个 fitted MLP；MLP+PEID 独立均匀采样固定源支持 `x,y∈[-1.8,1.8]`，上下文 `z,w` 使用对应轨迹分位数支持。"
             "Oracle+PEID 不再使用自然轨迹或 learned MLP，而是在固定盒 `x,y∈[-1.8,1.8]`, `z∈[-1.25,1.25]` 上复用同一批对称独立干预样本："
             "每个 `(x,y,z)` 都同时加入交换后的 `(y,x,z)`，再直接评估真实转移方程 "
-            "`z_next=0.22*z+sin(x*y)`；因此它是隔离掉 `w` 主效应后的固定二源结构参照，跨 seed 标准差为零，且 Oracle 的 `U_x/U_y` 单源读数对称。"
+            "`z_next=0.5*z+sin(x*y)`；因此它是隔离掉 `w` 主效应后的固定二源结构参照，跨 seed 标准差为零，且 Oracle 的 `U_x/U_y` 单源读数对称。"
             "Neural Granger 在同一自然轨迹上训练 target-wise cMLP，并以 first-layer source-group norm 作为 pairwise 读出。"
             "PCMCI-CMIknn 在同一自然轨迹上运行非线性条件独立检验，图中显示 lag-1 pairwise 依赖强度的绝对值。"
             "SURD 与 PEID 的 transport-map 输入均为原始源变量，信息量单位统一为 bits。"
@@ -4540,10 +4577,10 @@ def _write_chinese_report(
 
 $$
 \\begin{{aligned}}
-w_{{t+1}} &= 0.78w_t + \\eta^w_t,\\\\
-x_{{t+1}} &= 0.42x_t + 0.82w_t + \\eta^x_t,\\\\
-y_{{t+1}} &= 0.38y_t + 0.76w_t + \\eta^y_t,\\\\
-z_{{t+1}} &= 0.22z_t + \\alpha\\sin\\left(x_t y_t\\right) + \\eta^z_t.
+w_{{t+1}} &= 0.5w_t + \\eta^w_t,\\\\
+x_{{t+1}} &= 0.5x_t + w_t + \\eta^x_t,\\\\
+y_{{t+1}} &= 0.5y_t + w_t + \\eta^y_t,\\\\
+z_{{t+1}} &= 0.5z_t + \\alpha\\sin\\left(x_t y_t\\right) + \\eta^z_t.
 \\end{{aligned}}
 $$
 

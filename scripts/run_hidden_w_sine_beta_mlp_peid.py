@@ -22,8 +22,13 @@ if str(ROOT) not in sys.path:
 
 from scripts.compare_granger_peid_mlp import (  # noqa: E402
     BETA_COMMON_DRIVER_SWEEP_VALUES,
+    COMMON_DRIVER_MEMORY_COEFFICIENT,
+    COMMON_DRIVER_SOURCE_COEFFICIENT,
+    COMMON_DRIVER_TARGET_COEFFICIENT,
     DEFAULT_FIGURE_DIR,
     DEFAULT_RESULT_DIR,
+    SOURCE_MEMORY_COEFFICIENT,
+    TARGET_MEMORY_COEFFICIENT,
     SimConfig,
     _beta_sweep_trend_stats,
     _intervention_features,
@@ -92,7 +97,10 @@ def _fixed_oracle_xy_z(
     x = np.concatenate([x_base, y_base])[: int(samples)].reshape(-1, 1)
     y = np.concatenate([y_base, x_base])[: int(samples)].reshape(-1, 1)
     z_state = np.concatenate([z_base, z_base])[: int(samples)]
-    target = (0.22 * z_state + float(alpha) * np.sin(x[:, 0] * y[:, 0])).reshape(-1, 1)
+    target = (
+        TARGET_MEMORY_COEFFICIENT * z_state
+        + float(alpha) * np.sin(x[:, 0] * y[:, 0])
+    ).reshape(-1, 1)
     result = summarize_two_source_synergy_transport_map(x, y, target)
     return {key: float(result[key]) for key in ("left_ei", "right_ei", "joint_ei", "syn")}
 
@@ -111,6 +119,7 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
     readout_seed: int = 17021,
     oracle_intervention_support: Mapping[str, tuple[float, float]] | None = None,
     oracle_intervention_seed: int = 17021,
+    show_progress: bool = False,
 ) -> dict[str, object]:
     from yrd.transport_map import summarize_two_source_synergy_transport_map
 
@@ -144,110 +153,133 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
         seed=int(readout_seed) + 5051,
         support=fixed_support,
     )
-    fixed_shap_foreground_features = _intervention_features(fixed_shap_foreground, SimConfig(variable_names=OBSERVED_VARIABLES))
-    fixed_shap_background_features = _intervention_features(fixed_shap_background, SimConfig(variable_names=OBSERVED_VARIABLES))
+    fixed_shap_foreground_features = _intervention_features(
+        fixed_shap_foreground, SimConfig(variable_names=OBSERVED_VARIABLES)
+    )
+    fixed_shap_background_features = _intervention_features(
+        fixed_shap_background, SimConfig(variable_names=OBSERVED_VARIABLES)
+    )
 
     rows: list[dict[str, float]] = []
-    for beta in beta_values:
-        for seed in seeds:
-            full_config = SimConfig(
-                mechanism="common_driver_sine_synergy",
-                n_samples=int(n_samples),
-                noise=float(noise),
-                seed=int(seed),
-                synergy_strength=float(alpha),
-                common_driver_strength=float(beta),
-                mlp_epochs=int(mlp_epochs),
-                intervention_samples=int(intervention_samples),
-                bins=int(bins),
-            )
-            full_series, _ = simulate_system(full_config)
-            observed_series = full_series.loc[:, OBSERVED_VARIABLES].copy()
-            observed_config = SimConfig(
-                mechanism=full_config.mechanism,
-                n_samples=full_config.n_samples,
-                noise=full_config.noise,
-                seed=full_config.seed,
-                lag=full_config.lag,
-                synergy_strength=full_config.synergy_strength,
-                hidden_dim=full_config.hidden_dim,
-                mlp_epochs=full_config.mlp_epochs,
-                learning_rate=full_config.learning_rate,
-                batch_size=full_config.batch_size,
-                weight_decay=full_config.weight_decay,
-                intervention_samples=full_config.intervention_samples,
-                bins=full_config.bins,
-                common_driver_strength=full_config.common_driver_strength,
-                quantile_low=full_config.quantile_low,
-                quantile_high=full_config.quantile_high,
-                variable_names=OBSERVED_VARIABLES,
-            )
-            features, targets = make_lagged_dataset(observed_series, lag=observed_config.lag)
-            model = train_mlp_transition_model(features, targets, observed_config)
-            shap_readout = estimate_shap_readout(
-                model,
-                features,
-                observed_series,
-                observed_config,
-                foreground_samples=64,
-                background_samples=64,
-                foreground_features=fixed_shap_foreground_features,
-                background_features=fixed_shap_background_features,
-            )
-            samples = fixed_peid_samples.copy()
-            predictions = model.predict(_intervention_features(samples, observed_config))
-            tm_peid = summarize_two_source_synergy_transport_map(
-                samples[["x"]].to_numpy(dtype=float),
-                samples[["y"]].to_numpy(dtype=float),
-                predictions[:, [OBSERVED_VARIABLES.index("z")]],
-            )
-            tm_peid_xy_to_y_next = summarize_two_source_synergy_transport_map(
-                samples[["x"]].to_numpy(dtype=float),
-                samples[["y"]].to_numpy(dtype=float),
-                predictions[:, [OBSERVED_VARIABLES.index("y")]],
-            )
-            train_pred = model.predict(features)
-            z_target = targets[:, OBSERVED_VARIABLES.index("z")]
-            z_pred = train_pred[:, OBSERVED_VARIABLES.index("z")]
-            z_mse = float(np.mean((z_target - z_pred) ** 2))
-            z_baseline_mse = float(np.mean((z_target - float(np.mean(z_target))) ** 2))
-            shap_xy_z = shap_readout.shap_interaction_terms[
-                (shap_readout.shap_interaction_terms["sources"] == "x+y")
-                & (shap_readout.shap_interaction_terms["target"] == "z")
-            ].iloc[0]
-            shap_single_lookup = {
-                str(row["source"]): float(row["mean_abs_phi"])
-                for row in shap_readout.feature_attributions[
-                    shap_readout.feature_attributions["target"] == "z"
-                ].to_dict("records")
+    beta_seed_pairs = [
+        (float(beta), int(seed)) for beta in beta_values for seed in seeds
+    ]
+    if show_progress:
+        from tqdm.auto import tqdm
+
+        beta_seed_pairs = tqdm(
+            beta_seed_pairs,
+            desc="hidden-w simple sine beta",
+            unit="run",
+            mininterval=1.0,
+        )
+    for beta, seed in beta_seed_pairs:
+        full_config = SimConfig(
+            mechanism="common_driver_sine_synergy",
+            n_samples=int(n_samples),
+            noise=float(noise),
+            seed=int(seed),
+            synergy_strength=float(alpha),
+            common_driver_strength=float(beta),
+            mlp_epochs=int(mlp_epochs),
+            intervention_samples=int(intervention_samples),
+            bins=int(bins),
+        )
+        full_series, _ = simulate_system(full_config)
+        observed_series = full_series.loc[:, OBSERVED_VARIABLES].copy()
+        observed_config = SimConfig(
+            mechanism=full_config.mechanism,
+            n_samples=full_config.n_samples,
+            noise=full_config.noise,
+            seed=full_config.seed,
+            lag=full_config.lag,
+            synergy_strength=full_config.synergy_strength,
+            hidden_dim=full_config.hidden_dim,
+            mlp_epochs=full_config.mlp_epochs,
+            learning_rate=full_config.learning_rate,
+            batch_size=full_config.batch_size,
+            weight_decay=full_config.weight_decay,
+            intervention_samples=full_config.intervention_samples,
+            bins=full_config.bins,
+            common_driver_strength=full_config.common_driver_strength,
+            quantile_low=full_config.quantile_low,
+            quantile_high=full_config.quantile_high,
+            variable_names=OBSERVED_VARIABLES,
+        )
+        features, targets = make_lagged_dataset(
+            observed_series, lag=observed_config.lag
+        )
+        model = train_mlp_transition_model(features, targets, observed_config)
+        shap_readout = estimate_shap_readout(
+            model,
+            features,
+            observed_series,
+            observed_config,
+            foreground_samples=64,
+            background_samples=64,
+            foreground_features=fixed_shap_foreground_features,
+            background_features=fixed_shap_background_features,
+        )
+        samples = fixed_peid_samples.copy()
+        predictions = model.predict(_intervention_features(samples, observed_config))
+        tm_peid = summarize_two_source_synergy_transport_map(
+            samples[["x"]].to_numpy(dtype=float),
+            samples[["y"]].to_numpy(dtype=float),
+            predictions[:, [OBSERVED_VARIABLES.index("z")]],
+        )
+        tm_peid_xy_to_y_next = summarize_two_source_synergy_transport_map(
+            samples[["x"]].to_numpy(dtype=float),
+            samples[["y"]].to_numpy(dtype=float),
+            predictions[:, [OBSERVED_VARIABLES.index("y")]],
+        )
+        train_pred = model.predict(features)
+        z_target = targets[:, OBSERVED_VARIABLES.index("z")]
+        z_pred = train_pred[:, OBSERVED_VARIABLES.index("z")]
+        z_mse = float(np.mean((z_target - z_pred) ** 2))
+        z_baseline_mse = float(np.mean((z_target - float(np.mean(z_target))) ** 2))
+        shap_xy_z = shap_readout.shap_interaction_terms[
+            (shap_readout.shap_interaction_terms["sources"] == "x+y")
+            & (shap_readout.shap_interaction_terms["target"] == "z")
+        ].iloc[0]
+        shap_single_lookup = {
+            str(row["source"]): float(row["mean_abs_phi"])
+            for row in shap_readout.feature_attributions[
+                shap_readout.feature_attributions["target"] == "z"
+            ].to_dict("records")
+        }
+        rows.append(
+            {
+                "run_id": f"hidden_w_beta={float(beta):.2f}|seed={int(seed)}",
+                "beta": float(beta),
+                "seed": float(seed),
+                "xy_observed_corr": float(
+                    observed_series[["x", "y"]].corr().iloc[0, 1]
+                ),
+                "final_train_loss": float(model.loss_history[-1])
+                if model.loss_history
+                else float("nan"),
+                "z_train_mse": z_mse,
+                "z_train_r2": float(1.0 - z_mse / (z_baseline_mse + 1e-12)),
+                "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
+                "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
+                "shap_xy_mean_abs_interaction": float(
+                    shap_xy_z["mean_abs_interaction"]
+                ),
+                "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
+                "mlp_peid_unique_x": float(tm_peid["left_ei"]),
+                "mlp_peid_unique_y": float(tm_peid["right_ei"]),
+                "mlp_peid_xy_joint": float(tm_peid["joint_ei"]),
+                "mlp_peid_xy_synergy": float(tm_peid["syn"]),
+                "mlp_peid_x_unique_to_y_next": float(tm_peid_xy_to_y_next["left_ei"]),
+                "mlp_peid_y_unique_to_y_next": float(tm_peid_xy_to_y_next["right_ei"]),
+                "mlp_peid_xy_joint_to_y_next": float(tm_peid_xy_to_y_next["joint_ei"]),
+                "mlp_peid_xy_synergy_to_y_next": float(tm_peid_xy_to_y_next["syn"]),
+                "oracle_peid_unique_x": float(oracle["left_ei"]),
+                "oracle_peid_unique_y": float(oracle["right_ei"]),
+                "oracle_peid_xy_joint": float(oracle["joint_ei"]),
+                "oracle_peid_xy_synergy": float(oracle["syn"]),
             }
-            rows.append(
-                {
-                    "run_id": f"hidden_w_beta={float(beta):.2f}|seed={int(seed)}",
-                    "beta": float(beta),
-                    "seed": float(seed),
-                    "xy_observed_corr": float(observed_series[["x", "y"]].corr().iloc[0, 1]),
-                    "final_train_loss": float(model.loss_history[-1]) if model.loss_history else float("nan"),
-                    "z_train_mse": z_mse,
-                    "z_train_r2": float(1.0 - z_mse / (z_baseline_mse + 1e-12)),
-                    "shap_x_to_z_mean_abs": float(shap_single_lookup.get("x", 0.0)),
-                    "shap_y_to_z_mean_abs": float(shap_single_lookup.get("y", 0.0)),
-                    "shap_xy_mean_abs_interaction": float(shap_xy_z["mean_abs_interaction"]),
-                    "shap_xy_mean_interaction": float(shap_xy_z["mean_interaction"]),
-                    "mlp_peid_unique_x": float(tm_peid["left_ei"]),
-                    "mlp_peid_unique_y": float(tm_peid["right_ei"]),
-                    "mlp_peid_xy_joint": float(tm_peid["joint_ei"]),
-                    "mlp_peid_xy_synergy": float(tm_peid["syn"]),
-                    "mlp_peid_x_unique_to_y_next": float(tm_peid_xy_to_y_next["left_ei"]),
-                    "mlp_peid_y_unique_to_y_next": float(tm_peid_xy_to_y_next["right_ei"]),
-                    "mlp_peid_xy_joint_to_y_next": float(tm_peid_xy_to_y_next["joint_ei"]),
-                    "mlp_peid_xy_synergy_to_y_next": float(tm_peid_xy_to_y_next["syn"]),
-                    "oracle_peid_unique_x": float(oracle["left_ei"]),
-                    "oracle_peid_unique_y": float(oracle["right_ei"]),
-                    "oracle_peid_xy_joint": float(oracle["joint_ei"]),
-                    "oracle_peid_xy_synergy": float(oracle["syn"]),
-                }
-            )
+        )
 
     frame = pd.DataFrame(rows)
     summary = (
@@ -281,7 +313,10 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             mlp_peid_y_unique_to_y_next_std=("mlp_peid_y_unique_to_y_next", "std"),
             mlp_peid_xy_joint_to_y_next_mean=("mlp_peid_xy_joint_to_y_next", "mean"),
             mlp_peid_xy_joint_to_y_next_std=("mlp_peid_xy_joint_to_y_next", "std"),
-            mlp_peid_xy_synergy_to_y_next_mean=("mlp_peid_xy_synergy_to_y_next", "mean"),
+            mlp_peid_xy_synergy_to_y_next_mean=(
+                "mlp_peid_xy_synergy_to_y_next",
+                "mean",
+            ),
             mlp_peid_xy_synergy_to_y_next_std=("mlp_peid_xy_synergy_to_y_next", "std"),
             oracle_peid_unique_x_mean=("oracle_peid_unique_x", "mean"),
             oracle_peid_unique_x_std=("oracle_peid_unique_x", "std"),
@@ -295,7 +330,9 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
         .sort_values("beta")
         .reset_index(drop=True)
     )
-    trend_input = frame.rename(columns={"mlp_peid_xy_synergy": "tm_peid_xy_synergy"}).copy()
+    trend_input = frame.rename(
+        columns={"mlp_peid_xy_synergy": "tm_peid_xy_synergy"}
+    ).copy()
     for col in (
         "observational_wms",
         "neural_granger_xy_to_z",
@@ -313,6 +350,14 @@ def run_hidden_w_sine_beta_mlp_peid_sweep(
             "seeds": [int(value) for value in seeds],
             "n_samples": int(n_samples),
             "alpha": float(alpha),
+            "dynamics_coefficients": {
+                "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
+                "x_y_memory": float(SOURCE_MEMORY_COEFFICIENT),
+                "w_to_x_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+                "z_memory": float(TARGET_MEMORY_COEFFICIENT),
+                "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+                "sin_xy": float(alpha),
+            },
             "noise": float(noise),
             "mlp_epochs": int(mlp_epochs),
             "intervention_samples": int(intervention_samples),
@@ -469,6 +514,7 @@ def plot_combined_with_hidden_w_mlp_readouts(
     figure_dir: Path = DEFAULT_FIGURE_DIR,
     *,
     liang_result: dict[str, object] | None = None,
+    stem: str = "sine_beta_combined_readout_sweep",
 ) -> Path | None:
     if not full_result:
         return None
@@ -477,6 +523,7 @@ def plot_combined_with_hidden_w_mlp_readouts(
         figure_dir,
         liang_result=liang_result,
         mlp_readout_result=hidden_result,
+        stem=stem,
     )
 
 
@@ -708,10 +755,10 @@ def write_hidden_w_report(
 
 $$
 \\begin{{aligned}}
-w_{{t+1}} &= 0.78w_t + \\eta^w_t,\\\\
-x_{{t+1}} &= 0.42x_t + 0.82\\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^x_t\\right) + \\eta^x_t,\\\\
-y_{{t+1}} &= 0.38y_t + 0.76\\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^y_t\\right) + \\eta^y_t,\\\\
-z_{{t+1}} &= 0.22z_t + \\sin(x_t y_t) + 0.15\\beta w_t + \\eta^z_t,
+w_{{t+1}} &= 0.5w_t + \\eta^w_t,\\\\
+x_{{t+1}} &= 0.5x_t + \\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^x_t\\right) + \\eta^x_t,\\\\
+y_{{t+1}} &= 0.5y_t + \\left(\\beta w_t + \\sqrt{{1-\\beta^2}}\\xi^y_t\\right) + \\eta^y_t,\\\\
+z_{{t+1}} &= 0.5z_t + \\sin(x_t y_t) + 0.5\\beta w_t + \\eta^z_t,
 \\end{{aligned}}
 $$
 
@@ -731,7 +778,7 @@ Zotero 本地库中没有检索到 PEID / effective-information synergy 的匹�
 - MLP epochs：`{config["mlp_epochs"]}`
 - PEID 干预样本数：`{config["intervention_samples"]}`
 - 观测变量：`{config["observed_variables"]}`；隐藏变量：`{config["hidden_variables"]}`
-- Oracle 只作为固定支持的真实 `z_next=0.22z+sin(xy)` 参照，不使用隐藏 `w`。
+- Oracle 只作为固定支持的真实 `z_next=0.5z+sin(xy)` 参照，不使用隐藏 `w`。
 
 ![隐藏 w 的 beta 扫描]({fig_rel})
 

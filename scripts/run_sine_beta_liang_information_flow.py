@@ -30,6 +30,11 @@ if str(ROOT) not in sys.path:
 
 from scripts.compare_granger_peid_mlp import (  # noqa: E402
     BETA_COMMON_DRIVER_SWEEP_VALUES,
+    COMMON_DRIVER_MEMORY_COEFFICIENT,
+    COMMON_DRIVER_SOURCE_COEFFICIENT,
+    COMMON_DRIVER_TARGET_COEFFICIENT,
+    SOURCE_MEMORY_COEFFICIENT,
+    TARGET_MEMORY_COEFFICIENT,
     SimConfig,
     simulate_system,
 )
@@ -185,41 +190,52 @@ def run_experiment(
     n_samples: int = 1100,
     alpha: float = 1.0,
     noise: float = 0.05,
+    show_progress: bool = False,
 ) -> dict[str, object]:
     run_rows: list[dict[str, object]] = []
-    for beta in beta_values:
-        for seed in seeds:
-            config = SimConfig(
-                mechanism="common_driver_sine_synergy",
-                n_samples=int(n_samples),
-                noise=float(noise),
-                seed=int(seed),
-                synergy_strength=float(alpha),
-                common_driver_strength=float(beta),
+    beta_seed_pairs = [
+        (float(beta), int(seed)) for beta in beta_values for seed in seeds
+    ]
+    if show_progress:
+        from tqdm.auto import tqdm
+
+        beta_seed_pairs = tqdm(
+            beta_seed_pairs, desc="Liang simple sine beta", unit="run", mininterval=1.0
+        )
+    for beta, seed in beta_seed_pairs:
+        config = SimConfig(
+            mechanism="common_driver_sine_synergy",
+            n_samples=int(n_samples),
+            noise=float(noise),
+            seed=int(seed),
+            synergy_strength=float(alpha),
+            common_driver_strength=float(beta),
+        )
+        series, _ = simulate_system(config)
+        euler = estimate_liang_euler(series)
+        matrix_log = estimate_liang_matrix_log(series)
+        xy_corr = float(series["x"].corr(series["y"]))
+        wz_corr = float(series["w"].corr(series["z"]))
+        for source in SOURCES_TO_Z:
+            run_rows.append(
+                {
+                    "beta": float(beta),
+                    "seed": int(seed),
+                    "source": source,
+                    "target": "z",
+                    "liang_flow": float(euler.flow.loc["z", source]),
+                    "liang_flow_se": float(euler.standard_error.loc["z", source]),
+                    "liang_flow_ci_low": float(euler.ci_low.loc["z", source]),
+                    "liang_flow_ci_high": float(euler.ci_high.loc["z", source]),
+                    "liang_flow_significant_95": bool(
+                        euler.significant_95.loc["z", source]
+                    ),
+                    "liang_tau": float(euler.normalized.loc["z", source]),
+                    "liang_matrix_log_flow": float(matrix_log.loc["z", source]),
+                    "xy_corr": xy_corr,
+                    "wz_corr": wz_corr,
+                }
             )
-            series, _ = simulate_system(config)
-            euler = estimate_liang_euler(series)
-            matrix_log = estimate_liang_matrix_log(series)
-            xy_corr = float(series["x"].corr(series["y"]))
-            wz_corr = float(series["w"].corr(series["z"]))
-            for source in SOURCES_TO_Z:
-                run_rows.append(
-                    {
-                        "beta": float(beta),
-                        "seed": int(seed),
-                        "source": source,
-                        "target": "z",
-                        "liang_flow": float(euler.flow.loc["z", source]),
-                        "liang_flow_se": float(euler.standard_error.loc["z", source]),
-                        "liang_flow_ci_low": float(euler.ci_low.loc["z", source]),
-                        "liang_flow_ci_high": float(euler.ci_high.loc["z", source]),
-                        "liang_flow_significant_95": bool(euler.significant_95.loc["z", source]),
-                        "liang_tau": float(euler.normalized.loc["z", source]),
-                        "liang_matrix_log_flow": float(matrix_log.loc["z", source]),
-                        "xy_corr": xy_corr,
-                        "wz_corr": wz_corr,
-                    }
-                )
 
     run_frame = pd.DataFrame(run_rows)
     grouped = (
@@ -242,7 +258,11 @@ def run_experiment(
     for source in SOURCES_TO_Z:
         source_summary = grouped[grouped["source"] == source].sort_values("beta")
         trends[source] = {}
-        for metric in ("liang_flow_mean", "liang_tau_mean", "liang_matrix_log_flow_mean"):
+        for metric in (
+            "liang_flow_mean",
+            "liang_tau_mean",
+            "liang_matrix_log_flow_mean",
+        ):
             values = source_summary[metric].to_numpy(dtype=float)
             slope, intercept = np.polyfit(beta_array, values, deg=1)
             trends[source][f"{metric}_slope"] = float(slope)
@@ -256,6 +276,14 @@ def run_experiment(
             "n_samples": int(n_samples),
             "alpha": float(alpha),
             "noise": float(noise),
+            "dynamics_coefficients": {
+                "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
+                "x_y_memory": float(SOURCE_MEMORY_COEFFICIENT),
+                "w_to_x_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+                "z_memory": float(TARGET_MEMORY_COEFFICIENT),
+                "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+                "sin_xy": float(alpha),
+            },
             "variables": list(VARIABLES),
             "target": "z",
             "sources_to_z": list(SOURCES_TO_Z),

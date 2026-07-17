@@ -43,6 +43,7 @@ exp/tmp/
 exp/**/tmp/
 exp/cache/
 results/
+/models/
 /fig/
 tests/
 !tests/

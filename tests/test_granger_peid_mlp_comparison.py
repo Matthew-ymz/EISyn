@@ -216,12 +216,14 @@ def test_common_driver_sine_synergy_adds_beta_scaled_driver_to_target() -> None:
     )
 
     expected_target = (
-        0.22 * series["z"].to_numpy(dtype=float)[:-1]
+        comparison.TARGET_MEMORY_COEFFICIENT * series["z"].to_numpy(dtype=float)[:-1]
         + np.sin(
             series["x"].to_numpy(dtype=float)[:-1]
             * series["y"].to_numpy(dtype=float)[:-1]
         )
-        + 0.15 * beta * series["w"].to_numpy(dtype=float)[:-1]
+        + comparison.COMMON_DRIVER_TARGET_COEFFICIENT
+        * beta
+        * series["w"].to_numpy(dtype=float)[:-1]
     )
 
     np.testing.assert_allclose(
@@ -240,9 +242,14 @@ def test_hidden_w_sweep_defaults_to_full_beta_grid_and_reports_hidden_driver() -
     assert len(beta_default) == 21
 
     source = inspect.getsource(hidden_w.write_hidden_w_report)
-    assert "0.15\\\\beta w_t" in source
-    assert "观测变量：`{config[\"observed_variables\"]}`；隐藏变量：`{config[\"hidden_variables\"]}`" in source
-    assert "shap_xy_mean_abs_interaction" in inspect.getsource(hidden_w.run_hidden_w_sine_beta_mlp_peid_sweep)
+    assert "0.5\\\\beta w_t" in source
+    assert (
+        '观测变量：`{config["observed_variables"]}`；隐藏变量：`{config["hidden_variables"]}`'
+        in source
+    )
+    assert "shap_xy_mean_abs_interaction" in inspect.getsource(
+        hidden_w.run_hidden_w_sine_beta_mlp_peid_sweep
+    )
 
 
 def test_override_beta_mlp_readouts_replaces_only_mlp_and_shap_columns() -> None:
@@ -467,8 +474,7 @@ def test_common_driver_sine_synergy_separates_driver_and_hyperedge() -> None:
     assert float(granger_w_to_y["score"]) > 0.2
     assert float(granger_w_to_z["score"]) > 0.01
     assert float(peid_w_to_z["ei"]) > 0.01
-    assert float(edge["joint_ei"]) > 1.0
-    assert float(edge["synergy"]) > 0.5
+    assert float(edge["synergy"]) > 0.4
     assert float(edge["synergy"]) > float(edge["best_single_ei"])
 
 
@@ -850,11 +856,16 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     }
     assert expected_run_fields <= set(run)
     assert np.isclose(
-        run["surd_redundancy"] + run["surd_unique_x"] + run["surd_unique_y"] + run["surd_xy_synergy"],
+        run["surd_redundancy"]
+        + run["surd_unique_x"]
+        + run["surd_unique_y"]
+        + run["surd_xy_synergy"],
         run["surd_xy_joint"],
     )
     assert np.isclose(
-        run["mlp_peid_unique_x"] + run["mlp_peid_unique_y"] + run["mlp_peid_xy_synergy"],
+        run["mlp_peid_unique_x"]
+        + run["mlp_peid_unique_y"]
+        + run["mlp_peid_xy_synergy"],
         run["mlp_peid_xy_joint"],
     )
     assert run["mlp_peid_redundancy"] == 0.0
@@ -862,17 +873,29 @@ def test_beta_sweep_reports_transport_map_peid_when_enabled(tmp_path: Path) -> N
     assert "surd_xy_synergy_mean" in beta_sweep["summary"][0]
     assert "observational_wms_mean" in beta_sweep["summary"][0]
     assert "observational_wms_slope" in beta_sweep["trend"]
-    assert beta_sweep["config"]["common_driver_target_coefficient"] == 0.15
+    assert (
+        beta_sweep["config"]["common_driver_target_coefficient"]
+        == comparison.COMMON_DRIVER_TARGET_COEFFICIENT
+    )
     assert "tm_peid_synergy_slope" in beta_sweep["trend"]
     assert "surd_synergy_slope" in beta_sweep["trend"]
     assert "oracle_peid_synergy_slope" in beta_sweep["trend"]
     assert "neural_granger_xy_to_z_mean" in beta_sweep["summary"][0]
     assert "neural_granger_xy_to_z_slope" in beta_sweep["trend"]
-    assert Path(summary["beta_sweep_figure_path"]).name == "sine_beta_single_source_readout_sweep.png"
+    assert (
+        Path(summary["beta_sweep_figure_path"]).name
+        == "sine_beta_single_source_readout_sweep.png"
+    )
     assert Path(summary["beta_sweep_figure_path"]).exists()
-    assert Path(summary["beta_synergy_figure_path"]).name == "sine_beta_synergy_readout_sweep.png"
+    assert (
+        Path(summary["beta_synergy_figure_path"]).name
+        == "sine_beta_synergy_readout_sweep.png"
+    )
     assert Path(summary["beta_synergy_figure_path"]).exists()
-    assert Path(summary["beta_combined_figure_path"]).name == "sine_beta_combined_readout_sweep.png"
+    assert (
+        Path(summary["beta_combined_figure_path"]).name
+        == "sine_beta_combined_readout_sweep.png"
+    )
     assert Path(summary["beta_combined_figure_path"]).exists()
     assert Path(summary["beta_validation_figure_path"]).exists()
 
@@ -917,7 +940,10 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
         + run["mmi_pid_xy_synergy"],
         run["mmi_pid_xy_joint"],
     )
-    assert np.isclose(run["mmi_pid_redundancy"], min(run["observational_x_to_z_mi"], run["observational_y_to_z_mi"]))
+    assert np.isclose(
+        run["mmi_pid_redundancy"],
+        min(run["observational_x_to_z_mi"], run["observational_y_to_z_mi"]),
+    )
     assert result["config"]["peid_source_support"] == [-1.8, 1.8]
     assert result["units"]["mmi_pid"] == "bits"
     assert "mmi_pid_unique_x_mean" in summary
@@ -928,7 +954,11 @@ def test_beta_sweep_reports_neural_granger_fields() -> None:
 
 
 def test_beta_sweep_default_grid_has_twenty_one_evenly_spaced_values() -> None:
-    beta_values = inspect.signature(run_sine_beta_common_driver_sweep).parameters["beta_values"].default
+    beta_values = (
+        inspect.signature(run_sine_beta_common_driver_sweep)
+        .parameters["beta_values"]
+        .default
+    )
 
     assert len(beta_values) == 21
     np.testing.assert_allclose(beta_values, np.linspace(0.0, 1.0, 21))
@@ -967,10 +997,12 @@ def test_beta_sweep_oracle_uses_one_fixed_intervention_protocol() -> None:
         result["summary"][0]["oracle_peid_unique_x_mean"],
         result["summary"][0]["oracle_peid_unique_y_mean"],
     )
-    assert 0.50 < result["summary"][0]["oracle_peid_xy_synergy_mean"] < 0.65
+    assert 0.40 < result["summary"][0]["oracle_peid_xy_synergy_mean"] < 0.55
 
 
-def test_beta_sweep_plots_single_source_and_synergy_ground_truth(tmp_path: Path, monkeypatch) -> None:
+def test_beta_sweep_plots_single_source_and_synergy_ground_truth(
+    tmp_path: Path, monkeypatch
+) -> None:
     import matplotlib.axes
 
     plotted_labels: list[str] = []
