@@ -1,28 +1,24 @@
-# 预测尺度依赖的高阶气候机制：Runge SLP 超边与 UniCM 系统级 \(\Phi^{\mathrm{EID}}\)
+# 预测尺度依赖的高阶气候机制：Runge SLP 超边与 UniCM 联合有效信息增量
 
 ## 目录
 
 - [1. 研究问题与主要发现](#1-研究问题与主要发现)
-- [2. 方法与实验设计](#2-方法与实验设计)
-  - [2.1 Runge SLP 数据与节点级基线](#21-runge-slp-数据与节点级基线)
-  - [2.2 高阶信息指标](#22-高阶信息指标)
+- [2. 方法](#2-方法)
 - [3. Runge：随预测尺度演化的高阶遥相关](#3-runge随预测尺度演化的高阶遥相关)
   - [3.1 ACE/ACS 节点基线](#31-aceacs-节点基线)
   - [3.2 短、中、长期超边截面](#32-短中长期超边截面)
   - [3.3 跨尺度复现与典型演化型](#33-跨尺度复现与典型演化型)
   - [3.4 地球科学启示](#34-地球科学启示)
   - [3.5 可检验的机制假设](#35-可检验的机制假设)
-- [4. UniCM：系统级 PhiEID 的计算与分解](#4-unicm系统级-phieid-的计算与分解)
-  - [4.1 干预口径与模态地理含义](#41-干预口径与模态地理含义)
-    - [模态的地理含义](#模态的地理含义)
+- [4. UniCM：联合有效信息增量的计算与分解](#4-unicm联合有效信息增量的计算与分解)
+  - [4.1 模态地理含义](#41-模态地理含义)
   - [4.2 EI 与单模态记忆基线](#42-ei-与单模态记忆基线)
     - [整体 EI：ENSO 与 IOD 的全历史读数](#整体-eienso-与-iod-的全历史读数)
     - [单源 EI](#单源-ei)
     - [全模态自身 EI：不同模态具有不同记忆尺度](#全模态自身-ei不同模态具有不同记忆尺度)
     - [ENSO 目标的二源 Syn：空间型态提供辅助证据](#enso-目标的二源-syn空间型态提供辅助证据)
-  - [4.3 系统级 PhiEID 的中期增强](#43-系统级-phieid-的中期增强)
-  - [4.4 PhiEID 的层级贪婪分解](#44-phieid-的层级贪婪分解)
-    - [分解定义与闭合关系](#分解定义与闭合关系)
+  - [4.3 系统级联合有效信息增量的中期增强](#43-系统级联合有效信息增量的中期增强)
+  - [4.4 联合有效信息增量的层级贪婪分解](#44-联合有效信息增量的层级贪婪分解)
   - [4.5 二源 Syn 的辅助证据](#45-二源-syn-的辅助证据)
     - [IOD 目标：自身记忆与印度洋/ENSO 背景共同调制](#iod-目标自身记忆与印度洋enso-背景共同调制)
 - [5. 综合讨论与解释边界](#5-综合讨论与解释边界)
@@ -32,85 +28,15 @@
 
 ## 1. 研究问题与主要发现
 
-本文围绕同一科学问题组织两组互补证据：气候系统的可预测信息是否依赖多个空间模态的联合状态，以及这种高阶依赖如何随预测尺度变化。Runge SLP 实验从全球海平面气压分量出发，识别不同预测尺度 \(H\) 下的二源超边；UniCM 实验则计算全部气候模态历史对未来系统状态的系统级联合增量 \(\Phi^{\mathrm{EID}}\)，并以贪婪层级分解定位其主要来源。ACE/ACS、整体 EI、单源 EI 和二源 Syn 均作为支撑主结论的基线，而非叙述终点。
+本文围绕同一科学问题组织两组互补证据：气候系统的可预测信息是否依赖多个空间模态的联合状态，以及这种高阶依赖如何随预测尺度变化。Runge SLP 实验从全球海平面气压分量出发，识别不同预测尺度 \(H\) 下的二源超边；UniCM 实验则计算全部气候模态历史对未来系统状态的系统级联合有效信息增量 $\Xi$，并以贪婪层级分解定位其主要来源。ACE/ACS、整体 EI、单源 EI 和二源 Syn 均作为支撑主结论的基线，而非叙述终点。
 
-结果给出两点相互呼应的发现。第一，Runge 超边并非随 \(H\) 等比例衰减：早期峰值、中期峰值、长期平台和长期增强四类尺度响应同时存在；中长期反复出现的超边更多围绕 `No.0/No.1` 展开，且空间跨度呈弱增大趋势。这为地球科学提供了一个区别于静态遥相关网络的新视角：同一组区域可能只在特定预报窗口形成不可加的联合影响。第二，UniCM 的系统级 \(\Phi^{\mathrm{EID}}\) 在 lead 8 达峰，且主要由 ENSO 空间型态与 IOD 背景构成的二至五阶嵌套模块解释；这表明中期可预测性不仅取决于单个指数的记忆，还取决于多个海盆状态能否被联合读取。
+结果给出两点相互呼应的发现。第一，Runge 超边并非随 \(H\) 等比例衰减：早期峰值、中期峰值、长期平台和长期增强四类尺度响应同时存在；中长期反复出现的超边更多围绕 `No.0/No.1` 展开，且空间跨度呈弱增大趋势。这为地球科学提供了一个区别于静态遥相关网络的新视角：同一组区域可能只在特定预报窗口形成不可加的联合影响。第二，UniCM 的系统级 $\Xi$ 在 lead 8 达峰，且主要由 ENSO 空间型态与 IOD 背景构成的二至五阶嵌套模块解释；这表明中期可预测性不仅取决于单个指数的记忆，还取决于多个海盆状态能否被联合读取。
 
 这些结论均是模型和当前估计口径下的机制证据，不等同于历史事件归因或已验证的物理因果链。尤其是 Runge 分量尚未全部完成物理命名，UniCM 的高维信息量采用 Gaussian log-det 筛查；因此本文明确区分观测结果、物理解释与待检验假设。
 
-## 2. 方法与实验设计
+## 2. 方法
 
-### 2.1 Runge SLP 数据与节点级基线
-
-这一组实验只展示 ACE 和 ACS，不再展示 AMCE。实验在同一套 1948—2026 年 NCEP 海平面气压（SLP）周尺度 Varimax 分量上，对比 Runge 等人 [R1] 的线性因果网关/易感性算法与 Ridge+PEID 的 Hyper-ACE/Hyper-ACS。模型以 60 维分量最近 4 周的状态预测下一周状态。
-
-数据预处理删除 2 月 29 日，并依次去除 365 日历日气候均值、逐日历日标准差和线性趋势。随后将逐日场聚合为月场，在月场上重新拟合 60 个 Varimax 旋转 PCA 空间权重，再把这些权重投影回预处理后的逐日场，并以连续 7 日均值得到周尺度分量。该“月场拟合—逐日投影—周尺度聚合”过程对应 Runge 等人 [R1] 的降维操作。Ridge 读出模型在同一组周尺度分量上重新训练，共得到 `4074` 个有效滞后样本，正则参数为 `alpha=1000`。
-
-Runge 面板先用 PC-stable 筛选父节点，再以线性结构方程模型估计跨滞后因果效应。早期复现曾把最终 MCI 的 `p_matrix` 误作父节点集合；修正为 PC-stable 父节点后，`No.3` 在扩展样本中的排名由 ACE 第 5、ACS 第 3 降至 ACE 第 12、ACS 第 13。这个变化说明，节点排名对因果图构建口径敏感，也构成后续解释的重要限制。
-
-### 2.2 高阶信息指标
-
-记矩阵 \(\mathbf{C}\) 的元素 \(C_{ij}\) 为源分量 \(i\) 到目标分量 \(j\) 的跨滞后最大绝对因果效应，则 Runge 原文口径下
-
-$$
-\mathrm{ACE}_{\mathrm{Runge}}(i)=\frac{1}{n-1}\sum_{j\ne i}C_{ij},
-\qquad
-\mathrm{ACS}_{\mathrm{Runge}}(i)=\frac{1}{n-1}\sum_{j\ne i}C_{ji},
-\qquad n=60 . \tag{2.1}
-$$
-
-Ridge+PEID 面板使用同一套 1948-2026 component scores。PEID 候选设置为旧口径：`intervention_samples=4096`、`candidate_top_sources=14`、`candidate_target_topk=10`、`order_max=2`、`null_reps=20`、显著门槛 \(|z|\ge2\)。记 \(EI_{i\to j}\) 为一阶有效信息，\(Syn_{K\Rightarrow j}^{\mathrm{EID}}\) 为二源集合 \(K\) 对目标 \(j\) 的 EID 协同项：
-
-$$
-Syn_{K\Rightarrow j}^{\mathrm{EID}}
-=
-EI\bigl(\mathbf{x}_t^K\to X_{t+1}^{(j)}\bigr)
--\sum_{a\in K}EI\bigl(X_t^{(a)}\to X_{t+1}^{(j)}\bigr).
-\tag{2.2}
-$$
-
-图中的 Hyper-ACE 和 Hyper-ACS 保留一阶 EI 基线，并只加入满足 \(|z_{K\Rightarrow j}|\ge2\) 的二阶协同项。由于二阶超边经过显著性筛选，二阶项不再和一阶边共用 \(n-1\) 作分母，而是按每个节点实际关联的显著二阶超边数量求平均。令
-
-$$
-\mathcal{H}^{\mathrm{out}}_2(i)
-=
-\{(K,j):\, i\in K,\ |K|=2,\ |z_{K\Rightarrow j}|\ge2\},
-\qquad
-\mathcal{H}^{\mathrm{in}}_2(i)
-=
-\{(K,j):\, j=i,\ |K|=2,\ |z_{K\Rightarrow i}|\ge2\}.
-\tag{2.3}
-$$
-
-$$
-\mathrm{Hyper\text{-}ACE}(i)=
-\frac{1}{n-1}\sum_j|EI_{i\to j}|
-+
-\begin{cases}
-\displaystyle
-\frac{1}{|\mathcal{H}^{\mathrm{out}}_2(i)|}
-\sum_{(K,j)\in\mathcal{H}^{\mathrm{out}}_2(i)}
-\frac{|Syn_{K\Rightarrow j}^{\mathrm{EID}}|}{|K|},
-& |\mathcal{H}^{\mathrm{out}}_2(i)|>0,\\
-0,& |\mathcal{H}^{\mathrm{out}}_2(i)|=0,
-\end{cases} \tag{2.4}
-$$
-
-$$
-\mathrm{Hyper\text{-}ACS}(i)=
-\frac{1}{n-1}\sum_s|EI_{s\to i}|
-+
-\begin{cases}
-\displaystyle
-\frac{1}{|\mathcal{H}^{\mathrm{in}}_2(i)|}
-\sum_{(K,j)\in\mathcal{H}^{\mathrm{in}}_2(i)}
-|Syn_{K\Rightarrow i}^{\mathrm{EID}}|,
-& |\mathcal{H}^{\mathrm{in}}_2(i)|>0,\\
-0,& |\mathcal{H}^{\mathrm{in}}_2(i)|=0.
-\end{cases} \tag{2.5}
-$$
-
-式（2.1）给出 Runge 的节点级基线，式（2.2）定义二源 EID 协同，式（2.3）—（2.5）则把显著二阶超边聚合到 Hyper-ACE/Hyper-ACS。两个 Hyper 指标只汇总一步预测中的直接一阶边和显著二阶超边，不计算超边影响节点后再沿因果图传播的高阶路径中心性。当前读数包含 `1638` 条二阶候选，其中 `287` 条通过 \(|z|\ge2\) 门槛。因此，二阶项修正的是显著局部超边的平均强度，而不是全部潜在超边的总体强度。
+数据处理、指标定义、估计流程和层级分解算法已统一移至 [Method.md](Method.md)。本文件只保留实验结果、图表、科学解释与限制。
 
 ## 3. Runge：随预测尺度演化的高阶遥相关
 
@@ -122,24 +48,19 @@ $$
 
 修正后的 Runge 方法 ACE top-3 是 `No.1/0/16`，ACS top-3 是 `No.0/1/26`；Ridge+PEID 的 ACE top-5 是 `No.0/1/3/9/4`，ACS top-5 是 `No.10/3/26/0/1`。需要保留两个限制：第一，修正后的 PC-stable graph 仍不等于原文 Fig. 4 的逐项复刻；第二，60 个 Varimax component 的编号不是官方固定标签，当前只对少数论文讨论节点做了视觉校准，因此不能把低排名或未校准节点直接命名为确定气候过程。
 
+父节点口径修正后，`No.3` 在扩展样本中的排名由 ACE 第 5、ACS 第 3 降至 ACE 第 12、ACS 第 13，说明节点排名对因果图构建口径敏感。Ridge+PEID 当前读数包含 `1638` 条二阶候选，其中 `287` 条通过 $|z|\ge2$ 门槛。
+
 上面的 ACE/ACS 地图把每个节点相关的一阶边和显著二阶超边都压缩成节点分数，因此只能回答“哪个 component 更像 source 或 target hub”。为了检查二阶项本身落在什么地理关系上，下面把视角从节点分数退回到具体超边。
 
 ### 3.2 短、中、长期超边截面
 
-多步推演继续使用同一套 1948—2026 年周尺度分量和 `4074` 个有效滞后样本。验证集选择的读出器将 MLP 与 Ridge 转移模型加权组合，其中 `ridge_alpha=1000`，Ridge 和 MLP 的权重分别为 `0.37` 与 `0.63`。输入文件、结果清单和复现目录统一列于第 6 章，避免将内部路径混入结果叙事。
-
-初步实验曾先用离散化 MI 筛选每个 \(H\) 的前 1000 条候选，再逐条重算三阶 TM MI。由于离散排序与 TM 排序差异较大，最终实验改为对每个报告尺度的全部 `102660` 条跨目标二源候选进行三阶 TM 穷举。批量实现严格复现原逐条估计器，并复用单源 EI、源对边缘密度和多项式设计矩阵；16 个尺度的 legacy 抽样最大误差均低于 \(10^{-14}\)。每条候选的非加性增量定义为
-
-$$
-\Delta_{2,\mathrm{TM}}^{[h]}(i,j\Rightarrow t)
-=EI_{\{i,j\}\to t}^{[h]}-EI_{i\to t}^{[h]}-EI_{j\to t}^{[h]} . \tag{3.1}
-$$
+多步读出器、全候选三阶 TM 穷举流程及非加性增量定义见 [Method.md 第 4 节](Method.md#4-runge-多尺度二源超边估计)。批量实现对原逐条估计器的 16 个尺度 legacy 抽样最大误差均低于 $10^{-14}$。输入文件、结果清单和复现目录统一列于第 6 章。
 
 图 2—4 展示全量 TM 穷举在 \(H=1\)、\(H=10\) 和 \(H=60\) 的代表性横截面。每张图均从该尺度全部 `102660` 条候选中取全局前十；两个源节点汇入紫色中介点，再由中介点指向目标，浅灰点提供其余分量的空间参照。离散 shortlist 只在图 5 中作为覆盖偏差的诊断基准。
 
 ![H=1 的全量 TM 二阶超边](../../fig/runge_slp_daily_1948_2026_20260628/multistep_conditioned_ei_tm_exhaustive/top10_order2_hyperedges_H001_tm_exhaustive.png)
 
-*图 2. 一周尺度的全局 TM 前十较为分散，尚未形成单一主导的源组合。全部 `102660` 条候选中的前三为 `No.0 + No.3 -> No.37`、`No.0 + No.11 -> No.35` 和 `No.1 + No.5 -> No.17`；排序和线宽使用式（3.1）。*
+*图 2. 一周尺度的全局 TM 前十较为分散，尚未形成单一主导的源组合。全部 `102660` 条候选中的前三为 `No.0 + No.3 -> No.37`、`No.0 + No.11 -> No.35` 和 `No.1 + No.5 -> No.17`；排序和线宽使用 Method 式（M.12）。*
 
 图 2 表明，短期联合信号在全量候选中仍较分散，因此“一周最强候选”不能直接等同于稳健物理遥相关。现有结果尚无 block-bootstrap 显著性检验，不能据此量化排名不确定性。
 
@@ -221,34 +142,11 @@ $$
 
 因此，Runge 实验的主要贡献不是给出一张新的静态遥相关图，而是把候选高阶联系组织成可比较、可证伪的尺度谱。该尺度谱为后续物理诊断明确了应优先验证的时间窗口和区域组合。
 
-## 4. UniCM：系统级 PhiEID 的计算与分解
+## 4. UniCM：联合有效信息增量的计算与分解
 
-### 4.1 干预口径与模态地理含义
+### 4.1 模态地理含义
 
-这里分析的是 frozen UniCM Modeformer learned mechanism，不是 reanalysis 预测技能评估，也不是单个历史事件归因。每个干预样本同时采样 12 个历史月份和 11 个 UniCM mode 维度，形成 `(B, 12, 11)` 的 bounded uniform 最大熵输入，历史张量写入 Modeformer encoder 的 12 个月历史段，未来 24 个月由 decoder 自回归生成。
-
-核心配置如下：
-
-| 项目 | 取值 |
-|---|---|
-| 检查点随机种子 | `1, 2, 3` |
-| 干预样本数 | `8192` |
-| 干预支持集 | 12 个历史月份 × 11 个模态维度，各维独立采样于 `[-4, 4]` |
-| 采样随机种子 | `20260619` |
-| 起始月份 | `0` |
-| bootstrap 重复数 | ENSO 汇总为 `200`；IOD 源对曲线仅报告 seed 均值 |
-| 目标模态 | 图 8、10、12 为 ENSO；图 11、13—15 为全部模态；图 9、16—17 包含 IOD |
-| 源模态 | ENSO/nino、NPMM、SPMM、IOB、IOD、SIOD、TNA、nino12、nino3、nino4、WWV |
-
-整体 EI 使用 flattened full-history source，即 132 维历史 mode 输入，对每个 lead 的目标 mode 输出估计 `EI(history; target_lead)`。高维整体读数采用 Gaussian log-det MI 作为快速筛查口径；它用于检查绝对量级和 seed 稳定性，不等同于最终的非线性 transport-map PEID 分解。本文保留二源 Syn 读数：
-
-$$
-\mathrm{Syn}_{ij}=EI_{ij}-EI_i-EI_j. \tag{4.1}
-$$
-
-式（4.1）中，`EI_i` 和 `EI_j` 是两个源模态的 12 个月历史分别到同一目标 lead 的单源 EI，`EI_{ij}` 是二者联合历史到该目标的 EI。所有读数都使用 Gaussian log-det 估计，适合作为全历史机制筛查；它们不等同于最终的非线性 transport-map PEID 分解。
-
-#### 模态的地理含义
+UniCM 的最大熵干预、Gaussian log-det 信息估计及二源 Syn 定义见 [Method.md 第 5 节](Method.md#5-unicm-干预口径与信息估计)。这里先明确各模态的地理含义，以约束后续结果的物理解释。
 
 ![UniCM 模态的地理区域](../../fig/unicm_mode_geography.png)
 
@@ -262,7 +160,7 @@ $$
 
 #### 整体 EI：ENSO 与 IOD 的全历史读数
 
-全历史整体 EI 的主窗口为 lead `1..24`，气候相关补充窗口为 lead `6..18`。跨 seed 鲁棒性标准为：seed 两两 Pearson 相关系数不低于 `0.80`，Spearman 相关系数不低于 `0.75`，EI 最高的三个 lead 至少重合 `2` 个。按此标准，ENSO/nino 和 IOD 的曲线形状具有一定一致性，但 lead 排序未通过鲁棒性检验。
+报告窗口与跨 seed 鲁棒性标准见 [Method.md 第 5 节](Method.md#5-unicm-干预口径与信息估计)。按该标准，ENSO/nino 和 IOD 的曲线形状具有一定一致性，但 lead 排序未通过鲁棒性检验。
 
 | 目标 | 平均 EI（1—24） | 平均 EI（6—18） | 最小 Pearson | 最小 Spearman | 前三 lead 最小重合数 | 状态 |
 |---|---:|---:|---:|---:|---:|---|
@@ -277,7 +175,7 @@ $$
 
 *图 9. 各目标的曲线形状具有一定 seed 一致性，但 lead 细粒度排序普遍比总体衰减趋势更不稳定。图中每个面板对应一个目标模态，每条曲线对应一个 checkpoint seed。*
 
-图 8—9 支持“全历史输入含有短中期机制信息”，其意义是为后续 \(\Phi^{\mathrm{EID}}\) 提供总信息量参照；但 ENSO 与 IOD 均未通过 lead 排序鲁棒性标准，不能过度解释单月峰谷。
+图 8—9 支持“全历史输入含有短中期机制信息”，其意义是为后续 $\Xi$ 提供总信息量参照；但 ENSO 与 IOD 均未通过 lead 排序鲁棒性标准，不能过度解释单月峰谷。
 
 图 8—9 表明，UniCM 学到的 ENSO/nino 有效信息主要集中在 lead 1—6 个月。短期 EI 明显高于后期，符合 ENSO 短期记忆较强、长期不确定性上升的物理直觉。三个 checkpoint 的曲线形状相近，最小 Pearson 相关系数为 `0.950`；但最小 Spearman 相关系数只有 `0.482`，说明具体 lead 排序仍不稳定。IOD 在 `6..18` 窗口的平均 EI 更接近全窗口均值，但最小 Spearman 相关系数仅为 `0.245`。因此，整体 EI 只支持“全历史输入含有可读出的短中期机制信息”这一方向性判断，不能支撑单个 lead 的精细排序。
 
@@ -295,7 +193,7 @@ $$
 
 #### 全模态自身 EI：不同模态具有不同记忆尺度
 
-为了和二源 Syn 的量级作对照，这里进一步把每个 mode 都作为 target，并只输入该 mode 自己的 12 个月历史，计算 self EI 随 lead 的变化。也就是说，每条曲线都对应 `source = target`，没有引入其他 mode 的历史。
+单模态自身 EI 的输入—目标口径见 [Method.md 第 5 节](Method.md#5-unicm-干预口径与信息估计)。这里用它与二源 Syn 的量级作对照。
 
 ![全部模态的自身 EI 曲线](../../fig/unicm_all_modes_self_ei_leads.png)
 
@@ -331,80 +229,27 @@ $$
 
 因此，`nino3` 和 `nino4` 更适合被解释为 ENSO 内部空间型态的调制因子，而不是 ENSO 之外的独立强迫源。曲线在 9 到 12 个月后整体贴近零，说明这种额外协同信息主要集中在短中期；到更长 lead，模型已经很难从这些二源组合里读出稳定的增量。
 
-### 4.3 系统级 PhiEID 的中期增强
+### 4.3 系统级联合有效信息增量的中期增强
 
-令 $\mathbf{x}_t$ 表示截至时刻 $t$ 的 12 个月系统历史，$\mathbf{x}_t^m$ 表示其中第 $m$ 个模态的历史，$\mathbf{x}_{t+\ell}$ 表示 lead $\ell$ 的全模态未来状态。系统级联合增量为
+系统级 $\Xi$ 的变量、源划分和联合增量定义见 [Method.md 第 6 节](Method.md)。当前运行中的单项 EI、$\Xi$ 和分解残差均保持理论预期的非负性。
 
-$$
-\Phi^{\mathrm{EID}}_{\ell}
-= EI(\mathbf{x}_t;\mathbf{x}_{t+\ell})
-- \sum_{m=1}^{11} EI(\mathbf{x}_t^m;\mathbf{x}_{t+\ell}). \tag{4.2}
-$$
+![全模态目标的系统级联合有效信息增量曲线](../../fig/unicm_all_mode_target_phi_eid_leads.png)
 
-式（4.2）的源划分由 11 个单模态块组成，每个块包含该模态 12 个月的历史。实现不对单项 EI、\(\Phi^{\mathrm{EID}}\) 或分解残差施加非负截断；在当前结果中它们均保持理论预期的非负性。若未来运行出现负值，将作为估计或数值诊断直接报告，而不会改写为零。这一高维读数仍采用 Gaussian log-det 筛查，不等同于最终的非线性 transport-map PEID。
+*图 13. 系统级 $\Xi$ 在 lead 8 达峰，而非在最短预测期最大。上图为 checkpoint seed 均值和标准差，下图比较整体 EI 与单模态 EI 之和；所有曲线均为未截断的 signed Gaussian log-det 读数。*
 
-![全模态目标的系统级 PhiEID 曲线](../../fig/unicm_all_mode_target_phi_eid_leads.png)
-
-*图 13. 系统级 \(\Phi^{\mathrm{EID}}\) 在 lead 8 达峰，而非在最短预测期最大。上图为 checkpoint seed 均值和标准差，下图比较整体 EI 与单模态 EI 之和；所有曲线均为未截断的 signed Gaussian log-det 读数。*
-
-整体 EI 与单模态 EI 之和都随 lead 增长而下降，但两者差值并不单调。\(\Phi^{\mathrm{EID}}\) 在 lead 1—5 约为 `0.05-0.07` bits，随后在 lead 7—10 增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 维持在约 `0.09-0.15` bits。系统级联合增量因而不是短期最大，而是在中期更明显。
+整体 EI 与单模态 EI 之和都随 lead 增长而下降，但两者差值并不单调。$\Xi$ 在 lead 1—5 约为 `0.05-0.07` bits，随后在 lead 7—10 增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 维持在约 `0.09-0.15` bits。系统级联合增量因而不是短期最大，而是在中期更明显。
 
 这个结果和上面的二源 Syn 曲线一致：单源或单 pair 对整体未来状态的解释在短 lead 已经很强，但不可约的多模态联合增量主要出现在 6 到 10 个月附近。完整逐 seed 表见 `results/unicm_all_mode_target_phi_eid_cpu_bound4_n8192/all_mode_target_phi_eid_rows.csv`。
 
-### 4.4 PhiEID 的层级贪婪分解
+### 4.4 联合有效信息增量的层级贪婪分解
 
-进一步对每个 lead 的全模态 \(\Phi^{\mathrm{EID}}\) 进行层级可加性分解。该分解不声称恢复唯一的高阶 PID 原子，而是回答一个更可读的问题：从全部模态出发，每一步尽量拆出可由两个子模块解释的部分后，还有哪些模态集合必须联合读取？
+层级贪婪二分、残差原子、闭合关系和数值容差见 [Method.md 第 7 节](Method.md)。其中单节点块的 $\Xi$ 取 0，输出仅包含 $|C|\ge2$ 的原子 $\xi_C$，不包含单节点 EI。该分解定位沿当前贪婪树仍需联合读取的模态集合，不代表唯一的高阶 PID 原子。
 
-#### 分解定义与闭合关系
+![UniCM 全模态联合有效信息增量的贪婪层级分解](../../fig/unicm_phi_eid_greedy_decomposition.png)
 
-分解直接从式（4.2）的系统级 $\Phi^{\mathrm{EID}}_{\ell}$ 开始，不再为根集合另设符号。在固定 lead $\ell$ 下，对递归中的任意非空模态块 $C$，用 $\mathbf{x}_t^C$ 表示块内模态的历史，并简写
+*图 14. 贪婪原子在数值精度内与总 $\Xi$ 闭合，主要贡献集中于 ENSO 空间型态及 IOD 背景的嵌套模块。左图为不同阶数原子的堆叠分布，黑线为原子之和；右图为按全部 seed 和 lead 平均贡献排序的主要模块。该分解依赖贪婪路径与数值容差，不代表唯一的高阶原子。*
 
-$$
-\Phi^{\mathrm{EID}}(C)
-=EI(\mathbf{x}_t^C;\mathbf{x}_{t+\ell}). \tag{4.3}
-$$
-
-当 $C=\{i\}$ 时，式（4.3）自然退化为节点 $i$ 单独到未来状态的 EI。单节点只是递归的终点，不产生原子。
-
-算法把当前块 $C$ 拆成两个非空子块：
-
-$$
-L\cap R=\varnothing,\qquad L\cup R=C,\qquad L\neq\varnothing,\qquad R\neq\varnothing. \tag{4.4}
-$$
-
-由分解的非负性，父块减去两个子块后的残差在理论上必为非负，因此直接在所有二分中选择两个子块 $\Phi^{\mathrm{EID}}$ 之和最大的一个：
-
-$$
-(L^\star,R^\star)
-=\underset{L\cap R=\varnothing,\;L\cup R=C}{\arg\max}
-\,[\Phi^{\mathrm{EID}}(L)+\Phi^{\mathrm{EID}}(R)]. \tag{4.5}
-$$
-
-理论优化不需要额外的非负约束。实现中的 `split_tolerance` $\tau=10^{-4}$ 只用于吸收有限样本估计和浮点计算造成的微小负偏差；若候选值近似相同，则选择残差更小者。选定二分后，当前块留下的原子为
-
-$$
-a_C=\Phi^{\mathrm{EID}}(C)-\Phi^{\mathrm{EID}}(L^\star)-\Phi^{\mathrm{EID}}(R^\star). \tag{4.6}
-$$
-
-随后对 $L^\star$ 和 $R^\star$ 继续二分，直到每个分支只剩一个节点。特别地，当当前块只含两个节点 $C=\{i,j\}$ 时，唯一的二分是 $L=\{i\}$、$R=\{j\}$；此时式（4.6）中的 $\Phi^{\mathrm{EID}}(L)$ 和 $\Phi^{\mathrm{EID}}(R)$ 分别退化为节点 $i$ 和节点 $j$ 的单节点 EI。残差原子只定义在 $|C|\ge2$ 的内部节点上，不存在单节点原子 $a_{\{i\}}$。
-
-理论上，算法递归到所有叶节点均为单节点。把全部内部节点的式（4.6）相加时，每个非根内部节点的 $\Phi^{\mathrm{EID}}$ 都出现一次正号和一次负号，因而两两抵消；单节点 $\Phi^{\mathrm{EID}}$ 只作为叶项被减去。最终留下系统整体的联合 EI 减去所有单节点 EI，正好等于式（4.2）。因此闭合关系是严格恒等式：
-
-$$
-\Phi^{\mathrm{EID}}_{\ell}=\sum_{|C|\ge2}a_C. \tag{4.7}
-$$
-
-实现中等价地使用 $EI(C)$ 减去块内全部单节点 EI 的中心化值。由于 $L$ 和 $R$ 正好二分 $C$，这些单节点项在式（4.6）中严格抵消，并且对式（4.5）的所有候选二分都是同一个常数，因此不会改变二分选择或残差原子。实现可不记录 $a_C\le\varepsilon$ 的数值零项，其中 `eps` $\varepsilon=10^{-5}$；这只会使实际输出在浮点精度内近似闭合，不改变式（4.7）的数学等号。
-
-图中的阶数为 \(|C|\)：二阶表示源对残差，五阶表示五个模态必须一起读出的残差，`all 11 modes` 则表示根节点未被两个子块完全解释的全局残差。
-
-式（4.3）定义任意块的 $\Phi^{\mathrm{EID}}$，并在单节点处退化为该节点的 EI；式（4.4）—（4.5）选择最能解释父块的二分，式（4.6）定义至少二阶的残差原子，式（4.7）给出全部内部节点原子与系统总量的严格闭合关系。该输出不是严格的 Möbius 纯阶原子；其结果依赖二分路径和 $\varepsilon$，数值实现还会受到估计误差与容差设置的影响。因此，它应解释为“沿当前贪婪树仍需联合读取的模态集合”，而不是唯一的高阶信息分解。
-
-![UniCM 全模态 PhiEID 的贪婪层级分解](../../fig/unicm_phi_eid_greedy_decomposition.png)
-
-*图 14. 贪婪原子在数值精度内与总 \(\Phi^{\mathrm{EID}}\) 闭合，主要贡献集中于 ENSO 空间型态及 IOD 背景的嵌套模块。左图为不同阶数原子的堆叠分布，黑线为原子之和；右图为按全部 seed 和 lead 平均贡献排序的主要模块。该分解依赖贪婪路径与数值容差，不代表唯一的高阶原子。*
-
-分解结果在 `split_tolerance` 范围内与上一节的总 \(\Phi^{\mathrm{EID}}\) 闭合；逐 seed/lead 的最大偏差约为 `7.9e-05` bits。峰值仍在 lead 8，`phi_atom_sum_mean=0.183958` bits。按全部 `3 seeds × 24 leads`、缺失视为 0 的平均贡献排序，最强模块是：
+分解结果在 `split_tolerance` 范围内与上一节的总 $\Xi$ 闭合；逐 seed/lead 的最大偏差约为 `7.9e-05` bits。峰值仍在 lead 8，内部结果字段 `phi_atom_sum_mean=0.183958` bits。按全部 `3 seeds × 24 leads`、缺失视为 0 的平均贡献排序，最强模块是：
 
 | 排名 | 贪婪模块 | 阶数 | 平均原子量（bits） | 最大原子量（bits） | 非零次数 |
 |---:|---|---:|---:|---:|---:|
@@ -417,13 +262,13 @@ $$
 
 把 peak lead 8 单独展开后，可以更清楚地看到分布集中度：
 
-![UniCM lead 8 的 PhiEID 原子分布](../../fig/unicm_phi_eid_lead8_distribution.png)
+![UniCM lead 8 的联合有效信息增量原子分布](../../fig/unicm_phi_eid_lead8_distribution.png)
 
-*图 15. Lead 8 的 \(\Phi^{\mathrm{EID}}\) 由二至五阶模块主导，其中 `ENSO + IOD + nino12 + nino3 + nino4` 是最大单个原子。a 为按 seed 均值排序的前 12 个原子；b 为模态成员矩阵；c 为不同阶数的原子质量；d 为总量与主要原子摘要。该图只展开峰值 lead，不能代表模块在全部预测期的稳定排序。*
+*图 15. Lead 8 的 $\Xi$ 由二至五阶模块主导，其中 `ENSO + IOD + nino12 + nino3 + nino4` 是最大单个原子。a 为按 seed 均值排序的前 12 个原子；b 为模态成员矩阵；c 为不同阶数的原子质量；d 为总量与主要原子摘要。该图只展开峰值 lead，不能代表模块在全部预测期的稳定排序。*
 
-在 lead 8，最大原子 `ENSO + IOD + nino12 + nino3 + nino4` 贡献 `0.032661` bits，占总 \(\Phi^{\mathrm{EID}}\) 的 `17.8%`。前 12 个原子合计覆盖 `87.6%` 的 lead-8 质量。按阶数看，二至五阶是主贡献区间，分别约占 `21%`、`22%`、`20%` 和 `18%`；六阶以上主要是较小的跨块残差。
+在 lead 8，最大原子 `ENSO + IOD + nino12 + nino3 + nino4` 贡献 `0.032661` bits，占总 $\Xi$ 的 `17.8%`。前 12 个原子合计覆盖 `87.6%` 的 lead-8 质量。按阶数看，二至五阶是主贡献区间，分别约占 `21%`、`22%`、`20%` 和 `18%`；六阶以上主要是较小的跨块残差。
 
-这个结果说明，系统级 \(\Phi^{\mathrm{EID}}\) 的主要可解释层级集中在 ENSO 空间型态及 IOD 背景的嵌套组合上，而不是平均分散到全部模态。`all 11 modes` 残差几乎在每个 seed/lead 都存在，但量级较小，表示仍有弱的全局跨块残差。完整原子表见 `results/unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192/unicm_phi_eid_greedy_atoms.csv`。
+这个结果说明，系统级 $\Xi$ 的主要可解释层级集中在 ENSO 空间型态及 IOD 背景的嵌套组合上，而不是平均分散到全部模态。`all 11 modes` 残差几乎在每个 seed/lead 都存在，但量级较小，表示仍有弱的全局跨块残差。完整原子表见 `results/unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192/unicm_phi_eid_greedy_atoms.csv`。
 
 
 
@@ -431,7 +276,7 @@ $$
 
 #### IOD 目标：自身记忆与印度洋/ENSO 背景共同调制
 
-作为对照，这里将目标由 ENSO 改为 IOD，其余全历史最大熵干预口径保持一致：`8192` 个样本、checkpoint seeds `1, 2, 3`、lead `1..24`、干预范围 `[-4, 4]`，源变量仍为 11 个 UniCM 模态。图中展示 IOD 目标平均 Syn 排名前 12 的源对，并保留同一组固定对照源对。
+作为对照，这里将目标由 ENSO 改为 IOD，并沿用 [Method.md 第 5 节](Method.md) 的全历史最大熵干预口径。图中展示 IOD 目标平均 Syn 排名前 12 的源对，并保留同一组固定对照源对。
 
 | 排名 | 源对 | 平均 Syn（1—24） | seed 标准差 | 正值 seed 数 | 联合 EI | 左源 EI | 右源 EI |
 |---:|---|---:|---:|---:|---:|---:|---:|
@@ -460,13 +305,13 @@ IOD 结果的主信号与 ENSO target 不同：排名靠前的 pair 大多包含
 
 ## 5. 综合讨论与解释边界
 
-Runge 与 UniCM 给出尺度互补的高阶证据。Runge 结果表明，二源超边会随 \(H\) 在不同区域组合之间迁移；UniCM 结果表明，系统级 \(\Phi^{\mathrm{EID}}\) 在中期增强，并可追溯到 ENSO 空间型态与 IOD 背景的嵌套模块。两者共同支持一个窄而可检验的结论：气候可预测信息不仅存在于单模态记忆或成对联系中，还存在于依赖预测尺度的联合状态中。Runge 超边适合提出空间遥相关候选，UniCM 的 \(\Phi^{\mathrm{EID}}\) 分解适合定位多模态联合读出的层级；二者不能互相替代，也尚未构成同一动力方程下的闭环验证。
+Runge 与 UniCM 给出尺度互补的高阶证据。Runge 结果表明，二源超边会随 \(H\) 在不同区域组合之间迁移；UniCM 结果表明，系统级 $\Xi$ 在中期增强，并可追溯到 ENSO 空间型态与 IOD 背景的嵌套模块。两者共同支持一个窄而可检验的结论：气候可预测信息不仅存在于单模态记忆或成对联系中，还存在于依赖预测尺度的联合状态中。Runge 超边适合提出空间遥相关候选，UniCM 的 $\Xi$ 分解适合定位多模态联合读出的层级；二者不能互相替代，也尚未构成同一动力方程下的闭环验证。
 
 ### 5.1 解释边界
 
 - 本文只分析 frozen UniCM checkpoint 的 Modeformer learned mechanism，不使用 reanalysis 数据做预测复现，也不做单个历史事件归因。
 - UniCM 的 overall EI 与 mode-pair Syn 使用 Gaussian log-det MI；这适合快速筛查，不等同于 transport-map PEID 的最终非线性分解。
-- Syn 可以为负，表示 pair 的联合读数低于两个单源读数之和；本文所有 EI、\(\Phi^{\mathrm{EID}}\)、Syn 与分解残差均不做非负截断。
+- Syn 可以为负，表示 pair 的联合读数低于两个单源读数之和；本文所有 EI、$\Xi$、Syn 与分解残差均不做非负截断。
 - Overall EI 的 ENSO/nino 与 IOD target 均未通过 lead 排序的 seed 鲁棒性标准；因此应解释稳定方向和量级，不应解释单个 lead 的精细排序。
 - Runge SLP 面板中的 PC-stable graph 仍不是原文 Fig. 4 的逐项复刻；当前 60 个 Varimax component 是在 1948—2026 扩展样本上重新拟合得到的，编号也不是官方固定标签，不能把未校准节点直接命名为确定气候过程。
 - 图 2—5、表 1 和跨尺度复现结论均来自每个 \(H\) 的全部 `102660` 条三阶 TM 候选；离散前 1000 候选只在图 5 中用于诊断初筛覆盖偏差。全量穷举解决了覆盖偏差，但尚未进行 block-bootstrap 显著性筛选。
@@ -484,8 +329,8 @@ Runge 与 UniCM 给出尺度互补的高阶证据。Runge 结果表明，二源�
 - Full-history mode-pair Syn top pairs：`results/unicm_full_history_pair_syn_tm_degree1_n8192/full_history_mode_pair_syn_top_pairs.csv`
 - Full-history mode-pair Syn 图：`results/unicm_full_history_pair_syn_tm_degree1_n8192/fig/full_history_mode_pair_syn_top.png`
 - All-mode target pair Syn 完整 lead 表：`results/unicm_all_mode_target_pair_syn_cpu_bound4_n8192/all_mode_target_pair_syn_lead_summary.csv`
-- All-mode target PhiEID 逐 seed 表：`results/unicm_all_mode_target_phi_eid_cpu_bound4_n8192/all_mode_target_phi_eid_rows.csv`
-- Greedy PhiEID atom 表：`results/unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192/unicm_phi_eid_greedy_atoms.csv`
+- All-mode target $\Xi$ 逐 seed 表：`results/unicm_all_mode_target_phi_eid_cpu_bound4_n8192/all_mode_target_phi_eid_rows.csv`
+- Greedy $\Xi$ atom 表：`results/unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192/unicm_phi_eid_greedy_atoms.csv`
 - Runge Ridge+PEID 一阶/二阶 ACE/ACS 图：`fig/runge_ridge_peid_order1_vs_order2_ace_acs_1948_2026.png`
 - Runge 周尺度分量输入：`results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv`（`component_scores_hash=2cd78d429fc66b30`）
 - Runge 多步推演上游清单：`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/pairwise_mlp_tm_ei_path_effects/manifest.json`

@@ -28,13 +28,16 @@ DEFAULT_RESULT_DIR = ROOT / "results" / "granger_peid_mlp_comparison"
 DEFAULT_FIGURE_DIR = ROOT / "fig" / "granger_peid_mlp_comparison"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "granger_peid_mlp_comparison.md"
 VARIABLE_NAMES = ("x", "y", "z", "w")
-# Deliberately simple coefficients for the common-driver sine experiment.
-# Recurrence terms stay below one for stationarity; structural loadings use 1.
+# One-decimal coefficients for the held-out common-driver sine experiment.
+# Recurrence terms stay below one for stationarity.
 COMMON_DRIVER_MEMORY_COEFFICIENT = 0.5
 SOURCE_MEMORY_COEFFICIENT = 0.5
-COMMON_DRIVER_SOURCE_COEFFICIENT = 1.0
+COMMON_DRIVER_SOURCE_COEFFICIENT = 0.8
 TARGET_MEMORY_COEFFICIENT = 0.5
-COMMON_DRIVER_TARGET_COEFFICIENT = 0.5
+COMMON_DRIVER_TARGET_COEFFICIENT = 0.8
+COMMON_DRIVER_NOISE_SD = 0.4
+PRIVATE_SOURCE_NOISE_SD = 0.6
+SOURCE_INNOVATION_NOISE_SD = 0.3
 BETA_COMMON_DRIVER_SWEEP_VALUES = tuple(round(value, 2) for value in np.linspace(0.0, 1.0, 21))
 
 
@@ -57,6 +60,16 @@ class SimConfig:
     quantile_low: float = 0.05
     quantile_high: float = 0.95
     variable_names: tuple[str, ...] = VARIABLE_NAMES
+    driver_memory_coefficient: float = COMMON_DRIVER_MEMORY_COEFFICIENT
+    x_memory_coefficient: float = SOURCE_MEMORY_COEFFICIENT
+    y_memory_coefficient: float = SOURCE_MEMORY_COEFFICIENT
+    driver_to_x_coefficient: float = COMMON_DRIVER_SOURCE_COEFFICIENT
+    driver_to_y_coefficient: float = COMMON_DRIVER_SOURCE_COEFFICIENT
+    target_memory_coefficient: float = TARGET_MEMORY_COEFFICIENT
+    driver_to_target_coefficient: float = COMMON_DRIVER_TARGET_COEFFICIENT
+    driver_noise_sd: float = COMMON_DRIVER_NOISE_SD
+    private_source_noise_sd: float = PRIVATE_SOURCE_NOISE_SD
+    source_innovation_noise_sd: float = SOURCE_INNOVATION_NOISE_SD
 
     def __post_init__(self) -> None:
         if self.mechanism not in {
@@ -80,6 +93,32 @@ class SimConfig:
             raise ValueError("bins must be at least 2.")
         if not 0.0 <= self.common_driver_strength <= 1.0:
             raise ValueError("common_driver_strength must be between 0 and 1.")
+        coefficient_names = (
+            "driver_memory_coefficient",
+            "x_memory_coefficient",
+            "y_memory_coefficient",
+            "driver_to_x_coefficient",
+            "driver_to_y_coefficient",
+            "target_memory_coefficient",
+            "driver_to_target_coefficient",
+            "driver_noise_sd",
+            "private_source_noise_sd",
+            "source_innovation_noise_sd",
+        )
+        for name in coefficient_names:
+            if not np.isfinite(float(getattr(self, name))):
+                raise ValueError(f"{name} must be finite.")
+        for name in (
+            "driver_memory_coefficient",
+            "x_memory_coefficient",
+            "y_memory_coefficient",
+            "target_memory_coefficient",
+        ):
+            if abs(float(getattr(self, name))) >= 1.0:
+                raise ValueError(f"{name} must have absolute value below one.")
+        for name in ("driver_noise_sd", "private_source_noise_sd", "source_innovation_noise_sd"):
+            if float(getattr(self, name)) < 0.0:
+                raise ValueError(f"{name} must be nonnegative.")
 
 
 @dataclass
@@ -181,24 +220,33 @@ def simulate_system(config: SimConfig) -> tuple[pd.DataFrame, dict[str, object]]
         data[0, 2] = rng.normal(0.0, 0.2)
         data[0, 3] = rng.normal(0.0, 0.8)
         for t in range(n - 1):
-            data[t + 1, 3] = COMMON_DRIVER_MEMORY_COEFFICIENT * data[t, 3] + rng.normal(0.0, 0.45)
+            data[t + 1, 3] = (
+                config.driver_memory_coefficient * data[t, 3]
+                + rng.normal(0.0, config.driver_noise_sd)
+            )
             data[t + 1, 0] = (
-                SOURCE_MEMORY_COEFFICIENT * data[t, 0]
-                + COMMON_DRIVER_SOURCE_COEFFICIENT
-                * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
-                + rng.normal(0.0, 0.25)
+                config.x_memory_coefficient * data[t, 0]
+                + config.driver_to_x_coefficient
+                * (
+                    beta * data[t, 3]
+                    + private_scale * rng.normal(0.0, config.private_source_noise_sd)
+                )
+                + rng.normal(0.0, config.source_innovation_noise_sd)
             )
             data[t + 1, 1] = (
-                SOURCE_MEMORY_COEFFICIENT * data[t, 1]
-                + COMMON_DRIVER_SOURCE_COEFFICIENT
-                * (beta * data[t, 3] + private_scale * rng.normal(0.0, 0.55))
-                + rng.normal(0.0, 0.25)
+                config.y_memory_coefficient * data[t, 1]
+                + config.driver_to_y_coefficient
+                * (
+                    beta * data[t, 3]
+                    + private_scale * rng.normal(0.0, config.private_source_noise_sd)
+                )
+                + rng.normal(0.0, config.source_innovation_noise_sd)
             )
             sine_signal = config.synergy_strength * np.sin(data[t, 0] * data[t, 1])
             data[t + 1, 2] = (
-                TARGET_MEMORY_COEFFICIENT * data[t, 2]
+                config.target_memory_coefficient * data[t, 2]
                 + sine_signal
-                + COMMON_DRIVER_TARGET_COEFFICIENT * beta * data[t, 3]
+                + config.driver_to_target_coefficient * beta * data[t, 3]
                 + rng.normal(0.0, config.noise)
             )
         truth_pairwise.update({("w", "x"), ("w", "y")})
@@ -903,7 +951,7 @@ def _fit_small_multitask_mlp(
 def run_lagged_proxy_common_driver_experiment(
     *,
     n_samples: int = 5000,
-    noise: float = 0.05,
+    noise: float = 0.1,
     seed: int = 0,
     bins: int = 8,
     intervention_samples: int = 4096,
@@ -2286,7 +2334,7 @@ def run_sine_beta_common_driver_sweep(
     seeds: Sequence[int] = (0, 1, 2, 3),
     n_samples: int = 1100,
     alpha: float = 1.0,
-    noise: float = 0.05,
+    noise: float = 0.1,
     mlp_epochs: int = 90,
     intervention_samples: int = 640,
     bins: int = 4,
@@ -2296,10 +2344,30 @@ def run_sine_beta_common_driver_sweep(
     peid_source_support: tuple[float, float] = (-1.8, 1.8),
     oracle_intervention_support: Mapping[str, tuple[float, float]] | None = None,
     oracle_intervention_seed: int = 17021,
+    dynamics_coefficients: Mapping[str, float] | None = None,
+    checkpoint_path: Path | None = None,
     show_progress: bool = False,
 ) -> dict[str, object]:
     from yrd.transport_map import summarize_two_source_synergy_transport_map
     from scripts.reproduce_surd_synergistic_collider import decompose_surd_2source_transport_map
+
+    dynamics = {
+        "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
+        "x_memory": float(SOURCE_MEMORY_COEFFICIENT),
+        "y_memory": float(SOURCE_MEMORY_COEFFICIENT),
+        "w_to_x": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+        "w_to_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+        "z_memory": float(TARGET_MEMORY_COEFFICIENT),
+        "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+        "w_noise_sd": float(COMMON_DRIVER_NOISE_SD),
+        "private_source_noise_sd": float(PRIVATE_SOURCE_NOISE_SD),
+        "source_innovation_noise_sd": float(SOURCE_INNOVATION_NOISE_SD),
+    }
+    if dynamics_coefficients is not None:
+        unknown = sorted(set(dynamics_coefficients) - set(dynamics))
+        if unknown:
+            raise ValueError(f"Unknown dynamics coefficients: {unknown}")
+        dynamics.update({name: float(value) for name, value in dynamics_coefficients.items()})
 
     fixed_oracle_support = dict(
         oracle_intervention_support
@@ -2326,7 +2394,7 @@ def run_sine_beta_common_driver_sweep(
     oracle_y = np.concatenate([oracle_y_base, oracle_x_base])[: int(intervention_samples)].reshape(-1, 1)
     oracle_z_state = np.concatenate([oracle_z_base, oracle_z_base])[: int(intervention_samples)]
     oracle_target = (
-        TARGET_MEMORY_COEFFICIENT * oracle_z_state
+        dynamics["z_memory"] * oracle_z_state
         + float(alpha) * np.sin(oracle_x[:, 0] * oracle_y[:, 0])
     ).reshape(-1, 1)
     fixed_oracle_peid_xy_z = summarize_two_source_synergy_transport_map(
@@ -2335,9 +2403,19 @@ def run_sine_beta_common_driver_sweep(
         oracle_target,
     )
 
-    rows: list[dict[str, float]] = []
+    rows: list[dict[str, object]] = []
+    if checkpoint_path is not None and checkpoint_path.exists():
+        for line in checkpoint_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rows.append(json.loads(line))
+    completed = {
+        (round(float(row["beta"]), 8), int(float(row["seed"]))) for row in rows
+    }
     beta_seed_pairs = [
-        (float(beta), int(seed)) for beta in beta_values for seed in seeds
+        (float(beta), int(seed))
+        for beta in beta_values
+        for seed in seeds
+        if (round(float(beta), 8), int(seed)) not in completed
     ]
     if show_progress:
         from tqdm.auto import tqdm
@@ -2356,6 +2434,16 @@ def run_sine_beta_common_driver_sweep(
             mlp_epochs=int(mlp_epochs),
             intervention_samples=int(intervention_samples),
             bins=int(bins),
+            driver_memory_coefficient=dynamics["w_memory"],
+            x_memory_coefficient=dynamics["x_memory"],
+            y_memory_coefficient=dynamics["y_memory"],
+            driver_to_x_coefficient=dynamics["w_to_x"],
+            driver_to_y_coefficient=dynamics["w_to_y"],
+            target_memory_coefficient=dynamics["z_memory"],
+            driver_to_target_coefficient=dynamics["w_to_z"],
+            driver_noise_sd=dynamics["w_noise_sd"],
+            private_source_noise_sd=dynamics["private_source_noise_sd"],
+            source_innovation_noise_sd=dynamics["source_innovation_noise_sd"],
         )
         series, _ = simulate_system(config)
         pcmci_cmiknn = run_pcmci_cmiknn_readout(
@@ -2458,8 +2546,7 @@ def run_sine_beta_common_driver_sweep(
             for row in list(pcmci_cmiknn["rows"])
             if str(row["target"]) == "z" and int(row["lag"]) == 1
         }
-        rows.append(
-            {
+        new_row: dict[str, object] = {
                 "run_id": f"beta={float(beta):.2f}|seed={int(seed)}",
                 "beta": float(beta),
                 "seed": float(seed),
@@ -2534,7 +2621,11 @@ def run_sine_beta_common_driver_sweep(
                     ].iloc[0]["ei"]
                 ),
             }
-        )
+        rows.append(new_row)
+        if checkpoint_path is not None:
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            with checkpoint_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(new_row, ensure_ascii=False) + "\n")
     frame = pd.DataFrame(rows)
     summary = (
         frame.groupby("beta", as_index=False)
@@ -2648,14 +2739,20 @@ def run_sine_beta_common_driver_sweep(
             "n_samples": int(n_samples),
             "alpha": float(alpha),
             "dynamics_coefficients": {
-                "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
-                "x_y_memory": float(SOURCE_MEMORY_COEFFICIENT),
-                "w_to_x_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
-                "z_memory": float(TARGET_MEMORY_COEFFICIENT),
-                "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+                "w_memory": dynamics["w_memory"],
+                "x_memory": dynamics["x_memory"],
+                "y_memory": dynamics["y_memory"],
+                "w_to_x": dynamics["w_to_x"],
+                "w_to_y": dynamics["w_to_y"],
+                "z_memory": dynamics["z_memory"],
+                "w_to_z": dynamics["w_to_z"],
                 "sin_xy": float(alpha),
+                "w_noise_sd": dynamics["w_noise_sd"],
+                "private_source_noise_sd": dynamics["private_source_noise_sd"],
+                "source_innovation_noise_sd": dynamics["source_innovation_noise_sd"],
+                "target_noise_sd": float(noise),
             },
-            "common_driver_target_coefficient": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+            "common_driver_target_coefficient": dynamics["w_to_z"],
             "noise": float(noise),
             "mlp_epochs": int(mlp_epochs),
             "intervention_samples": int(intervention_samples),
@@ -3188,6 +3285,7 @@ def _plot_sine_beta_combined_readout_sweep(
     liang_result: dict[str, object] | None = None,
     mlp_readout_result: dict[str, object] | None = None,
     stem: str = "sine_beta_combined_readout_sweep",
+    include_oracle: bool = True,
 ) -> Path | None:
     beta_result = _override_beta_mlp_readouts(beta_result, mlp_readout_result)
     summary_rows = beta_result.get("summary", [])
@@ -3257,6 +3355,8 @@ def _plot_sine_beta_combined_readout_sweep(
         ("surd_unique_x_mean", "surd_unique_x_std", r"SURD $U_x$", "x", "surd"),
         ("surd_unique_y_mean", "surd_unique_y_std", r"SURD $U_y$", "y", "surd"),
     ]:
+        if method == "oracle_peid" and not include_oracle:
+            continue
         style = method_styles[method]
         line_mean(
             single_bits,
@@ -3335,6 +3435,8 @@ def _plot_sine_beta_combined_readout_sweep(
         ("mlp_peid_xy_synergy_mean", "mlp_peid_xy_synergy_std", r"MLP+PEID $S_{xy}$", "mlp_peid", "^"),
         ("oracle_peid_xy_synergy_mean", "oracle_peid_xy_synergy_std", r"Oracle+PEID $S_{xy}$", "oracle_peid", "s"),
     ]:
+        if method == "oracle_peid" and not include_oracle:
+            continue
         style = method_styles[method]
         line_mean(
             synergy_bits,
@@ -3377,12 +3479,13 @@ def _plot_sine_beta_combined_readout_sweep(
         ("Obs. MI / WMS (bits)", "observational"),
         ("MMI-PID (bits)", "mmi_pid"),
         ("MLP+PEID (bits)", "mlp_peid"),
-        ("Oracle+PEID (bits)", "oracle_peid"),
         ("SURD (bits)", "surd"),
         ("SHAP (native)", "shap"),
         ("PCMCI-CMIknn (native)", "pcmci"),
         ("Neural Granger (group norm)", "neural_granger"),
     ]
+    if include_oracle:
+        method_specs.insert(3, ("Oracle+PEID (bits)", "oracle_peid"))
     if liang_result and liang_result.get("summary"):
         method_specs.append(("Liang IF (flow)", "liang_if"))
     method_handles = [

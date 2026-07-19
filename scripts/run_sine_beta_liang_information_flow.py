@@ -15,7 +15,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -189,9 +189,24 @@ def run_experiment(
     seeds: tuple[int, ...] = (0, 1, 2, 3),
     n_samples: int = 1100,
     alpha: float = 1.0,
-    noise: float = 0.05,
+    noise: float = 0.1,
+    dynamics_coefficients: Mapping[str, float] | None = None,
     show_progress: bool = False,
 ) -> dict[str, object]:
+    dynamics = {
+        "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
+        "x_memory": float(SOURCE_MEMORY_COEFFICIENT),
+        "y_memory": float(SOURCE_MEMORY_COEFFICIENT),
+        "w_to_x": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+        "w_to_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
+        "z_memory": float(TARGET_MEMORY_COEFFICIENT),
+        "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+    }
+    if dynamics_coefficients is not None:
+        unknown = sorted(set(dynamics_coefficients) - set(dynamics))
+        if unknown:
+            raise ValueError(f"Unknown dynamics coefficients: {unknown}")
+        dynamics.update({name: float(value) for name, value in dynamics_coefficients.items()})
     run_rows: list[dict[str, object]] = []
     beta_seed_pairs = [
         (float(beta), int(seed)) for beta in beta_values for seed in seeds
@@ -210,6 +225,13 @@ def run_experiment(
             seed=int(seed),
             synergy_strength=float(alpha),
             common_driver_strength=float(beta),
+            driver_memory_coefficient=dynamics["w_memory"],
+            x_memory_coefficient=dynamics["x_memory"],
+            y_memory_coefficient=dynamics["y_memory"],
+            driver_to_x_coefficient=dynamics["w_to_x"],
+            driver_to_y_coefficient=dynamics["w_to_y"],
+            target_memory_coefficient=dynamics["z_memory"],
+            driver_to_target_coefficient=dynamics["w_to_z"],
         )
         series, _ = simulate_system(config)
         euler = estimate_liang_euler(series)
@@ -277,11 +299,13 @@ def run_experiment(
             "alpha": float(alpha),
             "noise": float(noise),
             "dynamics_coefficients": {
-                "w_memory": float(COMMON_DRIVER_MEMORY_COEFFICIENT),
-                "x_y_memory": float(SOURCE_MEMORY_COEFFICIENT),
-                "w_to_x_y": float(COMMON_DRIVER_SOURCE_COEFFICIENT),
-                "z_memory": float(TARGET_MEMORY_COEFFICIENT),
-                "w_to_z": float(COMMON_DRIVER_TARGET_COEFFICIENT),
+                "w_memory": dynamics["w_memory"],
+                "x_memory": dynamics["x_memory"],
+                "y_memory": dynamics["y_memory"],
+                "w_to_x": dynamics["w_to_x"],
+                "w_to_y": dynamics["w_to_y"],
+                "z_memory": dynamics["z_memory"],
+                "w_to_z": dynamics["w_to_z"],
                 "sin_xy": float(alpha),
             },
             "variables": list(VARIABLES),
@@ -376,7 +400,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--figure-stem", type=Path, default=DEFAULT_FIGURE_STEM)
     parser.add_argument("--n-samples", type=int, default=1100)
     parser.add_argument("--alpha", type=float, default=1.0)
-    parser.add_argument("--noise", type=float, default=0.05)
+    parser.add_argument("--noise", type=float, default=0.1)
     return parser.parse_args()
 
 
