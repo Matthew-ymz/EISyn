@@ -137,7 +137,7 @@ def draw_table(ax, x0, y0, width, height):
 
 
 def main():
-    out_base = Path("docs/reports/assets/method_property_matrix_table")
+    out_base = Path("fig/method_property_matrix_table")
     out_base.parent.mkdir(parents=True, exist_ok=True)
 
     canvas_w = 9.6

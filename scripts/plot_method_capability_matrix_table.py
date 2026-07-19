@@ -82,7 +82,7 @@ def draw_cross(ax, x, y):
 
 
 def main():
-    out_base = Path("docs/reports/assets/method_capability_matrix_table")
+    out_base = Path("fig/method_capability_matrix_table")
     out_base.parent.mkdir(parents=True, exist_ok=True)
 
     n_rows = len(ROWS)

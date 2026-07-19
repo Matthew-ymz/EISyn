@@ -908,7 +908,7 @@ def plot_domain_pair_results(
 def main() -> None:
     config = DomainPairIgnitionConfig()
     results = run_domain_pair_ensemble(config, force=False)
-    plot_domain_pair_results(results, config, report_asset_dir=REPO_ROOT / "docs" / "reports" / "assets")
+    plot_domain_pair_results(results, config, report_asset_dir=REPO_ROOT / "fig")
     print(json.dumps(results["summary"]["models"], indent=2, allow_nan=True))
 
 

@@ -2160,13 +2160,13 @@ def plot_transport_map_initial_state_syn_results(
 def main() -> None:
     config = NetworkBasinPairIgnitionConfig()
     results = run_network_basin_pair_ensemble(config, force=False)
-    plot_network_basin_results(results, config, report_asset_dir=REPO_ROOT / "docs" / "reports" / "assets")
+    plot_network_basin_results(results, config, report_asset_dir=REPO_ROOT / "fig")
     proxy_config = InitialStateSynProxyConfig()
     proxy_results = run_initial_state_syn_proxy_experiment(proxy_config, force=False)
-    plot_initial_state_syn_proxy_results(proxy_results, proxy_config, report_asset_dir=REPO_ROOT / "docs" / "reports" / "assets")
+    plot_initial_state_syn_proxy_results(proxy_results, proxy_config, report_asset_dir=REPO_ROOT / "fig")
     tm_config = TransportMapInitialStateSynConfig()
     tm_results = run_transport_map_initial_state_syn_experiment(tm_config, force=False)
-    plot_transport_map_initial_state_syn_results(tm_results, tm_config, report_asset_dir=REPO_ROOT / "docs" / "reports" / "assets")
+    plot_transport_map_initial_state_syn_results(tm_results, tm_config, report_asset_dir=REPO_ROOT / "fig")
     print(
         json.dumps(
             {
