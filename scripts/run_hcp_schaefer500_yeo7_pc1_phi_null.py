@@ -75,12 +75,37 @@ def fit_delta_history_phi(
     residual_covariance = np.atleast_2d(np.cov(residual_z, rowvar=False, bias=False))
     noise_covariance = delta_to_state @ residual_covariance @ delta_to_state.T
     phi = gaussian_phi_from_linear_transition(transition, noise_covariance, ridge=float(covariance_ridge))
+    holdout_x = np.concatenate(
+        [
+            (history[train_rows:, start : start + n_state] - state_mean) / state_scale
+            for start in range(0, history.shape[1], n_state)
+        ],
+        axis=1,
+    )
+    if len(holdout_x):
+        holdout_current = history[train_rows:, :n_state]
+        holdout_next = next_state[train_rows:]
+        predicted_delta = model.predict(holdout_x) * delta_scale + delta_mean
+        predicted_next = holdout_current + predicted_delta
+        true_z = (holdout_next - state_mean) / state_scale
+        predicted_z = (predicted_next - state_mean) / state_scale
+        persistence_z = (holdout_current - state_mean) / state_scale
+        holdout_rmse = float(np.sqrt(np.mean((true_z - predicted_z) ** 2)))
+        persistence_rmse = float(np.sqrt(np.mean((true_z - persistence_z) ** 2)))
+        heldout = {
+            "rmse": holdout_rmse,
+            "persistence_rmse": persistence_rmse,
+            "skill_ratio": float(holdout_rmse / max(persistence_rmse, 1.0e-12)),
+        }
+    else:
+        heldout = {"rmse": float("nan"), "persistence_rmse": float("nan"), "skill_ratio": float("nan")}
     return {
         "transition": transition,
         "noise_covariance": noise_covariance,
         "phi": phi,
         "n_source_variables": int(transition.shape[1]),
         "n_target_variables": int(transition.shape[0]),
+        "heldout": heldout,
     }
 
 

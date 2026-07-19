@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attribute Yeo7 EI/Phi and summarize synergy cores across REST, MOTOR, and WM."""
+"""Attribute Yeo7 EI/Phi and compare synergy cores across REST and all HCP tasks."""
 
 from __future__ import annotations
 
@@ -27,7 +27,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.run_hcp_lausanne_phi_eid_pilot import ei_for_source_indices
-from scripts.run_hcp_schaefer500_all_tasks_phi import development_end_for_length
+from scripts.run_hcp_schaefer500_all_tasks_phi import (
+    CONDITION_ORDER,
+    DISPLAY_NAMES,
+    TASKS,
+    development_end_for_length,
+)
 from scripts.run_hcp_schaefer500_wm_yeo7_phi import load_task_series
 from scripts.run_hcp_schaefer500_yeo7_module_phi_decomposition import (
     _block_phi,
@@ -55,9 +60,8 @@ NETWORK_LABELS = {
     "Cont": "Control",
     "Default": "Default",
 }
-CONDITIONS = ("REST", "MOTOR", "WM")
-CONDITION_LABELS = {"REST": "REST", "MOTOR": "Motor", "WM": "WM"}
-CONDITION_COLORS = {"REST": "#4C78A8", "MOTOR": "#E3A857", "WM": "#D07A3A"}
+CONDITIONS = CONDITION_ORDER
+CONDITION_LABELS = DISPLAY_NAMES
 
 
 def discover_inputs(rest_root: Path, task_root: Path) -> dict[str, dict[str, Path]]:
@@ -65,12 +69,21 @@ def discover_inputs(rest_root: Path, task_root: Path) -> dict[str, dict[str, Pat
         path.parent.name: path
         for path in Path(rest_root).glob("sub-*/*REST1_LR*schaefer500-1000_yeo7.mat")
     }
-    motor = {path.parent.name: path for path in Path(task_root).glob("sub-*/MOTOR_LR.mat")}
-    wm = {path.parent.name: path for path in Path(task_root).glob("sub-*/WM_LR.mat")}
-    common = sorted(set(rest) & set(motor) & set(wm))
+    task_paths = {
+        task.removesuffix("_LR"): {
+            path.parent.name: path for path in Path(task_root).glob(f"sub-*/{task}.mat")
+        }
+        for task in TASKS
+    }
+    common = set(rest)
+    for paths in task_paths.values():
+        common &= set(paths)
     return {
-        subject: {"REST": rest[subject], "MOTOR": motor[subject], "WM": wm[subject]}
-        for subject in common
+        subject: {
+            "REST": rest[subject],
+            **{condition: paths[subject] for condition, paths in task_paths.items()},
+        }
+        for subject in sorted(common)
     }
 
 
@@ -306,6 +319,72 @@ def summarize(rows: Sequence[Mapping[str, Any]], *, bootstrap_replicates: int) -
     return condition_results
 
 
+def summarize_paired_differences(
+    rows: Sequence[Mapping[str, Any]], *, bootstrap_replicates: int
+) -> list[dict[str, Any]]:
+    by_key = {(str(row["subject"]), str(row["condition"])): row for row in rows}
+    subjects = sorted({str(row["subject"]) for row in rows})
+    comparisons = []
+    for condition_index, condition in enumerate(CONDITIONS[1:], start=1):
+        system_summary = {}
+        for metric_index, metric in enumerate(("joint_ei", "raw_phi", "cross_network_phi")):
+            differences = np.asarray(
+                [
+                    float(by_key[(subject, condition)][metric])
+                    - float(by_key[(subject, "REST")][metric])
+                    for subject in subjects
+                ],
+                dtype=float,
+            )
+            system_summary[metric] = {
+                "mean": float(differences.mean()),
+                "median": float(np.median(differences)),
+                "std": float(differences.std(ddof=1)) if len(differences) > 1 else 0.0,
+                "bootstrap_95_ci": bootstrap_mean_interval(
+                    differences,
+                    seed=2026072800 + 100 * condition_index + metric_index,
+                    replicates=bootstrap_replicates,
+                ),
+                "n_positive": int(np.sum(differences > 0.0)),
+                "n_negative": int(np.sum(differences < 0.0)),
+            }
+        network_summary = []
+        for network_index, network in enumerate(NETWORK_ORDER):
+            item: dict[str, Any] = {"network": network}
+            for metric_index, metric in enumerate(("module_ei", "total_phi_contribution")):
+                differences = np.asarray(
+                    [
+                        float(by_key[(subject, condition)][metric][network])
+                        - float(by_key[(subject, "REST")][metric][network])
+                        for subject in subjects
+                    ],
+                    dtype=float,
+                )
+                item[metric] = {
+                    "mean": float(differences.mean()),
+                    "median": float(np.median(differences)),
+                    "std": float(differences.std(ddof=1)) if len(differences) > 1 else 0.0,
+                    "bootstrap_95_ci": bootstrap_mean_interval(
+                        differences,
+                        seed=2026072900 + 100 * condition_index + 10 * network_index + metric_index,
+                        replicates=bootstrap_replicates,
+                    ),
+                    "n_positive": int(np.sum(differences > 0.0)),
+                    "n_negative": int(np.sum(differences < 0.0)),
+                }
+            network_summary.append(item)
+        comparisons.append(
+            {
+                "condition": condition,
+                "reference": "REST",
+                "n_paired_subjects": len(subjects),
+                "system_summary": system_summary,
+                "network_summary": network_summary,
+            }
+        )
+    return comparisons
+
+
 def _style() -> None:
     mpl.rcParams.update(
         {
@@ -382,15 +461,21 @@ def plot_summary(summary: Mapping[str, Any], destination: Path) -> None:
         for condition in CONDITIONS
         if (condition, core) in lookup
     ]
-    contribution_norm = Normalize(vmin=min(contribution_values), vmax=max(contribution_values))
+    contribution_min = float(min(contribution_values))
+    contribution_max = float(max(contribution_values))
+    contribution_norm = Normalize(
+        vmin=contribution_min,
+        vmax=contribution_max if contribution_max > contribution_min else contribution_min + 1.0e-9,
+    )
     contribution_cmap = mpl.colormaps["YlOrBr"]
 
-    fig = plt.figure(figsize=(11.2, 6.8), constrained_layout=True)
-    grid = fig.add_gridspec(2, 3, height_ratios=(1.05, 1.0), width_ratios=(1.05, 1.05, 1.0))
-    top_axes = [fig.add_subplot(grid[0, index]) for index in range(3)]
-    ei_axis = fig.add_subplot(grid[1, 0])
-    phi_axis = fig.add_subplot(grid[1, 1])
-    core_axis = fig.add_subplot(grid[1, 2])
+    fig = plt.figure(figsize=(12.8, 9.6), constrained_layout=True)
+    grid = fig.add_gridspec(3, 4, height_ratios=(1.0, 1.0, 1.08))
+    top_axes = [fig.add_subplot(grid[index // 4, index % 4]) for index in range(len(CONDITIONS))]
+    bottom = grid[2, :].subgridspec(1, 3, width_ratios=(1.0, 1.0, 1.55))
+    ei_axis = fig.add_subplot(bottom[0, 0])
+    phi_axis = fig.add_subplot(bottom[0, 1])
+    core_axis = fig.add_subplot(bottom[0, 2])
 
     angles = np.linspace(np.pi / 2, np.pi / 2 - 2 * np.pi, len(NETWORK_ORDER), endpoint=False)
     positions = {name: np.array([np.cos(angle), np.sin(angle)]) for name, angle in zip(NETWORK_ORDER, angles)}
@@ -418,7 +503,7 @@ def plot_summary(summary: Mapping[str, Any], destination: Path) -> None:
             item = by_network[network]
             ei_value = float(item["module_ei"]["mean"])
             fraction = (ei_value - ei_min) / max(ei_max - ei_min, 1.0e-12)
-            size = 80.0 + 260.0 * fraction
+            size = 50.0 + 180.0 * fraction
             phi_value = float(item["total_phi_contribution"]["mean"])
             x, y = positions[network]
             axis.scatter(
@@ -427,72 +512,115 @@ def plot_summary(summary: Mapping[str, Any], destination: Path) -> None:
                 s=size,
                 color=node_cmap(color_norm(phi_value)),
                 edgecolor="white",
-                linewidth=0.9,
+                linewidth=0.75,
                 zorder=3,
             )
-            label_x, label_y = 1.24 * positions[network]
-            axis.text(label_x, label_y, NETWORK_LABELS[network], ha="center", va="center", fontsize=6.2)
+            label_x, label_y = 1.25 * positions[network]
+            axis.text(label_x, label_y, NETWORK_LABELS[network], ha="center", va="center", fontsize=5.5)
         raw_phi = result["system_summary"]["raw_phi"]["mean"]
         cross_phi = result["system_summary"]["cross_network_phi"]["mean"]
-        axis.set_title(f"{CONDITION_LABELS[condition]}\nraw $\\Phi$={raw_phi:.2f}, cross-network={cross_phi:.2f} bits", fontsize=7)
+        axis.set_title(
+            f"{CONDITION_LABELS[condition]}\nraw $\\Phi$={raw_phi:.2f}; cross={cross_phi:.2f} bits",
+            fontsize=6.4,
+        )
         axis.text(
             0.5,
-            -0.04,
-            f"top core: {_core_label(top_core['sources'])} "
-            f"({top_core['top3_frequency']}/{result['n_subjects']}); atom={top_core_contribution:.2f} bits",
+            -0.055,
+            f"{_core_label(top_core['sources'])} "
+            f"({top_core['top3_frequency']}/{result['n_subjects']}); atom={top_core_contribution:.2f}",
             transform=axis.transAxes,
             ha="center",
-            fontsize=6.2,
+            fontsize=5.3,
         )
-        axis.set(xlim=(-1.42, 1.42), ylim=(-1.38, 1.35), aspect="equal")
+        axis.set(xlim=(-1.43, 1.43), ylim=(-1.40, 1.36), aspect="equal")
         axis.axis("off")
-    top_axes[0].text(-0.07, 1.04, "a", transform=top_axes[0].transAxes, fontweight="bold", fontsize=9)
+    top_axes[0].text(-0.08, 1.04, "a", transform=top_axes[0].transAxes, fontweight="bold", fontsize=9)
     top_axes[0].text(
         0.02,
         0.02,
-        "node size: module EI\npolygon color: mean greedy atom contribution",
+        "node size: module EI\nnode color: total $\\Phi$ attribution\npolygon: leading greedy core",
         transform=top_axes[0].transAxes,
-        fontsize=6.2,
+        fontsize=5.1,
     )
     scalar = mpl.cm.ScalarMappable(norm=color_norm, cmap=node_cmap)
-    colorbar = fig.colorbar(scalar, ax=top_axes, shrink=0.72, pad=0.015)
+    colorbar = fig.colorbar(scalar, ax=top_axes, shrink=0.78, pad=0.012)
     colorbar.set_label("Mean total $\\Phi$ attribution (bits)")
 
-    y = np.arange(len(NETWORK_ORDER))
-    offsets = {"REST": -0.18, "MOTOR": 0.0, "WM": 0.18}
-    for condition in CONDITIONS:
-        result = condition_results[condition]
-        by_network = {item["network"]: item for item in result["network_summary"]}
-        for axis, metric in ((ei_axis, "module_ei"), (phi_axis, "total_phi_contribution")):
-            means = np.asarray([by_network[name][metric]["mean"] for name in NETWORK_ORDER], dtype=float)
-            intervals = np.asarray([by_network[name][metric]["bootstrap_95_ci"] for name in NETWORK_ORDER], dtype=float)
-            axis.errorbar(
-                means,
-                y + offsets[condition],
-                xerr=np.vstack((means - intervals[:, 0], intervals[:, 1] - means)),
-                fmt="o",
-                markersize=3.8,
-                capsize=2,
-                linewidth=0.9,
-                color=CONDITION_COLORS[condition],
-                label=CONDITION_LABELS[condition],
-            )
-    ei_axis.set(
-        yticks=y,
-        yticklabels=[NETWORK_LABELS[name] for name in NETWORK_ORDER],
-        xlabel="Module EI (bits; mean and 95% bootstrap CI)",
+    module_matrix = np.asarray(
+        [
+            [
+                next(
+                    item["module_ei"]["mean"]
+                    for item in condition_results[condition]["network_summary"]
+                    if item["network"] == network
+                )
+                for condition in CONDITIONS
+            ]
+            for network in NETWORK_ORDER
+        ],
+        dtype=float,
     )
-    ei_axis.invert_yaxis()
-    ei_axis.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=3)
-    phi_axis.axvline(0.0, color="#606060", linestyle="--", linewidth=0.7)
-    phi_axis.set(
-        yticks=y,
-        yticklabels=[NETWORK_LABELS[name] for name in NETWORK_ORDER],
-        xlabel="Total $\\Phi$ attribution (bits; mean and 95% bootstrap CI)",
+    phi_matrix = np.asarray(
+        [
+            [
+                next(
+                    item["total_phi_contribution"]["mean"]
+                    for item in condition_results[condition]["network_summary"]
+                    if item["network"] == network
+                )
+                for condition in CONDITIONS
+            ]
+            for network in NETWORK_ORDER
+        ],
+        dtype=float,
     )
-    phi_axis.invert_yaxis()
-    ei_axis.text(-0.16, 1.04, "b", transform=ei_axis.transAxes, fontweight="bold", fontsize=9)
-    phi_axis.text(-0.16, 1.04, "c", transform=phi_axis.transAxes, fontweight="bold", fontsize=9)
+
+    def draw_heatmap(axis: Any, matrix: np.ndarray, *, cmap: Any, norm: Normalize, label: str) -> None:
+        image = axis.imshow(matrix, cmap=cmap, norm=norm, aspect="auto")
+        axis.set(
+            xticks=np.arange(len(CONDITIONS)),
+            xticklabels=[CONDITION_LABELS[name] for name in CONDITIONS],
+            yticks=np.arange(len(NETWORK_ORDER)),
+            yticklabels=[NETWORK_LABELS[name] for name in NETWORK_ORDER],
+            xlabel="State",
+            ylabel="Yeo7 network",
+        )
+        axis.tick_params(axis="x", labelrotation=45, length=0)
+        axis.tick_params(axis="y", length=0)
+        for row_index in range(matrix.shape[0]):
+            for column_index in range(matrix.shape[1]):
+                red, green, blue, _ = cmap(norm(matrix[row_index, column_index]))
+                luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+                color = "white" if luminance < 0.53 else "black"
+                axis.text(
+                    column_index,
+                    row_index,
+                    f"{matrix[row_index, column_index]:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=4.7,
+                    color=color,
+                )
+        cbar = fig.colorbar(image, ax=axis, shrink=0.78, pad=0.02)
+        cbar.set_label(label)
+
+    ei_norm = Normalize(vmin=ei_min, vmax=ei_max if ei_max > ei_min else ei_min + 1.0e-9)
+    draw_heatmap(
+        ei_axis,
+        module_matrix,
+        cmap=mpl.colormaps["Blues"],
+        norm=ei_norm,
+        label="Mean module EI (bits)",
+    )
+    draw_heatmap(
+        phi_axis,
+        phi_matrix,
+        cmap=node_cmap,
+        norm=color_norm,
+        label="Mean total $\\Phi$ attribution (bits)",
+    )
+    ei_axis.text(-0.18, 1.04, "b", transform=ei_axis.transAxes, fontweight="bold", fontsize=9)
+    phi_axis.text(-0.18, 1.04, "c", transform=phi_axis.transAxes, fontweight="bold", fontsize=9)
 
     for row_index, core in enumerate(cores):
         for column_index, condition in enumerate(CONDITIONS):
@@ -504,40 +632,103 @@ def plot_summary(summary: Mapping[str, Any], destination: Path) -> None:
             core_axis.scatter(
                 column_index,
                 row_index,
-                s=24 + 7.0 * frequency,
+                s=20 + 4.2 * frequency,
                 color=contribution_cmap(contribution_norm(contribution)),
                 edgecolor="#6B4A2B",
-                linewidth=0.5,
+                linewidth=0.45,
             )
-            core_axis.text(column_index, row_index, str(frequency), ha="center", va="center", fontsize=6.2)
+            core_axis.text(column_index, row_index, str(frequency), ha="center", va="center", fontsize=5.3)
     core_axis.set(
         xticks=np.arange(len(CONDITIONS)),
         xticklabels=[CONDITION_LABELS[name] for name in CONDITIONS],
         yticks=np.arange(len(cores)),
         yticklabels=[_core_label(core) for core in cores],
-        xlabel="Number = subjects with core in top-3\nColor = mean atom contribution (bits)",
+        xlabel="State; number = subjects with core in top-3",
         ylabel="Synergy core",
         xlim=(-0.6, len(CONDITIONS) - 0.4),
         ylim=(-0.6, len(cores) - 0.4),
     )
     core_axis.invert_yaxis()
     core_axis.tick_params(length=0)
+    core_axis.tick_params(axis="x", labelrotation=35)
     core_axis.spines["left"].set_visible(False)
     core_axis.spines["bottom"].set_visible(False)
     core_axis.text(-0.18, 1.04, "d", transform=core_axis.transAxes, fontweight="bold", fontsize=9)
     scalar_core = mpl.cm.ScalarMappable(norm=contribution_norm, cmap=contribution_cmap)
-    core_colorbar = fig.colorbar(scalar_core, ax=core_axis, shrink=0.72, pad=0.02)
-    core_colorbar.set_label("Mean greedy atom contribution (bits)\n(polygons and panel d)")
+    core_colorbar = fig.colorbar(scalar_core, ax=core_axis, shrink=0.78, pad=0.02)
+    core_colorbar.set_label("Mean greedy atom contribution when top (bits)")
     _save(fig, destination)
 
 
 def write_report(summary: Mapping[str, Any], path: Path) -> None:
     lines = [
-        "# REST–MOTOR–WM Yeo7 网络 EI、Phi 归因与协同核",
+        "# REST 与七任务态的 Yeo7 网络 EI、Phi 归因与协同核",
         "",
-        "三条件使用29名共同被试、各自前75%时间点拟合的 Yeo7-PC1、共享预测最优的五阶 Δ-Ridge（p=5, alpha=10）和 Gaussian log-det EI。不同条件分别重拟合 PCA、标准化、Ridge 与残差协方差，因此结果是条件对照，不是仅改变任务标签的单因素因果效应。",
+        f"本比较纳入 {summary['config']['n_subjects']} 名同时具有 REST 和七个 HCP 任务态数据的被试。状态是比较因素，被试是配对单位；八个状态固定使用相同的 Schaefer-500 分区、Yeo7 网络定义、前 75% 拟合段、五阶历史、Ridge 正则强度、Gaussian log-det EI、网络归因公式和绘图尺度。各状态分别重拟合 PCA、标准化、Ridge 与残差协方差，因此结果是配对状态对照，不是只改变任务标签的单因素因果效应。",
         "",
-        "对网络 i 的五阶历史模块 H_i，module EI 定义为 EI(H_i; X_{t+1})。网络内部历史整合为 module EI 减去五个单滞后 EI 之和。跨网络 Phi 以七个网络模块为分解单位，对全部 128 个网络组合精确计算 Shapley 归因。每个网络的 total Phi attribution 等于其网络内部历史整合加上 Shapley 分得的跨网络 Phi；七网络归因之和逐被试严格等于原始35维 history-source Phi。协同核仍按多网络 greedy atom 展示，不解释为单一网络固有量。",
+        "图中的节点是七个 Yeo7 功能网络，不是单个 Schaefer parcel。节点大小表示该网络五阶历史模块对下一时刻七网络状态的 EI；节点颜色表示分配给该网络的 total Phi attribution；多边形表示该状态中跨被试最常进入 greedy top-3 的多网络协同核。",
+        "",
+        "## 计算方法",
+        "",
+        "### 1. Yeo7 状态表示",
+        "",
+        r"对被试 $s$ 和状态 $c$，原始时间序列记为 $\mathbf{R}^{(s,c)}\in\mathbb{R}^{T_c\times 500}$。拟合段长度取 $D_c=\operatorname{round}(0.75T_c)$。在每个 Yeo7 网络内部，只用前 $D_c$ 个时间点拟合一维 PCA，再将同一变换应用到完整序列，得到七维状态向量 $\mathbf{x}_t\in\mathbb{R}^{7}$。PCA 按被试和状态独立拟合，避免把测试段信息用于降维。",
+        "",
+        "### 2. 五阶 Delta-Ridge 动力学",
+        "",
+        r"历史源向量为",
+        "",
+        "$$",
+        r"\mathbf{h}_t=\left[\mathbf{x}_t^\top,\mathbf{x}_{t-1}^\top,\ldots,\mathbf{x}_{t-4}^\top\right]^\top\in\mathbb{R}^{35},",
+        "$$",
+        "",
+        r"目标为 $\mathbf{y}_t=\mathbf{x}_{t+1}$。代码先用拟合段均值和样本标准差标准化每个历史滞后的七维状态，再对增量 $\Delta\mathbf{x}_t=\mathbf{x}_{t+1}-\mathbf{x}_t$ 单独标准化，拟合",
+        "",
+        "$$",
+        r"\widehat{\mathbf{B}}=\arg\min_{\mathbf{B},\mathbf{b}}\sum_t\left\|\widetilde{\Delta\mathbf{x}}_t-\mathbf{B}\widetilde{\mathbf{h}}_t-\mathbf{b}\right\|_2^2+\alpha\|\mathbf{B}\|_F^2,",
+        "$$",
+        "",
+        f"其中历史阶数 $p={summary['config']['order']}$，$\\alpha={summary['config']['alpha']:g}$。随后把增量模型还原为标准化状态坐标中的线性转移 $\\mathbf{{y}}_t=\\mathbf{{A}}\\mathbf{{h}}_t+\\boldsymbol{{\\varepsilon}}_t$，并由训练残差估计噪声协方差矩阵 $\\mathbf{{\\Sigma}}_\\varepsilon$。",
+        "",
+        "### 3. Gaussian log-det EI 与原始 Phi",
+        "",
+        r"对历史源索引集合 $S$，干预读出采用单位协方差、源维独立的 Gaussian 支持。记 $\mathbf{A}_S$ 为对应转移列，则",
+        "",
+        "$$",
+        r"EI(S;\mathbf{y})=\frac{1}{2\ln 2}\left[\log\det\left(\mathbf{A}\mathbf{A}^\top+\mathbf{\Sigma}_\varepsilon\right)-\log\det\left(\mathbf{A}_{S^c}\mathbf{A}_{S^c}^\top+\mathbf{\Sigma}_\varepsilon\right)\right].",
+        "$$",
+        "",
+        r"所有协方差 log-determinant 计算使用 $10^{-6}$ 的特征值下限。35 维历史源的原始整合量定义为",
+        "",
+        "$$",
+        r"\Phi_{\mathrm{raw}}=EI(\{1,\ldots,35\};\mathbf{y})-\sum_{j=1}^{35}EI(\{j\};\mathbf{y}).",
+        "$$",
+        "",
+        "这里沿用既有线性 Gaussian 分析而没有改用 TM：每个被试–状态都要对 127 个非空网络联盟求 EI，并进一步做精确 Shapley 归因；在当前 35 维历史源和 232 个配对模型上，TM 会显著扩大计算量，也会改变与已有结果的估计口径。代价是当前 EI 只刻画拟合线性动力学及其 Gaussian 干预支持，不覆盖一般非线性或非 Gaussian 机制。",
+        "",
+        "### 4. 网络内整合与跨网络 Shapley 归因",
+        "",
+        r"令 $\mathcal{N}=\{1,\ldots,7\}$ 表示 Yeo7 网络集合，$H_i$ 表示网络 $i$ 的五个历史滞后。对任意 $S\subseteq\mathcal{N}$，定义联盟函数 $F(S)=EI(\cup_{i\in S}H_i;\mathbf{y})$，并令 $F(\varnothing)=0$。网络 $i$ 的 module EI 为 $F(\{i\})$，网络内历史整合为",
+        "",
+        "$$",
+        r"\Phi_i^{\mathrm{within}}=F(\{i\})-\sum_{\ell=0}^{4}EI(x_{t-\ell,i};\mathbf{y}).",
+        "$$",
+        "",
+        r"跨网络联盟价值定义为 $G(S)=F(S)-\sum_{i\in S}F(\{i\})$。对全部 $2^7=128$ 个联盟精确枚举后，网络 $i$ 的 Shapley 份额为",
+        "",
+        "$$",
+        r"\psi_i=\sum_{S\subseteq\mathcal{N}\setminus\{i\}}\frac{|S|!(7-|S|-1)!}{7!}\left[G(S\cup\{i\})-G(S)\right].",
+        "$$",
+        "",
+        r"最终节点颜色对应 $a_i=\Phi_i^{\mathrm{within}}+\psi_i$。按 Shapley 效率性质，$\sum_i\psi_i=G(\mathcal{N})$；代码还逐被试验证 $\sum_i a_i=\Phi_{\mathrm{raw}}$。",
+        "",
+        "### 5. Greedy 协同核",
+        "",
+        r"协同核以七个网络模块为不可拆单位。对一个网络子集 $Q$，先计算 $\Phi(Q)=F(Q)-\sum_{i\in Q}F(\{i\})$，再枚举所有无序非平凡二分 $Q=L\cup R$。算法只接受残差 $r_Q=\Phi(Q)-\Phi(L)-\Phi(R)\geq-10^{-4}$ 的拆分，并优先选择使 $\Phi(L)+\Phi(R)$ 最大的拆分；正残差作为当前层 atom，随后递归处理 $L$ 和 $R$。每名被试保留正贡献最大的三个多网络 atom。状态级 leading core 先按进入被试 top-3 的频率排序，再按进入 top-3 时的平均 atom 贡献排序。该结果依赖 greedy 路径，不是所有层级分解的唯一 exhaustive 解。",
+        "",
+        "### 6. 聚合、配对差值与不确定性",
+        "",
+        f"每个状态的均值由同一组 {summary['config']['n_subjects']} 名被试计算。95% 区间使用 {summary['config']['bootstrap_replicates']:,} 次被试 bootstrap 的均值分位数区间。任务减 REST 的差值先在同一被试内计算，再对配对差值做 bootstrap；`n+/n-` 分别是差值严格大于和小于 0 的被试数。未在本图上对多个状态、网络和指标进行假设检验或多重校正。",
         "",
         "## 系统级汇总",
         "",
@@ -550,6 +741,25 @@ def write_report(summary: Mapping[str, Any], path: Path) -> None:
             f"| {CONDITION_LABELS[result['condition']]} | {system['joint_ei']['mean']:.6f} | "
             f"{system['raw_phi']['mean']:.6f} | {system['within_phi_sum']['mean']:.6f} | "
             f"{system['cross_network_phi']['mean']:.6f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 相对 REST 的配对系统差值",
+            "",
+            "| 任务态 | Δ raw Phi [95% CI] | n+/n- | Δ cross-network Phi [95% CI] | n+/n- |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for comparison in summary["paired_task_minus_rest"]:
+        raw = comparison["system_summary"]["raw_phi"]
+        cross = comparison["system_summary"]["cross_network_phi"]
+        lines.append(
+            f"| {CONDITION_LABELS[comparison['condition']]} | {raw['mean']:.6f} "
+            f"[{raw['bootstrap_95_ci'][0]:.6f}, {raw['bootstrap_95_ci'][1]:.6f}] | "
+            f"{raw['n_positive']}/{raw['n_negative']} | {cross['mean']:.6f} "
+            f"[{cross['bootstrap_95_ci'][0]:.6f}, {cross['bootstrap_95_ci'][1]:.6f}] | "
+            f"{cross['n_positive']}/{cross['n_negative']} |"
         )
     lines.extend(
         [
@@ -570,13 +780,55 @@ def write_report(summary: Mapping[str, Any], path: Path) -> None:
     lines.extend(
         [
             "",
-            "图 a 以节点大小编码 module EI、节点颜色编码 total Phi attribution；多边形标出每个条件最常进入被试 top-3 的协同核，其颜色编码该核进入 top-3 时的平均 greedy atom 贡献。图 b、c 给出网络级均值与被试 bootstrap 95% CI；图 d 同时显示主要协同核的 top-3 频率和平均 atom 贡献，并与多边形共享 atom 色标。",
+            "## 各状态 leading core",
             "",
-            "REST 使用900个拟合时间点，MOTOR 与 WM 分别使用213和304个拟合时间点；不同有效样本长度与条件共同变化，跨条件差异不能解释为纯任务效应。Shapley 是满足效率与对称性的归因约定，不等于唯一的生物学归属。",
+            "| 状态 | leading core | top-3 频率 | top 时平均 atom（bits） |",
+            "|---|---|---:|---:|",
+        ]
+    )
+    for result in summary["condition_results"]:
+        top = result["core_summary"][0]
+        lines.append(
+            f"| {CONDITION_LABELS[result['condition']]} | {_core_label(top['sources'])} | "
+            f"{top['top3_frequency']}/{result['n_subjects']} | {top['mean_atom_value_when_top']:.6f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 图示与解释边界",
+            "",
+            "图 a 用统一节点大小、节点色标和多边形色标展示 REST 与七任务态；图 b、c 用共享尺度热图比较 module EI 与 total Phi attribution；图 d 同时编码主要协同核的 top-3 频率和进入 top-3 时的平均 atom 贡献。所有色标均跨八状态统一，不能在单一 panel 内重新拉伸。",
+            "",
+            "REST 和不同任务的时间序列长度不同，因而拟合样本数与状态同时变化；PCA 方向也按状态独立估计。跨状态差异不能解释为纯任务诱发的因果效应。Shapley 是满足效率与对称性的归因约定，不是唯一的生物学归属；节点归因也不应解释为单个脑区的重要性。",
         ]
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def load_reusable_rows(
+    summary_path: Path | None,
+    *,
+    subjects: Sequence[str],
+    order: int,
+    alpha: float,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    if summary_path is None or not Path(summary_path).is_file():
+        return {}
+    cached = json.loads(Path(summary_path).read_text(encoding="utf-8"))
+    config = cached.get("config", {})
+    if int(config.get("order", -1)) != int(order) or not np.isclose(float(config.get("alpha", np.nan)), alpha):
+        raise ValueError(
+            f"Cannot reuse {summary_path}: cached order/alpha do not match p={order}, alpha={alpha}."
+        )
+    wanted_subjects = set(subjects)
+    reusable = {}
+    for row in cached.get("rows", []):
+        subject = str(row.get("subject", ""))
+        condition = str(row.get("condition", ""))
+        if subject in wanted_subjects and condition in CONDITIONS:
+            reusable[(subject, condition)] = dict(row)
+    return reusable
 
 
 def run(
@@ -591,26 +843,36 @@ def run(
     alpha: float = 10.0,
     workers: int = 4,
     bootstrap_replicates: int = 10_000,
+    reuse_summary: Path | None = None,
 ) -> dict[str, Any]:
     discovered = discover_inputs(rest_root, task_root)
     if subjects is not None:
         wanted = set(subjects)
         missing = wanted - set(discovered)
         if missing:
-            raise FileNotFoundError(f"Missing complete REST/MOTOR/WM inputs for {sorted(missing)}")
+            raise FileNotFoundError(f"Missing complete REST/all-task inputs for {sorted(missing)}")
         discovered = {subject: discovered[subject] for subject in sorted(wanted)}
     if not discovered:
-        raise FileNotFoundError("No common REST/MOTOR/WM subjects were found.")
+        raise FileNotFoundError("No subjects with complete REST and seven-task inputs were found.")
     groups = load_yeo7_groups(labels_path, expected_parcels=500)
+    reusable = load_reusable_rows(
+        reuse_summary,
+        subjects=tuple(discovered),
+        order=order,
+        alpha=alpha,
+    )
     payloads = [
         (str(paths[condition]), groups, subject, condition, data_key, order, alpha)
         for subject, paths in discovered.items()
         for condition in CONDITIONS
+        if (subject, condition) not in reusable
     ]
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = list(reusable.values())
     progress = tqdm(total=len(payloads), desc="Yeo7 EI/Phi attribution", unit="fit", mininterval=1.0)
     try:
-        if int(workers) <= 1:
+        if not payloads:
+            pass
+        elif int(workers) <= 1:
             for payload in payloads:
                 rows.append(_analyze_file(payload))
                 progress.update(1)
@@ -651,16 +913,21 @@ def run(
             "null_replicates": 0,
             "bootstrap_replicates": int(bootstrap_replicates),
             "workers": int(workers),
+            "reused_rows": len(reusable),
+            "computed_rows": len(payloads),
         },
         "identity_checks": {"maximum_absolute_error_bits": float(maximum_identity_error)},
         "rows": rows,
     }
     summary["condition_results"] = summarize(rows, bootstrap_replicates=bootstrap_replicates)
+    summary["paired_task_minus_rest"] = summarize_paired_differences(
+        rows, bootstrap_replicates=bootstrap_replicates
+    )
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     write_report(summary, output_dir / "report.md")
-    plot_summary(summary, output_dir / "rest_motor_wm_network_attribution")
+    plot_summary(summary, output_dir / "all_conditions_network_attribution")
     return summary
 
 
@@ -676,6 +943,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--alpha", type=float, default=10.0)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--bootstrap-replicates", type=int, default=10_000)
+    parser.add_argument(
+        "--reuse-summary",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR / "summary.json",
+        help="Reuse compatible subject-condition rows from an existing summary JSON.",
+    )
     args = parser.parse_args(argv)
     subjects = tuple(value.strip() for value in args.subjects.split(",") if value.strip()) or None
     summary = run(
@@ -689,6 +962,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         alpha=args.alpha,
         workers=args.workers,
         bootstrap_replicates=args.bootstrap_replicates,
+        reuse_summary=args.reuse_summary,
     )
     print(
         json.dumps(

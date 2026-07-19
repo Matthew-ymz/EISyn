@@ -166,10 +166,10 @@ def plot_phi_eid_leads(summary: pd.DataFrame, output_base: Path) -> list[Path]:
     whole_std = summary["whole_ei_std"].to_numpy(dtype=float)
     singleton = summary["singleton_ei_sum_mean"].to_numpy(dtype=float)
     singleton_std = summary["singleton_ei_sum_std"].to_numpy(dtype=float)
-    ax_phi.plot(x, phi, color="#4C78A8", marker="o", markersize=2.3, linewidth=1.6, label=r"$\Phi^{EID}$")
+    ax_phi.plot(x, phi, color="#4C78A8", marker="o", markersize=2.3, linewidth=1.6, label=r"$\Xi$")
     ax_phi.fill_between(x, phi - phi_std, phi + phi_std, color="#4C78A8", alpha=0.16, linewidth=0)
     ax_phi.axhline(0.0, color="#888888", linewidth=0.7, linestyle=":")
-    ax_phi.set_ylabel(r"$\Phi^{EID}$ (bits)")
+    ax_phi.set_ylabel(r"$\Xi$ (bits)")
     ax_phi.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     ax_ei.plot(x, whole, color="#777777", linewidth=1.25, linestyle="--", label="Whole EI")
@@ -263,7 +263,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Compute UniCM all-mode target Phi^EID lead curves.")
+    parser = argparse.ArgumentParser(description="Compute UniCM all-mode target Xi lead curves.")
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--asset-base", type=Path, default=DEFAULT_ASSET_BASE)

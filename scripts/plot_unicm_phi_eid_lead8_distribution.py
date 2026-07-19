@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot the lead-8 UniCM all-mode Phi EID greedy atom distribution."""
+"""Plot the lead-8 UniCM all-mode Xi greedy atom distribution."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def draw_module_bars(ax: plt.Axes, lead_modules: pd.DataFrame, total_phi: float,
     ax.set_yticks(y)
     ax.set_yticklabels(lead_modules["atom"])
     ax.invert_yaxis()
-    ax.set_xlabel("Greedy Phi EID atom (bits)")
+    ax.set_xlabel(r"Greedy $\xi_C$ atom (bits)")
     ax.set_ylabel("Lead-8 atom")
     ax.grid(axis="x", color="#e5e7eb", linewidth=0.7)
     ax.set_xlim(0.0, x_max)
@@ -98,7 +98,7 @@ def draw_module_bars(ax: plt.Axes, lead_modules: pd.DataFrame, total_phi: float,
             color="#111111",
             bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 0.4},
         )
-    ax.text(0.0, 1.04, "a  Largest hierarchical Phi atoms", transform=ax.transAxes, fontsize=8.5, fontweight="bold")
+    ax.text(0.0, 1.04, r"a  Largest hierarchical $\xi_C$ atoms", transform=ax.transAxes, fontsize=8.5, fontweight="bold")
 
 
 def draw_membership_matrix(ax: plt.Axes, lead_modules: pd.DataFrame, mode_order: Sequence[str]) -> None:
@@ -142,10 +142,10 @@ def draw_order_distribution(ax: plt.Axes, lead_order: pd.DataFrame, total_phi: f
 def draw_top_module_callout(ax: plt.Axes, lead_modules: pd.DataFrame, total: pd.Series) -> None:
     top = lead_modules.iloc[0]
     lines = [
-        f"Lead 8 total Phi EID: {float(total['phi_eid_mean']):.3f} +/- {float(total['phi_eid_std']):.3f} bits",
+        rf"Lead 8 total $\Xi$: {float(total['phi_eid_mean']):.3f} +/- {float(total['phi_eid_std']):.3f} bits",
         f"Top atom: {str(top['pretty_sources'])}",
         f"Top atom mass: {float(top['mean']):.3f} bits ({100.0 * float(top['fraction']):.1f}% of total)",
-        f"Top {len(lead_modules)} atoms cover {100.0 * float(lead_modules['mean'].sum()) / float(total['phi_atom_sum_mean']):.1f}% of lead-8 Phi.",
+        rf"Top {len(lead_modules)} atoms cover {100.0 * float(lead_modules['mean'].sum()) / float(total['phi_atom_sum_mean']):.1f}% of lead-8 $\Xi$.",
     ]
     ax.axis("off")
     y = 0.92

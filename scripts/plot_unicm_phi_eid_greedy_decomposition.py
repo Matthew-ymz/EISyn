@@ -186,7 +186,7 @@ def plot_decomposition(
     total = total_summary.sort_values("lead")
     ax_order.plot(total["lead"], total["phi_atom_sum_mean"], color="#111111", linewidth=1.3, label="atom sum")
     ax_order.set_xlabel("Lead (months)")
-    ax_order.set_ylabel(r"Greedy $\Phi^{EID}$ atoms (bits)")
+    ax_order.set_ylabel(r"Greedy $\xi_C$ atoms (bits)")
     ax_order.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     top_modules = module.head(int(top_k))["sources"].astype(str).tolist()
@@ -238,7 +238,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     if str(args.estimator) == "transport_map":
         if int(args.tm_degree) != 1:
             raise ValueError(
-                "Greedy all-subset PhiEID decomposition only supports --tm-degree 1. "
+                "Greedy all-subset Xi decomposition only supports --tm-degree 1. "
                 "Higher-degree polynomial TM over all 2047 source subsets is computationally prohibitive; "
                 "run selected subset probes instead."
             )
@@ -362,7 +362,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Greedy hierarchical Phi^EID decomposition for UniCM all-mode targets.")
+    parser = argparse.ArgumentParser(description="Greedy hierarchical Xi decomposition for UniCM all-mode targets.")
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--asset-base", type=Path, default=DEFAULT_ASSET_BASE)

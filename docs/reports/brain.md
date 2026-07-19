@@ -1,4 +1,4 @@
-# 脑科学实验：83 ROI 临界识别与 HCP Yeo7 Phi 分解
+# 脑科学实验：83 ROI 临界识别与 HCP Yeo7 $\Phi$/$\Xi$ 分解
 
 ## 结论
 
@@ -6,9 +6,9 @@
 
 1. **83 ROI 临界相变识别。**在 83 区 DMF 的近似复现中，经验滞后分布上的 pairwise $\Phi^R$ 在 $G=1.8$ 达峰（$0.02168$），与平均发放率快速上升区重合，复现了原文的散点式相变识别关系。作为互补的机制分析，无裁剪 8-seed 最大熵干预在相近区域识别到 $\Phi^{EID}$ 宽峰：$G=1.7$ 的均值为 $12.384\pm0.041$ bits，$G=1.6\text{-}1.8$ 的临界窗显著高于前、后窗口。Yeo-7 跟进分解显示临界窗中 68.7% 的 $\Phi^{EID}$ 来自跨 ROI 协同，31.3% 来自单个 ROI 内的兴奋—抑制协同。
 2. **HCP500/1000 PCA–Yeo7 Phi 分解。**在相同 30 名 HCP REST1_LR 被试中，Schaefer-500（$p=8,\alpha=10$）与重新验证的 Schaefer-1000（$p=5,\alpha=1$）均在 30/30 名被试中高于独立 PC1 circular-shift null。两种粒度的全七网络核都常进入 top-3，但不高于 matched null；相对地，缺少 Limbic 的六网络核均高于 matched null cohort（500：17/30 对 8.65/30；1000：12/30 对 6.35/30；各 20-null 未校正 $p=0.047619$）。
-3. **HCP500 任务态迁移。**冻结静息态 Schaefer-500 的 $p=8,\alpha=10$，但对每个任务和被试重新拟合 PCA、标准化、Ridge 系数与残差协方差后，29 名共同被试的 REST raw history-source $\Phi^{EID}$ 均值为 6.196 bits，高于七个任务的全部群体均值；七项 task-minus-REST 配对差在 Holm 校正后均显著，八条件 Friedman $p=1.50\times10^{-8}$。REST 在 20/29 人中为八条件最大值，因此该结论是群体层面的条件排序，而非每名被试都成立。把 REST 严格截成与各任务相同的长度并在每个窗口内重新拟合后，REST 的跨被试方差只在 EMOTION 与 MOTOR 上得到区间整体高于 1 的稳定证据，说明原始高方差不能统一归因于单一长度因素。WM 内部的 20-null 分析进一步显示 30/30 人高于自身 null mean；缺 Limbic 的六网络核在 WM 中为 26/30，并由共同被试静息态的 16/29 增至 WM 的 25/29（Holm $p=0.023438$）。
+3. **HCP500 任务诱发表征与 $\Xi$ 层级分解。**任务态先在 `taskRetained-taskRegressed` 上拟合各 Yeo7 网络的 PC1，再用同一载荷投影 `taskRetained`；REST 则在自身时序上拟合并投影。最终共享配置为一维网络状态、三阶历史与 Ridge $\alpha=1$，即 21 维 source 预测 7 维下一时刻 target。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 7.040 bits，高于七任务的 4.301--5.537 bits；七项配对 Wilcoxon 检验经 BH 校正后均显著。除总量外，七网络归因份额在仅比较任务态时 7/7 个网络均有显著状态效应；网络分布的 21 个任务两两对比中 18 个显著，greedy 层级 atom 分布中 11 个显著。该结果说明 REST 与任务态、以及多数任务对之间不仅整体协同强度不同，协同在单网络内部与跨网络组合之间的分配也不同。
 
-这些实验分别回答不同问题：DMF 实验检验 $\Phi^{EID}$ 是否能定位可控模型中的临界动力学带；HCP 静息态实验检验降维后的真实网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构；WM 实验检验同一方法能否迁移到任务态并识别协同核频率变化。它们不构成对特定脑机制、因果方向或精确稀疏 atom 的证明。
+这些实验分别回答不同问题：DMF 实验检验 $\Phi^{EID}$ 是否能定位可控模型中的临界动力学带；HCP 静息态实验检验降维后的真实网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构；任务态实验检验以任务诱发 PCA 选择观测方向后，system-level $\Xi$ 及其网络和层级组合归因是否随状态改变。它们不构成对特定脑机制、因果方向或唯一稀疏 atom 的证明。
 
 ## 目录
 
@@ -20,27 +20,30 @@
    5. [Yeo-7 功能网络层级分解](#dmf-yeo7)
    6. [确定性 / 简并性分解与变化率](#dmf-detdeg)
    7. [解释边界](#dmf-limits)
-2. [**HCP500 PCA–Yeo7：Phi 分解**](#hcp500)
-   1. [数据、降维与动力学表征](#hcp500-data)
-   2. [History-source Φ^EID 与 circular-shift null](#hcp500-phi)
-   3. [Yeo7 模块历史分解](#hcp500-module)
-3. [**HCP1000 PCA–Yeo7：Phi 分解**](#hcp1000)
-   1. [数据、降维与模型选择](#hcp1000-data)
-   2. [History-source Φ^EID 与 circular-shift null](#hcp1000-phi)
-   3. [Yeo7 模块历史分解与 500 对照](#hcp1000-module)
-4. [**HCP500 WM_LR：任务态 Phi 与协同核**](#hcp-wm)
-   1. [整体 Phi 与 circular-shift null](#hcp-wm-phi)
-   2. [协同核分布及静息态对照](#hcp-wm-module)
-   3. [七任务 raw Phi 排序](#hcp-all-tasks)
-5. [**讨论：解释边界与可复现性**](#discussion)
+2. [**HCP500 任务态 $\Phi$、$\Xi$ 与脑区分布**](#hcp-wm)
+   1. [协同核分布及静息态对照](#hcp-wm-phi)
+   2. [七任务 raw Phi 排序（历史表征参照）](#hcp-all-tasks)
+   3. [七任务态的 Schaefer-500 任务特异脑区分布](#hcp-task-specific-regions)
+3. [**讨论：解释边界与可复现性**](#discussion)
    1. [结论的适用范围](#discussion-scope)
    2. [结果与图形产物](#discussion-artifacts)
-6. [**附录 A：Kuramoto 振子数与 whole-state Φ^EID 曲线形状**](#appendix-a)
+4. [**附录 A：Kuramoto 振子数与 whole-state Φ^EID 曲线形状**](#appendix-a)
    1. [临界峰的 EI 与 effectiveness 机制](#appendix-a-1)
    2. [时间窗、相变前检测与系统规模边界](#appendix-a-2)
-7. [**附录 B：83 ROI DMF 动力学方程**](#appendix-b)
-8. [**附录 C：Φ^R 的相变近似复现**](#appendix-c)
-9. [**附录 D：83 ROI 对平均 Φ^EID 曲线**](#appendix-d)
+5. [**附录 B：83 ROI DMF 动力学方程**](#appendix-b)
+6. [**附录 C：Φ^R 的相变近似复现**](#appendix-c)
+7. [**附录 D：83 ROI 对平均 Φ^EID 曲线**](#appendix-d)
+8. [**附录 E：拟合模型参数鲁棒性**](#appendix-e)
+    1. [REST–任务差异的 p–α 鲁棒性](#appendix-e-1)
+    2. [留出预测误差解释弱正则反转](#appendix-e-2)
+9. [**附录 F：HCP500 PCA–Yeo7 Phi–null 分解**](#appendix-f)
+   1. [数据、降维与动力学表征](#appendix-f-1)
+   2. [History-source Φ^EID 与 circular-shift null](#appendix-f-2)
+   3. [Yeo7 模块历史分解](#appendix-f-3)
+10. [**附录 G：HCP1000 PCA–Yeo7 Phi–null 分解**](#appendix-g)
+    1. [数据、降维与模型选择](#appendix-g-1)
+    2. [History-source Φ^EID 与 circular-shift null](#appendix-g-2)
+    3. [Yeo7 模块历史分解与 500 对照](#appendix-g-3)
 
 <a id="dmf-critical"></a>
 
@@ -229,120 +232,17 @@ $U(0,1)^{166}$ 是物理立方体上的绝对最大熵初态，但在该阴性�
 
 该实验识别的是此 DMF、该代理结构连接、该时间窗和该连续高斯估计口径下的临界样动力学窗口，不对应人体大脑的固定耦合常数。确定性/简并性曲线提供与峰相容的熵分解，而不是同步、饱和或因果机制的直接测量。
 
-<a id="hcp500"></a>
-
-## 2. HCP500 PCA–Yeo7：Phi 分解
-
-<a id="hcp500-data"></a>
-
-### 2.1 数据、降维与动力学表征
-
-数据为 30 名 HCP S1200 被试的 `REST1_LR` Schaefer-500 BOLD 时序，每名被试包含 $1200\times500$ 个时间点与皮层 parcel。500 个 parcel 按 Yeo7 标签分为 Vis、SomMot、DorsAttn、SalVentAttn、Limbic、Cont 和 Default；每个网络仅保留训练段拟合的一维 PCA（PC1），形成 7 维网络状态 $\mathbf{x}_t$。
-
-Phi 实验使用 `sub-100206` 的时间验证选出的八阶 $\Delta$-Ridge，$p=8$、$\alpha=10$。模型以当前与过去七个时刻的网络状态为 source：
-
-$$
-\mathbf{h}_t=
-\left[\mathbf{x}_t^\top,\mathbf{x}_{t-1}^\top,\ldots,\mathbf{x}_{t-7}^\top\right]^\top
-\in\mathbb{R}^{56},
-\qquad
-\Delta\mathbf{x}_{t+1}=\mathbf{x}_{t+1}-\mathbf{x}_t.
-$$
-
-PCA、标准化器和 Ridge 均仅以每名被试的前 900 个时间点拟合；后 300 点不参与本 Phi 计算、参数选择或 null 重拟合。这里的目标是比较固定表征与固定模型下的 observed 和 null，而不是把该单被试模型推广为全体被试的预测最优模型。
-
-<a id="hcp500-phi"></a>
-
-### 2.2 History-source $\Phi^{EID}$ 与 circular-shift null
-
-本实验的量是 56 维历史 source 到下一时刻 7 维状态的量，而不是 7 维一阶 whole-state $\Phi^{EID}$：
-
-$$
-\Phi^{EID}_{\mathrm{hist}\to\mathrm{next}}
-=EI\!\left(\mathbf{h}_t;\mathbf{x}_{t+1}\right)
--\sum_{j=1}^{56}EI\!\left(h_{t,j};\mathbf{x}_{t+1}\right).
-$$
-
-估计使用 Gaussian log-det 口径，而非 TM。这样可在 56 维 history source、30 名被试、重复 null 重拟合和贪婪分解下保持可计算性；代价是结果依赖 Gaussian 近似，不能直接外推到非高斯的精确干预信息量。
-
-null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在相同的 $p$、$\alpha$ 与 900 点训练预算下重新拟合模型。它保留每条网络 PC1 的边际取值与自相关结构，但破坏网络间的时间对齐，检验观测到的跨网络结构是否超出网络内时间结构本身。
-
-在 30 被试、每人 20-null 的扩展中，observed $\Phi^{EID}$ 的均值与中位数为 6.188481 与 6.068454 bits；observed-minus-null-mean 的均值与中位数为 1.984600 与 2.051671 bits，范围为 0.492521–4.096287 bits。30/30 名被试的 observed 都高于各自 null 均值，且未校正经验 $p<0.05$；由于仅有 20 个 null，每个被试的最小 p 值分辨率为 $1/21=0.047619$。
-
-![30 被试 Yeo7-PC1 observed-minus-null PhiEID](../../results/hcp_schaefer500_yeo7_pc1_phi_null_all/observed_minus_null.png)
-
-该结果支持在这一固定的 reduced-state、history-source 定义与 null 下，跨网络时间对齐带来额外的高阶结构；它不排除低频漂移、运动、生理噪声、PCA 表征选择或 Gaussian 近似造成的影响。
-
-<a id="hcp500-module"></a>
-
-### 2.3 Yeo7 模块历史分解
-
-在全部 30 名被试上进行贪婪分解。为避免将同一网络的八阶历史误作 8 个独立脑区，属于同一个 Yeo7 网络的全部 8 个滞后 PC1 值被绑定为一个不可拆模块原子；候选空间因此是 7 个网络模块，而不是 56 个逐滞后变量。
-
-| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | 固定集合未校正 $p<0.05$ |
-|---|---:|---:|---:|
-| 全部 7 个 Yeo 网络 | **20 / 30** | 1.314357 bits | 20 / 20 |
-| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **17 / 30** | 1.227709 bits | 17 / 17 |
-| SomMot + DorsAttn + SalVentAttn + Cont + Default | 9 / 30 | 0.956657 bits | 8 / 9 |
-| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.086753 bits | 7 / 8 |
-
-![30 被试模块级 greedy PhiEID 核](../../results/hcp_schaefer500_yeo7_module_phi_decomposition/top_core_consistency.png)
-
-全 7 网络核最常出现（20/30），但它在 matched null cohort 中反而更常出现（均值 26.65/30；经验 $p=1$），因此不能将其读为真实数据特异的协同核。缺少 Limbic 的六网络广域核在真实数据中为 17/30，而 matched null cohort 的频率为 $8.65/30$（最大 12/30；经验 $p=1/21=0.047619$）；两个较小的候选核也分别为 9/30 对 $1.40/30$、8/30 对 $2.45/30$，同为该分辨率下的未校正 $p=1/21$。这支持真实静息态中若干非全网络模块核的出现频率和贡献高于该 circular-shift null；但 20 个 null 的 p 值分辨率有限，且统计未校正跨模块集合与 greedy 选择，因此不构成唯一生物学 atom 的确证。
-
-<a id="hcp1000"></a>
-
-## 3. HCP1000 PCA–Yeo7：Phi 分解
-
-<a id="hcp1000-data"></a>
-
-### 3.1 数据、降维与模型选择
-
-同一 30 名 `REST1_LR` 被试的 `Schaefer1000` 矩阵为 $1200\times1000$。1000 个 parcel 按同一 Yeo7 顺序分为 Vis 162、SomMot 194、DorsAttn 122、SalVentAttn 121、Limbic 60、Cont 129 与 Default 212 个 parcel；每名被试的各网络 PC1 均只以前 900 点拟合并投影完整时序。
-
-在 `sub-100206` 的训练段内以 600/700/800 三个时间验证折，从 $p\in\{1,2,3,5,8\}$ 与既有 Ridge $\alpha$ 网格选择模型。最优冻结配置为五阶 $\Delta$-Ridge，$p=5$、$\alpha=1$，平均 validation skill ratio 为 0.794433；因此 source 是 35 维网络历史，target 为下一时刻 7D 网络状态。后 300 点未参与 PC1、模型或参数选择。
-
-<a id="hcp1000-phi"></a>
-
-### 3.2 History-source $\Phi^{EID}$ 与 circular-shift null
-
-对每名被试固定上述表征与模型，并以每条 PC1 独立、非零 circular shift 后重拟合同一模型生成 20 个 null。1000-parcel observed $\Phi^{EID}$ 的均值/中位数为 7.783676/7.734082 bits；observed-minus-null-mean 的均值/中位数为 2.997670/3.032261 bits，范围为 0.814450–6.085586 bits。30/30 名被试的 observed 均高于其 null 均值，未校正经验 p 均小于 0.05（最小分辨率 $1/21=0.047619$）。
-
-![30 被试 Schaefer1000 Yeo7-PC1 observed-minus-null PhiEID](../../results/hcp_schaefer1000_yeo7_pc1_phi_null_all/observed_minus_null.png)
-
-<a id="hcp1000-module"></a>
-
-### 3.3 Yeo7 模块历史分解与 500 对照
-
-分解中，同一网络的全部五个 PC1 历史滞后绑定为一个不可拆模块原子；每个 observed 与 null 都完整运行 greedy top-3。1000-parcel 的常见核如下。
-
-| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | matched-null 频率均值；经验 p |
-|---|---:|---:|---:|
-| 全部 7 个 Yeo 网络 | **21 / 30** | 1.637465 bits | 21.80 / 30；0.761905 |
-| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **12 / 30** | 1.575094 bits | 6.35 / 30；0.047619 |
-| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.500212 bits | 2.40 / 30；0.047619 |
-| Vis + SomMot + DorsAttn + Cont + Default | 7 / 30 | 1.579938 bits | 2.90 / 30；0.047619 |
-
-![30 被试 Schaefer1000 模块级 greedy PhiEID 核](../../results/hcp_schaefer1000_yeo7_module_phi_decomposition/top_core_consistency.png)
-
-| 描述性比较 | Schaefer-500 | Schaefer-1000 |
-|---|---:|---:|
-| observed $\Phi^{EID}$ 均值（bits） | 6.188481 | 7.783676 |
-| observed − null 均值（bits） | 1.984600 | 2.997670 |
-| observed 高于 null mean | 30 / 30 | 30 / 30 |
-| 全七网络核 top-3 频率 | 20 / 30 | 21 / 30 |
-| 缺 Limbic 六网络核 top-3 频率 | 17 / 30 | 12 / 30 |
-
-两种粒度都复现了跨网络时间对齐高于 circular-shift null 的方向性证据，并都将缺 Limbic 的六网络广域核识别为高于 matched-null 频率的候选结构。绝对 bits、最优滞后阶数和 atom 频率受分区粒度、PC1 表征与单被试调参影响；上表仅作描述性对照，不能当作空间粒度的正式统计检验，也不将 greedy 核解释为唯一生物学 atom。
 
 <a id="hcp-wm"></a>
 
-## 4. HCP500 WM_LR：任务态 Phi 与协同核
+## 2. HCP500 任务态 $\Phi$、$\Xi$ 与脑区分布
 
 <a id="hcp-wm-phi"></a>
 
 
-### 4.1 协同核分布及静息态对照
+### 2.1 协同核分布及静息态对照
+
+静息态 Schaefer-500 的表征、模型选择、Phi–null 对照和模块分解见附录 F；Schaefer-1000 的对应复现见附录 G。本节只保留任务态迁移及其与静息态基线的对照。
 
 同一网络的 8 个历史滞后仍绑定为一个不可拆模块；每个 observed 和 null 均完整运行 greedy top-3。WM 中最常见的四个核如下。
 
@@ -361,9 +261,9 @@ null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在�
 
 <a id="hcp-all-tasks"></a>
 
-### 4.3 七任务 raw Phi 排序
+### 2.2 七任务 raw Phi 排序（历史表征参照）
 
-为检验静息态 raw $\Phi^{EID}$ 较高的现象是否只出现在 WM，这里将同一 Schaefer-500 协议扩展到 EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 和 WM。跨任务固定 Yeo7-PC1 表征形式、八阶 $\Delta$-Ridge、$p=8$、$\alpha=10$、56 维历史 source、7 维 target 和 Gaussian log-det 估计器；但每个“任务 $\times$ 被试”都使用自己的前 75% 时间点重新拟合 PCA、标准化、Ridge 系数、截距和残差协方差。所谓“固定模型”因此指结构与超参数固定，不是跨任务复用同一组系数。本轮只比较 observed raw $\Phi^{EID}$，不生成新的 circular-shift null。
+作为原始表征参照，为检验静息态 raw $\Phi^{EID}$ 较高的现象是否只出现在 WM，这里将同一 Schaefer-500 协议扩展到 EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 和 WM。跨任务固定 Yeo7-PC1 表征形式、八阶 $\Delta$-Ridge、$p=8$、$\alpha=10$、56 维历史 source、7 维 target 和 Gaussian log-det 估计器；但每个“任务 $\times$ 被试”都使用自己的前 75% 时间点重新拟合 PCA、标准化、Ridge 系数、截距和残差协方差。所谓“固定模型”因此指结构与超参数固定，不是跨任务复用同一组系数。本轮只比较 observed raw $\Phi^{EID}$，不生成新的 circular-shift null。第 2.3 节的任务诱发 PCA–$\Xi$ 分解是当前任务空间归因主结果。
 
 | 条件 | 29 名共同被试 raw $\Phi^{EID}$ 均值 | 中位数 |
 |---|---:|---:|
@@ -384,19 +284,19 @@ null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在�
 
 30 名被试的 observed $\Phi^{EID}$ 均值/中位数为 4.939700/4.557162 bits；observed-minus-null-mean 的均值/中位数为 1.781650/1.581241 bits。30/30 名被试均高于自身 null mean，22/30 的 observed 高于全部 20 个 null，因此达到当前分辨率下的最小经验 $p=1/21=0.047619$。受试者级 $\Delta\Phi$ 的均值 95% bootstrap CI 为 $[1.344991,2.423814]$ bits，paired sign-flip $p=5.0\times10^{-6}$。这支持 WM 中的跨网络时间对齐高于保留单网络自相关、但破坏网络间对齐的 null。
 
-八条件重复测量的 Friedman 检验为 $\chi^2=49.919540$、$p=1.50\times10^{-8}$。REST 与每个任务的受试者内差值均为负，即任务 raw Phi 低于 REST；七项 paired sign-flip 的 Holm 校正 $p$ 从 $3.50\times10^{-5}$ 到 $8.45\times10^{-4}$，全部低于 0.05。与 REST 最接近的是 MOTOR，task-minus-REST 均值差仍为 $-1.025316$ bits（95% bootstrap CI $[-1.541913,-0.491539]$，Holm $p=0.000845$）；差距最大的是 EMOTION，为 $-1.739087$ bits（95% CI $[-2.296265,-1.216161]$，Holm $p=3.50\times10^{-5}$）。因此在预先使用的 $p=8,\alpha=10$ 配置下，**REST 的群体平均 $\Phi^{EID}$ 显著高于全部七个任务态。**第 4.4 节进一步检验该排序对超参数的依赖，结论不能外推为与 $p,\alpha$ 无关的普遍规律。
+八条件重复测量的 Friedman 检验为 $\chi^2=49.919540$、$p=1.50\times10^{-8}$。REST 与每个任务的受试者内差值均为负，即任务 raw Phi 低于 REST；七项 paired sign-flip 的 Holm 校正 $p$ 从 $3.50\times10^{-5}$ 到 $8.45\times10^{-4}$，全部低于 0.05。与 REST 最接近的是 MOTOR，task-minus-REST 均值差仍为 $-1.025316$ bits（95% bootstrap CI $[-1.541913,-0.491539]$，Holm $p=0.000845$）；差距最大的是 EMOTION，为 $-1.739087$ bits（95% CI $[-2.296265,-1.216161]$，Holm $p=3.50\times10^{-5}$）。因此在预先使用的 $p=8,\alpha=10$ 配置下，**REST 的群体平均 $\Phi^{EID}$ 显著高于全部七个任务态。**附录 E 进一步检验该排序对超参数的依赖，结论不能外推为与 $p,\alpha$ 无关的普遍规律。
 
 该排序不是逐人定律。REST 在 20/29 名共同被试中是八条件最大值；其余 9 人的最大值分别为 MOTOR 3 人、SOCIAL 2 人、WM 2 人、GAMBLING 1 人和 RELATIONAL 1 人。REST 的降序中位排名为第 1，但平均排名为 2.17。质量规则只标记 `sub-103515/WM` 的极端早期 PC1 瞬变，主分析仍保留该点。由于本轮未计算各任务 null，结论只针对 raw estimator 输出，不能进一步断言 REST 相对于各任务自身时间结构具有更高的 null 校正协同。
 
 <a id="hcp-length-matched-variance"></a>
 
-#### 4.3.1 REST–任务长度匹配方差检验
+#### 2.2.1 REST–任务长度匹配方差检验
 
-为检验 REST 的跨被试离散度是否只是由 1200 点长序列造成，这里对每个任务长度分别从 REST1_LR 取 12 个覆盖完整 run 的等距窗口：EMOTION 176 点、GAMBLING 253 点、LANGUAGE 316 点、MOTOR 284 点、RELATIONAL 232 点、SOCIAL 274 点和 WM 405 点。每个窗口都独立使用前 75% 时间点重新拟合 Yeo7 PC1、标准化、$p=8,\alpha=10$ 的 $\Delta$-Ridge 和残差协方差；任务态复用第 4.3 节相同估计器的 raw $\Phi^{EID}$。因此唯一主动改变的分析因素是 REST 序列长度，不使用 null 模型。
+为检验 REST 的跨被试离散度是否只是由 1200 点长序列造成，这里对每个任务长度分别从 REST1_LR 取 12 个覆盖完整 run 的等距窗口：EMOTION 176 点、GAMBLING 253 点、LANGUAGE 316 点、MOTOR 284 点、RELATIONAL 232 点、SOCIAL 274 点和 WM 405 点。每个窗口都独立使用前 75% 时间点重新拟合 Yeo7 PC1、标准化、$p=8,\alpha=10$ 的 $\Delta$-Ridge 和残差协方差；任务态复用第 2.2 节相同估计器的 raw $\Phi^{EID}$。因此唯一主动改变的分析因素是 REST 序列长度，不使用 null 模型。
 
 ![REST 与七任务的长度匹配 raw Phi 方差](../../results/hcp_schaefer500_length_matched_variance/length_matched_variance.png)
 
-七个小图分别给出 REST 与一个任务的两两配对分布。每个蓝点是该被试 12 个等长 REST 窗口 raw $\Phi^{EID}$ 的均值，橙点是同一被试的任务值，灰线连接同一被试；箱线图和面板内 SD 直接显示两组跨被试离散度。所有小图共享同一纵轴，因此可与第 4.3 节的原始分布图直接比较。图用于展示稳定的被试级 REST 值；下表的正式方差比仍对 12 个窗口位置分别计算跨被试方差后取平均，避免只看窗口均值掩盖时间位置变化。
+七个小图分别给出 REST 与一个任务的两两配对分布。每个蓝点是该被试 12 个等长 REST 窗口 raw $\Phi^{EID}$ 的均值，橙点是同一被试的任务值，灰线连接同一被试；箱线图和面板内 SD 直接显示两组跨被试离散度。所有小图共享同一纵轴，因此可与第 2.2 节的原始分布图直接比较。图用于展示稳定的被试级 REST 值；下表的正式方差比仍对 12 个窗口位置分别计算跨被试方差后取平均，避免只看窗口均值掩盖时间位置变化。
 
 | 任务 | 长度 | 任务 SD | 图中 REST SD | 单窗口 REST SD 范围 | 平均 REST/task 方差比（95% CI） | REST 方差较大的窗口 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -412,241 +312,327 @@ null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在�
 
 因此，**REST 高方差不是纯粹的全长序列效应，但也不是对七任务都同样稳定的状态规律。**长度匹配明显降低了 REST 的标准差：全长 REST 为 1.643 bits，而等长窗口依任务和位置为 0.630--1.458 bits；剩余差异最稳定地出现在 EMOTION 与 MOTOR。12 个窗口相互重叠，只作为 REST 时间位置的重复测量，不能当作独立被试；当前结果仍受单个 REST1_LR run、Gaussian log-det 估计器、任务事件结构和未回归的运动/生理混杂限制。
 
-<a id="hcp-hyperparameter-robustness"></a>
+<a id="hcp-task-specific-regions"></a>
 
-### 4.4 REST–任务差异的 $p$–$\alpha$ 鲁棒性
+### 2.3 七任务态的 Schaefer-500 任务特异脑区分布
 
-原始 $p=8,\alpha=10$ 来自静息态模型选择，可能给 REST 带来选择优势。为检验这一点，这里预先固定 $p\in\{1,2,3,5,8\}$ 与 $\alpha\in\{0.1,1,10,100,1000\}$ 的 25 点网格。每个网格点把同一组超参数同时用于 REST 和七种任务态；29 名共同被试的每个状态仍独立重新拟合 PCA、缩放、Ridge 系数、截距和残差协方差。所有序列使用各自前 75%，只计算 raw $\Phi^{EID}$。每个网格点分别完成七项双侧 Monte Carlo paired sign-flip 检验（200,000 次），再在七任务内作 Holm 校正。
+前述 EI/$\Phi$ 分析回答的是网络历史状态如何联合预测未来，而不是经典任务定位问题。它把 500 个 parcel 压缩成七个网络 PC1，逐状态标准化后拟合整段平稳一步动力学；这个流程主动移除了均值和整体幅度，忽略任务事件时序，也平均掉同一 Yeo7 网络内部的 parcel 异质性，因此不直接用于解释任务态之间的脑区分布差异。
 
-![REST 与七任务 raw Phi 的超参数鲁棒性](../../results/hcp_schaefer500_phi_hyperparameter_robustness/hyperparameter_robustness_overview.png)
+为直接回答“不同任务主要落在哪些脑区”，这里改用数据中已有的成对 `Schaefer500_taskRetained` 与 `Schaefer500_taskRegressed` 时序，并保留全部 500 个 cortical parcels。该分析覆盖具有全部七个 LR 任务的 30 名被试；EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 和 WM 分别有 176、253、316、284、232、274 和 405 个时间点。
 
-图 a 给出每个网格点七项 REST-minus-task 群体均值差中的最小值；正值表示 REST 均值高于所有任务，负值表示至少一个任务反超。图 b 给出七项对比中 Holm 校正后显著的数量。REST 只在 **15/25** 个网格点为八条件群体均值最高状态，只有 **7/25** 个网格点满足“REST 高于全部任务且七项均显著”。这 7 个点为 $(p,\alpha)=(2,0.1),(2,1),(2,10),(3,1),(3,10),(5,10),(8,10)$。原始 $(8,10)$ 的 232 个“被试 $\times$ 状态”数值与第 4.3 节逐点完全一致，排除了结果变化来自实现路径差异。
+#### Parcel 级任务诱发方差比例
 
-![各任务 REST-minus-task raw Phi 超参数边际](../../results/hcp_schaefer500_phi_hyperparameter_robustness/hyperparameter_task_margins.png)
-
-稳定区主要位于中等历史阶数和中等正则强度：$\alpha=10$ 时，$p=2,3,5,8$ 的七项对比均显著；但 $p=1$ 的所有 $\alpha$ 均为 0/7 显著。在过强正则 $\alpha=1000$ 下，五个 $p$ 均不再满足 REST 群体均值最高，且最多只有 1/7 项显著。弱正则与高阶历史的组合还会反转方向：$p=8,\alpha=0.1$ 时，REST 相对 EMOTION 和 RELATIONAL 分别低 2.789932 和 2.635 bits，两项任务高于 REST 的 Holm 校正 $p$ 分别为 0.003540 和 0.003150；其余任务的方向或显著性也不统一。
-
-因此，最窄且可靠的结论是：**REST 高于七任务的 raw $\Phi^{EID}$ 在包含原配置的中等正则参数带内可复现，但对完整 25 点 $p$–$\alpha$ 网格并不鲁棒。**$p$ 同时改变 source 维数 $7p$，所以应在同一个 $(p,\alpha)$ 内解释 REST–任务差值，不能把不同 $p$ 的绝对 raw Phi 当作同维度量直接比较。上述 Holm 校正只针对每个网格点内部的七项任务对比，并未把 25 个网格点作为发现性假设族再次校正；因此 7/25 是敏感性描述，不是 175 项独立发现。极端超参数是否应被视为合理模型还需要独立、条件平衡的预测验证规则；在完成该步骤之前，不能从本扫描中事后挑选最支持 REST 或任务态的参数作为主结论。
-
-#### 4.4.1 留出预测误差解释弱正则反转
-
-为判断左下角弱正则、高阶历史的反转是否来自拟合失真，这里保持同一 25 点网格和每个“状态 $\times$ 被试”的前 75% 训练段，严格用最后 25% 时间点计算一步留出误差。主指标 delta-NRMSE 先用训练段的每个网络 delta 标准差归一化，再跨网络、时间点和被试汇总；同时报告 test-minus-train 泛化间隙，以及相对“$\mathbf{x}_{t+1}=\mathbf{x}_t$”持久性基线的技能值。技能为正表示优于持久性预测，为负表示模型在留出段反而更差。
-
-![REST 与七任务的预测误差超参数诊断](../../results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_overview.png)
-
-图 a 显示八状态等权平均的留出 delta-NRMSE，图 b 显示泛化间隙，图 c 单独展开 $p=8$ 时各状态随 $\alpha$ 的误差。结果支持过拟合解释：$p=8,\alpha=0.1$ 的训练误差仅为 0.6538，但留出误差升至 0.9612，泛化间隙达到 0.3074，持久性技能为 $-0.0406$；其平均 Ridge 系数 Frobenius 范数为 7.735。改用 $\alpha=10$ 后，留出误差降至 0.8726、泛化间隙降至 0.1685、持久性技能升至 0.2049，系数范数缩至 2.935。$p=8$ 的整体最低留出误差出现在 $\alpha=100$，为 0.8590，说明 $\alpha=10$ 位于高泛化区，但不是该阶数下的唯一或总体最优正则值。
-
-![各状态的留出预测误差](../../results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_by_condition.png)
-
-发生显著 raw $\Phi^{EID}$ 反转的两个任务同时给出最直接的失败证据。在 $p=8,\alpha=0.1$ 下，EMOTION 的训练/留出误差为 0.5487/1.0628，泛化间隙 0.5141，持久性技能 $-0.3454$；RELATIONAL 为 0.6176/1.0062，泛化间隙 0.3887，持久性技能 $-0.1106$。也就是说，弱正则模型在训练段把这两个较短任务拟合得异常好，但在未参与拟合的时间段已经不具备可靠预测能力。固定 $p=8$ 后，在全部 35 个“超参数 $\times$ 任务”对比中，REST-minus-task Phi 边际与 task-minus-REST 留出误差差的 Spearman $\rho=-0.592$（$p=1.79\times10^{-4}$），与泛化间隙差的 $\rho=-0.480$（$p=0.00351$）：任务相对 REST 过拟合越明显，Phi 排序越倾向任务反超。
-
-这种反转的可能机制是：$p=8$ 提供 56 维历史 source，而任务态用于回归的训练样本仅约 124--296 行；$\alpha=0.1$ 允许更大的回归系数，并在训练段压低残差协方差。Gaussian log-det $\Phi^{EID}$ 同时依赖转移系数和训练残差协方差，因此会把这种训练内的高自由度拟合转化为偏大的 raw Phi。该证据说明预测失真是反转的重要来源，但不是数学上的唯一原因，因为 $\Phi^{EID}$ 不是预测误差的单调函数，且并非所有预测较差的点都发生显著方向反转。
-
-从共享超参数选择看，$\alpha=10$ 在 40 个“八状态 $\times$ 五个 $p$”组合中的 29 个（72.5%）达到最低留出误差；八状态总体平均下，$p=1,2,3,5$ 的最优 $\alpha$ 都是 10，$p=8$ 则是 100。若在整个 25 点网格中按八状态与29名被试等权的留出误差选择一组共享参数，最优点是 $(p,\alpha)=(5,10)$，delta-NRMSE 为 0.8552；在这个不依据 REST–任务 Phi 方向选出的配置上，REST 相对最接近任务仍高 1.4243 bits，七项对比全部 Holm 显著。因此，更公平的预测型选参仍支持“REST 高于七任务”，但应把主配置更新为或至少敏感性报告 $(5,10)$，并在独立被试或独立 run 上验证以避免本次网格选择本身的乐观偏差。
-
-<a id="hcp-all-task-cores"></a>
-
-### 4.5 共享最优模型下的七任务协同核
-
-为定位各任务的主要 Yeo7 协同组合，这里冻结不依据 Phi 方向选择的共享预测最优模型 $(p,\alpha)=(5,10)$。七任务使用相同30名被试；每个“任务 $\times$ 被试”仍在自己的前75%时间点上重新拟合 PCA、标准化、$\Delta$-Ridge 与残差协方差。同一网络的5个历史滞后绑定为不可拆模块，每名被试保留 greedy atom 贡献最高的三个核。每个 observed 配置另配20个独立 PC1 circular-shift null，并对每个 null 重新拟合模型和完整重跑 greedy top-3。
-
-PEID 的层级加性保证沿模块细化路径的 atom 贡献可加（Zotero `MYATYWAJ`，全文）；本实验数值上 atom 和与模块整体 Phi 的最大误差为 $1.78\times10^{-15}$。但 greedy top-3 仍是为控制组合爆炸而选择的候选核，不等于对所有可能分解路径的唯一 exhaustive 解。核心“重要性”首先由跨被试进入 top-3 的频率定义，进入 top-3 时的平均 atom 贡献作为次级强度指标。
-
-![七任务 Yeo7 协同核分布](../../results/hcp_schaefer500_all_tasks_core_decomposition/core_task_landscape.png)
-
-图 a 的数字是30名被试中该核进入 top-3 的人数，星号表示 observed 频率高于全部20个 matched-null cohort，即达到当前分辨率的最小未校正 $p=1/21$；图 b 给出该核进入 top-3 时的平均 atom 贡献。七任务的每任务前三名只涉及三个组合：缺 Limbic 的六网络核、全七网络核，以及同时缺 Vis 和 Limbic 的五网络核。
-
-| 任务 | 缺 Limbic 六网络核 | 全七网络核 | 缺 Vis/Limbic 五网络核 |
-|---|---:|---:|---:|
-| EMOTION | **22/30；0.638** | 14/30；0.648 | 11/30；0.640 |
-| GAMBLING | **27/30；0.753** | 7/30；0.633 | 11/30；0.816 |
-| LANGUAGE | **21/30；0.650** | 13/30；0.652 | 15/30；0.684 |
-| MOTOR | 20/30；0.835 | **21/30；0.761** | 13/30；0.796 |
-| RELATIONAL | **25/30；0.730** | 12/30；0.638 | 11/30；0.745 |
-| SOCIAL | **22/30；0.693** | 14/30；0.722 | 14/30；0.811 |
-| WM | **25/30；0.748** | 7/30；0.957 | 12/30；0.734 |
-
-表中每格依次为 top-3 频率和 top 时平均贡献（bits）。最稳定的组合是
-
-$$
-\{\mathrm{Vis,SomMot,DorsAttn,SalVentAttn,Cont,Default}\},
-$$
-
-即缺 Limbic 的六网络核。除 MOTOR 中以20/30略低于全七网络核的21/30外，它在其余六个任务均排名第一；七任务频率范围为20--27/30，总计162次被试-任务 top-3。同一被试内也具有跨任务稳定性：每名被试平均在5.40/7个任务中出现该核，8/30名在全部七任务中出现，15/30名至少六个任务出现，27/30名至少四个任务出现。对应 null 频率均值依次为12.80、14.75、15.05、9.55、14.00、15.45和14.90/30，七个任务均达到未校正 $p=1/21$。因此，该核不是 WM 独有，而是当前共享最优模型下跨任务最稳定的广域协同骨架。
-
-缺 Vis 和 Limbic 的五网络核在七任务中为11--15/30，虽然只有 LANGUAGE 达到预设的15/30高频阈值，但七任务的 observed 频率也都高于全部20个 null cohort；其 null 均值仅为1.25--2.10/30。这说明 SomMot、DorsAttn、SalVentAttn、Cont 与 Default 构成一个重复出现的次级核心。相反，全七网络核虽在 MOTOR 达到21/30，但其 null 均值为21.60/30、$p=0.810$；其余任务的 null 排名 $p$ 也为0.905--1.000。故“全网络参与”很容易由保留单网络时间结构的 null 产生，不能仅凭 observed 高频解释为任务特异协同。
-
-![七任务 Yeo7 网络参与率](../../results/hcp_schaefer500_all_tasks_core_decomposition/network_participation.png)
-
-网络参与率进一步解释了组合结构。SomMot、DorsAttn、SalVentAttn、Cont 和 Default 在各任务的被试级 top-3 atoms 中分别出现于87%--93%、78%--92%、79%--97%、82%--98%和80%--91%；Vis 为56%--69%。Limbic 只有9%--31%，在 GAMBLING 和 WM 最低（9%和11%），MOTOR 最高（31%）。这一差异与缺 Limbic 六网络核的跨任务主导一致，但不证明 Limbic 在任务执行中不参与；它只说明在当前模块级 greedy 分解中，Limbic 较少成为高贡献协同核的必要成员。
-
-综合而言，各任务最重要的核不是七套完全不同的组合，而是一个共享的“缺 Limbic 六网络”主骨架，加上“缺 Vis/Limbic 五网络”次级骨架；任务差异主要体现在这两个骨架与全七网络核的相对频率和贡献强度。20-null 只有 $1/21$ 的最小分辨率，且星号未跨任务、跨核心校正，因此它们是探索性超-null证据。唯一质量标记仍为 `sub-103515/WM`，主分析保留该被试。
-
-<a id="hcp-network-attribution"></a>
-
-### 4.6 REST–MOTOR–WM 网络级 EI、Phi 归因与协同核
-
-为在同一张图中区分“单网络携带的信息”“网络内部历史整合”和“跨网络协同”，这里使用 REST、MOTOR 与 WM 的 29 名共同被试，并冻结跨状态共享预测最优模型 $(p,\alpha)=(5,10)$。三个条件分别以前 75% 时间点拟合 Yeo7-PC1、标准化、$\Delta$-Ridge 与残差协方差；REST、MOTOR 和 WM 的拟合长度分别为 900、213 和 304 点。比较保持网络数、五阶历史 source、7 维 target 与 Gaussian log-det 估计器一致，但条件和有效样本长度仍同时变化。
-
-令网络集合为 $\mathcal{N}=\{1,\ldots,m\}$，其中 $m=7$；目标为 $\mathbf{y}_t=\mathbf{x}_{t+1}$。网络 $i$ 的五阶历史向量为
-
-$$
-\mathbf{h}^{(i)}_t=
-\left(x_{t,i},x_{t-1,i},\ldots,x_{t-4,i}\right)^\top,
-$$
-
-对任意 $S\subseteq\mathcal{N}$，记 $\mathbf{h}^{(S)}_t$ 为按固定网络顺序拼接 $\{\mathbf{h}^{(i)}_t:i\in S\}$ 得到的历史向量，并定义联盟 EI
-
-$$
-F(S)=EI\!\left(\mathbf{h}^{(S)}_t;\mathbf{y}_t\right),
-\qquad F(\varnothing)=0.
-$$
-
-网络 $i$ 的模块 EI 为 $EI_i=F(\{i\})$。网络内部历史整合定义为
-
-$$
-\Phi_i^{\mathrm{within}}
-=EI_i-\sum_{\ell=0}^{4}EI\!\left(x_{t-\ell,i};\mathbf{y}_t\right).
-$$
-
-因此，完整 35 维历史 source 的 raw $\Phi^{EID}$ 可以严格拆成网络内部项与跨网络项：
+对被试 $s$、任务 $c$、parcel $i$，先分别去除两条时序的时间均值：
 
 $$
 \begin{aligned}
-\Phi^{EID}_{\mathrm{raw}}
-&=F(\mathcal{N})-
-  \sum_{i\in\mathcal{N}}\sum_{\ell=0}^{4}
-  EI\!\left(x_{t-\ell,i};\mathbf{y}_t\right)\\
-&=\underbrace{F(\mathcal{N})-
-  \sum_{i\in\mathcal{N}}F(\{i\})}_{\Phi^{EID}_{\mathrm{cross}}}
-  +\sum_{i\in\mathcal{N}}\Phi_i^{\mathrm{within}}.
+r_{sci}(t)
+&=x^{\mathrm{retained}}_{sci}(t)
+-\overline{x}^{\mathrm{retained}}_{sci},\\
+e_{sci}(t)
+&=x^{\mathrm{regressed}}_{sci}(t)
+-\overline{x}^{\mathrm{regressed}}_{sci}.
 \end{aligned}
 $$
 
-#### 精确 Shapley 网络归因
-
-对任意网络联盟 $S\subseteq\mathcal{N}$，定义跨网络协同联盟价值
+两者的差
 
 $$
-v(S)=F(S)-\sum_{j\in S}F(\{j\}),
-\qquad v(\varnothing)=v(\{i\})=0.
+u_{sci}(t)=r_{sci}(t)-e_{sci}(t)
 $$
 
-于是 $v(\mathcal{N})=\Phi^{EID}_{\mathrm{cross}}$。网络 $i$ 的精确 Shapley 归因为
+是被任务回归移除的拟合任务成分。定义 parcel 级任务诱发方差比例（task-evoked variance fraction, TEVF）
 
 $$
-\psi_i=
-\sum_{S\subseteq\mathcal{N}\setminus\{i\}}
-\frac{|S|!\,(m-|S|-1)!}{m!}
-\left[v(S\cup\{i\})-v(S)\right].
+f_{sci}
+=\frac{\sum_t u_{sci}(t)^2}
+{\sum_t r_{sci}(t)^2}.
 $$
 
-其边际项可进一步展开为
+若 `taskRegressed` 是普通最小二乘 GLM 的残差，则 $e_{sci}$ 与 $u_{sci}$ 正交，因而
 
 $$
-v(S\cup\{i\})-v(S)
-=F(S\cup\{i\})-F(S)-F(\{i\}),
+\sum_t r_{sci}(t)^2
+=\sum_t e_{sci}(t)^2+\sum_tu_{sci}(t)^2,
 $$
 
-即网络 $i$ 加入已有联盟 $S$ 后产生的联合 EI 增量，扣除网络 $i$ 单独已经具有的模块 EI。等价地，若 $\pi$ 遍历 $m!$ 个网络加入顺序，$P_i^\pi$ 表示顺序 $\pi$ 中位于 $i$ 之前的网络集合，则
+并有 $0\leq f_{sci}\leq1$。数据验证与这一结构一致：全部 210 个“被试 $\times$ 任务”拟合中，parcel 级 residual--task component 绝对相关的跨拟合中位数为 $4.63\times10^{-9}$，最大值为 $2.43\times10^{-7}$；未截断比例范围为 0.0003--0.8905，重构误差为 0。因此这里不是从两个任意时序作差，而是直接恢复 task GLM 所解释的 parcel 级时间能量。
+
+七任务跨被试和 parcel 的平均 TEVF 依次为 13.74%、14.22%、17.25%、30.39%、18.60%、21.26% 和 28.62%。MOTOR 与 WM 的整体任务解释比例最高，但整体强度仍不等于空间特异性。
+
+#### 消除整体幅度后的任务特异空间分布
+
+为避免把某任务整体更强误读为某些脑区更特异，对每个被试的每张 TEVF 图按其 500-parcel 均值归一化：
 
 $$
-\psi_i=\frac{1}{m!}\sum_{\pi}
-\left[v(P_i^\pi\cup\{i\})-v(P_i^\pi)\right].
-$$
-
-因此 Shapley 不是挑选某一个协同组合，而是对网络 $i$ 在所有可能联盟背景和加入顺序下的边际跨网络协同取加权平均。由 Shapley 的效率性质，
-
-$$
-\sum_{i\in\mathcal{N}}\psi_i
-=v(\mathcal{N})-v(\varnothing)
-=\Phi^{EID}_{\mathrm{cross}}.
-$$
-
-图中节点颜色使用的网络总 $\Phi$ 归因为
-
-$$
-c_i=\Phi_i^{\mathrm{within}}+\psi_i,
+q_{sci}=\frac{f_{sci}}
+{500^{-1}\sum_{j=1}^{500}f_{scj}},
 \qquad
-\sum_{i\in\mathcal{N}}c_i=\Phi^{EID}_{\mathrm{raw}}.
+\frac{1}{500}\sum_{i=1}^{500}q_{sci}=1.
 $$
 
-在给定联盟价值函数 $v$ 后，Shapley 是同时满足效率、对称性、虚玩家和可加性四项公理的唯一节点级分摊。这里的“公平”是数学公理意义上的归因约定，不等于证明 $\psi_i$ 是网络 $i$ 固有或独立产生的生物学量；一般的非单调联盟价值也不保证每个 $\psi_i$ 必为非负。
-
-#### 与 greedy $\Phi$ 层级分析的严格区别
-
-greedy 层级分析使用同一个集合函数 $\phi(S)=v(S)$，但目标不是把 $v(\mathcal{N})$ 分给单个网络，而是保留多网络组合。对 $|S|\geq2$，令 $\mathcal{B}(S)$ 为 $S$ 的全部无序非平凡二分 $(A,B)$，并定义该次细化留下的层级残差
+任务 $c$ 相对其余六任务的 parcel 特异性定义为
 
 $$
-r(S;A,B)=\phi(S)-\phi(A)-\phi(B).
+d_{sci}
+=q_{sci}
+-\frac{1}{6}\sum_{c'\neq c}q_{sc'i}.
 $$
 
-当前 `nonnegative_tolerant` 实现只接受 $r(S;A,B)\geq-\tau$ 的候选，并选择
+该对比同时满足
 
 $$
-(A^*,B^*)
-=\underset{(A,B)\in\mathcal{B}(S),\ r(S;A,B)\geq-\tau}{\arg\max}
-\left\{\phi(A)+\phi(B)\right\},
+\sum_{i=1}^{500}d_{sci}=0,
+\qquad
+\sum_{c=1}^{7}d_{sci}=0,
 $$
 
-即在容差内选择能被两个子块解释得最多、因而剩余高阶残差最小的二分。若不存在可用二分，或最佳子块捕获量不超过阈值 $\varepsilon$，则 $S$ 成为终端 atom，贡献为 $a(S)=\phi(S)$；否则记录当前组合的残差 atom
+所以只保留相对空间形状。实现中的最大数值守恒误差为 $1.15\times10^{-14}$。网络层结果只是对同一 $f$ 或 $d$ 在 Yeo7 parcel 集内取均值，没有再次拟合 PCA 或动力学模型。
+
+![七任务 Schaefer-500 任务诱发方差与任务特异空间分布](../../results/hcp_schaefer500_task_specific_regions/task_evoked_region_profiles.png)
+
+图 a 显示绝对 TEVF：MOTOR 和 WM 整体较强，但各任务仍有不同 parcel 条带。图 c 去除每张图的整体幅度并减去其余任务后，任务分布明显分离。网络均值对比（图 d）显示：EMOTION 主要富集于 Vis（$+0.424$）；LANGUAGE 富集于 Cont（$+0.418$）和 Default（$+0.319$），同时相对缺失 Vis（$-0.876$）；MOTOR 富集于 SomMot（$+0.462$）、SalVentAttn（$+0.220$）和 Limbic（$+0.174$）；RELATIONAL 富集于 Vis（$+0.603$）和 DorsAttn（$+0.219$）；SOCIAL 最突出的是 DorsAttn（$+0.729$）。GAMBLING 和 WM 的七网络均值差异较弱，说明它们的可辨识信息更多位于网络内部 parcel 模式，而不是粗粒度网络总量。
+
+每个任务的最高特异 parcel 进一步定位了网络内部结构：EMOTION 为 `RH_Vis_4`，GAMBLING 为 `RH_Vis_21`，LANGUAGE 为 `LH_Default_Temp_5`，MOTOR 为 `LH_SomMot_19`，RELATIONAL 为 `RH_Vis_21`，SOCIAL 为 `RH_Vis_23`，WM 为 `RH_Vis_5`。完整 top-10 排名及数值见该实验的 `summary.json` 与 `report.md`。这些 Schaefer 名称是 atlas parcel 标识，不应在缺少独立定位或统计阈值时进一步替换成更具体的功能解剖标签。
+
+#### REST 与七任务的共同方差口径
+
+REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task GLM 解释的方差”，不能在上一张 TEVF 图中把 REST 人为设为零。为将 REST 与七任务置于同一可计算口径，这里另用每个状态的 `taskRetained` 或 REST 原始时序计算 parcel 时间方差
 
 $$
-a(S)=r(S;A^*,B^*)
+v_{sci}
+=\frac{1}{T_c-1}
+\sum_{t=1}^{T_c}
+\left(x_{sci}(t)-\overline{x}_{sci}\right)^2,
 $$
 
-并分别递归细化 $A^*$ 与 $B^*$。对于得到的二叉细化树 $\mathcal{T}$，未截断的理论恒等式为
+再在每个被试、每个状态内除以 500 个 parcel 的平均方差：
 
 $$
-\phi(\mathcal{N})=
-\sum_{u\in\operatorname{Int}(\mathcal{T})}
-r(S_u;A_u,B_u)
-+\sum_{q\in\operatorname{Leaf}(\mathcal{T})}\phi(S_q).
+q^{\mathrm{var}}_{sci}
+=\frac{v_{sci}}
+{500^{-1}\sum_{j=1}^{500}v_{scj}},
+\qquad
+\frac{1}{500}\sum_{i=1}^{500}q^{\mathrm{var}}_{sci}=1.
 $$
 
-实现中只报告大于 $\varepsilon$ 的非负 atom，并容忍 $[-\tau,0)$ 的数值残差；本实验中所有已保留 atom 的和仍在数值精度内等于 $\Phi^{EID}_{\mathrm{cross}}$。该层级加性对应 PEID 的分区细化恒等式（Zotero `MYATYWAJ`，全文），但 greedy 只选择一棵二叉细化树，不枚举所有可能的层级树，所以结果可能受最优二分并列、阈值和层级策略影响。
+因此该量只比较一个 run 内方差如何分布到不同 parcel，不比较 REST 与任务的绝对 BOLD 方差大小，也不受全局乘性尺度影响。八状态的状态特异对比为
 
-| 比较问题 | 精确 Shapley | Greedy $\Phi$ 层级分析 |
-|---|---|---|
-| 分解对象 | 同一个跨网络价值 $v(S)$ | 同一个跨网络价值 $\phi(S)=v(S)$ |
-| 输出单位 | 单网络归因 $\psi_i$ | 多网络集合 atom $a(S)$ |
-| 计算逻辑 | 平均全部联盟背景或全部加入顺序 | 选择一棵逐次最优二分树 |
-| 守恒关系 | $\sum_i\psi_i=v(\mathcal{N})$ | 树上残差与终端项之和为 $v(\mathcal{N})$ |
-| 是否保留组合身份 | 否；联合协同被分摊给成员 | 是；atom 保留其网络集合 $S$ |
-| 唯一性 | 给定 $v$ 和四项公理后唯一 | 依赖二分选择、并列规则与容差 |
-| 本图用途 | 节点颜色：哪个网络平均分得多少 $\Phi$ | 多边形与图 d：哪些网络共同构成高贡献核 |
+$$
+d^{\mathrm{var}}_{sci}
+=q^{\mathrm{var}}_{sci}
+-\frac{1}{7}\sum_{c'\neq c}q^{\mathrm{var}}_{sc'i}.
+$$
 
-一个最小例子能直接说明差别。若三个网络只有纯三元协同，即 $v(\{A,B,C\})=1$ bit，而所有真子集的 $v$ 都为 0，则 Shapley 输出 $\psi_A=\psi_B=\psi_C=1/3$ bit；greedy 层级分析则保留一个 $\{A,B,C\}$ 终端 atom，贡献为 1 bit。前者适合画三个节点各自分得多少，后者保留“这 1 bit 必须由三者联合出现”的组合身份。
+REST 与全部七任务共有 29 名被试。图中白色或黑色横线将 REST 与任务分开；四个 panel 与上一图保持相同的 parcel、Yeo7 和状态减其余状态结构，但颜色不再表示 TEVF。
 
-因此两者不是竞争估计器，而是对同一个 $\Phi^{EID}_{\mathrm{cross}}$ 回答两个不同问题：Shapley 回答“如何把总协同归因到各网络”，greedy 层级分析回答“总协同主要以哪些不可再由所选子块解释的多网络组合出现”。某网络 Shapley 值较低，不等于它不会进入高阶协同核；某网络未进入最常见 greedy 核，也不等于其 Shapley 归因为零。两种方法都复用全部 $2^7=128$ 个联盟的 EI 表；Shapley 对这张表做精确节点归因，greedy 则避免枚举所有可能的层级树。
+![REST 与七任务的 Schaefer-500 时间方差空间分布](../../results/hcp_schaefer500_task_specific_regions/rest_all_tasks_variance_profiles.png)
 
-上述 Shapley 守恒恒等式与 greedy 跨网络 atom 加性在 87 个“被试 $\times$ 条件”拟合中的最大数值误差为 $2.66\times10^{-15}$ bits。由于 Shapley 不保留多网络组合身份，图中仍以多边形和协同核矩阵单独显示 greedy 识别的组合结构。
+REST 的 Yeo7 方差富集以 Limbic（1.38）、Vis（1.26）、Default（1.22）较高；相对其余七状态，REST 最突出的是 Limbic（$+0.20$）和 Default（$+0.07$），相对较低的是 DorsAttn（$-0.13$）和 Vis（$-0.10$）。任务对比仍保留预期结构，例如 LANGUAGE 相对富集 Cont（$+0.20$），MOTOR 相对富集 Limbic（$+0.25$）和 SomMot（$+0.12$），RELATIONAL 相对富集 Vis（$+0.31$），SOCIAL 相对富集 DorsAttn（$+0.24$），WM 相对富集 Vis（$+0.21$）。
 
-![REST、MOTOR 与 WM 的 Yeo7 网络 EI、Phi 归因及协同核](../../results/hcp_schaefer500_yeo7_network_attribution/rest_motor_wm_network_attribution.png)
+对同一方差富集图执行八状态 LOSO 最近质心分类，500-parcel 准确率为 58.6%（136/232；chance 12.5%；2,000 次被试内置换 $p=0.0005$），Yeo7 网络均值准确率为 37.9%（88/232，$p=0.0005$）。REST 的召回率为 44.8%（13/29）。该结果低于七任务 TEVF 的 90.0%，符合预期：TEVF 有针对性地隔离了 task GLM 成分，而共同方差口径同时包含自发活动、任务活动和残余混杂；它的用途是为 REST 提供不造假的空间参考，而不是替代 TEVF。
 
-图 a 的节点大小编码模块 EI，节点颜色编码总 $\Phi$ 归因；多边形标出各条件最常进入被试 top-3 的协同核，其颜色编码该核进入 top-3 时的平均 greedy atom 贡献。图 b、c 分别给出模块 EI 和总 $\Phi$ 归因的跨被试均值与 bootstrap 95% CI；图 d 以数字表示协同核进入 top-3 的人数，以颜色表示该核的平均 atom 贡献，并与图 a 的多边形共享同一 atom 色标。REST、MOTOR 与 WM 的多边形对应值分别为 1.077、0.754 和 0.744 bits。
+#### 任务诱发 PCA–$\Xi$ 网络归因与层级分解
 
-REST、MOTOR 与 WM 的 raw $\Phi^{EID}$ 均值分别为 5.677、4.252 和 4.123 bits，其中跨网络 $\Phi$ 分别为 5.013、3.937 和 3.797 bits，约占各自 raw $\Phi$ 的 88%、93% 和 92%；其余部分来自单个网络内部五阶历史的整合。REST 的总归因以 SomMot（0.988 bits）、DorsAttn（0.938 bits）和 Default（0.864 bits）最高；MOTOR 以 SomMot（0.701 bits）、SalVentAttn（0.692 bits）和 Cont（0.686 bits）最高；WM 以 Cont（0.706 bits）最高，DorsAttn 与 Default 均约为 0.669 bits。Limbic 在三条件中的平均归因均最低，但不为零，因此这些结果不支持将 Limbic 解释为不参与系统动力学。
+为检验任务诱发方向是否改变下一时刻整合信息的空间构成，这里在每个 Yeo7 网络内先提取任务诱发 PCA 方向。对任务态，PCA 只在前 75% 时间点的
 
-协同核进一步区分了相近的节点级归因：REST 与 MOTOR 最常见的是全七网络核，分别为 15/29 和 20/29；WM 最常见的是缺 Limbic 的六网络核，为 24/29。说明 WM 的组合结构更集中于缺 Limbic 的广域核，而 MOTOR 虽也频繁出现该核（19/29），全七网络核仍略高（20/29）。本分析不使用 null 作横向条件基线，也未对网络级条件差作发现性显著性检验。`sub-103515/WM` 仍触发既定质量规则并保留；不同拟合长度、任务共同驱动及未回归的运动或生理混杂继续限制纯任务效应解释。
+$$
+\mathbf{U}_{sc}
+=\mathbf{X}^{\mathrm{retained}}_{sc}
+-\mathbf{X}^{\mathrm{regressed}}_{sc}
+$$
+
+上拟合，再用所得载荷矩阵投影原始 $\mathbf{X}^{\mathrm{retained}}_{sc}$；因此降维方向由 task GLM 移除的成分确定，而后续动力学仍使用保留完整任务信号的时序。REST 没有对应的任务回归版本，故在自身前 75% 时序上拟合 PCA，并投影自身。最终每个网络保留第一个主成分（$k=1$），七个网络形成 $\mathbf{x}_t\in\mathbb{R}^{7}$。任务态 PC1 的平均累计解释方差为 67.35%，REST 为 44.53%。
+
+动力学模型使用三阶网络历史（$p=3$）预测下一时刻七网络状态：
+
+$$
+\mathbf{h}_t
+=\left[
+\mathbf{x}_t^\top,
+\mathbf{x}_{t-1}^\top,
+\mathbf{x}_{t-2}^\top
+\right]^\top
+\in\mathbb{R}^{21},
+\qquad
+\mathbf{x}_{t+1}
+=\mathbf{A}\mathbf{h}_t+\mathbf{b}+\boldsymbol{\varepsilon}_t.
+$$
+
+每名被试、每个状态分别在前 75% 时间段拟合线性 $\Delta$-Ridge，正则强度为 $\alpha=1$；后 25% 只用于预测诊断。连续 EI 使用线性高斯 affine-TM 的协方差 log-det 形式，单位为 bits。该估计器是仿射 transport map 在高斯情形下的闭式实现；标准化 source 的干预协方差固定为单位阵，即各 source 维使用相互独立的单位高斯干预。最终 232 个“被试 $\times$ 状态”模型的平均 held-out RMSE/持久性基线比为 0.907，207/232 个模型优于持久性基线。
+
+将 21 个“网络 $\times$ 滞后”标量视为最细 source，本文把其相对完整 source 的总协同记为 system-level $\Xi$：
+
+$$
+\Xi_{sc}
+=EI(\mathbf{h}_t;\mathbf{x}_{t+1})
+-\sum_{j=1}^{21}EI(h_{t,j};\mathbf{x}_{t+1}).
+$$
+
+该量就是 PEID 在 singleton source partition 下的 system-level synergy；这里使用 $\Xi$，是为了与第 2.2 节固定七维 PC1 表征下的历史 raw $\Phi^{EID}$ 结果区分。三个滞后在每个 Yeo7 网络内绑定为一个模块 $M_g$。网络内协同为
+
+$$
+\Xi_g^{\mathrm{within}}
+=EI(M_g;\mathbf{x}_{t+1})
+-\sum_{j\in M_g}EI(h_{t,j};\mathbf{x}_{t+1}),
+$$
+
+跨网络协同为
+
+$$
+\Xi^{\mathrm{cross}}
+=EI(\mathbf{h}_t;\mathbf{x}_{t+1})
+-\sum_{g=1}^{7}EI(M_g;\mathbf{x}_{t+1}).
+$$
+
+跨网络部分用精确 Shapley 值分配到七个网络，网络 $g$ 的守恒归因为
+
+$$
+C_g
+=\Xi_g^{\mathrm{within}}
++\operatorname{Shapley}_g(\Xi^{\mathrm{cross}}),
+\qquad
+\sum_{g=1}^{7}C_g=\Xi.
+$$
+
+具体地，令 $\mathcal{N}$ 为七个 Yeo 网络的集合，$M_S$ 为联盟 $S\subseteq\mathcal{N}$ 所包含的全部网络历史变量。联盟价值定义为该联盟内部不可由单网络 EI 相加解释的跨网络协同：
+
+$$
+v(S)
+=EI(M_S;\mathbf{x}_{t+1})
+-\sum_{h\in S}EI(M_h;\mathbf{x}_{t+1}),
+\qquad
+v(\varnothing)=0.
+$$
+
+网络 $g$ 的精确 Shapley 值遍历其余六网络形成的全部 $2^6=64$ 个联盟：
+
+$$
+\operatorname{Shapley}_g
+=\sum_{S\subseteq\mathcal{N}\setminus\{g\}}
+\frac{|S|!\,(6-|S|)!}{7!}
+\left[v(S\cup\{g\})-v(S)\right].
+$$
+
+方括号是把网络 $g$ 加入联盟 $S$ 后新增的跨网络协同；阶乘系数等价于在七网络所有加入顺序中，$S$ 恰好排在 $g$ 前面的概率。该定义满足效率性质
+
+$$
+\sum_{g\in\mathcal{N}}\operatorname{Shapley}_g
+=v(\mathcal{N})
+=\Xi^{\mathrm{cross}}.
+$$
+
+以 `sub-100206` 的 LANGUAGE--Control 为数值示例。若先行联盟为 $S=\{\mathrm{Vis},\mathrm{SomMot}\}$，则
+
+$$
+\begin{aligned}
+v(S)&=0.171757,\\
+v(S\cup\{\mathrm{Control}\})&=0.522372,\\
+\Delta_{S,\mathrm{Control}}
+&=0.522372-0.171757
+=0.350615\ \text{bits}.
+\end{aligned}
+$$
+
+此时 $|S|=2$，单个联盟的权重为 $2!4!/7!=1/105$，所以这一项对 Control Shapley 值的贡献为
+
+$$
+\frac{1}{105}\times0.350615
+=0.003339\ \text{bits}.
+$$
+
+其余 63 个联盟完全同样计算。按先行联盟大小 $m=|S|$ 汇总如下；同一 $m$ 下共有 $\binom{6}{m}$ 个联盟，表中最后一列已经把该组全部联盟的加权贡献相加。
+
+| $m$ | 联盟数 | 每个联盟权重 | 平均边际贡献（bits） | 该组 Shapley 贡献（bits） |
+|---:|---:|---:|---:|---:|
+| 0 | 1 | $1/7$ | 0.000000 | 0.000000 |
+| 1 | 6 | $1/42$ | 0.207695 | 0.029671 |
+| 2 | 15 | $1/105$ | 0.436730 | 0.062390 |
+| 3 | 20 | $1/140$ | 0.679959 | 0.097137 |
+| 4 | 15 | $1/105$ | 0.931481 | 0.133069 |
+| 5 | 6 | $1/42$ | 1.190078 | 0.170011 |
+| 6 | 1 | $1/7$ | 1.462705 | 0.208958 |
+
+七组相加得到
+
+$$
+\operatorname{Shapley}_{\mathrm{Control}}
+=0.701236\ \text{bits}.
+$$
+
+该被试的 Control 网络内协同为 $\Xi_{\mathrm{Control}}^{\mathrm{within}}=0.243910$ bits，所以最终 Control 守恒归因为 $C_{\mathrm{Control}}=0.243910+0.701236=0.945146$ bits。再除以该被试 LANGUAGE 的 system-level $\Xi=4.699821$ bits，得到 Control 份额 20.11%。图 a 的 20.5% 是对 29 名被试分别完成上述计算和归一化后，再对 29 个 Control 份额取算术平均的结果。
+
+主图先在每名被试 $s$、每个状态 $c$ 内计算网络份额
+
+$$
+P_{scg}=\frac{C_{scg}}{\Xi_{sc}},
+\qquad
+\sum_{g=1}^{7}P_{scg}=1,
+$$
+
+再对 29 名被试取平均：
+
+$$
+\overline{P}_{cg}
+=\frac{1}{29}\sum_{s=1}^{29}P_{scg},
+\qquad
+\sum_{g=1}^{7}100\overline{P}_{cg}=100\%.
+$$
+
+因此图 a 的每一列都是该状态 system-level $\Xi$ 在七个网络间的完整组成，精确数值相加严格等于 100%，不是七个彼此独立的效应量。图内数字只保留一位小数，显示值相加会因四舍五入得到 99.9%--100.1%；未舍入数组的最大单被试闭合误差仅为 $6.66\times10^{-16}$。这种归一化比较的是“总 $\Xi$ 如何分配”，不会把 REST 的整体幅度优势重复计入空间构成。跨网络 $\Xi^{\mathrm{cross}}$ 另用相同七网络顺序执行允许小数值误差、只保留正贡献的 greedy 层级分解；每个 atom 除以本 run 的 $\Xi^{\mathrm{cross}}$ 后比较组合份额。最大 $\Xi$ 恒等式误差为 $3.55\times10^{-15}$ bits，网络和 atom 份额的闭合误差均低于 $10^{-15}$。
+
+![REST 与七任务的整体 Phi / system-level Xi 散点箱图](../../results/hcp_schaefer500_task_evoked_xi_tuning/final/overall_phi_rest_task_scatter_box.png)
+
+| 状态 | system-level $\Xi$ 均值（bits） | REST 减该任务（bits） | BH $q$ |
+|---|---:|---:|---:|
+| REST | **7.0401** | -- | -- |
+| EMOTION | 4.3006 | +2.7396 | $1.67\times10^{-5}$ |
+| GAMBLING | 4.3414 | +2.6988 | $5.58\times10^{-5}$ |
+| LANGUAGE | 4.6574 | +2.3827 | $9.65\times10^{-5}$ |
+| MOTOR | 5.5130 | +1.5271 | 0.00378 |
+| RELATIONAL | 5.0594 | +1.9807 | 0.000936 |
+| SOCIAL | 5.5371 | +1.5030 | 0.00922 |
+| WM | 4.9271 | +2.1131 | 0.000341 |
+
+散点箱图中的每个点是一名共同被试，白色菱形为均值。七项 REST--任务双侧配对 Wilcoxon 检验在七项内作 BH 校正后均显著，因此当前任务诱发 PCA 表征仍保持 **REST 的整体 $\Xi$ 显著高于全部任务态**。该结论是群体配对结果，并不要求每名被试都满足同一排序；REST 高于各任务的被试比例为 69.0%--82.8%。
+
+![REST 与七任务的 Xi 网络份额和层级 atom 分布](../../results/hcp_schaefer500_task_evoked_xi_tuning/final/selected_xi_state_distributions.png)
+
+图 a 直接显示七网络占 system-level $\Xi$ 的平均组成份额，而不是“该状态减其余状态”的特异性，也不是七网络各自的绝对 $\Xi$。读图时应在同一列内比较颜色和数字：某网络份额升高，必然由同列其他网络份额降低来平衡。REST 以 SomMot（17.5%）、DorsAttn（16.9%）和 Default（16.1%）较高；LANGUAGE 的 Control 达 20.5%；RELATIONAL 与 SOCIAL 的 DorsAttn 分别为 20.5% 和 21.4%；MOTOR 的 SomMot 为 17.1%。仅比较七任务时，七个网络的重复测量 Friedman 状态效应均经 BH 校正显著（最大 $q=0.0248$）。网络份额分布的 28 个八状态两两对比中 25 个显著；去除 REST 后，21 个任务对中仍有 18 个显著。未显著的任务对仅为 GAMBLING--WM、RELATIONAL--SOCIAL 和 RELATIONAL--WM。
+
+图 c 展示 120 个候选组合中跨状态平均份额最高的 12 个 greedy atom。REST 的全七网络 atom 为 17.0%，而多数任务的最大项是缺少 Limbic 的六网络组合：EMOTION 18.9%、GAMBLING 20.8%、LANGUAGE 17.3%、RELATIONAL 18.5%、SOCIAL 20.5% 和 WM 19.0%；MOTOR 的全七网络与缺 Limbic 六网络分别为 17.0% 和 16.5%。atom 分布的 28 个八状态对比中 17 个显著，21 个纯任务对中 11 个显著。由此可见，状态差异同时出现在单网络份额和跨网络组合份额上，但网络级证据比具体 greedy atom 更稳定。
+
+参数选择没有使用 LOSO，也没有直接挑选使图面差异最大的配置。候选先在固定 8 名被试上筛选，再在未参与筛选的 21 名被试上确认，最后用 29 名共同被试汇总。相对基线 $(k,p,\alpha)=(1,5,10)$，最终 $(1,3,1)$ 将网络和 atom 的 between/within total-variation ratio 分别从 0.493 提高到 0.788、从 0.496 提高到 0.611；显著八状态对分别从 18/28 增至 25/28、从 9/28 增至 17/28。更弱正则 $\alpha=0.3$ 虽进一步增大分离度，却不能保持 REST--SOCIAL 显著，故未作为主配置。
+
+解释上，$C_g$ 将网络内部的跨滞后协同与跨网络 Shapley 份额合并，因此“某网络份额较高”不等同于该网络局部激活更强，也不是对该网络的因果必要性证明。任务 PCA 载荷来自 retained--regressed 差值，但动力学投影对象仍是 retained；结果因而反映沿任务诱发方向观察到的完整任务态动力学，而不是 task-evoked 成分本身的 $\Xi$。REST 的 PCA 基底来自自身时序，与任务态的任务诱发基底具有不同的构造语义，因此 REST--任务的绝对差还包含表征选择差异。greedy atom 具有路径依赖性，显著组合只表示当前固定候选空间和算法下可重复的层级归因，不是唯一真实的脑网络层级。
+
+#### TEVF 留一被试空间图识别验证（补充）
+
+作为前述 TEVF parcel 图的补充，仅展示组均值热图仍可能夸大差异，因此用 leave-one-subject-out（LOSO）最近质心分类检验单个新被试。对每张 $q_{sc\cdot}$ 图先在 parcel 维去均值并作 $L_2$ 归一化；每一折只用其余 29 名被试分别形成七个任务质心，再按余弦相似度预测留出被试的七张图。显著性检验在每名被试内部独立置换七个任务标签，并对每次置换完整重跑 LOSO，共 2,000 次。该置换保持了每名被试的七张原始空间图及被试内依赖结构。LOSO 未参与任务诱发 PCA–$\Xi$ 的参数选择或主结论。
+
+![七任务空间图的留一被试可辨识性](../../results/hcp_schaefer500_task_specific_regions/task_map_discriminability.png)
+
+500-parcel 空间图的七分类准确率为 90.0%（189/210；chance 14.3%；置换 $p=(0+1)/(2000+1)=0.0005$）。各任务召回率为 EMOTION 86.7%、GAMBLING 60.0%、LANGUAGE 96.7%、MOTOR 100%、RELATIONAL 93.3%、SOCIAL 100% 和 WM 93.3%；主要混淆是 GAMBLING 被判为 RELATIONAL（9/30）。将完全相同的 TEVF 图先压缩为七个 Yeo7 网络均值，准确率降至 68.1%（143/210，$p=0.0005$），其中 GAMBLING 和 WM 分别只有 20.0% 和 43.3%。这构成独立于可视化尺度的证据：七任务确有可跨被试泛化的空间差异，而且相当一部分差异存在于 Yeo7 网络内部。
+
+TEVF 与 $d$ 不是 EI、$\Phi$ 或 $\Xi$ 的替代估计器。它们回答“任务设计解释了哪些 parcel 的时间变异”，而任务诱发 PCA–$\Xi$ 回答“沿任务诱发方向观察时，历史状态的联合动力学信息如何分配到网络自身与跨网络组合”。本文以 $\Xi$ 网络和层级分解作为任务动力学归因的主结果，以 TEVF/$d$ 作为 parcel 级任务定位的互补证据；不能把 TEVF 称为 $\Xi$ 节点归因，也不能从当前观察性对比推出某脑区对行为的因果必要性。当前 Schaefer-500 只覆盖皮层，任务相关的杏仁核、纹状体、小脑等皮层下或非皮层结构仍未进入该图。
 
 <a id="discussion"></a>
 
-## 5. 讨论：解释边界与可复现性
+## 3. 讨论：解释边界与可复现性
 
 <a id="discussion-scope"></a>
 
-### 5.1 结论的适用范围
+### 3.1 结论的适用范围
 
 - DMF 结果支持 $\Phi^{EID}$ 在该代理结构连接、无裁剪全状态干预与 $[0.30,0.70]^{166}$ 生理支持下定位 Kuramoto 对齐的临界窗；它不等同于人体大脑存在同一精确耦合常数，也不外推到绝对最大熵 $[0,1]^{166}$ 干预。
-- HCP 静息态结果来自 REST1_LR；任务态 raw Phi 已覆盖七种 `taskRetained` LR 任务。主比较固定 7 个 PC1 网络状态与 $p=8,\alpha=10$，PCA、缩放、Ridge 系数和残差协方差按任务和被试重新拟合；25 点敏感性扫描表明 REST 高于全部任务的结论只在部分中等正则配置成立。留出误差诊断将弱正则、高阶历史下的方向反转定位为明显过拟合，并给出跨状态共享预测最优点 $(p,\alpha)=(5,10)$。长度匹配检验进一步表明 REST 高方差在 EMOTION 与 MOTOR 上最稳定，而不是七任务统一规律。该共享最优模型的七任务20-null模块分解显示缺 Limbic 六网络核为跨任务主骨架；REST–MOTOR–WM 的精确 Shapley 分析进一步将 raw Phi 分为网络内历史整合和跨网络协同归因。尚未检验 RL run、独立被试上的嵌套选参、任务事件分段、去趋势、运动或生理混杂回归、GSR 或其他 null 构造。
+- HCP 静息态结果来自 REST1_LR；任务态主 $\Xi$ 分析覆盖七种 `taskRetained` LR 任务。任务 PCA 在 retained--regressed 差值上拟合，再投影 retained；最终共享参数为 $(k,p,\alpha)=(1,3,1)$。该参数先在 8 名被试上筛选，并在未参与筛选的 21 名被试上确认；29 名完整汇总保持 REST 的 system-level $\Xi$ 显著高于全部任务，同时在七网络份额和 greedy atom 份额上检出多数任务对差异。相对地，第 2.2 节的 $(p,\alpha)=(8,10)$ raw $\Phi^{EID}$ 与附录 E 的 25 点扫描保留为历史表征和参数敏感性参照，不再作为任务空间归因的主结果。长度匹配检验表明 REST 高方差只在 EMOTION 与 MOTOR 上最稳定。30 名被试的 Schaefer-500 TEVF 仍直接描述 task GLM 移除的 parcel 级时间能量，而新 $\Xi$ 分解描述沿任务诱发 PCA 方向观察到的完整 retained 动力学；二者不能互换。尚未检验 RL run、独立 cohort、任务事件或条件子类型分层、去趋势、运动或生理混杂回归、GSR、皮层下结构或其他 null 构造。
 - WM 与既有静息态的主幅度比较分别使用 304 和 900 个拟合时间点，只比较 raw Phi，因此均值差仍包含有效样本长度差异。独立的 12 窗口长度匹配分析只检验跨被试方差；WM 的 `sub-103515` 具有极端早期 PC1 瞬变，普通方差比对其高度敏感。
 - HCP 的全体被试 Phi 结果使用 20 个 null，p 值分辨率有限，且未校正跨被试、跨模块集合和 greedy 选择造成的多重比较。
 - 贪婪 atom 用于描述候选协同结构；它依赖分解顺序与候选空间，不是 exhaustive 的唯一高阶分解。
 
 <a id="discussion-artifacts"></a>
 
-### 5.2 结果与图形产物
+### 3.2 结果与图形产物
 
 | 实验 | 关键图与结果 |
 |---|---|
@@ -660,8 +646,8 @@ REST、MOTOR 与 WM 的 raw $\Phi^{EID}$ 均值分别为 5.677、4.252 和 4.123
 | HCP500 REST–七任务长度匹配方差 | `results/hcp_schaefer500_length_matched_variance/summary.json`、`results/hcp_schaefer500_length_matched_variance/report.md`、`results/hcp_schaefer500_length_matched_variance/experiment_contract.json`、`results/hcp_schaefer500_length_matched_variance/rest_window_phi.npz`、`results/hcp_schaefer500_length_matched_variance/length_matched_variance.{png,svg,pdf}` |
 | HCP500 REST–七任务 $p$–$\alpha$ 鲁棒性 | `results/hcp_schaefer500_phi_hyperparameter_robustness/summary.json`、`results/hcp_schaefer500_phi_hyperparameter_robustness/report.md`、`results/hcp_schaefer500_phi_hyperparameter_robustness/hyperparameter_robustness_overview.{png,svg,pdf}`、`results/hcp_schaefer500_phi_hyperparameter_robustness/hyperparameter_task_margins.{png,svg,pdf}` |
 | HCP500 REST–七任务预测误差诊断 | `results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_summary.json`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_report.md`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_overview.{png,svg,pdf}`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_by_condition.{png,svg,pdf}` |
-| HCP500 七任务共享最优模型协同核 | `results/hcp_schaefer500_all_tasks_core_decomposition/summary.json`、`results/hcp_schaefer500_all_tasks_core_decomposition/report.md`、`results/hcp_schaefer500_all_tasks_core_decomposition/core_task_landscape.{png,svg,pdf}`、`results/hcp_schaefer500_all_tasks_core_decomposition/network_participation.{png,svg,pdf}` |
-| HCP500 REST–MOTOR–WM 网络归因 | `results/hcp_schaefer500_yeo7_network_attribution/summary.json`、`results/hcp_schaefer500_yeo7_network_attribution/report.md`、`results/hcp_schaefer500_yeo7_network_attribution/rest_motor_wm_network_attribution.{png,svg,pdf}` |
+| HCP500 REST 与七任务特异脑区分布 | `results/hcp_schaefer500_task_specific_regions/summary.json`、`results/hcp_schaefer500_task_specific_regions/report.md`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_maps.npz`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/rest_all_tasks_variance_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/task_map_discriminability.{png,svg,pdf}` |
+| HCP500 任务诱发 PCA–$\Xi$ 网络与层级分解 | `results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/summary.json`、`results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/arrays.npz`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/report.md`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/overall_phi_rest_task_scatter_box.{png,svg,pdf}`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/selected_xi_state_distributions.{png,svg,pdf}`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/parameter_tuning_comparison.{png,svg,pdf}` |
 
 <a id="appendix-a"></a>
 
@@ -961,4 +947,154 @@ $$
 
 图 1C 与图 1A 右轴的完整 $\Phi^{EID}$ 不是同一个量的不同可视化。图 1A 右轴的 source 是全部 166 个 E/I 标量，target 是完整未来 166 维状态，且从联合 EI 中扣除每一个单标量源的 EI；因此它保留了任意多 ROI 的联合项。图 1C 则只看每次两个 ROI 的 4 维 source--target 子系统，并以一个完整 ROI 的二元 E/I 块作为单独 source 基线。它既不构成图 1A 右轴的加和分解，也不能捕获需要三个或更多 ROI 才出现的协同；两者的 bits 绝对值不应直接比较。
 
+<a id="appendix-e"></a>
+<a id="hcp-hyperparameter-robustness"></a>
+
+## 附录 E：拟合模型参数鲁棒性
+
+![HCP500 超参数鲁棒性与预测误差诊断](../../fig/brain_hcp500_robustness_plate.png)
+
+*图 E1. HCP500 的超参数鲁棒性与预测诊断。A：25 点 $p$–$\alpha$ 网格上，七项 REST-minus-task 均值差的最小值（a）及 Holm 校正后显著的对比数（b）。B：七个任务各自的 REST-minus-task raw $\Phi^{EID}$ 边际。C：八状态等权平均的留出 delta-NRMSE（a）、test-minus-train 泛化间隙（b），以及 $p=8$ 时各状态随 $\alpha$ 的留出误差（c）。D：八个状态各自的留出 delta-NRMSE。A–B 回答 Phi 排序是否依赖超参数；C–D 检验弱正则反转是否伴随预测失真。*
+
+<a id="appendix-e-1"></a>
+
+### E.1 REST–任务差异的 $p$–$\alpha$ 鲁棒性
+
+原始 $p=8,\alpha=10$ 来自静息态模型选择，可能给 REST 带来选择优势。为检验这一点，这里预先固定 $p\in\{1,2,3,5,8\}$ 与 $\alpha\in\{0.1,1,10,100,1000\}$ 的 25 点网格。每个网格点把同一组超参数同时用于 REST 和七种任务态；29 名共同被试的每个状态仍独立重新拟合 PCA、缩放、Ridge 系数、截距和残差协方差。所有序列使用各自前 75%，只计算 raw $\Phi^{EID}$。每个网格点分别完成七项双侧 Monte Carlo paired sign-flip 检验（200,000 次），再在七任务内作 Holm 校正。
+
+图 E1A-a 给出每个网格点七项 REST-minus-task 群体均值差中的最小值；正值表示 REST 均值高于所有任务，负值表示至少一个任务反超。图 E1A-b 给出七项对比中 Holm 校正后显著的数量。REST 只在 **15/25** 个网格点为八条件群体均值最高状态，只有 **7/25** 个网格点满足“REST 高于全部任务且七项均显著”。这 7 个点为 $(p,\alpha)=(2,0.1),(2,1),(2,10),(3,1),(3,10),(5,10),(8,10)$。原始 $(8,10)$ 的 232 个“被试 $\times$ 状态”数值与第 2.2 节逐点完全一致，排除了结果变化来自实现路径差异。七个任务各自的边际见图 E1B。
+
+稳定区主要位于中等历史阶数和中等正则强度：$\alpha=10$ 时，$p=2,3,5,8$ 的七项对比均显著；但 $p=1$ 的所有 $\alpha$ 均为 0/7 显著。在过强正则 $\alpha=1000$ 下，五个 $p$ 均不再满足 REST 群体均值最高，且最多只有 1/7 项显著。弱正则与高阶历史的组合还会反转方向：$p=8,\alpha=0.1$ 时，REST 相对 EMOTION 和 RELATIONAL 分别低 2.789932 和 2.635 bits，两项任务高于 REST 的 Holm 校正 $p$ 分别为 0.003540 和 0.003150；其余任务的方向或显著性也不统一。
+
+因此，最窄且可靠的结论是：**REST 高于七任务的 raw $\Phi^{EID}$ 在包含原配置的中等正则参数带内可复现，但对完整 25 点 $p$–$\alpha$ 网格并不鲁棒。**$p$ 同时改变 source 维数 $7p$，所以应在同一个 $(p,\alpha)$ 内解释 REST–任务差值，不能把不同 $p$ 的绝对 raw Phi 当作同维度量直接比较。上述 Holm 校正只针对每个网格点内部的七项任务对比，并未把 25 个网格点作为发现性假设族再次校正；因此 7/25 是敏感性描述，不是 175 项独立发现。极端超参数是否应被视为合理模型还需要独立、条件平衡的预测验证规则；在完成该步骤之前，不能从本扫描中事后挑选最支持 REST 或任务态的参数作为主结论。
+
+<a id="appendix-e-2"></a>
+
+### E.2 留出预测误差解释弱正则反转
+
+为判断左下角弱正则、高阶历史的反转是否来自拟合失真，这里保持同一 25 点网格和每个“状态 $\times$ 被试”的前 75% 训练段，严格用最后 25% 时间点计算一步留出误差。主指标 delta-NRMSE 先用训练段的每个网络 delta 标准差归一化，再跨网络、时间点和被试汇总；同时报告 test-minus-train 泛化间隙，以及相对“$\mathbf{x}_{t+1}=\mathbf{x}_t$”持久性基线的技能值。技能为正表示优于持久性预测，为负表示模型在留出段反而更差。
+
+图 E1C-a 显示八状态等权平均的留出 delta-NRMSE，图 E1C-b 显示泛化间隙，图 E1C-c 单独展开 $p=8$ 时各状态随 $\alpha$ 的误差；各状态的完整误差网格见图 E1D。结果支持过拟合解释：$p=8,\alpha=0.1$ 的训练误差仅为 0.6538，但留出误差升至 0.9612，泛化间隙达到 0.3074，持久性技能为 $-0.0406$；其平均 Ridge 系数 Frobenius 范数为 7.735。改用 $\alpha=10$ 后，留出误差降至 0.8726、泛化间隙降至 0.1685、持久性技能升至 0.2049，系数范数缩至 2.935。$p=8$ 的整体最低留出误差出现在 $\alpha=100$，为 0.8590，说明 $\alpha=10$ 位于高泛化区，但不是该阶数下的唯一或总体最优正则值。
+
+发生显著 raw $\Phi^{EID}$ 反转的两个任务同时给出最直接的失败证据。在 $p=8,\alpha=0.1$ 下，EMOTION 的训练/留出误差为 0.5487/1.0628，泛化间隙 0.5141，持久性技能 $-0.3454$；RELATIONAL 为 0.6176/1.0062，泛化间隙 0.3887，持久性技能 $-0.1106$。也就是说，弱正则模型在训练段把这两个较短任务拟合得异常好，但在未参与拟合的时间段已经不具备可靠预测能力。固定 $p=8$ 后，在全部 35 个“超参数 $\times$ 任务”对比中，REST-minus-task Phi 边际与 task-minus-REST 留出误差差的 Spearman $\rho=-0.592$（$p=1.79\times10^{-4}$），与泛化间隙差的 $\rho=-0.480$（$p=0.00351$）：任务相对 REST 过拟合越明显，Phi 排序越倾向任务反超。
+
+这种反转的可能机制是：$p=8$ 提供 56 维历史 source，而任务态用于回归的训练样本仅约 124--296 行；$\alpha=0.1$ 允许更大的回归系数，并在训练段压低残差协方差。Gaussian log-det $\Phi^{EID}$ 同时依赖转移系数和训练残差协方差，因此会把这种训练内的高自由度拟合转化为偏大的 raw Phi。该证据说明预测失真是反转的重要来源，但不是数学上的唯一原因，因为 $\Phi^{EID}$ 不是预测误差的单调函数，且并非所有预测较差的点都发生显著方向反转。
+
+从共享超参数选择看，$\alpha=10$ 在 40 个“八状态 $\times$ 五个 $p$”组合中的 29 个（72.5%）达到最低留出误差；八状态总体平均下，$p=1,2,3,5$ 的最优 $\alpha$ 都是 10，$p=8$ 则是 100。若在整个 25 点网格中按八状态与29名被试等权的留出误差选择一组共享参数，最优点是 $(p,\alpha)=(5,10)$，delta-NRMSE 为 0.8552；在这个不依据 REST–任务 Phi 方向选出的配置上，REST 相对最接近任务仍高 1.4243 bits，七项对比全部 Holm 显著。因此，对本附录所检验的“各状态分别在自身 retained 时序上拟合 PC1”的原始表征，$(5,10)$ 是更公平的预测型参照。第 2.3 节的主配置 $(k,p,\alpha)=(1,3,1)$ 使用不同的任务诱发 PCA 构造，并经过 8 人筛选、21 人独立确认，二者不应视为同一参数搜索中的冲突最优点。
+
+<a id="appendix-f"></a>
+<a id="hcp500"></a>
+
+## 附录 F：HCP500 PCA–Yeo7 Phi–null 分解
+
+<a id="appendix-f-1"></a>
+<a id="hcp500-data"></a>
+
+### F.1 数据、降维与动力学表征
+
+数据为 30 名 HCP S1200 被试的 `REST1_LR` Schaefer-500 BOLD 时序，每名被试包含 $1200\times500$ 个时间点与皮层 parcel。500 个 parcel 按 Yeo7 标签分为 Vis、SomMot、DorsAttn、SalVentAttn、Limbic、Cont 和 Default；每个网络仅保留训练段拟合的一维 PCA（PC1），形成 7 维网络状态 $\mathbf{x}_t$。
+
+Phi 实验使用 `sub-100206` 的时间验证选出的八阶 $\Delta$-Ridge，$p=8$、$\alpha=10$。模型以当前与过去七个时刻的网络状态为 source：
+
+$$
+\mathbf{h}_t=
+\left[\mathbf{x}_t^\top,\mathbf{x}_{t-1}^\top,\ldots,\mathbf{x}_{t-7}^\top\right]^\top
+\in\mathbb{R}^{56},
+\qquad
+\Delta\mathbf{x}_{t+1}=\mathbf{x}_{t+1}-\mathbf{x}_t.
+$$
+
+PCA、标准化器和 Ridge 均仅以每名被试的前 900 个时间点拟合；后 300 点不参与本 Phi 计算、参数选择或 null 重拟合。这里的目标是比较固定表征与固定模型下的 observed 和 null，而不是把该单被试模型推广为全体被试的预测最优模型。
+
+<a id="appendix-f-2"></a>
+<a id="hcp500-phi"></a>
+
+### F.2 History-source $\Phi^{EID}$ 与 circular-shift null
+
+本实验的量是 56 维历史 source 到下一时刻 7 维状态的量，而不是 7 维一阶 whole-state $\Phi^{EID}$：
+
+$$
+\Phi^{EID}_{\mathrm{hist}\to\mathrm{next}}
+=EI\!\left(\mathbf{h}_t;\mathbf{x}_{t+1}\right)
+-\sum_{j=1}^{56}EI\!\left(h_{t,j};\mathbf{x}_{t+1}\right).
+$$
+
+估计使用 Gaussian log-det 口径，而非 TM。这样可在 56 维 history source、30 名被试、重复 null 重拟合和贪婪分解下保持可计算性；代价是结果依赖 Gaussian 近似，不能直接外推到非高斯的精确干预信息量。
+
+null 对 7 条 PC1 时序分别施加独立、非零的 circular shift，并在相同的 $p$、$\alpha$ 与 900 点训练预算下重新拟合模型。它保留每条网络 PC1 的边际取值与自相关结构，但破坏网络间的时间对齐，检验观测到的跨网络结构是否超出网络内时间结构本身。
+
+在 30 被试、每人 20-null 的扩展中，observed $\Phi^{EID}$ 的均值与中位数为 6.188481 与 6.068454 bits；observed-minus-null-mean 的均值与中位数为 1.984600 与 2.051671 bits，范围为 0.492521–4.096287 bits。30/30 名被试的 observed 都高于各自 null 均值，且未校正经验 $p<0.05$；由于仅有 20 个 null，每个被试的最小 p 值分辨率为 $1/21=0.047619$。
+
+该分布见图 F1A。结果支持在这一固定的 reduced-state、history-source 定义与 null 下，跨网络时间对齐带来额外的高阶结构；它不排除低频漂移、运动、生理噪声、PCA 表征选择或 Gaussian 近似造成的影响。
+
+<a id="appendix-f-3"></a>
+<a id="hcp500-module"></a>
+
+### F.3 Yeo7 模块历史分解
+
+在全部 30 名被试上进行贪婪分解。为避免将同一网络的八阶历史误作 8 个独立脑区，属于同一个 Yeo7 网络的全部 8 个滞后 PC1 值被绑定为一个不可拆模块原子；候选空间因此是 7 个网络模块，而不是 56 个逐滞后变量。
+
+| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | 固定集合未校正 $p<0.05$ |
+|---|---:|---:|---:|
+| 全部 7 个 Yeo 网络 | **20 / 30** | 1.314357 bits | 20 / 20 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **17 / 30** | 1.227709 bits | 17 / 17 |
+| SomMot + DorsAttn + SalVentAttn + Cont + Default | 9 / 30 | 0.956657 bits | 8 / 9 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.086753 bits | 7 / 8 |
+
+![HCP500 Yeo7 Phi-null 与模块协同核汇总](../../fig/brain_hcp500_yeo7_phi_null_summary.png)
+
+*图 F1. HCP500 PCA–Yeo7 Phi–null 分解。A：30 名被试的 observed-minus-null-mean $\Phi^{EID}$；绿色表示当前 20-null 分辨率下的经验 $p<0.05$。B：每名被试 greedy top-3 中出现的模块核及其原子贡献；空白表示该核未进入对应被试的 top-3。*
+
+全 7 网络核最常出现（20/30），但它在 matched null cohort 中反而更常出现（均值 26.65/30；经验 $p=1$），因此不能将其读为真实数据特异的协同核。缺少 Limbic 的六网络广域核在真实数据中为 17/30，而 matched null cohort 的频率为 $8.65/30$（最大 12/30；经验 $p=1/21=0.047619$）；两个较小的候选核也分别为 9/30 对 $1.40/30$、8/30 对 $2.45/30$，同为该分辨率下的未校正 $p=1/21$。这支持真实静息态中若干非全网络模块核的出现频率和贡献高于该 circular-shift null；但 20 个 null 的 p 值分辨率有限，且统计未校正跨模块集合与 greedy 选择，因此不构成唯一生物学 atom 的确证。
+
+<a id="appendix-g"></a>
+<a id="hcp1000"></a>
+
+## 附录 G：HCP1000 PCA–Yeo7 Phi–null 分解
+
+<a id="appendix-g-1"></a>
+<a id="hcp1000-data"></a>
+
+### G.1 数据、降维与模型选择
+
+同一 30 名 `REST1_LR` 被试的 `Schaefer1000` 矩阵为 $1200\times1000$。1000 个 parcel 按同一 Yeo7 顺序分为 Vis 162、SomMot 194、DorsAttn 122、SalVentAttn 121、Limbic 60、Cont 129 与 Default 212 个 parcel；每名被试的各网络 PC1 均只以前 900 点拟合并投影完整时序。
+
+在 `sub-100206` 的训练段内以 600/700/800 三个时间验证折，从 $p\in\{1,2,3,5,8\}$ 与既有 Ridge $\alpha$ 网格选择模型。最优冻结配置为五阶 $\Delta$-Ridge，$p=5$、$\alpha=1$，平均 validation skill ratio 为 0.794433；因此 source 是 35 维网络历史，target 为下一时刻 7D 网络状态。后 300 点未参与 PC1、模型或参数选择。
+
+<a id="appendix-g-2"></a>
+<a id="hcp1000-phi"></a>
+
+### G.2 History-source $\Phi^{EID}$ 与 circular-shift null
+
+对每名被试固定上述表征与模型，并以每条 PC1 独立、非零 circular shift 后重拟合同一模型生成 20 个 null。1000-parcel observed $\Phi^{EID}$ 的均值/中位数为 7.783676/7.734082 bits；observed-minus-null-mean 的均值/中位数为 2.997670/3.032261 bits，范围为 0.814450–6.085586 bits。30/30 名被试的 observed 均高于其 null 均值，未校正经验 p 均小于 0.05（最小分辨率 $1/21=0.047619$）。
+
+该分布汇总于图 G1A。
+
+<a id="appendix-g-3"></a>
+<a id="hcp1000-module"></a>
+
+### G.3 Yeo7 模块历史分解与 500 对照
+
+分解中，同一网络的全部五个 PC1 历史滞后绑定为一个不可拆模块原子；每个 observed 与 null 都完整运行 greedy top-3。1000-parcel 的常见核如下。
+
+| 跨被试协同核 | 进入 top-3 | top 时原子贡献均值 | matched-null 频率均值；经验 p |
+|---|---:|---:|---:|
+| 全部 7 个 Yeo 网络 | **21 / 30** | 1.637465 bits | 21.80 / 30；0.761905 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Cont + Default | **12 / 30** | 1.575094 bits | 6.35 / 30；0.047619 |
+| Vis + SomMot + DorsAttn + SalVentAttn + Default | 8 / 30 | 1.500212 bits | 2.40 / 30；0.047619 |
+| Vis + SomMot + DorsAttn + Cont + Default | 7 / 30 | 1.579938 bits | 2.90 / 30；0.047619 |
+
+![HCP1000 Yeo7 Phi-null 与模块协同核汇总](../../fig/brain_hcp1000_yeo7_phi_null_summary.png)
+
+*图 G1. HCP1000 PCA–Yeo7 Phi–null 分解。A：30 名被试的 observed-minus-null-mean $\Phi^{EID}$；绿色表示当前 20-null 分辨率下的经验 $p<0.05$。B：每名被试 greedy top-3 中出现的模块核及其原子贡献；空白表示该核未进入对应被试的 top-3。*
+
+| 描述性比较 | Schaefer-500 | Schaefer-1000 |
+|---|---:|---:|
+| observed $\Phi^{EID}$ 均值（bits） | 6.188481 | 7.783676 |
+| observed − null 均值（bits） | 1.984600 | 2.997670 |
+| observed 高于 null mean | 30 / 30 | 30 / 30 |
+| 全七网络核 top-3 频率 | 20 / 30 | 21 / 30 |
+| 缺 Limbic 六网络核 top-3 频率 | 17 / 30 | 12 / 30 |
+
+两种粒度都复现了跨网络时间对齐高于 circular-shift null 的方向性证据，并都将缺 Limbic 的六网络广域核识别为高于 matched-null 频率的候选结构。绝对 bits、最优滞后阶数和 atom 频率受分区粒度、PC1 表征与单被试调参影响；上表仅作描述性对照，不能当作空间粒度的正式统计检验，也不将 greedy 核解释为唯一生物学 atom。
 <a id="dmf-hierarchy"></a>
