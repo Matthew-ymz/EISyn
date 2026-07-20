@@ -382,6 +382,7 @@ def summarize_config(
         "system_xi": system_xi,
         "cross_xi": cross_xi,
         "network_share": network_share,
+        "atom_value": atom_value,
         "atom_share": atom_share,
         "heldout_skill_ratio": skill,
         "pca_variance": pca_variance,

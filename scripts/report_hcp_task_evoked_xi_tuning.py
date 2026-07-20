@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -75,40 +75,6 @@ def collect_search_summaries(root: Path) -> list[dict[str, Any]]:
     return list(rows.values())
 
 
-def pairwise_matrices(rows: Sequence[Mapping[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
-    distance = np.zeros((len(STATES), len(STATES)), dtype=float)
-    significant = np.zeros_like(distance, dtype=bool)
-    for row in rows:
-        left, right = int(row["left_index"]), int(row["right_index"])
-        distance[left, right] = distance[right, left] = 100.0 * float(row["total_variation"])
-        significant[left, right] = significant[right, left] = float(row["q"]) < 0.05
-    return distance, significant
-
-
-def draw_distance(fig: Any, axis: Any, rows: Sequence[Mapping[str, Any]], label: str) -> None:
-    distance, significant = pairwise_matrices(rows)
-    upper = max(float(np.ceil(distance.max())), 1.0)
-    image = axis.imshow(distance, cmap="YlOrRd", vmin=0.0, vmax=upper)
-    labels = [DISPLAY_NAMES[state] for state in STATES]
-    axis.set(xticks=np.arange(8), xticklabels=labels, yticks=np.arange(8), yticklabels=labels)
-    axis.tick_params(axis="x", labelrotation=40, length=0)
-    axis.tick_params(axis="y", length=0)
-    for row in range(8):
-        for column in range(8):
-            value = distance[row, column]
-            text = "–" if row == column else f"{value:.1f}{'*' if significant[row, column] else ''}"
-            axis.text(
-                column,
-                row,
-                text,
-                ha="center",
-                va="center",
-                fontsize=4.6,
-                color="white" if value / upper > 0.58 else "black",
-            )
-    fig.colorbar(image, ax=axis, shrink=0.80, pad=0.02).set_label(label)
-
-
 def short_atom(name: str) -> str:
     mapping = {
         "Vis": "Vis",
@@ -123,17 +89,20 @@ def short_atom(name: str) -> str:
 
 
 def plot_selected(root: Path, output: Path) -> None:
-    summary = load_json(root / "full" / SELECTED / "summary.json")
     archive = np.load(root / "full" / SELECTED / "arrays.npz")
     network_mean = archive["network_share"].mean(axis=1).T * 100.0
-    atom_mean = archive["atom_share"].mean(axis=1)
+    atom_share_mean = archive["atom_share"].mean(axis=1)
+    atom_value = (
+        archive["atom_value"]
+        if "atom_value" in archive.files
+        else archive["atom_share"] * archive["cross_xi"][:, :, None]
+    )
+    atom_mean = atom_value.mean(axis=1)
     atom_names = archive["atom_names"].astype(str)
-    selected = np.argsort(atom_mean.mean(axis=0))[::-1][:12]
-    atom_panel = atom_mean[:, selected].T * 100.0
+    selected = np.argsort(atom_share_mean.mean(axis=0))[::-1][:12]
+    atom_panel = atom_mean[:, selected].T
 
-    figure = plt.figure(figsize=(12.2, 8.4), constrained_layout=True)
-    grid = figure.add_gridspec(2, 2, width_ratios=(1.25, 1.0), height_ratios=(1.0, 1.2))
-    axes = [figure.add_subplot(grid[row, column]) for row in range(2) for column in range(2)]
+    figure, axes = plt.subplots(1, 2, figsize=(12.2, 4.6), constrained_layout=True)
     lower, upper = float(np.floor(network_mean.min())), float(np.ceil(network_mean.max()))
     image = axes[0].imshow(network_mean, cmap="YlGnBu", vmin=lower, vmax=upper, aspect="auto")
     axes[0].set(
@@ -151,13 +120,11 @@ def plot_selected(root: Path, output: Path) -> None:
         for column in range(8):
             value = network_mean[row, column]
             normalized = (value - lower) / max(upper - lower, 1.0e-12)
-            axes[0].text(column, row, f"{value:.1f}", ha="center", va="center", fontsize=5.0, color="white" if normalized > 0.6 else "black")
+            axes[0].text(column, row, f"{value:.1f}%", ha="center", va="center", fontsize=5.0, color="white" if normalized > 0.6 else "black")
     figure.colorbar(image, ax=axes[0], shrink=0.80, pad=0.02).set_label(r"Compositional share of system-level $\Xi$ (%)")
-    draw_distance(figure, axes[1], summary["statistics"]["network_pairwise"], "Network-attribution TV distance (%)")
-
-    atom_upper = max(float(np.ceil(np.quantile(atom_panel, 0.995))), 1.0)
-    image = axes[2].imshow(atom_panel, cmap="magma_r", vmin=0.0, vmax=atom_upper, aspect="auto")
-    axes[2].set(
+    atom_upper = max(float(np.quantile(atom_panel, 0.995)), 0.1)
+    image = axes[1].imshow(atom_panel, cmap="magma_r", vmin=0.0, vmax=atom_upper, aspect="auto")
+    axes[1].set(
         xticks=np.arange(8),
         xticklabels=[DISPLAY_NAMES[state] for state in STATES],
         yticks=np.arange(len(selected)),
@@ -165,18 +132,116 @@ def plot_selected(root: Path, output: Path) -> None:
         xlabel="State",
         ylabel="Greedy hierarchy atom",
     )
-    axes[2].tick_params(axis="x", labelrotation=35, length=0)
-    axes[2].tick_params(axis="y", length=0)
-    axes[2].axvline(0.5, color="#F0F0F0", linewidth=0.9)
+    axes[1].tick_params(axis="x", labelrotation=35, length=0)
+    axes[1].tick_params(axis="y", length=0)
+    axes[1].axvline(0.5, color="#F0F0F0", linewidth=0.9)
     for row in range(atom_panel.shape[0]):
         for column in range(8):
             value = atom_panel[row, column]
-            axes[2].text(column, row, f"{value:.1f}", ha="center", va="center", fontsize=4.4, color="white" if value > 0.38 * atom_upper else "black")
-    figure.colorbar(image, ax=axes[2], shrink=0.80, pad=0.02).set_label(r"Share of cross-network $\Xi$ (%)")
-    draw_distance(figure, axes[3], summary["statistics"]["atom_pairwise"], "Hierarchy-atom TV distance (%)")
-    for label, axis in zip("abcd", axes):
+            axes[1].text(column, row, f"{value:.3f}", ha="center", va="center", fontsize=4.1, color="white" if value > 0.38 * atom_upper else "black")
+    figure.colorbar(image, ax=axes[1], shrink=0.80, pad=0.02).set_label(r"Mean hierarchy-atom contribution (bits)")
+    for label, axis in zip("ab", axes):
         axis.text(-0.12, 1.04, label, transform=axis.transAxes, fontweight="bold", fontsize=9)
     save_figure(figure, output / "selected_xi_state_distributions")
+
+
+def plot_main_combined(root: Path, output: Path) -> None:
+    """Combine system-level Xi, network attribution, and hierarchy atoms."""
+    summary = load_json(root / "full" / SELECTED / "summary.json")
+    archive = np.load(root / "full" / SELECTED / "arrays.npz")
+    states = archive["states"].astype(str).tolist()
+    values = np.asarray(archive["system_xi"], dtype=float).T
+    network_mean = archive["network_share"].mean(axis=1).T * 100.0
+    atom_share_mean = archive["atom_share"].mean(axis=1)
+    atom_value = (
+        archive["atom_value"]
+        if "atom_value" in archive.files
+        else archive["atom_share"] * archive["cross_xi"][:, :, None]
+    )
+    atom_mean = atom_value.mean(axis=1)
+    atom_names = archive["atom_names"].astype(str)
+    selected = np.argsort(atom_share_mean.mean(axis=0))[::-1][:12]
+    atom_panel = atom_mean[:, selected].T
+
+    figure = plt.figure(figsize=(13.2, 8.8), constrained_layout=True)
+    grid = figure.add_gridspec(
+        2,
+        2,
+        height_ratios=(0.82, 1.0),
+        width_ratios=(0.96, 1.18),
+        hspace=0.08,
+        wspace=0.10,
+    )
+    overall_axis = figure.add_subplot(grid[0, :])
+    network_axis = figure.add_subplot(grid[1, 0])
+    atom_axis = figure.add_subplot(grid[1, 1])
+
+    rest_color, task_color = "#4C78A8", "#D07A3A"
+    colors = [rest_color] + [task_color] * (len(states) - 1)
+    positions = np.arange(len(states), dtype=float)
+    box = overall_axis.boxplot(
+        values,
+        positions=positions,
+        widths=0.58,
+        patch_artist=True,
+        showfliers=False,
+        medianprops={"color": "#303030", "linewidth": 1.1},
+        whiskerprops={"color": "#7B8490", "linewidth": 0.75},
+        capprops={"color": "#7B8490", "linewidth": 0.75},
+    )
+    for box_patch, color in zip(box["boxes"], colors):
+        box_patch.set(facecolor=color, alpha=0.18, edgecolor=color, linewidth=1.0)
+    rng = np.random.default_rng(20260719)
+    for index, color in enumerate(colors):
+        jitter = rng.uniform(-0.13, 0.13, size=values.shape[0])
+        overall_axis.scatter(positions[index] + jitter, values[:, index], s=13, color=color, alpha=0.76, linewidths=0, zorder=3)
+    overall_axis.scatter(positions, values.mean(axis=0), marker="D", s=19, facecolor="white", edgecolor="#303030", linewidth=0.7, zorder=4)
+    tests = {str(row["task"]): row for row in summary["rest_system_tests"]}
+    data_min, data_max = float(values.min()), float(values.max())
+    span = max(data_max - data_min, 1.0)
+    star_y = data_max + 0.075 * span
+    for index, state in enumerate(states[1:], start=1):
+        overall_axis.text(index, star_y, significance_stars(float(tests[state]["q"])), ha="center", va="bottom", fontsize=8)
+    overall_axis.axvline(0.5, color="#A7ADB5", linewidth=0.75, linestyle="--", zorder=0)
+    overall_axis.set(
+        xticks=positions,
+        xticklabels=[DISPLAY_NAMES[state] for state in states],
+        xlim=(-0.55, len(states) - 0.45),
+        ylim=(data_min - 0.08 * span, star_y + 0.11 * span),
+        ylabel=r"System-level $\Xi$ (bits)",
+        xlabel="State",
+    )
+    overall_axis.tick_params(axis="x", labelrotation=25)
+    overall_axis.text(0.99, 0.98, f"paired n={values.shape[0]} · vs REST: Wilcoxon, BH-corrected · white diamond: mean", transform=overall_axis.transAxes, ha="right", va="top", fontsize=6.3, color="#454545")
+    overall_axis.text(0.01, 0.02, "*** q<0.001   ** q<0.01   * q<0.05", transform=overall_axis.transAxes, ha="left", va="bottom", fontsize=6.2, color="#454545")
+
+    lower, upper = float(np.floor(network_mean.min())), float(np.ceil(network_mean.max()))
+    image = network_axis.imshow(network_mean, cmap="YlGnBu", vmin=lower, vmax=upper, aspect="auto")
+    network_axis.set(xticks=np.arange(8), xticklabels=[DISPLAY_NAMES[state] for state in STATES], yticks=np.arange(7), yticklabels=[NETWORK_LABELS[name] for name in NETWORK_ORDER], xlabel="State (each column sums to 100%)", ylabel="Yeo7 network")
+    network_axis.tick_params(axis="x", labelrotation=35, length=0)
+    network_axis.tick_params(axis="y", length=0)
+    network_axis.axvline(0.5, color="#333333", linewidth=0.9)
+    for row in range(7):
+        for column in range(8):
+            value = network_mean[row, column]
+            normalized = (value - lower) / max(upper - lower, 1.0e-12)
+            network_axis.text(column, row, f"{value:.1f}%", ha="center", va="center", fontsize=4.8, color="white" if normalized > 0.6 else "black")
+    figure.colorbar(image, ax=network_axis, shrink=0.80, pad=0.02).set_label(r"Compositional share of system-level $\Xi$ (%)")
+
+    atom_upper = max(float(np.quantile(atom_panel, 0.995)), 0.1)
+    image = atom_axis.imshow(atom_panel, cmap="magma_r", vmin=0.0, vmax=atom_upper, aspect="auto")
+    atom_axis.set(xticks=np.arange(8), xticklabels=[DISPLAY_NAMES[state] for state in STATES], yticks=np.arange(len(selected)), yticklabels=[short_atom(atom_names[index]) for index in selected], xlabel="State", ylabel="Greedy hierarchy atom")
+    atom_axis.tick_params(axis="x", labelrotation=35, length=0)
+    atom_axis.tick_params(axis="y", length=0)
+    atom_axis.axvline(0.5, color="#F0F0F0", linewidth=0.9)
+    for row in range(atom_panel.shape[0]):
+        for column in range(8):
+            value = atom_panel[row, column]
+            atom_axis.text(column, row, f"{value:.3f}", ha="center", va="center", fontsize=3.9, color="white" if value > 0.38 * atom_upper else "black")
+    figure.colorbar(image, ax=atom_axis, shrink=0.80, pad=0.02).set_label("Mean hierarchy-atom contribution (bits)")
+    for label, axis in zip("abc", (overall_axis, network_axis, atom_axis)):
+        axis.text(-0.08 if axis is overall_axis else -0.12, 1.04, label, transform=axis.transAxes, fontweight="bold", fontsize=9)
+    save_figure(figure, output / "task_evoked_xi_main_combined")
 
 
 def significance_stars(q_value: float) -> str:
@@ -424,6 +489,7 @@ def run(args: argparse.Namespace) -> None:
     plot_tuning(args.results_root, args.output_dir)
     plot_selected(args.results_root, args.output_dir)
     plot_overall_phi(args.results_root, args.output_dir)
+    plot_main_combined(args.results_root, args.output_dir)
     write_report(args.results_root, args.output_dir)
 
 
