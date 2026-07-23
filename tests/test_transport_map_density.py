@@ -106,6 +106,35 @@ class TransportMapDensityTests(unittest.TestCase):
             delta=0.25,
         )
 
+    def test_uniform_sample_weights_match_unweighted_mutual_information(self) -> None:
+        rng = np.random.default_rng(53)
+        source = rng.normal(size=(700, 2))
+        target = (source[:, [0]] - 0.4 * source[:, [1]]) + 0.3 * rng.normal(size=(700, 1))
+
+        unweighted = estimate_mutual_information_transport_map(source, target, degree=3)
+        weighted = estimate_mutual_information_transport_map(
+            source,
+            target,
+            degree=3,
+            sample_weight=np.ones(len(source)),
+        )
+
+        self.assertAlmostEqual(float(unweighted["mi_hat"]), float(weighted["mi_hat"]), places=12)
+        self.assertAlmostEqual(float(weighted["effective_sample_size"]), len(source), places=10)
+
+    def test_weighted_transport_map_tracks_weighted_first_moment(self) -> None:
+        samples = np.array([[-2.0], [-1.0], [1.0], [3.0]], dtype=float)
+        weights = np.array([1.0, 1.0, 2.0, 6.0], dtype=float)
+
+        estimator = fit_polynomial_triangular_transport_map_density(
+            samples,
+            degree=2,
+            sample_weight=weights,
+        )
+
+        expected_mean = float(np.average(samples[:, 0], weights=weights))
+        self.assertAlmostEqual(float(estimator.coefficients[0][0]), expected_mean, places=12)
+
     def test_polynomial_exponents_degree_one_scales_linearly_in_dimension(self) -> None:
         exponents = _polynomial_exponents(64, 1)
 
@@ -176,7 +205,12 @@ class TransportMapDensityTests(unittest.TestCase):
         self.assertEqual(summary["output_indices"], [0])
 
     def test_demo_notebook_imports_tm_algorithm_only_from_standalone_module(self) -> None:
-        notebook_path = Path(__file__).resolve().parents[1] / "exp" / "transport_map_density_demo.ipynb"
+        notebook_path = (
+            Path(__file__).resolve().parents[1]
+            / "exp"
+            / "TM"
+            / "transport_map_density_demo.ipynb"
+        )
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         code_text = "\n".join(
             "".join(cell.get("source", []))

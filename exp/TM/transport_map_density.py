@@ -254,12 +254,15 @@ def fit_polynomial_triangular_transport_map_density(
     degree: int = 3,
     ridge: float = 1e-6,
     min_scale: float = 1e-8,
+    sample_weight: np.ndarray | None = None,
 ) -> PolynomialTriangularTransportMapDensityEstimator:
     array = _coerce_samples(samples)
     if array.shape[0] < 4:
         raise ValueError("samples must contain at least four rows.")
     if degree < 1:
         raise ValueError("degree must be positive.")
+    normalized_weight = _coerce_sample_weight(sample_weight, sample_size=array.shape[0])
+    regression_weight = normalized_weight * float(array.shape[0])
     coefficients: list[np.ndarray] = []
     predictor_means: list[np.ndarray] = []
     predictor_scales: list[np.ndarray] = []
@@ -267,20 +270,33 @@ def fit_polynomial_triangular_transport_map_density(
     residual_scales: list[float] = []
     for dimension in range(array.shape[1]):
         previous = array[:, :dimension]
-        mean = previous.mean(axis=0) if dimension else np.empty(0, dtype=float)
-        scale = previous.std(axis=0, ddof=1) if dimension else np.empty(0, dtype=float)
+        mean = (
+            np.sum(normalized_weight[:, None] * previous, axis=0)
+            if dimension
+            else np.empty(0, dtype=float)
+        )
+        scale = (
+            np.sqrt(_weighted_variance(previous, normalized_weight))
+            if dimension
+            else np.empty(0, dtype=float)
+        )
         scale = np.where(scale > min_scale, scale, 1.0)
         exponents = _polynomial_exponents(dimension, degree)
         design = _polynomial_design(previous, exponents=exponents, mean=mean, scale=scale)
-        gram = design.T @ design + float(ridge) * np.eye(design.shape[1], dtype=float)
+        weighted_design = regression_weight[:, None] * design
+        gram = design.T @ weighted_design + float(ridge) * np.eye(design.shape[1], dtype=float)
         gram[0, 0] -= float(ridge)
-        coefficient = np.linalg.solve(gram, design.T @ array[:, dimension])
+        coefficient = np.linalg.solve(
+            gram,
+            design.T @ (regression_weight * array[:, dimension]),
+        )
         residual = array[:, dimension] - design @ coefficient
         coefficients.append(coefficient)
         predictor_means.append(mean)
         predictor_scales.append(scale)
         exponent_rows.append(exponents)
-        residual_scales.append(max(float(np.std(residual, ddof=1)), float(min_scale)))
+        residual_variance = float(_weighted_variance(residual[:, None], normalized_weight)[0])
+        residual_scales.append(max(float(np.sqrt(residual_variance)), float(min_scale)))
     return PolynomialTriangularTransportMapDensityEstimator(
         coefficients=tuple(coefficients),
         predictor_means=tuple(predictor_means),
@@ -298,6 +314,8 @@ def estimate_mutual_information_transport_map(
     *,
     jitter: float = 1e-6,
     degree: int = 3,
+    sample_weight: np.ndarray | None = None,
+    joint_order: str = "target_first",
 ) -> dict[str, object]:
     """Estimate mutual information with a polynomial triangular transport map."""
 
@@ -307,10 +325,30 @@ def estimate_mutual_information_transport_map(
         raise ValueError("x and y must have matching sample counts.")
 
     sample_size = int(x_array.shape[0])
-    joint = np.concatenate([y_array, x_array], axis=1)
-    joint_model = fit_polynomial_triangular_transport_map_density(joint, degree=degree)
-    x_model = fit_polynomial_triangular_transport_map_density(x_array, degree=degree)
-    y_model = fit_polynomial_triangular_transport_map_density(y_array, degree=degree)
+    normalized_weight = _coerce_sample_weight(sample_weight, sample_size=sample_size)
+    if joint_order == "target_first":
+        joint = np.concatenate([y_array, x_array], axis=1)
+    elif joint_order == "source_first":
+        # Forward dynamics are often easier to represent as p(X) p(Y | X)
+        # than through the potentially multimodal inverse p(X | Y).
+        joint = np.concatenate([x_array, y_array], axis=1)
+    else:
+        raise ValueError("joint_order must be 'target_first' or 'source_first'.")
+    joint_model = fit_polynomial_triangular_transport_map_density(
+        joint,
+        degree=degree,
+        sample_weight=normalized_weight,
+    )
+    x_model = fit_polynomial_triangular_transport_map_density(
+        x_array,
+        degree=degree,
+        sample_weight=normalized_weight,
+    )
+    y_model = fit_polynomial_triangular_transport_map_density(
+        y_array,
+        degree=degree,
+        sample_weight=normalized_weight,
+    )
 
     log_pxy = joint_model.log_prob(joint)
     log_px = x_model.log_prob(x_array)
@@ -318,8 +356,11 @@ def estimate_mutual_information_transport_map(
     pointwise_mi = (log_pxy - log_px - log_py) / LOG_2
     return {
         "backend": joint_model.backend,
-        "mi_hat": float(pointwise_mi.mean()),
+        "joint_order": joint_order,
+        "mi_hat": float(np.sum(normalized_weight * pointwise_mi)),
         "bias_correction": 0.0,
+        "effective_sample_size": float(1.0 / np.sum(normalized_weight**2)),
+        "normalized_sample_weight": normalized_weight,
         "pointwise_mi": pointwise_mi,
         "log_pxy": log_pxy,
         "log_px": log_px,
@@ -521,6 +562,37 @@ def _coerce_samples(samples: np.ndarray, *, expected_dim: int | None = None) -> 
     if expected_dim is not None and array.shape[1] != expected_dim:
         raise ValueError(f"samples must have {expected_dim} columns.")
     return array
+
+
+def _coerce_sample_weight(
+    sample_weight: np.ndarray | None,
+    *,
+    sample_size: int,
+) -> np.ndarray:
+    if sample_weight is None:
+        return np.full(int(sample_size), 1.0 / float(sample_size), dtype=float)
+    weight = np.asarray(sample_weight, dtype=float).reshape(-1)
+    if weight.shape != (int(sample_size),):
+        raise ValueError("sample_weight must contain one value per sample.")
+    if not bool(np.all(np.isfinite(weight))):
+        raise ValueError("sample_weight must contain only finite values.")
+    if bool(np.any(weight < 0.0)):
+        raise ValueError("sample_weight must be nonnegative.")
+    total = float(weight.sum())
+    if total <= 0.0:
+        raise ValueError("sample_weight must have positive total mass.")
+    return weight / total
+
+
+def _weighted_variance(values: np.ndarray, normalized_weight: np.ndarray) -> np.ndarray:
+    array = _coerce_samples(values)
+    weight = _coerce_sample_weight(normalized_weight, sample_size=array.shape[0])
+    mean = np.sum(weight[:, None] * array, axis=0)
+    centered = array - mean
+    correction = 1.0 - float(np.sum(weight**2))
+    if correction <= 0.0:
+        raise ValueError("sample_weight must assign positive mass to at least two samples.")
+    return np.sum(weight[:, None] * centered**2, axis=0) / correction
 
 
 def _gaussian_logdet_bias_correction(dimension: int, sample_size: int) -> float:
