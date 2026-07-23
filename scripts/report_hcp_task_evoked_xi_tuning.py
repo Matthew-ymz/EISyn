@@ -11,6 +11,8 @@ from typing import Any, Sequence
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from scipy.stats import spearmanr
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +28,10 @@ from scripts.run_hcp_schaefer500_all_tasks_phi import DISPLAY_NAMES
 
 DEFAULT_ROOT = ROOT / "results" / "hcp_schaefer500_task_evoked_xi_tuning"
 DEFAULT_OUTPUT = DEFAULT_ROOT / "final"
+DEFAULT_COGNITION_SCORES = ROOT / "results" / "hcp_single_group_sem_full_1206" / "selected_29_sem_results.csv"
+DEFAULT_COGNITION_EXHAUSTIVE_ROOT = (
+    ROOT / "results" / "hcp_cognition_exhaustive_targeted_greedy"
+)
 BASELINE = "k1_p5_a10"
 SELECTED = "k1_p3_a1"
 COMPARATORS = (BASELINE, "k1_p5_a1", "k1_p5_a0.3", "k1_p3_a0.3", SELECTED, "k2_p3_a2")
@@ -38,6 +44,8 @@ NETWORK_LABELS = {
     "Cont": "Control",
     "Default": "Default",
 }
+COGNITION_SCORES = ("g_score", "cry_score", "mem_score", "spd_score")
+COGNITION_LABELS = ("General", "Crystallized", "Memory", "Speed")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -84,6 +92,20 @@ def short_atom(name: str) -> str:
         "Limbic": "Lim",
         "Cont": "Cont",
         "Default": "Def",
+    }
+    return "+".join(mapping[item] for item in name.split("+"))
+
+
+def compact_atom(name: str) -> str:
+    """Compact labels for dense hierarchy heatmaps."""
+    mapping = {
+        "Vis": "V",
+        "SomMot": "SM",
+        "DorsAttn": "DAN",
+        "SalVentAttn": "VAN",
+        "Limbic": "Lim",
+        "Cont": "FPN",
+        "Default": "DMN",
     }
     return "+".join(mapping[item] for item in name.split("+"))
 
@@ -145,10 +167,42 @@ def plot_selected(root: Path, output: Path) -> None:
     save_figure(figure, output / "selected_xi_state_distributions")
 
 
-def plot_main_combined(root: Path, output: Path) -> None:
-    """Combine system-level Xi, network attribution, and hierarchy atoms."""
+def load_cognition_data(path: Path, subjects: np.ndarray) -> tuple[np.ndarray, pd.DataFrame]:
+    """Return the ordered z-score panel and scores aligned to the model subjects."""
+    scores = pd.read_csv(path, dtype={"Subject": str})
+    missing_columns = {"Subject", *COGNITION_SCORES}.difference(scores.columns)
+    if missing_columns:
+        raise ValueError(f"Cognition table is missing columns: {sorted(missing_columns)}")
+    scores["Subject"] = scores["Subject"].str.removeprefix("sub-")
+    model_subjects = {str(subject).removeprefix("sub-") for subject in subjects}
+    score_subjects = set(scores["Subject"])
+    if model_subjects != score_subjects:
+        raise ValueError(
+            "Cognition and Xi subject sets differ: "
+            f"missing scores={sorted(model_subjects - score_subjects)}, "
+            f"extra scores={sorted(score_subjects - model_subjects)}"
+        )
+    subject_order = [str(subject).removeprefix("sub-") for subject in subjects]
+    aligned = scores.set_index("Subject").loc[subject_order, list(COGNITION_SCORES)]
+    ordered = scores.sort_values("g_score", ascending=False).reset_index(drop=True)
+    values = ordered.loc[:, COGNITION_SCORES].to_numpy(dtype=float)
+    if not np.isfinite(values).all() or not np.isfinite(aligned.to_numpy(dtype=float)).all():
+        raise ValueError("Cognition scores contain non-finite values")
+    panel = (values - values.mean(axis=0)) / values.std(axis=0, ddof=1)
+    return panel, aligned
+
+
+def plot_main_combined(
+    root: Path,
+    output: Path,
+    cognition_scores: Path,
+    cognition_exhaustive_root: Path,
+) -> None:
+    """Combine Xi, attribution, primary cognition, and secondary exploratory associations."""
     summary = load_json(root / "full" / SELECTED / "summary.json")
     archive = np.load(root / "full" / SELECTED / "arrays.npz")
+    exhaustive_summary = load_json(cognition_exhaustive_root / "summary.json")
+    exhaustive_metrics = np.load(cognition_exhaustive_root / "metrics.npz")
     states = archive["states"].astype(str).tolist()
     values = np.asarray(archive["system_xi"], dtype=float).T
     network_mean = archive["network_share"].mean(axis=1).T * 100.0
@@ -162,19 +216,62 @@ def plot_main_combined(root: Path, output: Path) -> None:
     atom_names = archive["atom_names"].astype(str)
     selected = np.argsort(atom_share_mean.mean(axis=0))[::-1][:12]
     atom_panel = atom_mean[:, selected].T
-
-    figure = plt.figure(figsize=(13.2, 8.8), constrained_layout=True)
-    grid = figure.add_gridspec(
-        2,
-        2,
-        height_ratios=(0.82, 1.0),
-        width_ratios=(0.96, 1.18),
-        hspace=0.08,
-        wspace=0.10,
+    cognition_panel, cognition_aligned = load_cognition_data(
+        cognition_scores, archive["subjects"].astype(str)
     )
-    overall_axis = figure.add_subplot(grid[0, :])
-    network_axis = figure.add_subplot(grid[1, 0])
-    atom_axis = figure.add_subplot(grid[1, 1])
+    model_subjects = [
+        str(subject).removeprefix("sub-") for subject in archive["subjects"].astype(str)
+    ]
+    exhaustive_subjects = [
+        str(subject).removeprefix("sub-")
+        for subject in exhaustive_metrics["subjects"].astype(str)
+    ]
+    if exhaustive_subjects != model_subjects:
+        raise ValueError("Main-figure and exhaustive-search subject orders differ")
+
+    # Asymmetric evidence hierarchy: e-f are the primary cognition panels,
+    # while the shorter, muted g-i row contains full-search exploratory leads.
+    figure = plt.figure(figsize=(14.8, 9.4), constrained_layout=False)
+    figure.subplots_adjust(left=0.052, right=0.988, top=0.975, bottom=0.065)
+    outer_grid = figure.add_gridspec(
+        3,
+        1,
+        height_ratios=(0.62, 1.12, 0.82),
+        hspace=0.34,
+    )
+    top_grid = outer_grid[0, 0].subgridspec(
+        1,
+        2,
+        width_ratios=(4.15, 1.25),
+        wspace=0.18,
+    )
+    middle_grid = outer_grid[1, 0].subgridspec(
+        1,
+        4,
+        width_ratios=(1.20, 1.82, 0.94, 0.94),
+        wspace=0.50,
+    )
+    overall_axis = figure.add_subplot(top_grid[0, 0])
+    cognition_axis = figure.add_subplot(top_grid[0, 1])
+    network_axis = figure.add_subplot(middle_grid[0, 0])
+    atom_axis = figure.add_subplot(middle_grid[0, 1])
+    language_axis = figure.add_subplot(middle_grid[0, 2])
+    motor_axis = figure.add_subplot(middle_grid[0, 3], sharey=language_axis)
+    # Reserve a little extra local gutter for panel c's long hierarchy labels
+    # without shrinking the primary e-f association panels.
+    network_position = network_axis.get_position()
+    network_axis.set_position(
+        [
+            network_position.x0,
+            network_position.y0,
+            network_position.width * 0.92,
+            network_position.height,
+        ]
+    )
+    exploratory_grid = outer_grid[2, 0].subgridspec(1, 3, wspace=0.16)
+    domain_axes = tuple(
+        figure.add_subplot(exploratory_grid[0, column]) for column in range(3)
+    )
 
     rest_color, task_color = "#4C78A8", "#D07A3A"
     colors = [rest_color] + [task_color] * (len(states) - 1)
@@ -194,14 +291,14 @@ def plot_main_combined(root: Path, output: Path) -> None:
     rng = np.random.default_rng(20260719)
     for index, color in enumerate(colors):
         jitter = rng.uniform(-0.13, 0.13, size=values.shape[0])
-        overall_axis.scatter(positions[index] + jitter, values[:, index], s=13, color=color, alpha=0.76, linewidths=0, zorder=3)
-    overall_axis.scatter(positions, values.mean(axis=0), marker="D", s=19, facecolor="white", edgecolor="#303030", linewidth=0.7, zorder=4)
+        overall_axis.scatter(positions[index] + jitter, values[:, index], s=14, color=color, alpha=0.76, linewidths=0, zorder=3)
+    overall_axis.scatter(positions, values.mean(axis=0), marker="D", s=21, facecolor="white", edgecolor="#303030", linewidth=0.7, zorder=4)
     tests = {str(row["task"]): row for row in summary["rest_system_tests"]}
     data_min, data_max = float(values.min()), float(values.max())
     span = max(data_max - data_min, 1.0)
     star_y = data_max + 0.075 * span
     for index, state in enumerate(states[1:], start=1):
-        overall_axis.text(index, star_y, significance_stars(float(tests[state]["q"])), ha="center", va="bottom", fontsize=8)
+        overall_axis.text(index, star_y, significance_stars(float(tests[state]["q"])), ha="center", va="bottom", fontsize=8.5)
     overall_axis.axvline(0.5, color="#A7ADB5", linewidth=0.75, linestyle="--", zorder=0)
     overall_axis.set(
         xticks=positions,
@@ -211,36 +308,270 @@ def plot_main_combined(root: Path, output: Path) -> None:
         ylabel=r"System-level $\Xi$ (bits)",
         xlabel="State",
     )
-    overall_axis.tick_params(axis="x", labelrotation=25)
-    overall_axis.text(0.99, 0.98, f"paired n={values.shape[0]} · vs REST: Wilcoxon, BH-corrected · white diamond: mean", transform=overall_axis.transAxes, ha="right", va="top", fontsize=6.3, color="#454545")
-    overall_axis.text(0.01, 0.02, "*** q<0.001   ** q<0.01   * q<0.05", transform=overall_axis.transAxes, ha="left", va="bottom", fontsize=6.2, color="#454545")
+    overall_axis.tick_params(axis="x", labelrotation=22, labelsize=8.0)
+    overall_axis.tick_params(axis="y", labelsize=8.0)
+    overall_axis.xaxis.label.set_size(8.4)
+    overall_axis.yaxis.label.set_size(8.4)
+    overall_axis.text(
+        0.99,
+        1.025,
+        f"paired n={values.shape[0]} · vs REST: Wilcoxon, BH-corrected · white diamond: mean",
+        transform=overall_axis.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=7.2,
+        color="#454545",
+        clip_on=False,
+    )
+    overall_axis.text(0.01, 0.02, "*** q<0.001   ** q<0.01   * q<0.05", transform=overall_axis.transAxes, ha="left", va="bottom", fontsize=7.1, color="#454545")
 
     lower, upper = float(np.floor(network_mean.min())), float(np.ceil(network_mean.max()))
     image = network_axis.imshow(network_mean, cmap="YlGnBu", vmin=lower, vmax=upper, aspect="auto")
     network_axis.set(xticks=np.arange(8), xticklabels=[DISPLAY_NAMES[state] for state in STATES], yticks=np.arange(7), yticklabels=[NETWORK_LABELS[name] for name in NETWORK_ORDER], xlabel="State (each column sums to 100%)", ylabel="Yeo7 network")
-    network_axis.tick_params(axis="x", labelrotation=35, length=0)
-    network_axis.tick_params(axis="y", length=0)
+    network_axis.tick_params(axis="x", labelrotation=34, length=0, labelsize=7.3)
+    network_axis.tick_params(axis="y", length=0, labelsize=7.3)
+    network_axis.xaxis.label.set_size(8.0)
+    network_axis.yaxis.label.set_size(8.0)
     network_axis.axvline(0.5, color="#333333", linewidth=0.9)
     for row in range(7):
         for column in range(8):
             value = network_mean[row, column]
             normalized = (value - lower) / max(upper - lower, 1.0e-12)
-            network_axis.text(column, row, f"{value:.1f}%", ha="center", va="center", fontsize=4.8, color="white" if normalized > 0.6 else "black")
-    figure.colorbar(image, ax=network_axis, shrink=0.80, pad=0.02).set_label(r"Compositional share of system-level $\Xi$ (%)")
+            network_axis.text(column, row, f"{value:.1f}%", ha="center", va="center", fontsize=6.1, color="white" if normalized > 0.6 else "black")
 
     atom_upper = max(float(np.quantile(atom_panel, 0.995)), 0.1)
     image = atom_axis.imshow(atom_panel, cmap="magma_r", vmin=0.0, vmax=atom_upper, aspect="auto")
-    atom_axis.set(xticks=np.arange(8), xticklabels=[DISPLAY_NAMES[state] for state in STATES], yticks=np.arange(len(selected)), yticklabels=[short_atom(atom_names[index]) for index in selected], xlabel="State", ylabel="Greedy hierarchy atom")
-    atom_axis.tick_params(axis="x", labelrotation=35, length=0)
-    atom_axis.tick_params(axis="y", length=0)
+    atom_axis.set(xticks=np.arange(8), xticklabels=[DISPLAY_NAMES[state] for state in STATES], yticks=np.arange(len(selected)), yticklabels=[compact_atom(atom_names[index]) for index in selected], xlabel="State", ylabel="")
+    atom_axis.tick_params(axis="x", labelrotation=34, length=0, labelsize=7.1)
+    atom_axis.tick_params(axis="y", length=0, labelsize=6.2, pad=1.5)
+    atom_axis.xaxis.label.set_size(8.0)
+    atom_axis.text(
+        0.0,
+        1.015,
+        "Greedy hierarchy atom",
+        transform=atom_axis.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=7.4,
+        color="#303030",
+    )
     atom_axis.axvline(0.5, color="#F0F0F0", linewidth=0.9)
     for row in range(atom_panel.shape[0]):
         for column in range(8):
             value = atom_panel[row, column]
-            atom_axis.text(column, row, f"{value:.3f}", ha="center", va="center", fontsize=3.9, color="white" if value > 0.38 * atom_upper else "black")
-    figure.colorbar(image, ax=atom_axis, shrink=0.80, pad=0.02).set_label("Mean hierarchy-atom contribution (bits)")
-    for label, axis in zip("abc", (overall_axis, network_axis, atom_axis)):
-        axis.text(-0.08 if axis is overall_axis else -0.12, 1.04, label, transform=axis.transAxes, fontweight="bold", fontsize=9)
+            atom_axis.text(column, row, f"{value:.3f}", ha="center", va="center", fontsize=5.3, color="white" if value > 0.38 * atom_upper else "black")
+    atom_colorbar = figure.colorbar(
+        image, ax=atom_axis, fraction=0.032, pad=0.022, aspect=32
+    )
+    atom_colorbar.set_label("Contribution (bits)", fontsize=7.2)
+    atom_colorbar.ax.tick_params(labelsize=6.8)
+
+    cognition_cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        "cognition_diverging", ("#5B8FB9", "#F4F1EF", "#B65F3C")
+    )
+    image = cognition_axis.imshow(
+        cognition_panel,
+        cmap=cognition_cmap,
+        vmin=-2.5,
+        vmax=2.5,
+        aspect="auto",
+        interpolation="nearest",
+    )
+    cognition_axis.set(
+        xticks=np.arange(len(COGNITION_LABELS)),
+        xticklabels=COGNITION_LABELS,
+        yticks=[],
+        ylabel="Subjects: high → low general cognition",
+    )
+    cognition_axis.tick_params(axis="x", labelrotation=32, length=0, labelsize=7.4)
+    cognition_axis.yaxis.label.set_size(7.8)
+    cognition_axis.set_xticks(np.arange(-0.5, len(COGNITION_LABELS), 1), minor=True)
+    cognition_axis.set_yticks(np.arange(-0.5, cognition_panel.shape[0], 1), minor=True)
+    cognition_axis.grid(which="minor", color="white", linewidth=0.45)
+    cognition_axis.tick_params(which="minor", bottom=False, left=False)
+    cognition_axis.text(
+        0.0,
+        1.015,
+        "n=29 · each column standardized within sample",
+        transform=cognition_axis.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=7.1,
+        color="#454545",
+    )
+    cognition_colorbar = figure.colorbar(
+        image, ax=cognition_axis, fraction=0.045, pad=0.035, aspect=24
+    )
+    cognition_colorbar.set_label("Within-29 score z", fontsize=7.2)
+    cognition_colorbar.ax.tick_params(labelsize=6.8)
+
+    all_network_atom = "+".join(NETWORK_ORDER)
+    matching_atoms = np.flatnonzero(atom_names == all_network_atom)
+    if len(matching_atoms) != 1:
+        raise ValueError(f"Expected one all-network atom, found {len(matching_atoms)}")
+    association_x = cognition_aligned["g_score"].to_numpy(dtype=float)
+    association_values = {
+        state: atom_value[states.index(state), :, int(matching_atoms[0])]
+        for state in ("LANGUAGE", "MOTOR")
+    }
+    guide_x = np.linspace(float(association_x.min()), float(association_x.max()), 200)
+    shared_min = min(float(values.min()) for values in association_values.values())
+    shared_max = max(float(values.max()) for values in association_values.values())
+    shared_pad = 0.06 * max(shared_max - shared_min, 0.1)
+    for association_axis, state in zip(
+        (language_axis, motor_axis), ("LANGUAGE", "MOTOR"), strict=True
+    ):
+        association_y = association_values[state]
+        association = spearmanr(association_x, association_y)
+        association_axis.scatter(
+            association_x,
+            association_y,
+            s=27,
+            color="#B65F3C",
+            edgecolor="white",
+            linewidth=0.5,
+            alpha=0.92,
+            zorder=3,
+        )
+        slope, intercept = np.polyfit(association_x, association_y, deg=1)
+        association_axis.plot(
+            guide_x,
+            slope * guide_x + intercept,
+            color="#4B5563",
+            linewidth=1.0,
+            linestyle="--",
+            zorder=2,
+        )
+        association_axis.set(
+            xlabel="General cognition score",
+            xlim=(float(association_x.min()) - 0.08, float(association_x.max()) + 0.08),
+            ylim=(shared_min - shared_pad, shared_max + shared_pad),
+        )
+        association_axis.set_title(
+            state,
+            loc="right",
+            fontsize=7.8,
+            fontweight="bold",
+            color="#454545",
+            pad=3,
+        )
+        association_axis.text(
+            0.03,
+            0.97,
+            f"Spearman $\\rho$ = {float(association.statistic):+.3f}\n"
+            f"raw two-sided $p$ = {float(association.pvalue):.5f}\n"
+            f"n = {len(association_x)}",
+            transform=association_axis.transAxes,
+            ha="left",
+            va="top",
+            fontsize=7.4,
+        )
+        association_axis.tick_params(labelsize=7.7)
+        association_axis.xaxis.label.set_size(8.3)
+        association_axis.yaxis.label.set_size(8.3)
+    language_axis.set_ylabel("All-network hierarchy-atom contribution (bits)")
+    motor_axis.tick_params(axis="y", labelleft=False)
+
+    exhaustive_states = exhaustive_metrics["states"].astype(str).tolist()
+    exhaustive_coalitions = exhaustive_metrics["coalitions"].astype(str).tolist()
+    domain_specs = (
+        ("cry_score", "Crystallized cognition"),
+        ("mem_score", "Memory"),
+        ("spd_score", "Processing speed"),
+    )
+    for domain_axis, (score_name, score_label) in zip(
+        domain_axes, domain_specs, strict=True
+    ):
+        candidate = exhaustive_summary["scores"][score_name]["selected_full_sample"]
+        metric = str(candidate["metric"])
+        state = str(candidate["state"])
+        coalition = str(candidate["coalition"])
+        x_values = cognition_aligned[score_name].to_numpy(dtype=float)
+        y_values = np.asarray(exhaustive_metrics[metric], dtype=float)[
+            exhaustive_states.index(state),
+            :,
+            exhaustive_coalitions.index(coalition),
+        ]
+        association = spearmanr(x_values, y_values)
+        if not np.isclose(
+            float(association.statistic), float(candidate["rho"]), atol=1.0e-12
+        ):
+            raise AssertionError(f"Domain-panel rho mismatch for {score_name}")
+        domain_axis.set_facecolor("#FAFAFA")
+        domain_axis.scatter(
+            x_values,
+            y_values,
+            s=19,
+            color="#C58A70",
+            edgecolor="white",
+            linewidth=0.4,
+            alpha=0.78,
+            zorder=3,
+        )
+        guide_x = np.linspace(float(x_values.min()), float(x_values.max()), 200)
+        slope, intercept = np.polyfit(x_values, y_values, deg=1)
+        domain_axis.plot(
+            guide_x,
+            slope * guide_x + intercept,
+            color="#7B8490",
+            linewidth=0.8,
+            linestyle="--",
+            zorder=2,
+        )
+        x_pad = 0.06 * max(float(np.ptp(x_values)), 0.1)
+        y_pad = 0.08 * max(float(np.ptp(y_values)), 0.1)
+        domain_axis.set(
+            xlabel=score_label,
+            xlim=(float(x_values.min()) - x_pad, float(x_values.max()) + x_pad),
+            ylim=(float(y_values.min()) - y_pad, float(y_values.max()) + y_pad),
+        )
+        domain_axis.set_title(
+            f"{state} · {short_atom(coalition)}",
+            loc="right",
+            fontsize=7.3,
+            fontweight="normal",
+            color="#525A65",
+            pad=2,
+        )
+        domain_axis.text(
+            0.02,
+            0.97,
+            f"$\\rho$ = {float(candidate['rho']):+.3f} · "
+            f"raw $p$ = {float(candidate['p_raw_two_sided']):.3g} · "
+            f"perm $p$ = {float(candidate['p_permutation_pointwise']):.3g}\n"
+            "n = 29",
+            transform=domain_axis.transAxes,
+            ha="left",
+            va="top",
+            fontsize=7.0,
+            color="#4B5563",
+        )
+        domain_axis.tick_params(labelsize=7.7)
+        domain_axis.xaxis.label.set_size(8.3)
+        domain_axis.yaxis.label.set_size(8.3)
+    domain_axes[0].set_ylabel(r"$\mathrm{Syn}_{EID}$ (bits)")
+
+    axes = (
+        overall_axis,
+        network_axis,
+        atom_axis,
+        cognition_axis,
+        language_axis,
+        motor_axis,
+        *domain_axes,
+    )
+    panel_x_positions = (-0.05, -0.09, -0.09, -0.17, -0.09, -0.09, -0.09, -0.09, -0.09)
+    for label, axis, x_position in zip(
+        "abcdefghi", axes, panel_x_positions, strict=True
+    ):
+        axis.text(
+            x_position,
+            1.025,
+            label,
+            transform=axis.transAxes,
+            fontweight="bold",
+            fontsize=10.5,
+        )
     save_figure(figure, output / "task_evoked_xi_main_combined")
 
 
@@ -489,7 +820,12 @@ def run(args: argparse.Namespace) -> None:
     plot_tuning(args.results_root, args.output_dir)
     plot_selected(args.results_root, args.output_dir)
     plot_overall_phi(args.results_root, args.output_dir)
-    plot_main_combined(args.results_root, args.output_dir)
+    plot_main_combined(
+        args.results_root,
+        args.output_dir,
+        args.cognition_scores,
+        args.cognition_exhaustive_root,
+    )
     write_report(args.results_root, args.output_dir)
 
 
@@ -497,6 +833,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results-root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--cognition-scores", type=Path, default=DEFAULT_COGNITION_SCORES)
+    parser.add_argument(
+        "--cognition-exhaustive-root",
+        type=Path,
+        default=DEFAULT_COGNITION_EXHAUSTIVE_ROOT,
+    )
     args = parser.parse_args(argv)
     run(args)
     print(json.dumps({"output_dir": str(args.output_dir), "selected": SELECTED}, indent=2))

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
+from scipy.io import loadmat
 from scipy.stats import friedmanchisquare, wilcoxon
 from tqdm.auto import tqdm
 
@@ -132,13 +133,49 @@ def prepare_projection(
     *,
     state: str,
     max_components: int,
+    rest_data_key: str = "Schaefer500",
+    task_retained_key: str = "Schaefer500_taskRetained",
+    task_regressed_key: str = "Schaefer500_taskRegressed",
+    expected_parcels: int = 500,
 ) -> tuple[dict[int, np.ndarray], dict[int, dict[str, float]], int]:
     """Fit PCA once at max k and reuse its ordered leading components for every smaller k."""
     if state == "REST":
-        projection_signal = load_rest_series(path)
+        payload = loadmat(path)
+        if rest_data_key not in payload:
+            raise ValueError(f"MAT file {path} does not contain {rest_data_key!r}.")
+        projection_signal = np.asarray(payload[rest_data_key], dtype=float)
+        if (
+            projection_signal.ndim != 2
+            or projection_signal.shape[1] != int(expected_parcels)
+            or not np.isfinite(projection_signal).all()
+        ):
+            raise ValueError(
+                f"Expected finite [time, {expected_parcels}] REST data in {path}, "
+                f"got {projection_signal.shape}."
+            )
         fitting_signal = projection_signal
     else:
-        retained, regressed = load_task_pair(path)
+        payload = loadmat(path)
+        missing = [
+            key
+            for key in (task_retained_key, task_regressed_key)
+            if key not in payload
+        ]
+        if missing:
+            raise ValueError(f"MAT file {path} is missing keys {missing}.")
+        retained = np.asarray(payload[task_retained_key], dtype=float)
+        regressed = np.asarray(payload[task_regressed_key], dtype=float)
+        if (
+            retained.shape != regressed.shape
+            or retained.ndim != 2
+            or retained.shape[1] != int(expected_parcels)
+            or not np.isfinite(retained).all()
+            or not np.isfinite(regressed).all()
+        ):
+            raise ValueError(
+                f"Expected paired finite [time, {expected_parcels}] task arrays in "
+                f"{path}, got {retained.shape} and {regressed.shape}."
+            )
         projection_signal = retained
         fitting_signal = retained - regressed
     development_end = development_end_for_length(len(projection_signal))
@@ -437,7 +474,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     start = int(args.subject_offset)
     stop = start + int(args.max_subjects) if args.max_subjects else None
     subjects = all_subjects[start:stop]
-    groups = load_yeo7_groups(args.labels, expected_parcels=500)
+    groups = load_yeo7_groups(
+        args.labels, expected_parcels=int(args.expected_parcels)
+    )
     configs = list(args.config) if args.config else default_configs()
     cache_path = output_dir / "records.jsonl"
     records = load_cache(cache_path)
@@ -451,7 +490,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     projection_progress = tqdm(projection_jobs, desc=f"PCA cache {args.stage}", unit="state", mininterval=1.0)
     for subject, state, path in projection_progress:
         projections, cumulative, development_end = prepare_projection(
-            path, groups, state=state, max_components=max_k
+            path,
+            groups,
+            state=state,
+            max_components=max_k,
+            rest_data_key=str(args.rest_data_key),
+            task_retained_key=str(args.task_retained_key),
+            task_regressed_key=str(args.task_regressed_key),
+            expected_parcels=int(args.expected_parcels),
         )
         for k in required_k:
             projection_cache[(subject, state, k)] = (
@@ -514,6 +560,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             params,
             permutation_repeats=int(args.permutation_repeats),
         )
+        summary["data_config"] = {
+            "expected_parcels": int(args.expected_parcels),
+            "rest_data_key": str(args.rest_data_key),
+            "task_retained_key": str(args.task_retained_key),
+            "task_regressed_key": str(args.task_regressed_key),
+            "labels": str(args.labels),
+        }
         identifier = config_id(*params)
         config_dir = output_dir / identifier
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -567,6 +620,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         next_step="读取 recommendation.json，启动全样本候选确认或局部细化。",
         log_name=f"{args.stage}.log",
     )
+    atomic_json(
+        output_dir / "live_progress.json",
+        {
+            "phase": "complete",
+            "current": len(jobs),
+            "total": len(jobs),
+            "elapsed_seconds": time.monotonic() - started,
+            "eta_seconds": 0.0,
+            "configs": [config_id(*params) for params in configs],
+            "n_subjects": len(subjects),
+        },
+    )
     return {"stage": args.stage, "n_subjects": len(subjects), **recommendation}
 
 
@@ -580,6 +645,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rest-root", type=Path, default=DEFAULT_REST_ROOT)
     parser.add_argument("--task-root", type=Path, default=DEFAULT_TASK_ROOT)
     parser.add_argument("--labels", type=Path, default=default_yeo7_labels(500))
+    parser.add_argument("--expected-parcels", type=int, default=500)
+    parser.add_argument("--rest-data-key", default="Schaefer500")
+    parser.add_argument("--task-retained-key", default="Schaefer500_taskRetained")
+    parser.add_argument("--task-regressed-key", default="Schaefer500_taskRegressed")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR)
     args = parser.parse_args(argv)
