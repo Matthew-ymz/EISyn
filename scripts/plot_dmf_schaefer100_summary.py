@@ -1,0 +1,457 @@
+#!/usr/bin/env python3
+"""Plot the Schaefer100 DMF A--G summary and the 83-vs-100 comparison."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import sys
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.brain_surface_plot import (
+    SurfaceMesh,
+    draw_brain_map_four_views,
+    parcel_values_to_vertices,
+)
+
+
+OLD_SOURCE = ROOT / "exp" / "brain" / "result_lausanne_fig6" / "count_00_fig6b_mean_rate.npz"
+OLD_MAIN = ROOT / "results" / "dmf_fullstate_uniform_support" / "confirm_c050_h020_tau300_n2048_no_clip_seeds3_10.npz"
+OLD_TOPOLOGY = ROOT / "results" / "dmf_phi_eid_hierarchical_topology" / "critical_hierarchy.npz"
+DEFAULT_SURFACE_ASSET = (
+    ROOT / "results" / "dmf_schaefer100" / "schaefer100_fsaverage5_surface.npz"
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--main", type=Path, required=True)
+    parser.add_argument("--wms", type=Path, required=True)
+    parser.add_argument("--topology", type=Path, required=True)
+    parser.add_argument("--yeo7", type=Path, required=True)
+    parser.add_argument("--prep", type=Path, required=True)
+    parser.add_argument("--surface-asset", type=Path, default=DEFAULT_SURFACE_ASSET)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--comparison-output", type=Path)
+    return parser.parse_args()
+
+
+def load(path: Path) -> dict[str, np.ndarray]:
+    with np.load(path, allow_pickle=True) as archive:
+        return {key: np.asarray(archive[key]) for key in archive.files}
+
+
+def configure() -> None:
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+            "font.size": 7.0,
+            "axes.spines.right": False,
+            "axes.spines.top": False,
+            "axes.linewidth": 0.65,
+            "xtick.major.width": 0.6,
+            "ytick.major.width": 0.6,
+            "legend.frameon": False,
+            "pdf.fonttype": 42,
+            "svg.fonttype": "none",
+        }
+    )
+
+
+def sem(values: np.ndarray, axis: int = 0) -> np.ndarray:
+    array = np.asarray(values, dtype=float)
+    if array.shape[axis] <= 1:
+        return np.zeros_like(np.mean(array, axis=axis))
+    return np.std(array, axis=axis, ddof=1) / np.sqrt(array.shape[axis])
+
+
+def save(figure: plt.Figure, stem: Path) -> None:
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(stem.with_suffix(".png"), dpi=450, bbox_inches="tight")
+    figure.savefig(stem.with_suffix(".svg"), bbox_inches="tight")
+    figure.savefig(stem.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(figure)
+
+
+def panel_label(axis: plt.Axes, label: str) -> None:
+    axis.text(-0.10, 1.06, label, transform=axis.transAxes, fontsize=10, fontweight="bold")
+
+
+def critical_format(axis: plt.Axes, _critical_g: np.ndarray) -> None:
+    axis.grid(True, color="0.90", lw=0.5, zorder=0)
+    axis.set_xlabel("Global coupling $G$")
+
+
+def direct_values(main: dict[str, np.ndarray], name: str) -> np.ndarray:
+    modes = [str(value) for value in np.asarray(main["modes"])]
+    return np.asarray(main[name], dtype=float)[modes.index("direct")]
+
+
+def add_rate_information_panel(
+    axis: plt.Axes,
+    *,
+    source: dict[str, np.ndarray],
+    g: np.ndarray,
+    values: np.ndarray,
+    critical_g: np.ndarray,
+    color: str,
+    label: str,
+    ylabel: str,
+) -> plt.Axes:
+    rate_line, = axis.plot(
+        source["G"], source["mean_rate_hz"], color="0.20", lw=1.0, marker="o", ms=2.2,
+        label="Mean firing rate", zorder=3,
+    )
+    critical_format(axis, critical_g)
+    axis.set_ylabel("Mean firing rate (Hz)")
+    second = axis.twinx()
+    mean = np.mean(values, axis=0)
+    error = sem(values)
+    info_line, = second.plot(g, mean, color=color, lw=1.55, marker="o", ms=2.4, label=label, zorder=4)
+    second.fill_between(g, mean - error, mean + error, color=color, alpha=0.16, lw=0)
+    second.set_ylabel(ylabel, color=color)
+    second.tick_params(axis="y", colors=color)
+    second.spines["right"].set_visible(True)
+    axis.legend(
+        handles=(rate_line, info_line), loc="lower center", bbox_to_anchor=(0.5, 1.08),
+        ncol=2, fontsize=6.3,
+    )
+    return second
+
+
+def network_color(name: str) -> str:
+    colors = {
+        "Visual": "#6A3D9A",
+        "Somatomotor": "#1F78B4",
+        "Dorsal attention": "#33A02C",
+        "Salience / ventral attention": "#E31A1C",
+        "Limbic": "#B15928",
+        "Frontoparietal control": "#FF7F00",
+        "Default mode": "#66A61E",
+        "Non-cortical": "#8C8C8C",
+    }
+    return colors[str(name)]
+
+
+def load_schaefer100_surface_map(
+    asset_path: Path,
+    region_labels: np.ndarray,
+    roi_values: np.ndarray,
+) -> tuple[SurfaceMesh, SurfaceMesh, np.ndarray, np.ndarray]:
+    """Map exact Schaefer100 parcel values onto the official fsaverage5 labels."""
+
+    asset = load(asset_path)
+    value_by_name = {
+        str(name): float(value) for name, value in zip(region_labels, roi_values)
+    }
+    meshes: list[SurfaceMesh] = []
+    vertex_values: list[np.ndarray] = []
+    mapped_names: set[str] = set()
+    for hemisphere in ("left", "right"):
+        label_names = [str(name) for name in asset[f"{hemisphere}_label_names"]]
+        label_to_value = {
+            label: value_by_name[name]
+            for label, name in enumerate(label_names)
+            if name in value_by_name
+        }
+        mapped_names.update(label_names[label] for label in label_to_value)
+        meshes.append(
+            SurfaceMesh(
+                asset[f"{hemisphere}_coordinates"],
+                asset[f"{hemisphere}_faces"],
+                asset[f"{hemisphere}_sulc"],
+            )
+        )
+        vertex_values.append(
+            parcel_values_to_vertices(
+                asset[f"{hemisphere}_vertex_labels"],
+                label_to_value,
+                background_labels=(0,),
+            )
+        )
+    missing = sorted(set(value_by_name) - mapped_names)
+    if missing:
+        raise ValueError(f"Surface annotation is missing Schaefer100 parcels: {missing}")
+    if len(mapped_names) != 100:
+        raise ValueError(f"Expected 100 mapped Schaefer parcels, got {len(mapped_names)}.")
+    return meshes[0], meshes[1], vertex_values[0], vertex_values[1]
+
+
+def plot_summary(args: argparse.Namespace) -> None:
+    source, main, wms = load(args.source), load(args.main), load(args.wms)
+    topology, yeo = load(args.topology), load(args.yeo7)
+    critical_g = np.asarray(topology["G"], dtype=float)
+    phi = direct_values(main, "phi_eid")
+    whole = direct_values(main, "whole_ei")
+    singleton = direct_values(main, "singleton_ei_sum")
+
+    figure = plt.figure(figsize=(16.8, 7.1))
+    grid = GridSpec(2, 15, figure=figure, height_ratios=(1.0, 0.95))
+    top_grid = GridSpecFromSubplotSpec(
+        1,
+        5,
+        subplot_spec=grid[0, :],
+        width_ratios=(5.0, 1.15, 3.55, 0.45, 5.0),
+        wspace=0.0,
+    )
+    bottom_grid = GridSpecFromSubplotSpec(
+        1,
+        9,
+        subplot_spec=grid[1, :],
+        width_ratios=(3.10, 0.95, 1.65, 0.45, 2.65, 0.55, 2.65, 0.55, 4.00),
+        wspace=0.0,
+    )
+    ax_a = figure.add_subplot(top_grid[0, 0])
+    ax_b = figure.add_subplot(top_grid[0, 2])
+    ax_c = figure.add_subplot(top_grid[0, 4])
+    ax_d = figure.add_subplot(bottom_grid[0, 0])
+    ax_e = figure.add_subplot(bottom_grid[0, 2])
+    ax_f = figure.add_subplot(bottom_grid[0, 4])
+    ax_g = figure.add_subplot(bottom_grid[0, 6])
+    panel_h = GridSpecFromSubplotSpec(
+        3,
+        2,
+        subplot_spec=bottom_grid[0, 8],
+        height_ratios=(1.0, 1.0, 0.10),
+        hspace=-0.32,
+        wspace=-0.24,
+    )
+    ax_h = [
+        figure.add_subplot(panel_h[row, column], projection="3d")
+        for row in range(2)
+        for column in range(2)
+    ]
+    ax_h_cb = figure.add_subplot(panel_h[2, :])
+
+    ax_a_info = add_rate_information_panel(
+        ax_a, source=source, g=np.asarray(main["G"], dtype=float), values=phi,
+        critical_g=critical_g, color="#6A3D9A", label=r"Full-system $\Xi$",
+        ylabel=r"$\Xi$ (bits)",
+    )
+    ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
+    panel_label(ax_a, "A")
+
+    for values, color, label in (
+        (whole, "#0072B2", "Whole EI"),
+        (singleton, "#D55E00", "Sum of singleton EI"),
+    ):
+        mean, error = np.mean(values, axis=0), sem(values)
+        ax_b.plot(main["G"], mean, color=color, lw=1.45, label=label)
+        ax_b.fill_between(main["G"], mean - error, mean + error, color=color, alpha=0.16, lw=0)
+    critical_format(ax_b, critical_g)
+    ax_b.set_ylabel("EI (bits)", labelpad=7)
+    ax_b.legend(loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.3)
+    panel_label(ax_b, "B")
+
+    add_rate_information_panel(
+        ax_c, source=source, g=np.asarray(wms["G"], dtype=float),
+        values=np.asarray(wms["phi_wms"], dtype=float), critical_g=critical_g,
+        color="#1B9E77", label=r"Observational $\Phi^{WMS}$",
+        ylabel=r"$\Phi^{WMS}$ (bits)",
+    )
+    panel_label(ax_c, "C")
+
+    strength = np.asarray(topology["strength"], dtype=float)
+    local = np.asarray(topology["within_roi"], dtype=float).mean(axis=(0, 1))
+    cross = np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
+    ax_d.scatter(strength, local, s=9, color="#4C78A8", alpha=0.82, label="Within ROI")
+    ax_d.set_xlabel("Weighted structural strength")
+    ax_d.set_ylabel("Within-ROI coupling (bits)", color="#4C78A8")
+    ax_d.tick_params(axis="y", colors="#4C78A8")
+    ax_d.grid(True, color="0.90", lw=0.5)
+    ax_d2 = ax_d.twinx()
+    ax_d2.scatter(strength, cross, s=9, marker="D", color="#D55E00", alpha=0.78, label="Cross-ROI")
+    ax_d2.set_ylabel("Cross-ROI leverage (bits)", color="#D55E00", labelpad=7)
+    ax_d2.tick_params(axis="y", colors="#D55E00")
+    ax_d2.spines["right"].set_visible(True)
+    handles = ax_d.get_legend_handles_labels()[0] + ax_d2.get_legend_handles_labels()[0]
+    labels = ax_d.get_legend_handles_labels()[1] + ax_d2.get_legend_handles_labels()[1]
+    ax_d.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.0)
+    panel_label(ax_d, "D")
+
+    fine = np.asarray(topology["fine_phi"], dtype=float)
+    within_total = np.asarray(topology["within_roi_total"], dtype=float)
+    fractions = np.column_stack(((within_total / fine).ravel(), ((fine - within_total) / fine).ravel())) * 100.0
+    means, errors = fractions.mean(axis=0), sem(fractions, axis=0)
+    ax_e.bar([0, 1], means, yerr=errors, color=("#66CCEE", "#775DA6"), width=0.68, capsize=2)
+    ax_e.set_xticks([0, 1], ["Within\nROI", "Cross\nROI"])
+    ax_e.set_ylabel(r"Fraction of $\Xi$ (%)", labelpad=7)
+    ax_e.grid(True, axis="y", color="0.90", lw=0.5)
+    for index, value in enumerate(means):
+        ax_e.text(index, value + max(1.0, 0.03 * means.max()), f"{value:.1f}%", ha="center", va="bottom")
+    panel_label(ax_e, "E")
+
+    within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
+    network_values = within_network.mean(axis=(0, 1))
+    network_errors = sem(within_network.reshape(-1, within_network.shape[-1]), axis=0)
+    network_names = [str(value) for value in yeo["network_names"]]
+    network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
+    order = np.argsort(network_values)
+    ypos = np.arange(len(order))
+    ax_f.barh(
+        ypos, network_values[order], xerr=network_errors[order],
+        color=[network_color(network_names[index]) for index in order], capsize=2,
+    )
+    short_network = {
+        "Visual": "Vis",
+        "Somatomotor": "SomMot",
+        "Dorsal attention": "DorsAttn",
+        "Salience / ventral attention": "Sal/Vent",
+        "Frontoparietal control": "Control",
+        "Default mode": "Default",
+    }
+    ax_f.set_yticks(
+        ypos,
+        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
+        fontsize=5.8,
+    )
+    ax_f.tick_params(axis="y", pad=1)
+    ax_f.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
+    ax_f.grid(True, axis="x", color="0.90", lw=0.5)
+    panel_label(ax_f, "F")
+
+    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
+    shapley_values = between_shapley.mean(axis=(0, 1))
+    shapley_errors = sem(between_shapley.reshape(-1, between_shapley.shape[-1]), axis=0)
+    ax_g.barh(
+        ypos, shapley_values[order], xerr=shapley_errors[order],
+        color=[network_color(network_names[index]) for index in order], capsize=2,
+    )
+    ax_g.set_yticks(
+        ypos,
+        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
+        fontsize=5.8,
+    )
+    ax_g.tick_params(axis="y", pad=1)
+    ax_g.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
+    ax_g.grid(True, axis="x", color="0.90", lw=0.5)
+    panel_label(ax_g, "G")
+
+    left_mesh, right_mesh, left_values, right_values = load_schaefer100_surface_map(
+        args.surface_asset,
+        np.asarray(topology["region_labels"]),
+        cross,
+    )
+    draw_brain_map_four_views(
+        ax_h,
+        ax_h_cb,
+        left_mesh,
+        right_mesh,
+        left_values,
+        right_values,
+        cmap="viridis",
+        colorbar_label="Cross-ROI leverage (bits)",
+        colorbar_label_size=6.2,
+    )
+    for axis, label in zip(ax_h, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
+        axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")
+    ax_h[0].text2D(
+        -0.10, 1.05, "H", transform=ax_h[0].transAxes, fontsize=10, fontweight="bold"
+    )
+    figure.subplots_adjust(left=0.052, right=0.987, top=0.91, bottom=0.10, hspace=0.32)
+    save(figure, args.output)
+
+
+def spectral_radius(matrix: np.ndarray) -> float:
+    symmetric = 0.5 * (matrix + matrix.T)
+    return float(np.max(np.abs(np.linalg.eigvalsh(symmetric))))
+
+
+def plot_comparison(args: argparse.Namespace) -> None:
+    if args.comparison_output is None:
+        return
+    old_source, new_source = load(OLD_SOURCE), load(args.source)
+    old_main, new_main = load(OLD_MAIN), load(args.main)
+    old_topology, new_topology = load(OLD_TOPOLOGY), load(args.topology)
+    old_phi, new_phi = direct_values(old_main, "phi_eid"), direct_values(new_main, "phi_eid")
+    old_rho = spectral_radius(np.asarray(old_source["connectivity"], dtype=float))
+    new_rho = spectral_radius(np.asarray(new_source["connectivity"], dtype=float))
+    old_rate_x = np.asarray(old_source["G"], dtype=float) * old_rho
+    new_rate_x = np.asarray(new_source["G"], dtype=float) * new_rho
+    old_phi_x = np.asarray(old_main["G"], dtype=float) * old_rho
+    new_phi_x = np.asarray(new_main["G"], dtype=float) * new_rho
+    old_phi_normalized = old_phi / float(old_main["source_count"])
+    new_phi_normalized = new_phi / float(new_main["source_count"])
+
+    figure, axes = plt.subplots(1, 3, figsize=(7.2, 2.35), constrained_layout=True)
+    colors = {"83 ROI": "#7F7F7F", "100 ROI": "#6A3D9A"}
+    axes[0].plot(old_rate_x, old_source["mean_rate_hz"], color=colors["83 ROI"], lw=1.35, label="83 ROI")
+    axes[0].plot(new_rate_x, new_source["mean_rate_hz"], color=colors["100 ROI"], lw=1.55, label="100 ROI")
+    axes[0].set_xlabel(r"Effective coupling $G\rho(\mathbf{C})$")
+    axes[0].set_ylabel("Mean firing rate (Hz)")
+    axes[0].grid(True, color="0.90", lw=0.5)
+    axes[0].legend(loc="lower center", bbox_to_anchor=(0.5, 1.03), ncol=2)
+
+    for x, values, label in (
+        (old_phi_x, old_phi_normalized, "83 ROI"),
+        (new_phi_x, new_phi_normalized, "100 ROI"),
+    ):
+        mean, error = values.mean(axis=0), sem(values)
+        axes[1].plot(x, mean, color=colors[label], lw=1.5, label=label)
+        axes[1].fill_between(x, mean - error, mean + error, color=colors[label], alpha=0.16, lw=0)
+    axes[1].set_xlabel(r"Effective coupling $G\rho(\mathbf{C})$")
+    axes[1].set_ylabel(r"$\Xi$ per source (bits)")
+    axes[1].grid(True, color="0.90", lw=0.5)
+    axes[1].legend(loc="lower center", bbox_to_anchor=(0.5, 1.03), ncol=2)
+
+    old_fraction = 100.0 * np.asarray(old_topology["between_roi"], dtype=float) / np.asarray(old_topology["fine_phi"], dtype=float)
+    new_fraction = 100.0 * np.asarray(new_topology["between_roi"], dtype=float) / np.asarray(new_topology["fine_phi"], dtype=float)
+    fraction_values = (old_fraction.ravel(), new_fraction.ravel())
+    axes[2].bar(
+        [0, 1], [values.mean() for values in fraction_values],
+        yerr=[sem(values, axis=0) for values in fraction_values],
+        color=(colors["83 ROI"], colors["100 ROI"]), width=0.68, capsize=2,
+    )
+    axes[2].set_xticks([0, 1], ["83 ROI", "100 ROI"])
+    axes[2].set_ylabel(r"Cross-ROI fraction of $\Xi$ (%)")
+    axes[2].grid(True, axis="y", color="0.90", lw=0.5)
+    for panel, axis in zip("ABC", axes):
+        panel_label(axis, panel)
+    save(figure, args.comparison_output)
+
+    old_peak = old_phi_x[np.argmax(old_phi_normalized, axis=1)]
+    new_peak = new_phi_x[np.argmax(new_phi_normalized, axis=1)]
+    summary = {
+        "comparison_type": "cross-connectome replication; not a single-factor causal contrast",
+        "normalization": {
+            "x_axis": "G multiplied by the spectral radius of each connectivity matrix",
+            "phi_axis": "Xi divided by the number of scalar source variables",
+        },
+        "spectral_radius": {"old83": old_rho, "new100": new_rho},
+        "paired_phi_peak_effective_coupling": {
+            "old83": old_peak.tolist(),
+            "new100": new_peak.tolist(),
+            "paired_delta_mean": float(np.mean(new_peak - old_peak)),
+            "paired_delta_sem": float(sem(new_peak - old_peak, axis=0)),
+            "new_exceeds_old_seed_count": int(np.sum(new_peak > old_peak)),
+        },
+        "cross_roi_fraction_percent": {
+            "old83_mean": float(old_fraction.mean()),
+            "new100_mean": float(new_fraction.mean()),
+        },
+    }
+    args.comparison_output.with_suffix(".json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8",
+    )
+
+
+def main() -> None:
+    args = parse_args()
+    configure()
+    plot_summary(args)
+    plot_comparison(args)
+
+
+if __name__ == "__main__":
+    main()

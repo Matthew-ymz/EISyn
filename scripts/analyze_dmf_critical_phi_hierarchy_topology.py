@@ -249,7 +249,8 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
 
     for seed_index, seed in enumerate(seeds):
         for g_index, (coupling_g, source_position) in enumerate(zip(requested_g, source_positions)):
-            source_rng = np.random.default_rng(int(seed) * 100_000 + int(source_position) * 1_000)
+            schedule_index = int(np.rint((float(coupling_g) - 1.0) / 0.1))
+            source_rng = np.random.default_rng(int(seed) * 100_000 + schedule_index * 1_000)
             source_se, source_si_optional = fixed_uniform_initial_state(
                 source_rng,
                 sample_count=sample_count,
@@ -262,7 +263,7 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
             )
             if source_si_optional is None:
                 raise RuntimeError("The full-state protocol requires inhibitory interventions.")
-            noise_rng = np.random.default_rng(int(seed) * 100_000 + int(source_position) * 1_000 + 17)
+            noise_rng = np.random.default_rng(int(seed) * 100_000 + schedule_index * 1_000 + 17)
             target_se, target_si = rollout(
                 dmf,
                 source_se,
@@ -604,7 +605,7 @@ def write_summary(payload: dict[str, np.ndarray], path: Path) -> None:
             "G": np.asarray(payload["G"], dtype=float).tolist(),
             "seeds": np.asarray(payload["seeds"], dtype=int).tolist(),
             "sample_count": 2048,
-            "intervention": "independent U(0.30,0.70)^166",
+            "intervention": f"independent U(0.30,0.70)^{2 * len(labels)}",
             "horizon_steps": 300,
             "state_boundary": "none",
             "estimator": "Gaussian conditional total correlation",

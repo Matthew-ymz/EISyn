@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -22,6 +24,7 @@ from scripts.analyze_dmf_critical_phi_hierarchy_topology import (
     CRITICAL_G,
     MAIN_CONFIRMATION,
     conditional_source_covariance,
+    conditional_total_correlation,
     hierarchy_metrics,
     mean_sem,
     parse_float_list,
@@ -111,22 +114,95 @@ RIGHT_DK_TO_YEO7 = {
 }
 
 
-def yeo7_membership(region_labels: list[str]) -> tuple[np.ndarray, list[list[int]]]:
+SCHAEFER_NETWORK_NAMES = {
+    "Vis": "Visual",
+    "SomMot": "Somatomotor",
+    "DorsAttn": "Dorsal attention",
+    "SalVentAttn": "Salience / ventral attention",
+    "Limbic": "Limbic",
+    "Cont": "Frontoparietal control",
+    "Default": "Default mode",
+}
+
+
+def _network_from_label(label: str) -> str:
+    if label.startswith("ctx-lh-"):
+        return LEFT_DK_TO_YEO7[label.removeprefix("ctx-lh-")]
+    if label.startswith("ctx-rh-"):
+        return RIGHT_DK_TO_YEO7[label.removeprefix("ctx-rh-")]
+    if label.startswith("7Networks_"):
+        parts = label.split("_")
+        if len(parts) < 4 or parts[1] not in {"LH", "RH"}:
+            raise ValueError(f"Malformed Schaefer2018 label: {label}")
+        try:
+            return SCHAEFER_NETWORK_NAMES[parts[2]]
+        except KeyError as error:
+            raise ValueError(f"Unknown Schaefer2018 Yeo-7 network in label: {label}") from error
+    return "Non-cortical"
+
+
+def yeo7_membership(
+    region_labels: list[str],
+) -> tuple[np.ndarray, list[list[int]], tuple[str, ...]]:
     membership = np.empty(len(region_labels), dtype=int)
-    groups = [[] for _ in NETWORK_ORDER]
-    name_to_index = {name: index for index, name in enumerate(NETWORK_ORDER)}
-    for roi, label in enumerate(region_labels):
-        if label.startswith("ctx-lh-"):
-            network = LEFT_DK_TO_YEO7[label.removeprefix("ctx-lh-")]
-        elif label.startswith("ctx-rh-"):
-            network = RIGHT_DK_TO_YEO7[label.removeprefix("ctx-rh-")]
-        else:
-            network = "Non-cortical"
+    assignments = [_network_from_label(str(label)) for label in region_labels]
+    active_names = tuple(name for name in NETWORK_ORDER if name in assignments)
+    groups = [[] for _ in active_names]
+    name_to_index = {name: index for index, name in enumerate(active_names)}
+    for roi, network in enumerate(assignments):
         membership[roi] = name_to_index[network]
         groups[name_to_index[network]].append(roi)
     if any(not group for group in groups):
-        raise ValueError("Every Yeo7 + non-cortical group must contain at least one ROI.")
-    return membership, groups
+        raise ValueError("Every active Yeo-7/non-cortical group must contain at least one ROI.")
+    return membership, groups, active_names
+
+
+def exact_between_group_shapley(
+    conditional: np.ndarray,
+    roi_blocks: list[tuple[int, int]],
+    groups: list[list[int]],
+) -> tuple[np.ndarray, float]:
+    """Allocate between-group conditional total correlation by exact Shapley value.
+
+    The coalition value is the conditional total correlation among the network
+    blocks retained in that coalition. Enumerating all 2^7 coalitions is cheap
+    and preserves the full multivariate interaction rather than inventing a
+    pairwise edge decomposition.
+    """
+    group_source_blocks = [
+        tuple(source for roi in group for source in roi_blocks[int(roi)])
+        for group in groups
+    ]
+    group_count = len(group_source_blocks)
+    coalition_values = {0: 0.0}
+    for mask in range(1, 1 << group_count):
+        selected_groups = [index for index in range(group_count) if mask & (1 << index)]
+        selected_sources: list[int] = []
+        local_blocks: list[tuple[int, ...]] = []
+        offset = 0
+        for index in selected_groups:
+            block = group_source_blocks[index]
+            selected_sources.extend(block)
+            local_blocks.append(tuple(range(offset, offset + len(block))))
+            offset += len(block)
+        local = np.asarray(conditional, dtype=float)[np.ix_(selected_sources, selected_sources)]
+        coalition_values[mask] = conditional_total_correlation(local, local_blocks)
+
+    denominator = math.factorial(group_count)
+    shapley = np.zeros(group_count, dtype=float)
+    for player in range(group_count):
+        player_bit = 1 << player
+        for size in range(group_count):
+            weight = math.factorial(size) * math.factorial(group_count - size - 1) / denominator
+            for subset in itertools.combinations(
+                (index for index in range(group_count) if index != player), size
+            ):
+                mask = sum(1 << index for index in subset)
+                shapley[player] += weight * (
+                    coalition_values[mask | player_bit] - coalition_values[mask]
+                )
+    full_value = coalition_values[(1 << group_count) - 1]
+    return shapley, float(shapley.sum() - full_value)
 
 
 def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
@@ -153,7 +229,7 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
         j_fic = np.asarray(source_archive["j_fic"], dtype=float)[source_positions]
 
     labels = load_region_labels(resolve_path(args.connectivity_labels), connectivity.shape[0])
-    membership, groups = yeo7_membership(labels)
+    membership, groups, network_names = yeo7_membership(labels)
     roi_blocks = [(index, index + connectivity.shape[0]) for index in range(connectivity.shape[0])]
     parameters = dmf.DMFParameters(t_total=1.0, burn_in=0.0, dt=float(args.dt), sigma=float(args.sigma))
     shape = (len(seeds), len(requested_g))
@@ -163,10 +239,13 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
     within_group = np.empty(shape, dtype=float)
     between_group = np.empty(shape, dtype=float)
     within_group_by_network = np.empty(shape + (len(groups),), dtype=float)
+    between_group_shapley = np.empty(shape + (len(groups),), dtype=float)
+    shapley_sum_error = np.empty(shape, dtype=float)
 
     for seed_index, seed in enumerate(seeds):
         for g_index, (coupling_g, source_position) in enumerate(zip(requested_g, source_positions)):
-            source_rng = np.random.default_rng(int(seed) * 100_000 + int(source_position) * 1_000)
+            schedule_index = int(np.rint((float(coupling_g) - 1.0) / 0.1))
+            source_rng = np.random.default_rng(int(seed) * 100_000 + schedule_index * 1_000)
             source_se, source_si = fixed_uniform_initial_state(
                 source_rng,
                 sample_count=sample_count,
@@ -179,7 +258,7 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
             )
             if source_si is None:
                 raise RuntimeError("The full-state protocol requires inhibitory interventions.")
-            noise_rng = np.random.default_rng(int(seed) * 100_000 + int(source_position) * 1_000 + 17)
+            noise_rng = np.random.default_rng(int(seed) * 100_000 + schedule_index * 1_000 + 17)
             target_se, target_si = rollout(
                 dmf,
                 source_se,
@@ -203,6 +282,10 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
             within_group[seed_index, g_index] = float(hierarchy["within_module_total"])
             between_group[seed_index, g_index] = float(hierarchy["between_module"])
             within_group_by_network[seed_index, g_index] = np.asarray(hierarchy["within_module"], dtype=float)
+            (
+                between_group_shapley[seed_index, g_index],
+                shapley_sum_error[seed_index, g_index],
+            ) = exact_between_group_shapley(conditional, roi_blocks, groups)
             print(f"seed={seed} G={coupling_g:.1f} Phi={fine_phi[seed_index, g_index]:.4f}", flush=True)
             if abs(float(metrics["raw_phi"]) - expected_phi[seed_index, g_index]) > float(args.validation_tolerance):
                 raise RuntimeError("Recomputed PhiEID does not match the main confirmation.")
@@ -210,11 +293,14 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
     hierarchy_error = np.max(np.abs(fine_phi - within_roi - within_group - between_group))
     if hierarchy_error > 1.0e-7:
         raise RuntimeError(f"Hierarchy additivity error is {hierarchy_error:.6g} bits.")
+    maximum_shapley_error = float(np.max(np.abs(shapley_sum_error)))
+    if maximum_shapley_error > 1.0e-7:
+        raise RuntimeError(f"Cross-network Shapley closure error is {maximum_shapley_error:.6g} bits.")
     return {
         "G": requested_g,
         "seeds": seeds,
         "region_labels": np.asarray(labels, dtype=object),
-        "network_names": np.asarray(NETWORK_ORDER, dtype=object),
+        "network_names": np.asarray(network_names, dtype=object),
         "network_membership": membership,
         "network_sizes": np.asarray([len(group) for group in groups], dtype=int),
         "conditional_covariance": conditional_covariance,
@@ -225,6 +311,8 @@ def compute_payload(args: argparse.Namespace) -> dict[str, np.ndarray]:
         "within_group_cross_roi": within_group,
         "between_groups": between_group,
         "within_group_by_network": within_group_by_network,
+        "between_group_shapley": between_group_shapley,
+        "between_group_shapley_sum_error": shapley_sum_error,
         "hierarchy_max_abs_error": np.asarray(float(hierarchy_error)),
     }
 
@@ -253,7 +341,10 @@ def plot_payload(payload: dict[str, np.ndarray], output: Path) -> None:
         ("Cross-ROI, within functional group", np.asarray(payload["within_group_cross_roi"]), COMPONENT_COLORS[1]),
         ("Between functional groups", np.asarray(payload["between_groups"]), COMPONENT_COLORS[2]),
     )
-    figure, axes = plt.subplots(1, 3, figsize=(10.2, 3.25), constrained_layout=True, gridspec_kw={"width_ratios": (1.25, 0.78, 1.28)})
+    figure, axes = plt.subplots(
+        1, 4, figsize=(13.4, 3.25), constrained_layout=True,
+        gridspec_kw={"width_ratios": (1.25, 0.78, 1.28, 1.28)},
+    )
 
     bottom = np.zeros_like(g_values)
     for label, values, color in components:
@@ -281,15 +372,35 @@ def plot_payload(payload: dict[str, np.ndarray], output: Path) -> None:
     for index, value in enumerate(means):
         axes[1].text(index, value + 2.0, f"{value:.1f}%", ha="center", va="bottom")
 
-    network_values = np.asarray(payload["within_group_by_network"]).mean(axis=(0, 1))
+    within_values = np.asarray(payload["within_group_by_network"], dtype=float)
+    network_values = within_values.mean(axis=(0, 1))
+    network_errors = within_values.reshape(-1, within_values.shape[-1]).std(axis=0, ddof=1) / np.sqrt(
+        np.prod(within_values.shape[:2])
+    )
     order = np.argsort(network_values)
     y = np.arange(len(order))
-    axes[2].barh(y, network_values[order], color=[NETWORK_COLORS[index] for index in order], height=0.68)
+    axes[2].barh(
+        y, network_values[order], xerr=network_errors[order],
+        color=[NETWORK_COLORS[index] for index in order], height=0.68, capsize=2,
+    )
     axes[2].set_yticks(y, [str(payload["network_names"][index]) + f" (n={int(payload['network_sizes'][index])})" for index in order])
     axes[2].set_xlabel(r"Within-group cross-ROI $\Phi^{EID}$ (bits)")
     axes[2].grid(True, axis="x", color="0.90", lw=0.6)
 
-    for panel, axis in zip(("A", "B", "C"), axes):
+    shapley_values = np.asarray(payload["between_group_shapley"], dtype=float)
+    shapley_mean = shapley_values.mean(axis=(0, 1))
+    shapley_sem = shapley_values.reshape(-1, shapley_values.shape[-1]).std(axis=0, ddof=1) / np.sqrt(
+        np.prod(shapley_values.shape[:2])
+    )
+    axes[3].barh(
+        y, shapley_mean[order], xerr=shapley_sem[order],
+        color=[NETWORK_COLORS[index] for index in order], height=0.68, capsize=2,
+    )
+    axes[3].set_yticks(y, [str(payload["network_names"][index]) for index in order])
+    axes[3].set_xlabel(r"Between-network Shapley $\Phi^{EID}$ (bits)")
+    axes[3].grid(True, axis="x", color="0.90", lw=0.6)
+
+    for panel, axis in zip(("A", "B", "C", "D"), axes):
         axis.text(-0.16, 1.05, panel, transform=axis.transAxes, fontsize=11, fontweight="bold")
     output.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output, dpi=450, bbox_inches="tight")
@@ -305,6 +416,10 @@ def write_summary(payload: dict[str, np.ndarray], path: Path) -> None:
     within_group = np.asarray(payload["within_group_cross_roi"], dtype=float)
     between = np.asarray(payload["between_groups"], dtype=float)
     by_network = np.asarray(payload["within_group_by_network"], dtype=float).mean(axis=(0, 1))
+    shapley = np.asarray(payload["between_group_shapley"], dtype=float)
+    shapley_mean = shapley.mean(axis=(0, 1))
+    network_sizes = np.asarray(payload["network_sizes"], dtype=float)
+    cross_opportunities = network_sizes * (network_sizes.sum() - network_sizes)
     summary = {
         "experiment_contract": {
             "treatment": "mesoscale grouping changed from structural Louvain to cortical Yeo-7 plus a non-cortical group",
@@ -314,11 +429,14 @@ def write_summary(payload: dict[str, np.ndarray], path: Path) -> None:
             "conditions": int(fine.size),
         },
         "mapping": {
-            "method": "maximum fsaverage5 surface-vertex overlap between Desikan-Killiany aparc and Yeo2011 7-network annotations",
+            "method": (
+                "Schaefer2018 embedded Yeo-7 label" if all(str(label).startswith("7Networks_") for label in payload["region_labels"])
+                else "maximum fsaverage5 surface-vertex overlap between Desikan-Killiany aparc and Yeo2011 7-network annotations"
+            ),
             "yeo7_annotation_source": "ThomasYeoLab/CBIG Yeo2011 fsaverage5 split-label annotations",
             "desikan_annotation_source": "FreeSurfer fsaverage5 aparc annotations",
-            "cortical_roi_count": int(np.sum(np.asarray(payload["network_membership"]) < 7)),
-            "noncortical_roi_count": int(np.sum(np.asarray(payload["network_membership"]) == 7)),
+            "cortical_roi_count": int(sum(str(label).startswith(("ctx-", "7Networks_")) for label in payload["region_labels"])),
+            "noncortical_roi_count": int(sum(not str(label).startswith(("ctx-", "7Networks_")) for label in payload["region_labels"])),
             "network_sizes": {str(name): int(size) for name, size in zip(payload["network_names"], payload["network_sizes"])},
             "region_assignments": {
                 str(region): str(payload["network_names"][int(network)])
@@ -339,14 +457,31 @@ def write_summary(payload: dict[str, np.ndarray], path: Path) -> None:
         "within_group_cross_roi_bits": {
             str(name): float(value) for name, value in zip(payload["network_names"], by_network)
         },
+        "between_group_shapley_bits": {
+            str(name): float(value) for name, value in zip(payload["network_names"], shapley_mean)
+        },
+        "between_group_shapley_per_roi_bits": {
+            str(name): float(value / size)
+            for name, value, size in zip(payload["network_names"], shapley_mean, network_sizes)
+        },
+        "between_group_shapley_per_cross_network_opportunity_bits": {
+            str(name): float(value / opportunities)
+            for name, value, opportunities in zip(payload["network_names"], shapley_mean, cross_opportunities)
+        },
         "validation": {
             "hierarchy_max_abs_error_bits": float(payload["hierarchy_max_abs_error"]),
+            "between_group_shapley_max_abs_sum_error_bits": float(
+                np.max(np.abs(payload["between_group_shapley_sum_error"]))
+            ),
+            "all_between_group_shapley_nonnegative": bool(np.all(shapley >= -1.0e-10)),
             "all_24_conditions_cross_roi_exceeds_within_roi": bool(np.all(cross_roi > within_roi)),
             "all_24_conditions_between_groups_exceeds_within_group_cross_roi": bool(np.all(between > within_group)),
         },
         "interpretation_boundary": (
-            "Yeo-7 is cortical. The 15 subcortical/brain-stem ROIs are retained as one explicit non-cortical group. "
-            "Majority-overlap assignments compress spatially heterogeneous Desikan parcels to one network label."
+            "Yeo-7 is cortical. Schaefer2018 parcels use the network assignment embedded in their official labels; "
+            "Desikan inputs use majority-overlap assignments and retain subcortical/brain-stem ROIs as a separate group. "
+            "Cross-network Shapley values are an efficient, symmetric attribution of multivariate between-network "
+            "conditional total correlation; they are not pairwise edges or unique biological causal effects."
         ),
     }
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -174,7 +174,8 @@ def main() -> None:
 
     for seed_index, seed in enumerate(args.seeds):
         for g_position, coupling_g in enumerate(g_values):
-            source_rng = np.random.default_rng(int(seed) * 100_000 + int(selected[g_position]) * 1_000)
+            schedule_index = int(np.rint((float(coupling_g) - 1.0) / 0.1))
+            source_rng = np.random.default_rng(int(seed) * 100_000 + schedule_index * 1_000)
             source_se, source_si_optional = fixed_uniform_initial_state(
                 source_rng, sample_count=int(args.sample_count), dimension=connectivity.shape[0],
                 source_state=args.source_state, low=float(args.intervention_low), high=float(args.intervention_high),
@@ -185,7 +186,7 @@ def main() -> None:
             source_z, _, _ = standardize(source)
             for mode_index, mode in enumerate(args.modes):
                 noise_rng = np.random.default_rng(
-                    int(seed) * 100_000 + int(selected[g_position]) * 1_000 + 17
+                    int(seed) * 100_000 + schedule_index * 1_000 + 17
                 )
                 target_se, target_si = rollout(
                     dmf, source_se, source_si, connectivity=connectivity, coupling_g=float(coupling_g),
@@ -214,10 +215,14 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     se_support = f"U({se_low:.2f},{se_high:.2f})"
     si_support = f"U({si_low:.2f},{si_high:.2f})"
+    n_regions = int(connectivity.shape[0])
     source_target = (
-        f"independent {se_support}^83 sE source with sI=0 background to full-state future target"
+        f"independent {se_support}^{n_regions} sE source with sI=0 background to full-state future target"
         if args.source_state == "se"
-        else f"independent {se_support}^83 sE and {si_support}^83 sI source to full-state future target"
+        else (
+            f"independent {se_support}^{n_regions} sE and "
+            f"{si_support}^{n_regions} sI source to full-state future target"
+        )
     )
     np.savez(
         output,

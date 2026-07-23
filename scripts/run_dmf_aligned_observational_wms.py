@@ -231,7 +231,8 @@ def run(args: argparse.Namespace) -> None:
                 if len(se_trace) < 4:
                     raise RuntimeError("Natural steady-state trace is too short.")
 
-                source_seed = int(seed) * 100_000 + int(selected[g_index]) * 1_000
+                schedule_index = int(np.rint((float(coupling) - 1.0) / 0.1))
+                source_seed = int(seed) * 100_000 + schedule_index * 1_000
                 source_rng = np.random.default_rng(source_seed)
                 # Consume the same source RNG stream as the intervention reference.
                 fixed_uniform_initial_state(
