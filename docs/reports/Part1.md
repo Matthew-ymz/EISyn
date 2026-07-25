@@ -169,6 +169,146 @@ $K\in\{0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0,1.5,2.0\}$，
 
 随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
 
+## 模块化 Kuramoto 的 Greedy 层级恢复正对照
+
+前一小节只考察两个振子到一个瞬时速度 target 的二源协同。为了在真实数据应用之前检验系统级 Greedy 层级分解能否恢复已知连续动力学模块，进一步构造六振子模块化 Kuramoto 系统：
+
+$$
+\dot{\theta}_i
+=\omega_i+\sum_{j\ne i}K_{ij}\sin(\theta_j-\theta_i),
+$$
+
+并植入两个已知模块
+
+$$
+C_1=\{1,2,3\},\qquad C_2=\{4,5,6\}.
+$$
+
+群内总耦合固定为 $K_{\mathrm{in}}=1.5$，只扫描跨模块耦合
+$K_{\mathrm{out}}\in\{0,0.25,0.75,1.5\}$。每个 seed 使用相同的 1200 个独立均匀相位干预、固有频率和标准化过程噪声，由已知向量场直接生成短时相位速度。每个振子以 $(\cos\theta_i,\sin\theta_i)$ 作为一个源块，用 degree-2 polynomial triangular transport map 估计全部 63 个非空源子集的 EI，再调用与真实数据分析相同的 `greedy_phi_atoms`。
+
+![模块化 Kuramoto 动力学中的 Greedy 层级恢复](../ref/assets/greedy_hierarchy_kuramoto/validation.png)
+
+*图：模块化 Kuramoto 正对照。a，蓝色为两个 planted 群内耦合模块，红色为跨群耦合。b，在 $K_{\mathrm{out}}=0$ 的代表 seed 中，两个最大 Greedy atom 恰好为 $\{1,2,3\}$ 和 $\{4,5,6\}$。c，跨群耦合增强时，正 atom 质量由群内模块连续转移到跨模块残差；点和误差线为三个配对 seeds 的均值与 SEM。d，planted 根分裂在弱到中等跨群耦合时稳定恢复，但在 $K_{\mathrm{out}}=K_{\mathrm{in}}$ 时消失。*
+
+| $K_{\mathrm{out}}$ | planted 根分裂 | 群内 atom 质量 | 跨模块质量 | 根层跨模块残差 |
+|---:|---:|---:|---:|---:|
+| 0.00 | 3/3 | $0.960\pm0.002$ | $0.040\pm0.002$ | $0.145\pm0.009$ bits |
+| 0.25 | 3/3 | $0.883\pm0.005$ | $0.117\pm0.005$ | $0.454\pm0.018$ bits |
+| 0.75 | 3/3 | $0.777\pm0.006$ | $0.223\pm0.006$ | $0.864\pm0.029$ bits |
+| 1.50 | 0/3 | $0.299\pm0.001$ | $0.701\pm0.001$ | $1.273\pm0.019$ bits |
+
+在 $K_{\mathrm{out}}=0$ 的代表 seed 中，系统级 $\Phi$ 为 3.663 bits，96.1% 的正 atom 质量位于 planted 模块内。target shuffle 后 $\Phi$ 降至 0.228 bits，根分裂变为五振子对单振子，不再恢复 planted 模块。全部条件的层级闭合误差低于 $5\times10^{-16}$ bits。
+
+因此，该正对照说明：Greedy 层级分解不是无条件输出预设社区；它在两个模块确实近似动力学可分时恢复它们，并在跨群作用增大时把质量转移到跨模块残差，在原分区失去动力学优势时停止恢复。不过，标准 Kuramoto 的多条边会共享节点，而 Greedy 输出是一棵不重叠二叉树，因此该实验验证的是动力学模块恢复，不是所有 pairwise 边的一一唯一分解。完整实验设计、原子结果和边界见[模块化 Kuramoto 已知动力学说明](../ref/kuramoto_greedy_hierarchy_known_dynamics.md)。
+
+## 高阶 Kuramoto：从 pairwise 边到多体相位作用
+
+普通 Kuramoto 的每个相互作用只涉及一对振子。真正的高阶 Kuramoto 在向量场中加入不可约三体或四体项。最适合下一步已知真值实验的三体形式为
+
+$$
+\dot{\theta}_i
+=\omega_i
++\frac{K_1}{d_i^{(1)}}\sum_j A_{ij}\sin(\theta_j-\theta_i)
++\frac{K_2}{d_i^{(2)}}\sum_{j,k}B_{ijk}
+\sin(\theta_j+\theta_k-2\theta_i),
+$$
+
+其中 $\mathbf{A}$ 是 pairwise adjacency matrix，$\mathbf{B}$ 是三元 adjacency tensor。$B_{ijk}=1$ 表示 $\{i,j,k\}$ 形成一个真正的动力学超边。这里的“高阶”不能与 $\sin 2(\theta_j-\theta_i)$ 之类的二体高次谐波混淆：后者仍只涉及两个振子，前者才要求同时知道 $\theta_i,\theta_j,\theta_k$。
+
+### 二元边与三元超边的同层级辨识
+
+按照这一形式，进一步完成了一个五振子 mixed-order 正对照。已知向量场同时植入一个对称 pairwise 模块和一个对称三体模块：
+
+$$
+\begin{aligned}
+\dot{\theta}_1&=\omega_1+K_1\sin(\theta_2-\theta_1),\\
+\dot{\theta}_2&=\omega_2+K_1\sin(\theta_1-\theta_2),\\
+\dot{\theta}_i&=\omega_i+K_2\sin(\theta_j+\theta_k-2\theta_i),
+\qquad i,j,k\in\{3,4,5\},\ i\ne j\ne k.
+\end{aligned}
+$$
+
+真值分别是二阶模块 $C_2=\{\theta_1,\theta_2\}$ 和三阶超边
+$C_3=\{\theta_3,\theta_4,\theta_5\}$。两个模块之间另加归一化强度
+$K_{\mathrm{out}}=0.04$ 的弱 pairwise coupling；它用于检验近似模块，而不是把 planted 分区设为完全断开。
+
+实验不再从真值向量场直接读取一个标量 target。每个 seed 先从独立均匀初始相位生成 4800 个有限时随机转移，积分步长为 $0.01$，预测跨度为 $\tau=0.2$，每一步加入强度 $0.08$ 的过程噪声。随后用这些转移拟合非线性动力学模型。模型输入为五个振子的圆周状态，输出为完整五维未来相位变化
+
+$$
+\mathbf{Y}
+=\Delta_\tau\boldsymbol{\theta}_{1:5}
+=\operatorname{wrap}\!\left(
+\boldsymbol{\theta}_{t+\tau}-\boldsymbol{\theta}_t
+\right).
+$$
+
+使用未来变化而不是绝对未来相位，是因为短时连续动力学的绝对 next state 被 identity/persistence 主导：审计中即使把 $\tau$ 增至 2，五个 singleton EI 之和仍超过 whole EI，使根 $\Phi$ 为负。未来变化仍包含所有五个振子的响应，但去除了平凡的状态复制。
+
+拟合完成后，另取 3600 个独立均匀相位干预输入学习到的动力学模型，并从 held-out 残差协方差中采样随机响应。代表 seed 的 held-out 圆周 MAE 为 $0.072$ rad；三个 seeds 为 $0.066$–$0.074$ rad。
+
+高维 polynomial TM 已先行审计，但在 16 维圆周 source dictionary 和五维 target 上退化：degree-3 joint TM 的 EI 被压到 0，degree-2 TM 又只能识别 pairwise 通道。因此本实验使用可扩展的替代估计：对每个 source subset 拟合相同容量的非线性条件均值模型，并在未参与拟合的后 $1/3$ 样本上用多元 Gaussian log-det 熵差估计 EI。该方法保留完整五维 target，但假设 held-out 条件残差可用 Gaussian 协方差概括。
+
+31 个 subset 分别拟合会产生有限样本偏差，甚至使原始 plug-in 值短暂落到 0 以下；这违反当前 PEID 推导中的非负性，不能解释为真实负信息。进入 Greedy 前，对全部 $\Phi(S)$ 做最小向上可行投影，使每个 subset 同时满足
+
+$$
+\widetilde{\Phi}(S)\ge 0,
+\qquad
+\widetilde{\Phi}(S)\ge
+\max_{S=L\mathbin{\dot\cup}R}
+\left\{
+\widetilde{\Phi}(L)+\widetilde{\Phi}(R)
+\right\}.
+$$
+
+因此该修正可以向正偏，但不会保留任何负 $\Phi$。三个真实条件 seeds 的根修正量为 $0.094$–$0.234$ bits；所有 subset 的修正量均保存在结果文件中，不能解释为观测到的信息。随后使用
+
+$$
+\Phi(S)=\mathrm{EI}(S)-\sum_{i\in S}\mathrm{EI}(\{i\}),
+$$
+
+再枚举全部非平凡二分 $S=L\cup R$，选择使
+
+$$
+C(L,R)=\Phi(L)+\Phi(R)
+$$
+
+最大的切分。若最优 $C(L,R)\le10^{-5}$ bits，当前节点终止；否则保留残差并递归处理。投影后只使用 $10^{-8}$ bits 的数值闭合容忍度，不再用较大的负残差阈值掩盖估计不一致。
+
+![混合阶 Kuramoto 中二元边与三元超边的同层级恢复](../ref/assets/mixed_order_kuramoto_hierarchy/validation.png)
+
+*图：从学习到的 mixed-order Kuramoto 动力学恢复 Greedy 层级。a，蓝色 pairwise edge、橙色 triadic hyperedge 与灰色弱跨模块连接共同产生五维未来相位变化 target。b，代表 seed 的根节点和两个子节点候选均按 $C(L,R)$ 降序排列。根节点从 15 个候选中选择 $\{1,2\}\mid\{3,4,5\}$。二元节点只能切成 singleton，因而结构性停止；三元节点的三个原始 plug-in 候选受到有限样本负偏，但在进入 Greedy 前均按 $\Phi\ge0$ 的理论约束投影为 0，因此停止为 triadic 原子。这里的 0 表示数学可行域边界，不表示数据或拟合过程没有噪声。*
+
+| Greedy 输出 | 均值 $\pm$ SEM | 结构解释 |
+|---|---:|---|
+| 根层整合残差 $\{1,2,3,4,5\}$ | $0$ bits | 单调投影后的最佳切分完全分配根 $\Phi$ |
+| 二阶原子 $\{1,2\}$ | $1.943\pm0.023$ bits | planted pairwise coupling |
+| 三阶原子 $\{3,4,5\}$ | $2.542\pm0.198$ bits | planted symmetric triadic hyperedge |
+| 其他正原子 | 0 | 未检出非植入组合 |
+
+在代表 seed 中，根 $\Phi=4.379$ bits，正确切分捕获同为
+$4.379$ bits；第二名为 $2.390$ bits。递归后得到
+$\Phi(\{1,2\})=1.989$ bits 和
+$\Phi(\{3,4,5\})=2.390$ bits。三个 seeds 在四个配对条件——无扰动、仅过程噪声、仅弱跨模块连接、二者同时存在——中均恢复 planted 根切分，共 $12/12$ 次。真实条件的三个 target shuffle 根 $\Phi$ 均为 0。投影后的层级闭合误差为机器精度，但这一闭合依赖上述显式单调修正。
+
+因此，这个例子不再是“真值向量场到标量读出”的理想演示，而是数据生成、动力学拟合、独立干预和层级分解相互分离的 learned-dynamics 正对照。证据支持：在当前噪声和弱连接范围内，根层 `2+3` 分区稳定恢复。证据不支持：当前 Gaussian readout 可无偏替代高维 TM，或单调投影的修正量可以忽略。当前真值模块仍互不重叠；共享节点的边与超边继续受不重叠二叉树限制。完整方程、EI 表、估计失败和修正诊断见[混合阶 Kuramoto 已知动力学说明](../ref/mixed_order_kuramoto_hierarchy.md)。
+
+已有研究显示，多体相位作用可以产生普通 pairwise 模型中没有或不稳定出现的现象：
+
+- 同一参数下存在大量同步吸引子，最终同步度强烈依赖初始相位；
+- 同步参数突然跳变并形成向上/向下扫描不同的滞回环；
+- 即使 pairwise 耦合为排斥，高阶项仍可稳定同步分支；
+- 两个反相同步簇使一阶序参量 $R_1$ 接近零，但二阶序参量
+  $$
+  R_2=\left|N^{-1}\sum_j e^{2\mathrm{i}\theta_j}\right|
+  $$
+  仍接近 1，并可发生突然的 $\pi$-transition；
+- 近期三振子纯三体模型还报告了 devil's staircase、multistability 和 synchronization revival。
+
+这些现象分别由三体多稳态研究、simplicial Kuramoto、multicluster 稳定性分析和双簇相变工作支持，而不是本仓库已经完成的实验结果。关键来源包括 [Tanaka & Aoyagi 2011](https://doi.org/10.1103/PhysRevLett.106.224101)、[Skardal & Arenas 2020](https://www.nature.com/articles/s42005-020-00485-0)、[Millán et al. 2020](https://doi.org/10.1103/PhysRevLett.124.218301)、[Xu & Skardal 2021](https://doi.org/10.1103/PhysRevResearch.3.013013)、[Carballosa et al. 2023](https://doi.org/10.1016/j.chaos.2023.114197) 和 [Li et al. 2026](https://doi.org/10.1103/5rg2-4xkq)。
+
+上述 learned-dynamics 与 Greedy 短时机制实验已经完成。下一步应解决高维 TM 退化与 subset EI 单调修正问题，再转向自然轨迹与集体态：同时扫描 $K_1,K_2$，记录 $R_1$、$R_2$、滞回面积和 basin occupancy，并补充 triangle-without-hyperedge、degree-preserving hyperedge permutation 与统一谐波字典对照。详细文献边界、方程和后续失败判据见[高阶 Kuramoto 调研与实验方案](../ref/higher_order_kuramoto_research.md)。
+
 ## Controlled Hénon Unique-Information Sweep
 
 **领域背景**：Hénon 映射是经典二维耗散混沌模型。这里使用受控 Hénon-style 读出，把显式二源交互项和单源观测通道分开。

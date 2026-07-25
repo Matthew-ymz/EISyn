@@ -73,6 +73,8 @@ transport-map EI 与连续动力学实验，包括：
 - [exp/marshall_example1_macro_search.ipynb](exp/marshall_example1_macro_search.ipynb)：Marshall et al. Example 1 粗粒化搜索。
 - [exp/discrete_benchmark.ipynb](exp/discrete_benchmark.ipynb)：六个八节点 Mediano 风格 benchmark。
 - [exp/rq3_manual_case.ipynb](exp/rq3_manual_case.ipynb) 与 [exp/rq3_boolean_causal_emergence.ipynb](exp/rq3_boolean_causal_emergence.ipynb)：RQ3 因果涌现实验。
+- [docs/ref/phi_eid_greedy_5d_example.md](docs/ref/phi_eid_greedy_5d_example.md) 与 [scripts/validate_greedy_hierarchy_known_dynamics.py](scripts/validate_greedy_hierarchy_known_dynamics.py)：五源双 XOR 已知动力学的闭式 EI、有限样本估计与 Greedy 层级恢复正对照。
+- [docs/ref/kuramoto_greedy_hierarchy_known_dynamics.md](docs/ref/kuramoto_greedy_hierarchy_known_dynamics.md) 与 [scripts/validate_greedy_hierarchy_kuramoto.py](scripts/validate_greedy_hierarchy_kuramoto.py)：模块化六振子 Kuramoto 连续动力学、degree-2 TM-EI 与 Greedy 层级恢复主正对照。
 
 ### 连续动力学与 TM-EI
 
@@ -120,6 +122,18 @@ transport-map EI 与连续动力学实验，包括：
 
 ```bash
 pytest tests/
+```
+
+复现已知动力学的 Greedy 层级恢复：
+
+```bash
+python scripts/validate_greedy_hierarchy_known_dynamics.py --seeds 12
+```
+
+复现模块化 Kuramoto 的层级恢复与跨模块耦合扫描：
+
+```bash
+python scripts/validate_greedy_hierarchy_kuramoto.py --mode full --seeds 3
 ```
 
 运行长三角 smoke pipeline：

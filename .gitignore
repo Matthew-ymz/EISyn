@@ -58,6 +58,9 @@ tests/*
 !tests/test_unicm_shap_surrogate.py
 !tests/test_hcp_lausanne_phi_eid_pilot.py
 !tests/test_brain_surface_plot.py
+!tests/test_greedy_hierarchy_known_dynamics.py
+!tests/test_greedy_hierarchy_kuramoto.py
+!tests/test_mixed_order_kuramoto_hierarchy.py
 *.pt
 *.pth
 *.ckpt
