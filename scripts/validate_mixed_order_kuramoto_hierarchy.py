@@ -13,6 +13,7 @@ marginalizing that same model. The run records every candidate split, paired
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import math
 import os
@@ -29,7 +30,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from exp.TM.transport_map_density import LOG_2
+from exp.TM.transport_map_density import (
+    LOG_2,
+    fit_polynomial_triangular_transport_map_density,
+)
 from scripts.phi_hierarchy import (
     NONNEGATIVE_TOLERANT,
     PhiAtom,
@@ -52,7 +56,7 @@ GREEDY_SPLIT_TOLERANCE = 1.0e-6
 TM_HIDDEN_FEATURES = 64
 TM_LAYERS = 3
 TM_BATCH_SIZE = 512
-TM_MARGINAL_EVALUATIONS = 512
+TM_MARGINAL_EVALUATIONS = 2048
 TM_MARGINAL_SAMPLES = 512
 CONDITIONS = {
     "clean": {"process_noise": 0.0, "cross_coupling": 0.0},
@@ -452,6 +456,8 @@ def fit_joint_conditional_transport_map(
                 target_tensor[split:],
                 context=training_context[split:],
             )
+        del optimizer
+        gc.collect()
         return (
             fitted_flow,
             best_validation,
@@ -460,24 +466,40 @@ def fit_joint_conditional_transport_map(
         )
 
     conditional = train_flow(source_tensor, model_seed=int(seed))
-    zero_context = torch.zeros_like(source_tensor)
-    target_only = train_flow(zero_context, model_seed=int(seed) + 1)
+    target_only = fit_polynomial_triangular_transport_map_density(
+        standardized_target[:split],
+        degree=3,
+        ridge=0.05,
+    )
+    target_only_validation = target_only.log_prob(
+        standardized_target[split:]
+    )
+    conditional_validation = np.asarray(
+        conditional[3].detach().cpu().tolist(),
+        dtype=float,
+    )
     paired_improvement = (
-        conditional[3] - target_only[3]
+        conditional_validation - target_only_validation
     ) / LOG_2
     improvement_mean = float(paired_improvement.mean().item())
     improvement_sem = float(
-        paired_improvement.std(unbiased=True).item()
+        paired_improvement.std(ddof=1)
         / math.sqrt(len(paired_improvement))
     )
     context_active = bool(improvement_mean > 2.0 * improvement_sem)
-    selected = conditional if context_active else target_only
-    return selected[0], {
+    selected_nll = (
+        float(conditional[1] / LOG_2)
+        if context_active
+        else float(-target_only_validation.mean() / LOG_2)
+    )
+    selected_flow = conditional[0]
+    gc.collect()
+    return selected_flow, {
         "backend": "single_conditional_masked_autoregressive_transport_map",
         "train_rows": int(split),
         "validation_rows": int(len(target_array) - split),
-        "best_epoch": int(selected[2]),
-        "heldout_nll_bits": float(selected[1] / LOG_2),
+        "best_epoch": int(conditional[2]),
+        "heldout_nll_bits": selected_nll,
         "context_active": context_active,
         "conditional_gain_bits": improvement_mean,
         "conditional_gain_sem_bits": improvement_sem,
@@ -589,10 +611,32 @@ def coherent_joint_tm_ei_table(
                     flat_target,
                     context=flat_context,
                 ).reshape(row_stop - row_start, particle_count)
-                marginal_rows.append(
+                full_log_mean = (
                     torch.logsumexp(log_likelihood, dim=1)
                     - math.log(particle_count)
                 )
+                # log(mean(exp(log_likelihood))) has a negative O(1 / P)
+                # Jensen bias at finite particle count.  A two-block
+                # jackknife removes that leading bias while leaving the
+                # underlying continuous joint TM and its marginals unchanged.
+                # This is an estimator correction, not a nonnegative
+                # projection of EI or Phi.
+                half = particle_count // 2
+                if half >= 2 and 2 * half == particle_count:
+                    first_half = (
+                        torch.logsumexp(log_likelihood[:, :half], dim=1)
+                        - math.log(half)
+                    )
+                    second_half = (
+                        torch.logsumexp(log_likelihood[:, half:], dim=1)
+                        - math.log(half)
+                    )
+                    marginal_rows.append(
+                        2.0 * full_log_mean
+                        - 0.5 * (first_half + second_half)
+                    )
+                else:
+                    marginal_rows.append(full_log_mean)
         return torch.cat(marginal_rows)
 
     target_log_probability = marginal_log_probability(())
@@ -613,32 +657,54 @@ def coherent_joint_tm_ei_table(
         subset: subset_phi_raw(subset, table, singleton)
         for subset in all_nonempty_subsets(NAMES)
     }
-    non_singleton = [
-        value for subset, value in phi.items() if len(subset) > 1
-    ]
-    residuals = [
-        phi[subset] - phi[tuple(left)] - phi[tuple(right)]
+    minimum_phi, minimum_phi_subset = min(
+        (value, subset)
+        for subset, value in phi.items()
+        if len(subset) > 1
+    )
+    residual_rows = [
+        (
+            phi[subset] - phi[tuple(left)] - phi[tuple(right)],
+            subset,
+            tuple(left),
+            tuple(right),
+        )
         for subset in phi
         if len(subset) > 1
         for left, right in nontrivial_bipartitions(subset)
     ]
-    minimum_phi = float(min(non_singleton))
-    minimum_residual = float(min(residuals))
+    minimum_residual, residual_subset, residual_left, residual_right = min(
+        residual_rows
+    )
+    minimum_phi = float(minimum_phi)
+    minimum_residual = float(minimum_residual)
     if validate and minimum_phi < -GREEDY_SPLIT_TOLERANCE:
         raise RuntimeError(
-            f"joint-TM marginalization produced negative Phi={minimum_phi:.6g}"
+            "joint-TM marginalization produced negative "
+            f"Phi({minimum_phi_subset})={minimum_phi:.6g}"
         )
     if validate and minimum_residual < -GREEDY_SPLIT_TOLERANCE:
         raise RuntimeError(
             "joint-TM marginalization violated hierarchical additivity: "
+            f"{residual_subset} -> {residual_left}|{residual_right}, "
             f"residual={minimum_residual:.6g}"
         )
     return table, {
         "evaluation_count": sample_count,
         "marginal_samples": particle_count,
-        "integration": "common scrambled Sobol marginalization",
+        "integration": (
+            "common scrambled Sobol marginalization with two-block "
+            "jackknife log-mean bias correction"
+        ),
+        "log_marginal_bias_correction": "two-block jackknife",
         "minimum_non_singleton_phi_bits": minimum_phi,
+        "minimum_phi_subset": list(minimum_phi_subset),
         "minimum_partition_residual_bits": minimum_residual,
+        "minimum_residual_partition": {
+            "parent": list(residual_subset),
+            "left": list(residual_left),
+            "right": list(residual_right),
+        },
         "ei_sem_bits": sem,
         "nonnegative_clipping": False,
         "monotone_projection": False,
@@ -836,11 +902,47 @@ def run_condition(
         epochs=ei_epochs,
         seed=int(seed) + 5_000,
     )
-    table, marginal_diagnostics = coherent_joint_tm_ei_table(
-        flow,
-        seed=int(seed) + 6_000,
-        context_active=bool(transport_diagnostics["context_active"]),
-    )
+    marginal_attempts: list[dict[str, object]] = []
+    table: dict[tuple[str, ...], float] | None = None
+    marginal_diagnostics: dict[str, object] | None = None
+    for evaluation_count, marginal_samples in (
+        (TM_MARGINAL_EVALUATIONS, TM_MARGINAL_SAMPLES),
+        (TM_MARGINAL_EVALUATIONS, 2 * TM_MARGINAL_SAMPLES),
+        (2 * TM_MARGINAL_EVALUATIONS, 4 * TM_MARGINAL_SAMPLES),
+    ):
+        try:
+            table, marginal_diagnostics = coherent_joint_tm_ei_table(
+                flow,
+                seed=int(seed) + 6_000,
+                context_active=bool(
+                    transport_diagnostics["context_active"]
+                ),
+                evaluation_count=evaluation_count,
+                marginal_samples=marginal_samples,
+            )
+            marginal_attempts.append(
+                {
+                    "evaluation_count": int(evaluation_count),
+                    "marginal_samples": int(marginal_samples),
+                    "passed": True,
+                }
+            )
+            break
+        except RuntimeError as error:
+            marginal_attempts.append(
+                {
+                    "evaluation_count": int(evaluation_count),
+                    "marginal_samples": int(marginal_samples),
+                    "passed": False,
+                    "message": str(error),
+                }
+            )
+    if table is None or marginal_diagnostics is None:
+        raise RuntimeError(
+            "joint-TM marginalization failed all convergence levels: "
+            + " | ".join(str(row["message"]) for row in marginal_attempts)
+        )
+    marginal_diagnostics["convergence_attempts"] = marginal_attempts
     singleton = {name: float(table[(name,)]) for name in NAMES}
     root_phi = subset_phi_raw(NAMES, table, singleton)
     atoms = greedy_phi_atoms(
@@ -948,10 +1050,43 @@ def build_summary(
     epochs: int,
     ei_epochs: int,
     status_path: Path = DEFAULT_STATUS,
+    checkpoint_path: Path | None = None,
 ) -> dict[str, object]:
+    resolved_checkpoint = checkpoint_path or DEFAULT_RESULT.with_name(
+        "partial_rows.json"
+    )
+    checkpoint_version = (
+        f"joint_tm_jackknife_n{TM_MARGINAL_EVALUATIONS}"
+        f"_p{TM_MARGINAL_SAMPLES}"
+    )
     rows: list[dict[str, object]] = []
+    shuffled_rows: list[dict[str, object]] = []
+    if resolved_checkpoint.exists():
+        cached = json.loads(resolved_checkpoint.read_text(encoding="utf-8"))
+        if cached.get("version") == checkpoint_version:
+            rows = list(cached.get("rows", []))
+            shuffled_rows = list(cached.get("target_shuffle_controls", []))
     total = len(CONDITIONS) * len(seeds) + len(seeds)
     overall_started = time.perf_counter()
+
+    def write_checkpoint() -> None:
+        resolved_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        temporary = resolved_checkpoint.with_suffix(
+            resolved_checkpoint.suffix + ".tmp"
+        )
+        temporary.write_text(
+            json.dumps(
+                {
+                    "version": checkpoint_version,
+                    "rows": rows,
+                    "target_shuffle_controls": shuffled_rows,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        os.replace(temporary, resolved_checkpoint)
 
     def write_status(
         *,
@@ -982,9 +1117,18 @@ def build_summary(
         )
         os.replace(temporary, status_path)
 
-    write_status(phase="running", current=0)
+    write_status(
+        phase="running",
+        current=len(rows) + len(shuffled_rows),
+        message="resumed from compatible checkpoint" if rows else None,
+    )
     for condition in CONDITIONS:
         for seed in seeds:
+            if any(
+                row["condition"] == condition and int(row["seed"]) == int(seed)
+                for row in rows
+            ):
+                continue
             row = run_condition(
                 condition=condition,
                 training_count=training_count,
@@ -999,6 +1143,7 @@ def build_summary(
                 ei_epochs=ei_epochs,
             )
             rows.append(row)
+            write_checkpoint()
             write_status(
                 phase="running",
                 current=len(rows),
@@ -1021,8 +1166,9 @@ def build_summary(
                 f"elapsed={row['elapsed_seconds']:.1f}s",
                 flush=True,
             )
-    shuffled_rows = []
     for seed in seeds:
+        if any(int(row["seed"]) == int(seed) for row in shuffled_rows):
+            continue
         print(f"[control] realistic target shuffle, seed={seed}", flush=True)
         shuffled_row = run_condition(
                 condition="realistic",
@@ -1039,6 +1185,7 @@ def build_summary(
                 shuffle_target=True,
             )
         shuffled_rows.append(shuffled_row)
+        write_checkpoint()
         write_status(
             phase="running",
             current=len(rows) + len(shuffled_rows),
@@ -1539,6 +1686,11 @@ def plot_greedy_search_summary(
     representative = payload["mixed_representative"]
     trace = representative["greedy_trace"]
     pair_trace, triad_trace = trace["children"]
+    pair_45_trace = next(
+        child
+        for child in triad_trace["children"]
+        if set(child["sources"]) == {"theta4", "theta5"}
+    )
 
     pair_color = "#3E73A8"
     triad_color = "#D28A35"
@@ -1547,7 +1699,7 @@ def plot_greedy_search_summary(
     muted = "#AEB6BE"
     faint = "#E9EDF0"
 
-    figure = plt.figure(figsize=(7.2, 4.75), facecolor="white")
+    figure = plt.figure(figsize=(7.2, 5.00), facecolor="white")
     outer = figure.add_gridspec(
         1,
         2,
@@ -1562,13 +1714,14 @@ def plot_greedy_search_summary(
         2, 1, height_ratios=(0.78, 1.22), hspace=0.22
     )
     search_grid = outer[0, 1].subgridspec(
-        3, 1, height_ratios=(15.0, 2.4, 4.2), hspace=0.48
+        4, 1, height_ratios=(15.0, 1.55, 4.2, 1.55), hspace=0.52
     )
     axis_model = figure.add_subplot(dynamics_grid[0, 0])
     axis_response = figure.add_subplot(dynamics_grid[1, 0])
     axis_root = figure.add_subplot(search_grid[0, 0])
     axis_pair = figure.add_subplot(search_grid[1, 0], sharex=axis_root)
     axis_triad = figure.add_subplot(search_grid[2, 0], sharex=axis_root)
+    axis_pair_45 = figure.add_subplot(search_grid[3, 0], sharex=axis_root)
 
     # a: planted mixed-order dynamics, shown once rather than repeated summaries.
     axis_model.set_xlim(-0.55, 4.55)
@@ -1656,48 +1809,75 @@ def plot_greedy_search_summary(
         fontsize=6.1,
     )
 
-    phase = np.linspace(-math.pi, math.pi, 400)
-    pair_response = float(representative["pairwise_coupling"]) * np.sin(phase)
-    triad_response = float(representative["triadic_coupling"]) * np.sin(phase)
-    axis_response.axhline(0.0, color=faint, lw=0.8, zorder=0)
-    axis_response.axvline(0.0, color=faint, lw=0.8, zorder=0)
-    axis_response.plot(phase, pair_response, color=pair_color, lw=1.8)
-    axis_response.plot(phase, triad_response, color=triad_color, lw=1.8)
-    axis_response.fill_between(
-        phase, 0.0, pair_response, color=pair_color, alpha=0.08, linewidth=0
+    # One representative noisy five-dimensional trajectory is easier to read
+    # than isolated vector-field terms.  The channels are vertically offset
+    # only for display; every trace is the bounded phase signal sin(theta_i).
+    trajectory_dt = 0.01
+    trajectory_time = np.arange(0.0, 6.0 + trajectory_dt, trajectory_dt)
+    trajectory = np.empty((len(trajectory_time), len(NAMES)), dtype=float)
+    trajectory[0] = np.array([-1.45, -0.10, 1.35, -0.85, 0.30])
+    trajectory_rng = np.random.default_rng(20_260_726)
+    for time_index in range(1, len(trajectory_time)):
+        derivative = mixed_order_derivative(
+            trajectory[time_index - 1 : time_index],
+            pairwise_coupling=float(representative["pairwise_coupling"]),
+            triadic_coupling=float(representative["triadic_coupling"]),
+            cross_coupling=float(representative["cross_coupling"]),
+        )[0]
+        stochastic_increment = (
+            float(representative["process_noise"])
+            * math.sqrt(trajectory_dt)
+            * trajectory_rng.normal(size=len(NAMES))
+        )
+        trajectory[time_index] = (
+            trajectory[time_index - 1]
+            + trajectory_dt * derivative
+            + stochastic_increment
+        )
+    phase_signal = np.sin(trajectory)
+    offsets = np.arange(len(NAMES) - 1, -1, -1, dtype=float) * 1.18
+    channel_colors = [
+        pair_color,
+        mpl.colors.to_hex(mpl.colors.to_rgba(pair_color, 0.78)),
+        triad_color,
+        mpl.colors.to_hex(mpl.colors.to_rgba(triad_color, 0.82)),
+        mpl.colors.to_hex(mpl.colors.to_rgba(triad_color, 0.68)),
+    ]
+    for index, offset in enumerate(offsets):
+        axis_response.axhline(offset, color=faint, lw=0.55, zorder=0)
+        axis_response.plot(
+            trajectory_time,
+            offset + 0.43 * phase_signal[:, index],
+            color=channel_colors[index],
+            lw=1.15,
+            zorder=2,
+        )
+    axis_response.set(
+        xlim=(trajectory_time[0], trajectory_time[-1]),
+        ylim=(-0.56, offsets[0] + 0.56),
+        xlabel="Time (s)",
     )
-    axis_response.fill_between(
-        phase, 0.0, triad_response, color=triad_color, alpha=0.07, linewidth=0
+    axis_response.set_yticks(
+        offsets,
+        [rf"$\theta_{index}$" for index in range(1, len(NAMES) + 1)],
     )
+    axis_response.tick_params(axis="y", length=0, pad=4)
+    for tick_label, color in zip(
+        axis_response.get_yticklabels(), channel_colors
+    ):
+        tick_label.set_color(color)
+        tick_label.set_fontweight("bold")
     axis_response.text(
-        0.90,
-        float(representative["pairwise_coupling"]) * math.sin(0.90) - 0.34,
-        r"$K_1\sin(\theta_2-\theta_1)$",
-        color=pair_color,
-        fontsize=5.7,
-        ha="left",
-        va="top",
-    )
-    axis_response.text(
-        -2.82,
-        float(representative["triadic_coupling"]) * math.sin(-2.82) + 0.24,
-        r"$K_2\sin(\theta_3+\theta_4-2\theta_5)$",
-        color=triad_color,
-        fontsize=5.7,
+        0.0,
+        1.03,
+        r"Five-dimensional trajectory, $\sin\theta_i(t)$",
+        transform=axis_response.transAxes,
+        color=neutral,
+        fontsize=6.0,
+        fontweight="bold",
         ha="left",
         va="bottom",
     )
-    axis_response.set(
-        xlim=(-math.pi, math.pi),
-        ylim=(-2.35, 2.35),
-        xlabel="Interaction phase (rad)",
-        ylabel="Vector-field contribution",
-    )
-    axis_response.set_xticks(
-        [-math.pi, 0.0, math.pi],
-        [r"$-\pi$", "0", r"$\pi$"],
-    )
-    axis_response.set_yticks([-2.0, 0.0, 2.0])
 
     def compact_partition(row: Mapping[str, object]) -> str:
         left = "".join(str(name).replace("theta", "") for name in row["left"])
@@ -1725,7 +1905,6 @@ def plot_greedy_search_summary(
         heading: str,
         atom_color: str,
         show_xlabel: bool,
-        structural_pair_stop: bool = False,
     ) -> None:
         candidates = sorted(
             node_trace["candidates"],
@@ -1794,29 +1973,7 @@ def plot_greedy_search_summary(
             ha="left",
             va="bottom",
         )
-        if node_trace["action"] == "terminal":
-            if structural_pair_stop:
-                terminal_text = (
-                    rf"structural stop: singleton $\Phi=0$; "
-                    rf"atom $\Phi={float(node_trace['phi_bits']):.2f}$ bits"
-                )
-            else:
-                maximum = float(np.max(scores)) if len(scores) else 0.0
-                terminal_text = (
-                    rf"max $C={maximum:.3f}$  →  stop; "
-                    rf"atom $\Phi={float(node_trace['phi_bits']):.2f}$ bits"
-                )
-            axis.text(
-                0.99,
-                1.08,
-                terminal_text,
-                transform=axis.transAxes,
-                color=atom_color,
-                fontsize=5.7,
-                ha="right",
-                va="bottom",
-            )
-        else:
+        if node_trace["action"] != "terminal":
             selected_score = float(node_trace["captured_phi_bits"])
             axis.text(
                 min(selected_score + 0.035 * score_xmax, 0.96 * score_xmax),
@@ -1828,17 +1985,22 @@ def plot_greedy_search_summary(
                 ha="left",
                 va="center",
             )
-            axis.text(
-                0.99,
-                1.08,
-                rf"root $\Phi={float(node_trace['phi_bits']):.2f}$; retained residual "
-                rf"$={float(node_trace['residual_bits']):.2f}$ bits",
-                transform=axis.transAxes,
-                color=neutral,
-                fontsize=5.7,
-                ha="right",
-                va="bottom",
-            )
+        retained_residual = (
+            float(node_trace["residual_bits"])
+            if node_trace["action"] != "terminal"
+            else float(node_trace["phi_bits"])
+        )
+        axis.text(
+            0.99,
+            1.08,
+            rf"root $\Phi={float(node_trace['phi_bits']):.2f}$; retained residual "
+            rf"$={retained_residual:.2f}$ bits",
+            transform=axis.transAxes,
+            color=neutral,
+            fontsize=5.7,
+            ha="right",
+            va="bottom",
+        )
         axis.set_xlim(score_xmin, score_xmax)
         axis.tick_params(axis="x", labelbottom=show_xlabel)
         if show_xlabel:
@@ -1848,6 +2010,72 @@ def plot_greedy_search_summary(
         axis.spines["left"].set_visible(False)
         axis.tick_params(axis="y", length=0, pad=3)
 
+    def draw_two_node_atom(
+        axis: plt.Axes,
+        node_trace: Mapping[str, object],
+        *,
+        heading: str,
+        atom_color: str,
+    ) -> None:
+        sources = "".join(
+            str(name).replace("theta", "") for name in node_trace["sources"]
+        )
+        xi_value = float(node_trace["phi_bits"])
+        axis.set_axis_off()
+        pill = mpl.patches.FancyBboxPatch(
+            (0.015, 0.16),
+            0.16,
+            0.50,
+            boxstyle="round,pad=0.018,rounding_size=0.055",
+            transform=axis.transAxes,
+            facecolor=mpl.colors.to_rgba(atom_color, 0.13),
+            edgecolor=atom_color,
+            linewidth=1.0,
+        )
+        axis.add_patch(pill)
+        axis.text(
+            0.095,
+            0.41,
+            rf"$\{{{sources}\}}$",
+            transform=axis.transAxes,
+            color=atom_color,
+            fontsize=6.0,
+            fontweight="bold",
+            ha="center",
+            va="center",
+        )
+        axis.text(
+            0.205,
+            0.41,
+            r"$\longrightarrow$",
+            transform=axis.transAxes,
+            color=atom_color,
+            fontsize=6.4,
+            ha="center",
+            va="center",
+        )
+        axis.text(
+            0.255,
+            0.41,
+            rf"$\Xi_{{\{{{sources}\}}}}={xi_value:.3f}\ \mathrm{{bits}}$",
+            transform=axis.transAxes,
+            color=neutral,
+            fontsize=6.1,
+            fontweight="bold",
+            ha="left",
+            va="center",
+        )
+        axis.text(
+            0.015,
+            0.88,
+            heading,
+            transform=axis.transAxes,
+            color=atom_color,
+            fontsize=5.7,
+            ha="left",
+            va="bottom",
+        )
+
     draw_ranking(
         axis_root,
         trace,
@@ -1855,13 +2083,11 @@ def plot_greedy_search_summary(
         atom_color=neutral,
         show_xlabel=False,
     )
-    draw_ranking(
+    draw_two_node_atom(
         axis_pair,
         pair_trace,
-        heading=r"Recurse on $\{1,2\}$",
+        heading="terminal two-node atom",
         atom_color=pair_color,
-        show_xlabel=False,
-        structural_pair_stop=True,
     )
     draw_ranking(
         axis_triad,
@@ -1869,6 +2095,12 @@ def plot_greedy_search_summary(
         heading=r"Recurse on $\{3,4,5\}$",
         atom_color=triad_color,
         show_xlabel=True,
+    )
+    draw_two_node_atom(
+        axis_pair_45,
+        pair_45_trace,
+        heading="terminal two-node atom",
+        atom_color=triad_color,
     )
     axis_root.text(
         -0.14,
@@ -1930,19 +2162,40 @@ def main() -> None:
     epochs = int(args.epochs or (220 if args.mode == "smoke" else 300))
     ei_epochs = int(args.ei_epochs or (120 if args.mode == "smoke" else 180))
     seeds = tuple(range(1 if args.mode == "smoke" else int(args.seeds)))
-    payload = build_summary(
-        seeds=seeds,
-        training_count=training_count,
-        readout_count=readout_count,
-        degree=3,
-        train_fraction=0.8,
-        ridge=0.10,
-        tau=0.20,
-        dt=0.01,
-        epochs=epochs,
-        ei_epochs=ei_epochs,
-        status_path=args.status,
-    )
+    try:
+        payload = build_summary(
+            seeds=seeds,
+            training_count=training_count,
+            readout_count=readout_count,
+            degree=3,
+            train_fraction=0.8,
+            ridge=0.10,
+            tau=0.20,
+            dt=0.01,
+            epochs=epochs,
+            ei_epochs=ei_epochs,
+            status_path=args.status,
+        )
+    except Exception as error:
+        failed = {
+            "phase": "failed",
+            "message": str(error),
+            "updated_at": time.time(),
+        }
+        if args.status.exists():
+            try:
+                failed = {
+                    **json.loads(args.status.read_text(encoding="utf-8")),
+                    **failed,
+                }
+            except (OSError, json.JSONDecodeError):
+                pass
+        args.status.parent.mkdir(parents=True, exist_ok=True)
+        args.status.write_text(
+            json.dumps(failed, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        raise
     args.result.parent.mkdir(parents=True, exist_ok=True)
     args.result.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     plot_greedy_search_summary(payload, args.figure_base)

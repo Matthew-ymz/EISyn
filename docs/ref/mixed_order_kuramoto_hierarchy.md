@@ -64,70 +64,81 @@ $$
 \right).
 $$
 
-直接使用绝对未来相位曾被审计，但短时连续动力学的 identity/persistence 使 singleton EI 主导；从 $\tau=0.2$ 到 $\tau=2$，五个 singleton EI 之和仍超过 whole EI，根 $\Phi$ 为负。因此最终 target 使用所有五个振子的未来变化，而不是只读取振子 1 和 5，也不是使用标量汇总。
+target 使用所有五个振子的未来变化，而不是只读取振子 1 和 5，也不是使用标量汇总。使用相位增量可去除绝对 next state 中平凡的 identity/persistence，同时仍保留整个五维系统的有限时响应。此前用不一致的 subset 估计器审计绝对未来相位时曾出现负 $\Phi$；该现象不能归因于动力学本身，因而不作为选择 target 或解释结果的理论证据。
 
-模型在训练转移上拟合后，从 held-out 残差协方差估计随机响应。PEID readout 使用另外 3600 个独立均匀相位干预，并对学习模型采样。真实条件三个 seeds 的 held-out 圆周 MAE 为 $0.066$–$0.074$ rad。
+模型在训练转移上拟合后，从 held-out 残差协方差估计随机响应。PEID readout 使用另外 6000 个独立均匀相位干预，并对学习模型采样。真实条件三个 seeds 的 held-out 圆周 MAE 为 $0.066$–$0.074$ rad。
 
-## EI 估计器审计
+## 同一联合 TM 的 EI 估计
 
-优先尝试了 polynomial triangular TM。五个 source block 使用圆周特征；三体模块还保留二阶谐波，使
-$\sin(\theta_j+\theta_k-2\theta_i)$ 可表达。完整 source dictionary 为 16 维，target 为 5 维。
-
-该设置下：
-
-- degree-3 joint TM 的 whole EI 退化为 0；
-- degree-2 TM 只能稳定识别 pairwise 通道，不能恢复三体模块；
-- 将五个 target 分量分别估计后求和也没有解决高维 source TM 的退化。
-
-因此最终使用替代估计器：对每个非空 source subset 拟合相同容量的非线性条件均值模型，并在未参与拟合的后 $1/3$ 样本上计算多元 Gaussian log-det 熵差。该方法直接处理五维 target，但把 held-out 条件残差近似为 Gaussian；它不是对高维 TM 的无损替代。
-
-## 层级一致性修正
-
-31 个 subset 分别拟合会产生有限样本非单调，即某个父节点的估计 $\Phi(S)$ 可能略低于其最佳子捕获。进入 Greedy 前，对全部二阶及以上 subset 执行最小向上投影：
+每个 seed 只拟合一个连续条件 transport map
 
 $$
-\widetilde{\Phi}(S)
-=\max\left[
-\widehat{\Phi}(S),
-\max_{S=L\mathbin{\dot\cup}R}
-\left\{
-\widetilde{\Phi}(L)+\widetilde{\Phi}(R)
-\right\}
-\right].
+p_{\mathrm{TM}}(\mathbf{y}\mid\boldsymbol{\theta}),
 $$
 
-当前 PEID 定义要求 $\Phi(S)\ge0$。因此投影还显式包含非负约束：
+其中 source context 为 16 维圆周 Fourier 特征，target 为完整五维 $\mathbf{Y}$。已知的独立均匀干预分布 $q(\boldsymbol{\theta})$ 与该条件 TM 共同定义唯一联合分布
 
 $$
-\widetilde{\Phi}(S)
-=\max\left[
-0,
-\widehat{\Phi}(S),
-\max_{S=L\mathbin{\dot\cup}R}
-\left\{
-\widetilde{\Phi}(L)+\widetilde{\Phi}(R)
-\right\}
-\right].
+p_{\mathrm{joint}}(\boldsymbol{\theta},\mathbf{y})
+=q(\boldsymbol{\theta})p_{\mathrm{TM}}(\mathbf{y}\mid\boldsymbol{\theta}).
 $$
 
-该递推是同时支配原始估计、满足非负性和 partition monotonicity 的逐层最小向上修正。负 plug-in 值只被视为算法偏差，不能作为 signed 信息保留。真实条件三个 seeds 的根修正量分别为 $0.234$、$0.138$ 和 $0.094$ bits。修正量是数值一致性诊断，不是观测信息。
-
-投影后调用共享 Greedy 层级：
+所有 31 个非空 source subset 的边缘
 
 $$
-C(L,R)=\widetilde{\Phi}(L)+\widetilde{\Phi}(R).
+p_{\mathrm{joint}}(\mathbf{y}\mid\boldsymbol{\theta}_S)
+=\int q(\boldsymbol{\theta}_{\bar S})
+p_{\mathrm{TM}}(\mathbf{y}\mid\boldsymbol{\theta}_S,
+\boldsymbol{\theta}_{\bar S})
+\,d\boldsymbol{\theta}_{\bar S}
 $$
 
-捕获停止阈值为 $10^{-5}$ bits，负残差仅保留 $10^{-8}$ bits 的数值容忍度。
+都从这个联合分布用共同 scrambled Sobol 点积分得到；没有为不同 subset 重新拟合模型。target-only triangular TM 是嵌套空模型：只有当条件 TM 的 held-out 对数似然增益超过两个 paired SEM 时才保留 source context。三个 target-shuffle 对照均选择空模型，因此在所选独立联合分布下 EI 解析地为 0；这不是对估计值截断。
+
+## 非负性与数值收敛
+
+由于 $q(\boldsymbol{\theta})=\prod_iq_i(\theta_i)$，同一联合分布下
+
+$$
+\Phi(S)
+=I(\boldsymbol{\theta}_S;\mathbf{Y})
+-\sum_{i\in S}I(\theta_i;\mathbf{Y})
+=\operatorname{TC}(\boldsymbol{\theta}_S\mid\mathbf{Y})
+\ge 0.
+$$
+
+同理，对任意不交并 $S=L\mathbin{\dot\cup}R$，
+
+$$
+\Phi(S)-\Phi(L)-\Phi(R)
+=I(\boldsymbol{\theta}_L;\boldsymbol{\theta}_R\mid\mathbf{Y})
+\ge0.
+$$
+
+实现中没有 `max(0,\cdot)`、非负截断或单调投影。先前的小负值来自有限内层粒子对
+$\log\mathbb{E}[p_{\mathrm{TM}}]$ 的 Jensen 偏差，而不是上述恒等式失效。现在对共同 Sobol 边缘积分使用 two-block jackknife 消去一阶 `log-mean` 偏差；若任一原始 $\Phi$ 或 partition residual 为负，则保持同一个已拟合 TM，依次把积分规模从 $2048\times512$ 增至 $2048\times1024$ 和 $4096\times2048$。12 个正式重复最终的最小原始 $\Phi$ 为 $0.0043$–$0.0537$ bits。
+
+通过检查后，Greedy 对每个非平凡二分计算
+
+$$
+C(L,R)=\Phi(L)+\Phi(R)
+$$
+
+并选择最大值；停止阈值为 $10^{-5}$ bits。
+当递归块只剩两个节点时，唯一二分必然落到两个 singleton；图中不再显示无信息量的 $C=0$，而直接显示该终端原子
+$\Xi_S\equiv\Phi(S)$。
 
 ## 代表 seed
 
 ![混合阶 Kuramoto 的 learned-dynamics Greedy 层级](assets/mixed_order_kuramoto_hierarchy/validation.png)
 
+图 a 上半部分给出 pairwise、triadic 与弱跨模块连接；下半部分直接展示带过程噪声的五维相位信号
+$\sin\theta_i(t)$。五条曲线仅为避免遮挡而纵向错开，不改变各通道的时间变化。
+
 代表 seed 的真实条件满足
 
 $$
-\widetilde{\Phi}(\{1,2,3,4,5\})=4.379\ \text{bits}.
+\Phi(\{1,2,3,4,5\})=4.230\ \text{bits}.
 $$
 
 15 个根候选中，正确切分
@@ -136,26 +147,29 @@ $$
 \{1,2\}\mid\{3,4,5\}
 $$
 
-捕获 $4.379$ bits；第二名为 $2.390$ bits。两个终止原子为
+捕获 $3.778$ bits；第二名为 $2.481$ bits，根层保留 $0.452$ bits 的整合残差。下一层有
 
 $$
-\widetilde{\Phi}(\{1,2\})=1.989\ \text{bits},
+\Phi(\{1,2\})=1.830\ \text{bits},
 \qquad
-\widetilde{\Phi}(\{3,4,5\})=2.390\ \text{bits}.
+\Phi(\{3,4,5\})=1.947\ \text{bits}.
 $$
 
-`{1,2}` 的唯一下一步切分是两个 singleton，因此捕获量按定义为 0。`{3,4,5}` 的三个原始 plug-in 候选受到有限数据、动力学拟合和 subset EI 拟合误差影响而落到负侧；非负可行投影将它们修正为 0。Greedy 因最大捕获不超过停止阈值而终止。这里的 0 是理论约束下的边界解，不意味着数据生成和模型拟合没有噪声。
+`{1,2}` 的唯一下一步切分是两个 singleton，因此直接显示
+$\Xi_{\{1,2\}}=1.830$ bits。`{3,4,5}` 的三个候选均为正；最大候选
+`{3}|{4,5}` 捕获 $0.410$ bits，留下 $1.538$ bits 的三体原子。随后继续展示二节点终点
+$\Xi_{\{4,5\}}=0.410$ bits。这构成图 b 中从根排序到终端原子的完整递归 Greedy 过程。
 
 ## 跨 seed 结果
 
-| 条件 | 根分区恢复 | pairwise atom（bits） | triadic atom（bits） |
-|---|---:|---:|---:|
-| 无噪声、无跨模块连接 | 3/3 | $2.055\pm0.023$ | $2.889\pm0.284$ |
-| 仅过程噪声 | 3/3 | $1.922\pm0.014$ | $2.581\pm0.220$ |
-| 仅弱跨模块连接 | 3/3 | $2.064\pm0.043$ | $2.800\pm0.230$ |
-| 过程噪声与弱连接同时存在 | 3/3 | $1.943\pm0.023$ | $2.542\pm0.198$ |
+| 条件 | 根分区恢复 | 根残差（bits） | pairwise atom（bits） | triadic atom（bits） | 其他正原子（bits） |
+|---|---:|---:|---:|---:|---:|
+| 无噪声、无跨模块连接 | 3/3 | $0.719\pm0.090$ | $1.892\pm0.051$ | $1.841\pm0.225$ | $0.578\pm0.089$ |
+| 仅过程噪声 | 3/3 | $0.587\pm0.055$ | $1.805\pm0.023$ | $1.783\pm0.121$ | $0.490\pm0.042$ |
+| 仅弱跨模块连接 | 3/3 | $0.688\pm0.094$ | $1.879\pm0.013$ | $1.731\pm0.230$ | $0.593\pm0.099$ |
+| 过程噪声与弱连接同时存在 | 3/3 | $0.641\pm0.096$ | $1.801\pm0.020$ | $1.902\pm0.200$ | $0.536\pm0.064$ |
 
-四个条件共 $12/12$ 个 seed-condition 组合恢复 planted 根切分，其他正原子质量均为 0。真实条件的三个 target-shuffle 根 $\Phi$ 均为 0。
+四个条件共 $12/12$ 个 seed-condition 组合恢复 planted 根切分。噪声、弱连接和有限模型误差使根残差及其他原子合理地非零。真实条件的三个 target-shuffle 均未通过 source-context 增益门槛，根 $\Phi$ 为 0。
 
 ## 解释边界
 
@@ -163,9 +177,8 @@ $$
 
 该实验不支持以下更强结论：
 
-- 高维 TM 已经解决；本实验恰恰记录了它的退化；
-- Gaussian residual readout 对非线性条件分布无偏；
-- 单调投影可以忽略；部分 subset 的修正达到约 $0.8$ bits；
+- 当前有限 TM 容量与积分精度可无条件推广到更高维系统；
+- jackknife 已消除所有高阶有限粒子偏差；
 - Greedy 树能唯一表示共享节点或重叠超边。
 
 ## 复现
@@ -175,5 +188,5 @@ python scripts/validate_mixed_order_kuramoto_hierarchy.py --mode full --seeds 3
 ```
 
 机器可读结果保存在
-`results/mixed_order_kuramoto_hierarchy/summary.json`，其中包含每个条件和 seed 的动力学拟合误差、原始与投影 EI 表、投影修正量、完整 Greedy trace 和 target-shuffle 负控。图保存在
+`results/mixed_order_kuramoto_hierarchy/summary.json`，其中包含每个条件和 seed 的动力学拟合误差、同一联合 TM 的 EI 表、边缘积分收敛轨迹、完整 Greedy trace 和 target-shuffle 负控。图保存在
 `docs/ref/assets/mixed_order_kuramoto_hierarchy/validation.{png,svg,pdf}`。
