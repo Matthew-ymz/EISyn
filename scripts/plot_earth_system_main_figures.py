@@ -56,6 +56,12 @@ UNICM_PHI_ROWS = (
 UNICM_GREEDY_DIR = (
     ROOT / "results" / "unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192"
 )
+UNICM_TARGET_XI_LEADS = (
+    ROOT
+    / "results"
+    / "unicm_target_resolved_xi_tm_degree1_signed_n8192"
+    / "target_resolved_xi_lead_summary.csv"
+)
 HORIZONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60)
 MODE_ORDER = (
     "nino",
@@ -68,6 +74,19 @@ MODE_ORDER = (
     "WWV",
     "NPMM",
     "SPMM",
+    "TNA",
+)
+TARGET_MODE_ORDER = (
+    "nino",
+    "nino12",
+    "nino3",
+    "nino4",
+    "WWV",
+    "NPMM",
+    "SPMM",
+    "IOB",
+    "IOD",
+    "SIOD",
     "TNA",
 )
 
@@ -432,7 +451,7 @@ def plot_runge_figure(
         primary = int(top_k) == 200
         ax_d.plot(
             positions,
-            frame["effective_pair_count"],
+            frame["valid_pair_count"],
             color=cutoff_colors[int(top_k)],
             linewidth=1.45 if primary else 0.9,
             marker="o" if primary else None,
@@ -444,7 +463,7 @@ def plot_runge_figure(
     ax_d.text(
         0.02,
         0.48,
-        f"{primary_effective.iloc[0].effective_pair_count:.0f}",
+        f"{primary_effective.iloc[0].valid_pair_count:.0f}",
         transform=ax_d.transAxes,
         color=BLUE,
         fontsize=5.5,
@@ -453,7 +472,7 @@ def plot_runge_figure(
     ax_d.text(
         0.98,
         0.04,
-        f"{primary_effective.iloc[-1].effective_pair_count:.0f}",
+        f"{primary_effective.iloc[-1].valid_pair_count:.0f}",
         transform=ax_d.transAxes,
         ha="right",
         color=BLUE,
@@ -462,7 +481,7 @@ def plot_runge_figure(
     )
     ax_d.set_xticks(sparse_tick_positions, sparse_tick_horizons)
     ax_d.set_xlabel("Evaluated horizon, $H$")
-    ax_d.set_ylabel("Effective source-pair count")
+    ax_d.set_ylabel("Source pairs retained in top-$K$")
     ax_d.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     ax_d.legend(
         loc="lower center",
@@ -594,6 +613,12 @@ def plot_runge_figure(
     ax_g.axhline(0, color="#555555", linewidth=0.65)
     ax_g.set_xlim(0.5, 69)
     ax_g.set_ylim(-0.0004, 0.0215)
+    ax_g.ticklabel_format(
+        axis="y",
+        style="sci",
+        scilimits=(0, 0),
+        useMathText=True,
+    )
     ax_g.set_xlabel("Forecast horizon, $H$")
     ax_g.set_ylabel(r"Synergistic increment, $\Delta_{2,\mathrm{TM}}$ (bits)")
     ax_g.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
@@ -687,11 +712,12 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     order = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_greedy_order_summary.csv")
     totals = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_greedy_total_summary.csv")
     atoms = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_lead8_top_atoms.csv").head(8)
+    target_xi = pd.read_csv(UNICM_TARGET_XI_LEADS)
     land = extract_polygons(load_geojson(LAND_URL))
     coastlines = extract_lines(load_geojson(COASTLINE_URL))
 
-    fig = plt.figure(figsize=(7.2, 5.7), layout="constrained")
-    grid = fig.add_gridspec(2, 5, height_ratios=[0.9, 1.2])
+    fig = plt.figure(figsize=(7.2, 7.25), layout="constrained")
+    grid = fig.add_gridspec(3, 5, height_ratios=[0.82, 1.08, 0.96])
     ax_a = fig.add_subplot(grid[0, 0:2], projection="mollweide")
     draw_unicm_overview_map(ax_a, land, coastlines)
 
@@ -789,6 +815,13 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_bar.set_ylabel("Hierarchical atom")
     ax_bar.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     ax_bar.set_xlim(0, max(0.055, float((atoms["mean"] + atoms["std"]).max()) * 1.08))
+    ax_bar.ticklabel_format(
+        axis="x",
+        style="sci",
+        scilimits=(0, 0),
+        useMathText=True,
+    )
+    ax_bar.xaxis.get_offset_text().set_fontsize(4.8)
     for idx, row in atoms.iterrows():
         ax_bar.text(
             min(float(row["mean"]) + 0.001, ax_bar.get_xlim()[1] * 0.78),
@@ -844,6 +877,48 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         fontsize=5.8,
         fontweight="bold",
     )
+
+    ax_e = fig.add_subplot(grid[2, :])
+    target_heat = (
+        target_xi.pivot(index="target", columns="lead", values="xi_mean")
+        .reindex(TARGET_MODE_ORDER)
+        .sort_index(axis=1)
+    )
+    target_values = target_heat.to_numpy(dtype=float)
+    image = ax_e.imshow(
+        target_values,
+        aspect="auto",
+        interpolation="nearest",
+        cmap="YlOrRd",
+        norm=mpl.colors.Normalize(vmin=0.0, vmax=float(np.nanmax(target_values))),
+    )
+    ax_e.set_yticks(
+        np.arange(len(TARGET_MODE_ORDER)),
+        ["ENSO" if mode == "nino" else mode for mode in TARGET_MODE_ORDER],
+    )
+    ax_e.set_xticks(
+        np.arange(0, len(target_heat.columns), 2),
+        [str(int(value)) for value in target_heat.columns[::2]],
+    )
+    ax_e.set_xlabel("Prediction lead (months)")
+    ax_e.set_ylabel("Predicted target mode")
+    ax_e.axvline(5.5, color="#313131", linewidth=0.55, linestyle=":")
+    ax_e.axvline(9.5, color="#313131", linewidth=0.55, linestyle=":")
+    ax_e.text(
+        7.5,
+        -0.82,
+        "lead 7–10",
+        ha="center",
+        va="bottom",
+        fontsize=5.4,
+        color="#444444",
+        clip_on=False,
+    )
+    for boundary in (4.5, 6.5, 9.5):
+        ax_e.axhline(boundary, color="white", linewidth=0.75)
+    colorbar = fig.colorbar(image, ax=ax_e, fraction=0.018, pad=0.015)
+    colorbar.set_label(r"Target-resolved $\Xi_j$ (bits)")
+    add_panel_label(ax_e, "e", x=-0.055, y=1.02)
     return save_figure(fig, output_base)
 
 

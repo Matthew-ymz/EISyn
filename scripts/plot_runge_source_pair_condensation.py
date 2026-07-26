@@ -111,15 +111,6 @@ def aggregate_pair_weights(frame: pd.DataFrame, top_k: int) -> pd.DataFrame:
     )
 
 
-def effective_pair_count(pair_weights: pd.DataFrame) -> float:
-    weights = pair_weights["weight"].to_numpy(dtype=float)
-    total = float(weights.sum())
-    if total <= 0:
-        return float("nan")
-    probabilities = weights[weights > 0] / total
-    return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
-
-
 def build_metrics(
     rankings: dict[int, pd.DataFrame],
     horizons: list[int],
@@ -139,8 +130,7 @@ def build_metrics(
                 {
                     "horizon": horizon,
                     "top_k": cutoff,
-                    "effective_pair_count": effective_pair_count(pair_weights),
-                    "distinct_pair_count": len(pair_weights),
+                    "valid_pair_count": int((pair_weights["weight"] > 0).sum()),
                 }
             )
 
@@ -206,7 +196,7 @@ def plot_figure(
         is_primary = int(cutoff) == top_k
         ax_a.plot(
             positions,
-            frame["effective_pair_count"],
+            frame["valid_pair_count"],
             color=k_colors.get(int(cutoff), "#777777"),
             linewidth=1.55 if is_primary else 0.95,
             marker="o" if is_primary else None,
@@ -218,8 +208,8 @@ def plot_figure(
     first = primary.iloc[0]
     last = primary.iloc[-1]
     ax_a.annotate(
-        f"{first['effective_pair_count']:.0f}",
-        (positions[0], float(first["effective_pair_count"])),
+        f"{first['valid_pair_count']:.0f}",
+        (positions[0], float(first["valid_pair_count"])),
         xytext=(4, 3),
         textcoords="offset points",
         color=BLUE,
@@ -227,8 +217,8 @@ def plot_figure(
         fontweight="bold",
     )
     ax_a.annotate(
-        f"{last['effective_pair_count']:.0f}",
-        (positions[-1], float(last["effective_pair_count"])),
+        f"{last['valid_pair_count']:.0f}",
+        (positions[-1], float(last["valid_pair_count"])),
         xytext=(-3, 4),
         textcoords="offset points",
         ha="right",
@@ -236,7 +226,7 @@ def plot_figure(
         fontsize=5.8,
         fontweight="bold",
     )
-    ax_a.set_ylabel("Effective number of source pairs")
+    ax_a.set_ylabel("Source pairs retained in top-$K$")
     ax_a.set_xlabel("Evaluated forecast horizon, $H$")
     ax_a.set_xticks(positions, horizons, rotation=45)
     ax_a.grid(axis="y", color=GRID, linewidth=0.55)
@@ -406,8 +396,8 @@ def main() -> int:
         "primary_top_k": args.top_k,
         "robustness_top_k": list(ROBUSTNESS_K),
         "selected_area_pairs": selected_pairs,
-        "effective_pair_count_top200": {
-            str(int(row.horizon)): float(row.effective_pair_count)
+        "valid_pair_count_top200": {
+            str(int(row.horizon)): int(row.valid_pair_count)
             for row in effective[effective["top_k"] == args.top_k].itertuples(index=False)
         },
         "focal_pair_share_top200": {

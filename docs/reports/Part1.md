@@ -243,25 +243,25 @@ $$
 \right).
 $$
 
-使用未来变化而不是绝对未来相位，是因为短时连续动力学的绝对 next state 被 identity/persistence 主导：审计中即使把 $\tau$ 增至 2，五个 singleton EI 之和仍超过 whole EI，使根 $\Phi$ 为负。未来变化仍包含所有五个振子的响应，但去除了平凡的状态复制。
+target 是所有五个振子的未来变化，而不是只读取振子 1 和 5，也不是标量汇总。相位增量去除了绝对 next state 中平凡的 identity/persistence，同时保留整个系统的有限时响应。此前用不一致 subset 估计器得到的负 $\Phi$ 属于估计失败，不能作为动力学性质解释。
 
-拟合完成后，另取 3600 个独立均匀相位干预输入学习到的动力学模型，并从 held-out 残差协方差中采样随机响应。代表 seed 的 held-out 圆周 MAE 为 $0.072$ rad；三个 seeds 为 $0.066$–$0.074$ rad。
+拟合完成后，另取 6000 个独立均匀相位干预输入学习到的动力学模型，并从 held-out 残差协方差中采样随机响应。代表 seed 的 held-out 圆周 MAE 为 $0.072$ rad；三个 seeds 为 $0.066$–$0.074$ rad。
 
-高维 polynomial TM 已先行审计，但在 16 维圆周 source dictionary 和五维 target 上退化：degree-3 joint TM 的 EI 被压到 0，degree-2 TM 又只能识别 pairwise 通道。因此本实验使用可扩展的替代估计：对每个 source subset 拟合相同容量的非线性条件均值模型，并在未参与拟合的后 $1/3$ 样本上用多元 Gaussian log-det 熵差估计 EI。该方法保留完整五维 target，但假设 held-out 条件残差可用 Gaussian 协方差概括。
+每个 seed 只拟合一个连续条件 transport map $p_{\mathrm{TM}}(\mathbf{y}\mid\boldsymbol{\theta})$。它与独立均匀干预 $q(\boldsymbol{\theta})$ 定义同一个联合分布；31 个 subset EI 全部从该联合分布的对应边缘计算，不再分别拟合 subset 模型。target-only triangular TM 作为嵌套空模型，只有当 source context 带来的 held-out 对数似然增益超过两个 paired SEM 时才保留条件模型。
 
-31 个 subset 分别拟合会产生有限样本偏差，甚至使原始 plug-in 值短暂落到 0 以下；这违反当前 PEID 推导中的非负性，不能解释为真实负信息。进入 Greedy 前，对全部 $\Phi(S)$ 做最小向上可行投影，使每个 subset 同时满足
+在因子化干预下，同一联合分布直接给出
 
 $$
-\widetilde{\Phi}(S)\ge 0,
-\qquad
-\widetilde{\Phi}(S)\ge
-\max_{S=L\mathbin{\dot\cup}R}
-\left\{
-\widetilde{\Phi}(L)+\widetilde{\Phi}(R)
-\right\}.
+\Phi(S)
+=I(\boldsymbol{\theta}_S;\mathbf{Y})
+-\sum_{i\in S}I(\theta_i;\mathbf{Y})
+=\operatorname{TC}(\boldsymbol{\theta}_S\mid\mathbf{Y})
+\ge0,
 $$
 
-因此该修正可以向正偏，但不会保留任何负 $\Phi$。三个真实条件 seeds 的根修正量为 $0.094$–$0.234$ bits；所有 subset 的修正量均保存在结果文件中，不能解释为观测到的信息。随后使用
+并且 $\Phi(S)-\Phi(L)-\Phi(R)=I(\boldsymbol{\theta}_L;\boldsymbol{\theta}_R\mid\mathbf{Y})\ge0$。实现中没有非负截断或单调投影。数值上使用共同 scrambled Sobol 点计算边缘，并用 two-block jackknife 消除 $\log\mathbb{E}[p_{\mathrm{TM}}]$ 的一阶有限粒子偏差；若原始非负检查失败，则保持同一个已拟合 TM，仅提高积分规模。12 个正式重复最终的最小原始 $\Phi$ 均为正。
+
+随后使用
 
 $$
 \Phi(S)=\mathrm{EI}(S)-\sum_{i\in S}\mathrm{EI}(\{i\}),
@@ -273,25 +273,29 @@ $$
 C(L,R)=\Phi(L)+\Phi(R)
 $$
 
-最大的切分。若最优 $C(L,R)\le10^{-5}$ bits，当前节点终止；否则保留残差并递归处理。投影后只使用 $10^{-8}$ bits 的数值闭合容忍度，不再用较大的负残差阈值掩盖估计不一致。
+最大的切分。若最优 $C(L,R)\le10^{-5}$ bits，当前节点终止；否则保留残差并递归处理。对于只剩两个节点的块，不再把唯一的 singleton 切分画成 $C=0$，而是直接展示终端原子
+$\Xi_S\equiv\Phi(S)$。
 
 ![混合阶 Kuramoto 中二元边与三元超边的同层级恢复](../ref/assets/mixed_order_kuramoto_hierarchy/validation.png)
 
-*图：从学习到的 mixed-order Kuramoto 动力学恢复 Greedy 层级。a，蓝色 pairwise edge、橙色 triadic hyperedge 与灰色弱跨模块连接共同产生五维未来相位变化 target。b，代表 seed 的根节点和两个子节点候选均按 $C(L,R)$ 降序排列。根节点从 15 个候选中选择 $\{1,2\}\mid\{3,4,5\}$。二元节点只能切成 singleton，因而结构性停止；三元节点的三个原始 plug-in 候选受到有限样本负偏，但在进入 Greedy 前均按 $\Phi\ge0$ 的理论约束投影为 0，因此停止为 triadic 原子。这里的 0 表示数学可行域边界，不表示数据或拟合过程没有噪声。*
+*图：从学习到的 mixed-order Kuramoto 动力学恢复完整 Greedy 层级。a，上方用蓝色 pairwise edge、橙色 triadic hyperedge 与灰色弱跨模块连接表示生成结构；下方将带过程噪声的五维相位信号 $\sin\theta_i(t)$ 纵向错开展示，使完整 target 的时间演化可直接读取。b，根节点从 15 个按 $C(L,R)$ 降序排列的候选中选择 $\{1,2\}\mid\{3,4,5\}$；二节点块 $\{1,2\}$ 直接展示 $\Xi_{\{1,2\}}$。三节点块的三个候选均为正并选择 $\{3\}\mid\{4,5\}$，随后二节点块 $\{4,5\}$ 直接展示 $\Xi_{\{4,5\}}$。所有柱长均来自同一联合连续 TM 的边缘，没有非负截断或投影。*
 
 | Greedy 输出 | 均值 $\pm$ SEM | 结构解释 |
 |---|---:|---|
-| 根层整合残差 $\{1,2,3,4,5\}$ | $0$ bits | 单调投影后的最佳切分完全分配根 $\Phi$ |
-| 二阶原子 $\{1,2\}$ | $1.943\pm0.023$ bits | planted pairwise coupling |
-| 三阶原子 $\{3,4,5\}$ | $2.542\pm0.198$ bits | planted symmetric triadic hyperedge |
-| 其他正原子 | 0 | 未检出非植入组合 |
+| 根层整合残差 $\{1,2,3,4,5\}$ | $0.641\pm0.096$ bits | 噪声和弱连接下保留的跨模块整合 |
+| 二阶原子 $\{1,2\}$ | $1.801\pm0.020$ bits | planted pairwise coupling |
+| 三阶原子 $\{3,4,5\}$ | $1.902\pm0.200$ bits | planted symmetric triadic hyperedge |
+| 其他正原子 | $0.536\pm0.064$ bits | 弱连接、有限模型误差与团簇内递归 |
 
-在代表 seed 中，根 $\Phi=4.379$ bits，正确切分捕获同为
-$4.379$ bits；第二名为 $2.390$ bits。递归后得到
-$\Phi(\{1,2\})=1.989$ bits 和
-$\Phi(\{3,4,5\})=2.390$ bits。三个 seeds 在四个配对条件——无扰动、仅过程噪声、仅弱跨模块连接、二者同时存在——中均恢复 planted 根切分，共 $12/12$ 次。真实条件的三个 target shuffle 根 $\Phi$ 均为 0。投影后的层级闭合误差为机器精度，但这一闭合依赖上述显式单调修正。
+在代表 seed 中，根 $\Phi=4.230$ bits，正确切分捕获
+$3.778$ bits，第二名为 $2.481$ bits，根残差为 $0.452$ bits。递归后得到
+$\Phi(\{1,2\})=1.830$ bits 和
+$\Phi(\{3,4,5\})=1.947$ bits；后者的最佳子切分捕获 $0.410$ bits，留下 $1.538$ bits 的三体原子。三个 seeds 在四个配对条件——无扰动、仅过程噪声、仅弱跨模块连接、二者同时存在——中均恢复 planted 根切分，共 $12/12$ 次。真实条件的三个 target shuffle 均选择不含 source context 的嵌套空模型，根 $\Phi$ 为 0。层级闭合误差为机器精度，且不依赖任何事后投影。
+图中两个二节点终点分别显示
+$\Xi_{\{1,2\}}=1.830$ bits 和
+$\Xi_{\{4,5\}}=0.410$ bits，使递归路径一直展示到算法终点。
 
-因此，这个例子不再是“真值向量场到标量读出”的理想演示，而是数据生成、动力学拟合、独立干预和层级分解相互分离的 learned-dynamics 正对照。证据支持：在当前噪声和弱连接范围内，根层 `2+3` 分区稳定恢复。证据不支持：当前 Gaussian readout 可无偏替代高维 TM，或单调投影的修正量可以忽略。当前真值模块仍互不重叠；共享节点的边与超边继续受不重叠二叉树限制。完整方程、EI 表、估计失败和修正诊断见[混合阶 Kuramoto 已知动力学说明](../ref/mixed_order_kuramoto_hierarchy.md)。
+因此，这个例子不再是“真值向量场到标量读出”的理想演示，而是数据生成、动力学拟合、独立干预和层级分解相互分离的 learned-dynamics 正对照。证据支持：在当前噪声和弱连接范围内，根层 `2+3` 分区稳定恢复。证据不支持：当前有限 TM 容量与积分精度可无条件推广到更高维系统，或 Greedy 树能够唯一表示共享节点和重叠超边。完整方程、EI 表和积分收敛诊断见[混合阶 Kuramoto 已知动力学说明](../ref/mixed_order_kuramoto_hierarchy.md)。
 
 已有研究显示，多体相位作用可以产生普通 pairwise 模型中没有或不稳定出现的现象：
 
@@ -307,7 +311,7 @@ $\Phi(\{3,4,5\})=2.390$ bits。三个 seeds 在四个配对条件——无扰动
 
 这些现象分别由三体多稳态研究、simplicial Kuramoto、multicluster 稳定性分析和双簇相变工作支持，而不是本仓库已经完成的实验结果。关键来源包括 [Tanaka & Aoyagi 2011](https://doi.org/10.1103/PhysRevLett.106.224101)、[Skardal & Arenas 2020](https://www.nature.com/articles/s42005-020-00485-0)、[Millán et al. 2020](https://doi.org/10.1103/PhysRevLett.124.218301)、[Xu & Skardal 2021](https://doi.org/10.1103/PhysRevResearch.3.013013)、[Carballosa et al. 2023](https://doi.org/10.1016/j.chaos.2023.114197) 和 [Li et al. 2026](https://doi.org/10.1103/5rg2-4xkq)。
 
-上述 learned-dynamics 与 Greedy 短时机制实验已经完成。下一步应解决高维 TM 退化与 subset EI 单调修正问题，再转向自然轨迹与集体态：同时扫描 $K_1,K_2$，记录 $R_1$、$R_2$、滞回面积和 basin occupancy，并补充 triangle-without-hyperedge、degree-preserving hyperedge permutation 与统一谐波字典对照。详细文献边界、方程和后续失败判据见[高阶 Kuramoto 调研与实验方案](../ref/higher_order_kuramoto_research.md)。
+上述 learned-dynamics 与 Greedy 短时机制实验已经完成。下一步应检验联合 TM 与共同边缘积分向更高维系统扩展时的容量和计算成本，再转向自然轨迹与集体态：同时扫描 $K_1,K_2$，记录 $R_1$、$R_2$、滞回面积和 basin occupancy，并补充 triangle-without-hyperedge、degree-preserving hyperedge permutation 与统一谐波字典对照。详细文献边界、方程和后续失败判据见[高阶 Kuramoto 调研与实验方案](../ref/higher_order_kuramoto_research.md)。
 
 ## Controlled Hénon Unique-Information Sweep
 
