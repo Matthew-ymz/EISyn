@@ -576,8 +576,8 @@ def analyze(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, np.ndar
         },
         "grades": {
             "figure_2a_system_xi": a_grade,
-            "figure_2b_network_attribution": b_grade,
-            "figure_2c_hierarchy_atoms": c_grade,
+            "figure_2b_hierarchy_atoms": c_grade,
+            "figure_2c_network_attribution": b_grade,
             "figure_2d_cognition_alignment": "quality-control-only",
             "figure_2ef_general_cognition": primary_grade,
             "figure_2gi_prespecified_candidates": candidate_grade,
@@ -678,12 +678,12 @@ def plot_figure(
     figure.subplots_adjust(left=0.055, right=0.985, top=0.955, bottom=0.07)
     outer = figure.add_gridspec(3, 1, height_ratios=(0.85, 1.15, 0.9), hspace=0.40)
     top = outer[0].subgridspec(1, 2, width_ratios=(3.6, 1.4), wspace=0.28)
-    middle = outer[1].subgridspec(1, 4, width_ratios=(1.15, 2.0, 1.0, 1.0), wspace=0.72)
+    middle = outer[1].subgridspec(1, 4, width_ratios=(2.0, 1.15, 1.0, 1.0), wspace=0.72)
     bottom = outer[2].subgridspec(1, 3, wspace=0.38)
     ax_a = figure.add_subplot(top[0, 0])
     ax_d = figure.add_subplot(top[0, 1])
-    ax_b = figure.add_subplot(middle[0, 0])
-    ax_c = figure.add_subplot(middle[0, 1])
+    ax_c = figure.add_subplot(middle[0, 0])
+    ax_b = figure.add_subplot(middle[0, 1])
     ax_e = figure.add_subplot(middle[0, 2])
     ax_f = figure.add_subplot(middle[0, 3], sharey=ax_e)
     axes_gi = [figure.add_subplot(bottom[0, index]) for index in range(3)]
@@ -820,7 +820,7 @@ def plot_figure(
             fontsize=6.2,
         )
 
-    for label, axis in zip("abcdefghi", [ax_a, ax_b, ax_c, ax_d, ax_e, ax_f, *axes_gi]):
+    for label, axis in zip("abcdefghi", [ax_a, ax_c, ax_b, ax_d, ax_e, ax_f, *axes_gi]):
         axis.text(
             -0.13,
             1.04,
@@ -858,8 +858,8 @@ def write_report(summary: Mapping[str, Any], output: Path) -> None:
         "| 图 2 面板 | 等级 |",
         "| --- | --- |",
         f"| a：system-level $\\Xi$ | {grades['figure_2a_system_xi']} |",
-        f"| b：网络归因 | {grades['figure_2b_network_attribution']} |",
-        f"| c：层级 atom | {grades['figure_2c_hierarchy_atoms']} |",
+        f"| b：层级 atom | {grades['figure_2b_hierarchy_atoms']} |",
+        f"| c：网络归因 | {grades['figure_2c_network_attribution']} |",
         f"| d：认知画像 | {grades['figure_2d_cognition_alignment']} |",
         f"| e--f：一般认知 | {grades['figure_2ef_general_cognition']} |",
         f"| g--i：预指定领域认知候选 | {grades['figure_2gi_prespecified_candidates']} |",

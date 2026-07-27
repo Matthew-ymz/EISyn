@@ -248,26 +248,15 @@ def plot_main_combined(
     middle_grid = outer_grid[1, 0].subgridspec(
         1,
         4,
-        width_ratios=(1.20, 1.82, 0.94, 0.94),
+        width_ratios=(1.82, 1.20, 0.94, 0.94),
         wspace=0.50,
     )
     overall_axis = figure.add_subplot(top_grid[0, 0])
     cognition_axis = figure.add_subplot(top_grid[0, 1])
-    network_axis = figure.add_subplot(middle_grid[0, 0])
-    atom_axis = figure.add_subplot(middle_grid[0, 1])
+    atom_axis = figure.add_subplot(middle_grid[0, 0])
+    network_axis = figure.add_subplot(middle_grid[0, 1])
     language_axis = figure.add_subplot(middle_grid[0, 2])
     motor_axis = figure.add_subplot(middle_grid[0, 3], sharey=language_axis)
-    # Reserve a little extra local gutter for panel c's long hierarchy labels
-    # without shrinking the primary e-f association panels.
-    network_position = network_axis.get_position()
-    network_axis.set_position(
-        [
-            network_position.x0,
-            network_position.y0,
-            network_position.width * 0.92,
-            network_position.height,
-        ]
-    )
     exploratory_grid = outer_grid[2, 0].subgridspec(1, 3, wspace=0.16)
     domain_axes = tuple(
         figure.add_subplot(exploratory_grid[0, column]) for column in range(3)
@@ -553,8 +542,8 @@ def plot_main_combined(
 
     axes = (
         overall_axis,
-        network_axis,
         atom_axis,
+        network_axis,
         cognition_axis,
         language_axis,
         motor_axis,
