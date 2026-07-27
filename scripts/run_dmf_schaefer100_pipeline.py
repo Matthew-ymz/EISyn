@@ -22,6 +22,11 @@ SOURCE = BASE / "source" / "group_mean_native_mean_rate.npz"
 LABELS = BASE / "schaefer100_labels.txt"
 STATUS = ROOT / "docs" / "log" / "dmf_schaefer100_progress.json"
 LOG = ROOT / "docs" / "log" / "dmf_schaefer100_pipeline.log"
+DEFAULT_CRITICAL_G = (1.2, 1.3, 1.4)
+
+
+def parse_float_list(raw: str) -> tuple[float, ...]:
+    return tuple(float(part.strip()) for part in str(raw).split(",") if part.strip())
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +36,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--status", type=Path, default=STATUS)
     parser.add_argument("--log", type=Path, default=LOG)
     parser.add_argument("--start-at", choices=("main", "wms", "topology", "yeo7", "plot"), default="main")
+    parser.add_argument(
+        "--critical-g",
+        type=parse_float_list,
+        default=DEFAULT_CRITICAL_G,
+        help="Three-point Xi peak window used for topology and Yeo-7 decomposition.",
+    )
     return parser.parse_args()
 
 
@@ -41,13 +52,15 @@ def atomic_status(path: Path, payload: dict[str, object]) -> None:
     os.replace(temporary, path)
 
 
-def critical_window(source: Path) -> tuple[np.ndarray, np.ndarray]:
+def critical_window(source: Path, requested_g: tuple[float, ...]) -> tuple[np.ndarray, np.ndarray]:
+    if len(requested_g) != 3:
+        raise ValueError("--critical-g must contain exactly three coupling values.")
     with np.load(source) as archive:
         g_values = np.asarray(archive["G"], dtype=float)
-        critical = float(np.asarray(archive["critical_G"]).item())
-    center = int(np.argmin(np.abs(g_values - critical)))
-    center = min(max(center, 1), len(g_values) - 2)
-    indices = np.arange(center - 1, center + 2, dtype=int)
+    indices = np.asarray(
+        [int(np.flatnonzero(np.isclose(g_values, value))[0]) for value in requested_g],
+        dtype=int,
+    )
     return indices, g_values[indices]
 
 
@@ -149,7 +162,7 @@ def main() -> None:
         raise FileNotFoundError(f"Missing prepared source results: {source}")
     status_path = args.status if args.status.is_absolute() else ROOT / args.status
     log_path = args.log if args.log.is_absolute() else ROOT / args.log
-    indices, critical_g = critical_window(source)
+    indices, critical_g = critical_window(source, args.critical_g)
     suffix = "smoke" if args.mode == "smoke" else "full"
     run_dir = BASE / suffix
     figure_dir = ROOT / "fig" / "dmf_schaefer100"

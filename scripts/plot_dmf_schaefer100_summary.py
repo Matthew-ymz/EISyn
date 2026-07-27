@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot the Schaefer100 DMF A--G summary and the 83-vs-100 comparison."""
+"""Plot the Schaefer100 DMF A--H summary and the 83-vs-100 comparison."""
 
 from __future__ import annotations
 
@@ -76,6 +76,13 @@ def sem(values: np.ndarray, axis: int = 0) -> np.ndarray:
     return np.std(array, axis=axis, ddof=1) / np.sqrt(array.shape[axis])
 
 
+def sd(values: np.ndarray, axis: int = 0) -> np.ndarray:
+    array = np.asarray(values, dtype=float)
+    if array.shape[axis] <= 1:
+        return np.zeros_like(np.mean(array, axis=axis))
+    return np.std(array, axis=axis, ddof=1)
+
+
 def save(figure: plt.Figure, stem: Path) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(stem.with_suffix(".png"), dpi=450, bbox_inches="tight")
@@ -117,9 +124,9 @@ def add_rate_information_panel(
     axis.set_ylabel("Mean firing rate (Hz)")
     second = axis.twinx()
     mean = np.mean(values, axis=0)
-    error = sem(values)
+    error = sd(values)
     info_line, = second.plot(g, mean, color=color, lw=1.55, marker="o", ms=2.4, label=label, zorder=4)
-    second.fill_between(g, mean - error, mean + error, color=color, alpha=0.16, lw=0)
+    second.fill_between(g, mean - error, mean + error, color=color, alpha=0.24, lw=0)
     second.set_ylabel(ylabel, color=color)
     second.tick_params(axis="y", colors=color)
     second.spines["right"].set_visible(True)
@@ -224,8 +231,8 @@ def plot_summary(args: argparse.Namespace) -> None:
         2,
         subplot_spec=bottom_grid[0, 8],
         height_ratios=(1.0, 1.0, 0.10),
-        hspace=-0.32,
-        wspace=-0.24,
+        hspace=-0.38,
+        wspace=-0.32,
     )
     ax_h = [
         figure.add_subplot(panel_h[row, column], projection="3d")
@@ -246,9 +253,9 @@ def plot_summary(args: argparse.Namespace) -> None:
         (whole, "#0072B2", "Whole EI"),
         (singleton, "#D55E00", "Sum of singleton EI"),
     ):
-        mean, error = np.mean(values, axis=0), sem(values)
+        mean, error = np.mean(values, axis=0), sd(values)
         ax_b.plot(main["G"], mean, color=color, lw=1.45, label=label)
-        ax_b.fill_between(main["G"], mean - error, mean + error, color=color, alpha=0.16, lw=0)
+        ax_b.fill_between(main["G"], mean - error, mean + error, color=color, alpha=0.24, lw=0)
     critical_format(ax_b, critical_g)
     ax_b.set_ylabel("EI (bits)", labelpad=7)
     ax_b.legend(loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.3)
@@ -282,8 +289,11 @@ def plot_summary(args: argparse.Namespace) -> None:
 
     fine = np.asarray(topology["fine_phi"], dtype=float)
     within_total = np.asarray(topology["within_roi_total"], dtype=float)
-    fractions = np.column_stack(((within_total / fine).ravel(), ((fine - within_total) / fine).ravel())) * 100.0
-    means, errors = fractions.mean(axis=0), sem(fractions, axis=0)
+    seed_fractions = np.stack(
+        (within_total / fine, (fine - within_total) / fine),
+        axis=-1,
+    ).mean(axis=1) * 100.0
+    means, errors = seed_fractions.mean(axis=0), sd(seed_fractions, axis=0)
     ax_e.bar([0, 1], means, yerr=errors, color=("#66CCEE", "#775DA6"), width=0.68, capsize=2)
     ax_e.set_xticks([0, 1], ["Within\nROI", "Cross\nROI"])
     ax_e.set_ylabel(r"Fraction of $\Xi$ (%)", labelpad=7)
@@ -293,8 +303,9 @@ def plot_summary(args: argparse.Namespace) -> None:
     panel_label(ax_e, "E")
 
     within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
-    network_values = within_network.mean(axis=(0, 1))
-    network_errors = sem(within_network.reshape(-1, within_network.shape[-1]), axis=0)
+    within_network_by_seed = within_network.mean(axis=1)
+    network_values = within_network_by_seed.mean(axis=0)
+    network_errors = sd(within_network_by_seed, axis=0)
     network_names = [str(value) for value in yeo["network_names"]]
     network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
     order = np.argsort(network_values)
@@ -322,8 +333,9 @@ def plot_summary(args: argparse.Namespace) -> None:
     panel_label(ax_f, "F")
 
     between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
-    shapley_values = between_shapley.mean(axis=(0, 1))
-    shapley_errors = sem(between_shapley.reshape(-1, between_shapley.shape[-1]), axis=0)
+    between_shapley_by_seed = between_shapley.mean(axis=1)
+    shapley_values = between_shapley_by_seed.mean(axis=0)
+    shapley_errors = sd(between_shapley_by_seed, axis=0)
     ax_g.barh(
         ypos, shapley_values[order], xerr=shapley_errors[order],
         color=[network_color(network_names[index]) for index in order], capsize=2,
@@ -353,6 +365,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         cmap="viridis",
         colorbar_label="Cross-ROI leverage (bits)",
         colorbar_label_size=6.2,
+        zoom=1.25,
     )
     for axis, label in zip(ax_h, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
         axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")

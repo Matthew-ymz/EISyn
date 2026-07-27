@@ -143,6 +143,7 @@ def _draw_surface(
     elev: float,
     azim: float,
     background_color: str,
+    zoom: float,
 ) -> None:
     triangles = mesh.coordinates[mesh.faces]
     collection = Poly3DCollection(
@@ -156,7 +157,9 @@ def _draw_surface(
     mins = mesh.coordinates.min(axis=0)
     maxs = mesh.coordinates.max(axis=0)
     center = 0.5 * (mins + maxs)
-    radius = 0.51 * float(np.max(maxs - mins))
+    if not np.isfinite(zoom) or zoom <= 0.0:
+        raise ValueError("zoom must be finite and positive.")
+    radius = 0.51 * float(np.max(maxs - mins)) / float(zoom)
     axis.set_xlim(center[0] - radius, center[0] + radius)
     axis.set_ylim(center[1] - radius, center[1] + radius)
     axis.set_zlim(center[2] - radius, center[2] + radius)
@@ -183,6 +186,7 @@ def draw_brain_map_four_views(
     background_color: str = "#D7D7D7",
     view_labels: bool = False,
     colorbar_label_size: float = 8.0,
+    zoom: float = 1.0,
 ) -> Normalize:
     """Draw four views into existing 3D axes and a horizontal colorbar axis."""
 
@@ -223,7 +227,7 @@ def draw_brain_map_four_views(
     for axis, (mesh, values, elev, azim, label) in zip(axes, specs):
         _draw_surface(
             axis, mesh, values, cmap=color_map, norm=norm, elev=elev, azim=azim,
-            background_color=background_color,
+            background_color=background_color, zoom=zoom,
         )
         if view_labels:
             axis.text2D(0.04, 0.92, label, transform=axis.transAxes, fontsize=8, color="0.25")
@@ -253,6 +257,7 @@ def plot_brain_map_four_views(
     background_color: str = "#D7D7D7",
     view_labels: bool = False,
     figsize: tuple[float, float] = (7.2, 6.0),
+    zoom: float = 1.0,
 ) -> tuple[Figure, Normalize]:
     """Create a standalone four-view surface figure with one shared color scale."""
 
@@ -282,6 +287,7 @@ def plot_brain_map_four_views(
         symmetric=symmetric,
         background_color=background_color,
         view_labels=view_labels,
+        zoom=zoom,
     )
     return figure, norm
 
