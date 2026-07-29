@@ -622,14 +622,14 @@ def compute_causal_role_scores(
     max_path_length: int = 4,
     damping: float = 0.65,
 ) -> pd.DataFrame:
-    """Rank gateway and mediator roles from pairwise PEID/EI edges plus optional positive synergy edges.
+    """Rank gateway and mediator roles from pairwise PEID/EI edges plus optional Syn edges.
 
     Pairwise EI is interpreted as directed probability-causal strength under the
     intervention distribution. Source-side synergy contributes to gateway-like
     broadcast roles; target-side synergy contributes to mediator roles only when
-    the receiving node also has downstream causal reach. Learned PEID synergy is
-    clipped at zero for role scoring; designed ground-truth coefficients use
-    absolute strength.
+    the receiving node also has downstream causal reach. Learned PEID Syn must
+    be nonnegative; negative estimates are rejected rather than clipped.
+    Designed ground-truth coefficients use absolute strength.
     """
 
     if pairwise_edges.empty and n_components is None:
@@ -671,7 +671,11 @@ def compute_causal_role_scores(
     if synergy_edges is not None and not synergy_edges.empty:
         for row in synergy_edges.itertuples():
             if hasattr(row, "synergy"):
-                weight = max(0.0, float(getattr(row, "synergy")))
+                weight = float(getattr(row, "synergy"))
+                if weight < 0.0:
+                    raise ValueError(
+                        "Syn is nonnegative by definition; fix negative estimates upstream."
+                    )
             elif hasattr(row, "coefficient"):
                 weight = abs(float(getattr(row, "coefficient")))
             elif hasattr(row, "joint_ei"):
@@ -727,7 +731,11 @@ def _positive_synergy_count_for_component(synergy_edges: pd.DataFrame, *, compon
     count = 0
     for row in synergy_edges.itertuples():
         if hasattr(row, "synergy"):
-            weight = max(0.0, float(getattr(row, "synergy")))
+            weight = float(getattr(row, "synergy"))
+            if weight < 0.0:
+                raise ValueError(
+                    "Syn is nonnegative by definition; fix negative estimates upstream."
+                )
         elif hasattr(row, "coefficient"):
             weight = abs(float(getattr(row, "coefficient")))
         elif hasattr(row, "joint_ei"):

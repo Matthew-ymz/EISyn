@@ -1724,7 +1724,7 @@ def build_full_history_pair_syn_report_markdown(
             "## 解释边界",
             "",
             "- 后端与 overall EI 图一致，使用 Gaussian log-det MI；这适合快速筛查，不等同于 transport-map PEID 的最终非线性分解。",
-            "- Syn 可以为负，表示 pair 的联合读数低于两个单源读数之和；这里不做非负截断。",
+            "- Syn 按定义非负；容差内的小负估计可记为数值零，但必须记录容差、数量和最小原始值。小于负容差的估计必须显式报错，不解释为负协同。",
             "- 结果只对应 frozen UniCM Modeformer learned mechanism，不是 reanalysis 预测技能评估。",
         ]
     )

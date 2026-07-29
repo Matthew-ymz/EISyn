@@ -25,6 +25,14 @@
 - Use an alternative EI estimator only when TM is inapplicable, computationally prohibitive, or explicitly requested.
 - If using a non-TM estimator, state the reason and document the tradeoff.
 
+## Syn nonnegativity
+
+- Treat PEID Syn as nonnegative by definition.
+- Never apply an undocumented `max(0, Syn)`, clipping, or another silent projection to enforce nonnegativity.
+- Each numerical experiment that consumes estimated Syn must declare a nonnegative tolerance in the native Syn units. Values in `[-tolerance, 0)` may be treated as numerical zero, but the tolerance and affected count must be recorded.
+- Any Syn estimate below `-tolerance` is a significant nonnegativity violation. Downstream code must fail explicitly and report the minimum value, threshold, and affected count.
+- A tolerance rule absorbs numerical estimation error only; it must not be described as evidence for negative Syn.
+
 ## PEID theory literature
 
 - For tasks involving PEID-related theory, first use the Zotero plugin to search the local Zotero library for PEID papers and read the relevant literature before doing derivations, research-framework writing, method design, or implementation decisions.

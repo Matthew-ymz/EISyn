@@ -200,7 +200,7 @@ class SyntheticRungeGruTests(unittest.TestCase):
         self.assertGreater(float(mediator_row["incoming_path_effect"]), 0.0)
         self.assertGreater(float(mediator_row["outgoing_path_effect"]), 0.0)
 
-    def test_causal_role_scores_clips_learned_negative_synergy_for_roles(self) -> None:
+    def test_causal_role_scores_rejects_learned_negative_syn_for_roles(self) -> None:
         pairwise = pd.DataFrame(
             [
                 {"source_index": 0, "target_index": 1, "ei": 0.5},
@@ -213,12 +213,12 @@ class SyntheticRungeGruTests(unittest.TestCase):
             ]
         )
 
-        scores = compute_causal_role_scores(pairwise_edges=pairwise, synergy_edges=synergy, n_components=3)
-
-        source_row = scores.loc[scores["component"] == "component_01"].iloc[0]
-        target_row = scores.loc[scores["component"] == "component_03"].iloc[0]
-        self.assertAlmostEqual(float(source_row["synergy_source_score"]), 0.0)
-        self.assertAlmostEqual(float(target_row["synergy_target_score"]), 0.0)
+        with self.assertRaisesRegex(ValueError, "Syn is nonnegative by definition"):
+            compute_causal_role_scores(
+                pairwise_edges=pairwise,
+                synergy_edges=synergy,
+                n_components=3,
+            )
 
     def test_synergy_necessity_ablation_reports_pairwise_and_synergy_aware_ranks(self) -> None:
         _, metadata = simulate_runge_like_dynamics(
