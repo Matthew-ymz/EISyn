@@ -14,17 +14,19 @@
   - [3.3 ENSO 空间型态与 IOD 背景构成主导层级](#33-enso-空间型态与-iod-背景构成主导层级)
   - [3.4 路径无关固定模块验证](#34-路径无关固定模块验证)
   - [3.5 目标模态分解：IOD 是中期联合读出的主要接收端](#35-目标模态分解iod-是中期联合读出的主要接收端)
+  - [3.6 Syn 引导的输出校准](#36-从机制读数到预测改进syn-引导的输出校准)
 - [4. 综合讨论与解释边界](#4-综合讨论与解释边界)
 - [5. 图表与数据索引](#5-图表与数据索引)
 - [6. 参考文献](#6-参考文献)
 - [附录 A. Runge 节点级指标对照](#附录-a-runge-节点级指标对照)
 - [附录 B. 补充数值结果](#附录-b-补充数值结果)
+- [附录 C. Runge 估计器阶数稳健性](#附录-c-runge-估计器阶数稳健性)
 
 ## 1. 科学问题与主要发现
 
 本文用两个彼此独立的实验检验同一科学问题：气候系统的可预测信息是否依赖多个空间模态的联合状态，以及这种高阶依赖如何随预测尺度变化。第一个实验直接分析 1948—2026 年全球海平面气压（SLP）分量，在 Runge 等人提出的因果网络基准上识别二源协同超边；第二个实验不再从观测场重新拟合动力模型，而是把已经训练完成的 UniCM Transformer 视为冻结的气候转移机制，对其进行最大熵干预和有效信息分解。
 
-两组证据分别回答“观测场中出现了什么尺度依赖结构”和“神经气候模型依靠什么联合信息进行预测”。SLP 实验发现，短期强超边较分散，而中长期结果逐渐集中到以 `No.0/No.1` 为核心的少数源组合；该源对先快速建立近全球目标通道，随后通过招募更多目标区域继续扩展并趋于饱和。不同超边同时呈现早期峰值、中期峰值、长期平台和长期增强四类演化。UniCM 实验发现，系统级整合有效信息增量 $\Xi$ 并非在最短预测期最大，而是在 lead 7—10 形成中期增强区间，跨 checkpoint 的精确峰位位于 lead 7—10。层级分解把这一中期增量定位到 ENSO 空间型态与 IOD 背景构成的二至五阶嵌套模块；路径无关的固定集合检验进一步确认，`ENSO + IOD + nino12 + nino3 + nino4` 在 lead 8 仍保留 `0.149 ± 0.038` bits 的联合增量。
+两组证据分别回答“观测场中出现了什么尺度依赖结构”和“神经气候模型依靠什么联合信息进行预测”。SLP 实验发现，短期强超边较分散，而中长期结果逐渐集中到以 `No.0/No.1` 为核心的少数源组合；该源对先快速建立近全球目标通道，随后通过招募更多目标区域继续扩展并趋于饱和。不同超边同时呈现早期峰值、中期峰值、长期平台和长期增强四类演化。UniCM 实验发现，系统级整合有效信息增量 $\Xi$ 在 lead 7—10 形成中期增强，主要涉及 ENSO 空间型态与 IOD 背景。进一步把 target-specific Syn 用作输出校准的正则化先验后，测试 nRMSE 从冻结模型的 `1.000` 降至 `0.918`；其中相对容量匹配的均匀 ridge，Syn 结构本身贡献 `0.021` 的额外改善。
 
 这两项实验使用不同数据对象和不同机制载体，不能相互替代，也不构成同一动力方程下的闭环验证。它们共同支持的窄结论是：气候可预测信息不仅存在于单模态记忆或成对联系中，还存在于依赖预测窗口的联合状态中。
 
@@ -87,19 +89,19 @@ $\Xi$ 衡量冻结模型中无法由单个模态信息相加解释的联合读�
 
 ![UniCM 的系统级整合有效信息及层级分解](../../fig/earth_unicm_hierarchical_ei.png)
 
-*图 2. 冻结 UniCM Transformer 的系统级联合读出在中期增强，并可定位其主要源模块和接收端。a，11 个输入模态的地理区域及分析流程：12 个月模态历史输入冻结的 UniCM，最大熵干预后的 EI 与 $\Xi$ 再进入贪婪层级分解。b，$\Xi$ 的 checkpoint seed 均值和标准差，在 lead 8 达到 `0.184 ± 0.042` bits。c，按阶数汇总的 $\xi_C$；二至五阶单独显示，六至十一阶合并为高阶残差，黑线为原子总和，橙色虚线标记 lead 8。d，lead 8 的前八个原子及其源模态成员；误差线为 checkpoint seed 标准差，条形旁数字为该原子占总 $\Xi$ 的比例。e，11 个标量预测 target 在 24 个 lead 上的 $\Xi_j$ checkpoint 均值；ENSO 与三个 Niño 区域及 WWV 相邻排列，白线分隔赤道太平洋、经向太平洋、印度洋和 TNA 组，虚线框定 lead 7—10。target 项不是联合 target $\Xi$ 的可加分量。*
+*图 2. UniCM 中的联合信息结构及其预测用途。a，系统级联合增量 $\Xi$ 在 lead 8 达到 `0.184 ± 0.042` bits。b，$\Xi$ 的层级阶数构成；黑线为原子总和。c，lead 8 的主要原子及其源模态成员。d，各预测 target 的 $\Xi_j$；IOD 在 lead 7—10 最突出，但这些 target 项不能相加为系统总量。e，冻结预测及三种输出校准的 ORAS5 测试 nRMSE；四种方法共享相同测试样本，Syn prior 与 uniform ridge 还共享相同的 44 个输入特征和参数量。f，在每个 target—lead 内随机打乱 Syn 权重与源模态的对应关系；200 个重新调参的随机对照均未达到真实 Syn，`P=0.005`。*
 
 ### 3.2 中期增强的系统级整合有效信息
 
-整体 EI 和单模态 EI 之和都随预测期增长而下降，但两者的差值并不单调。图 2b 中，$\Xi$ 在 lead 1—5 约为 `0.05—0.07` bits，随后在 lead 7—10 明显增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 仍维持约 `0.09—0.15` bits。换言之，模型在短期可以较多依靠各模态自身记忆，而在中期更依赖多个模态的联合状态。
+整体 EI 和单模态 EI 之和都随预测期增长而下降，但两者的差值并不单调。图 2a 中，$\Xi$ 在 lead 1—5 约为 `0.05—0.07` bits，随后在 lead 7—10 明显增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 仍维持约 `0.09—0.15` bits。换言之，模型在短期可以较多依靠各模态自身记忆，而在中期更依赖多个模态的联合状态。
 
-这一结论不等同于单个 lead 的精细排序已经稳定。ENSO 和 IOD 的整体 EI 曲线在 checkpoint 之间保持相似总体形状，但 lead 排序未通过全部 seed 鲁棒性标准。图 2b 因而支持“中期联合增量增强”这一尺度级结论，不支持把相邻月份的微小差异解释为确定的物理跃迁。
+这一结论不等同于单个 lead 的精细排序已经稳定。ENSO 和 IOD 的整体 EI 曲线在 checkpoint 之间保持相似总体形状，但 lead 排序未通过全部 seed 鲁棒性标准。图 2a 因而支持“中期联合增量增强”这一尺度级结论，不支持把相邻月份的微小差异解释为确定的物理跃迁。
 
 ### 3.3 ENSO 空间型态与 IOD 背景构成主导层级
 
-层级分解在数值精度内与总 $\Xi$ 闭合，逐 seed/lead 的最大偏差约为 `7.9 × 10^{-5}` bits。图 2c 表明，lead 8 的主要质量来自二至五阶原子，分别约占总量的 `21%`、`22%`、`20%` 和 `18%`；六阶以上主要表现为较小的跨块残差。这说明中期联合增量不是由单一超高阶项垄断，而是由多个低至中阶模块共同构成。
+层级分解在数值精度内与总 $\Xi$ 闭合，逐 seed/lead 的最大偏差约为 `7.9 × 10^{-5}` bits。图 2b 表明，lead 8 的主要质量来自二至五阶原子，分别约占总量的 `21%`、`22%`、`20%` 和 `18%`；六阶以上主要表现为较小的跨块残差。这说明中期联合增量不是由单一超高阶项垄断，而是由多个低至中阶模块共同构成。
 
-图 2d 进一步定位了这些模块。lead 8 的最大原子为 `ENSO + IOD + nino12 + nino3 + nino4`，贡献 `0.032661` bits，占总 $\Xi$ 的 `17.8%`。排名靠前的其他原子包括 `ENSO + nino12 + nino3`、`ENSO + IOD + nino12 + nino3`、`ENSO + IOD + nino3` 以及 `nino12 + nino3`。共同结构不是“ENSO 加任意外部模态”，而是 ENSO 当前强度、赤道太平洋东西向型态和 IOD 背景的嵌套联合读出。
+图 2c 进一步定位了这些模块。lead 8 的最大原子为 `ENSO + IOD + nino12 + nino3 + nino4`，贡献 `0.032661` bits，占总 $\Xi$ 的 `17.8%`。排名靠前的其他原子包括 `ENSO + nino12 + nino3`、`ENSO + IOD + nino12 + nino3`、`ENSO + IOD + nino3` 以及 `nino12 + nino3`。共同结构不是“ENSO 加任意外部模态”，而是 ENSO 当前强度、赤道太平洋东西向型态和 IOD 背景的嵌套联合读出。
 
 这一解释与 ENSO diversity 文献一致：单一 ENSO 指数不足以描述事件的空间型态、生命周期和演变路径 [1-5]。在 UniCM 中，nino3、nino4 和 nino12 更适合解释为 ENSO 内部空间结构的不同读数，而非 ENSO 之外的独立强迫。IOD 的出现则表明，印度洋背景可以参与调制模型对 ENSO 中期演变的读取。这里的“参与”指冻结模型中的信息依赖，不自动等同于已识别的真实动力因果方向。
 
@@ -133,17 +135,217 @@ $$
 -\sum_{m=1}^{11}EI(X_m\rightarrow Y_j).
 $$
 
-全部 `3 checkpoint × 11 target × 24 lead` 的 $\Xi_j$ 均为正，但强度和时间型态高度不均匀（图 2e）。IOD 是唯一在系统中期峰值窗口显著突出的 target：lead 8 达到 `0.1873 ± 0.0673` bits，lead 7—10 平均为 `0.1635 ± 0.0637` bits。同期第二至第四位依次为 SIOD（`0.0488 ± 0.0316` bits）、nino3（`0.0461 ± 0.0227` bits）和 nino12（`0.0377 ± 0.0069` bits）；综合 ENSO 为 `0.0346 ± 0.0040` bits，WWV 仅为 `0.0134 ± 0.0118` bits。与此相对，nino4 和综合 ENSO 的各自峰值出现在 lead 1，nino3 和 nino12 的峰值出现在 lead 3，说明太平洋 ENSO 空间型态的强联合读出偏早，而 lead 7—10 的系统增强主要落到未来 IOD。
+全部 `3 checkpoint × 11 target × 24 lead` 的 $\Xi_j$ 均为正，但强度和时间型态高度不均匀（图 2d）。IOD 是唯一在系统中期峰值窗口显著突出的 target：lead 8 达到 `0.1873 ± 0.0673` bits，lead 7—10 平均为 `0.1635 ± 0.0637` bits。同期第二至第四位依次为 SIOD（`0.0488 ± 0.0316` bits）、nino3（`0.0461 ± 0.0227` bits）和 nino12（`0.0377 ± 0.0069` bits）；综合 ENSO 为 `0.0346 ± 0.0040` bits，WWV 仅为 `0.0134 ± 0.0118` bits。与此相对，nino4 和综合 ENSO 的各自峰值出现在 lead 1，nino3 和 nino12 的峰值出现在 lead 3，说明太平洋 ENSO 空间型态的强联合读出偏早，而 lead 7—10 的系统增强主要落到未来 IOD。
 
 IOD 的特殊性不是“它最容易预测”，而是“它的中期预测最需要联合状态”。lead 8 时，未来 IOD 的整体 EI 为 `0.7168` bits，11 个单模态 EI 之和为 `0.5295` bits，剩余联合增量为 `0.1873` bits；按 checkpoint 分别计算比例后，$\Xi_{\mathrm{IOD}}/EI(\mathbf{X}_{1:11}\rightarrow Y_{\mathrm{IOD}})$ 平均为 `25.7%`。历史 IOD 仍是最大的单源读出，平均贡献 `0.3174` bits，说明模型并没有丢掉 IOD 自身记忆；但仅靠包括 IOD 在内的各单源信息相加，仍不能恢复整体预测。对照最清楚的是 WWV：lead 8 的整体 EI 更高，达到 `1.0212` bits，但其中 `0.9938` bits 已可由 WWV 历史单独读取，$\Xi_{\mathrm{WWV}}$ 只有 `0.0122` bits，约占整体 EI 的 `1.2%`。因此，热图显示的不是一般预测能力，而是每个未来模态对跨模态组合的额外依赖。
 
 这一结构与 IOD 的物理定义和季节性相容。IOD 本身是西、东印度洋海温异常之差，其演变同时涉及印度洋盆地背景、东西向梯度以及与 ENSO—Walker 环流相关的跨海盆状态 [R4, R6, R7]；这些量只有联合读取时才可能形成稳定的未来偶极信号。更重要的是，当前干预缓存固定 `start_month=0`，其月序列与数据加载器一致，从一月开始循环；因而 lead 7—10 对应七月至十月，恰好覆盖 IOD 通常发展并接近成熟的季节。模型的月份嵌入可能在这个窗口把 ENSO 空间型态和印度洋背景组合成更强的 IOD 读出。由此，更准确的假设不是“IOD 单向门控 ENSO”，而是“在 IOD 季节性发展窗口，UniCM 把印太联合状态集中投影到未来 IOD”。
 
-这里仍有两个边界。第一，固定起报月份使预测 lead 与目标季节混合，必须把 `start_month` 循环平移 12 次，才能区分真正的 7—10 个月延迟机制和七月至十月的季节锁相。第二，图 2e 使用全部 11 个历史模态作为源，尚不能证明 IOD 峰值完全由图 3 的五模态核心产生；仍需固定 `ENSO + IOD + nino12 + nino3 + nino4` 并计算 $\Xi_{S\rightarrow j}$。因此，当前结果把 IOD 定位为冻结模型中的主要联合接收端，但不把它等同于已识别的真实双向因果枢纽。
+这里仍有两个边界。第一，固定起报月份使预测 lead 与目标季节混合，必须把 `start_month` 循环平移 12 次，才能区分真正的 7—10 个月延迟机制和七月至十月的季节锁相。第二，图 2d 使用全部 11 个历史模态作为源，尚不能证明 IOD 峰值完全由图 3 的五模态核心产生；仍需固定 `ENSO + IOD + nino12 + nino3 + nino4` 并计算 $\Xi_{S\rightarrow j}$。因此，当前结果把 IOD 定位为冻结模型中的主要联合接收端，但不把它等同于已识别的真实双向因果枢纽。
+
+### 3.6 从机制读数到预测改进：Syn 引导的输出校准
+
+图 2e—f 回答的是一个比“哪些模态具有高 Syn”更实际的问题：**冻结 Modeformer 已经给出预测后，Syn 能否帮助一个小型输出校准器更可靠地修正预测值？** 校准发生在 Transformer 之后，不改变 Modeformer 的参数，也不重新训练其动力过程。它只使用 ORAS5 的一段历史资料，学习如何把冻结预测映射到更合适的均值和振幅。
+
+#### 校准器读取什么
+
+三个发布 checkpoint 的预测先做等权平均。随后针对每个 target $j$ 和预测 lead $\ell$ 单独拟合一个线性校准器，共有 $11\times24=264$ 个校准单元。每个单元读取 44 个标准化特征：
+
+- 当前 lead 下 11 个模态的冻结预测；
+- 11 个模态在 12 个月输入历史中的最后一个值；
+- 11 个历史均值；
+- 11 个历史线性趋势。
+
+下标的含义如下：
+
+| 符号 | 含义 |
+|---|---|
+| $t$ | 一个起报时间样本 |
+| $j$ | 要校准的目标模态，$j=1,\ldots,11$ |
+| $\ell$ | 预测 lead，$\ell=1,\ldots,24$ |
+| $m$ | 作为校准输入的源模态，$m=1,\ldots,11$ |
+| $\widehat y^{\,F}_{t,m,\ell}$ | 冻结 Modeformer 对模态 $m$、lead $\ell$ 的等权集成预测 |
+| $h^{\mathrm{last}}_{t,m}$、$h^{\mathrm{mean}}_{t,m}$、$h^{\mathrm{trend}}_{t,m}$ | 模态 $m$ 的 12 个月历史末值、均值和线性趋势 |
+
+所有输入特征先用拟合段的均值和标准差进行标准化。波浪号表示标准化后的量，例如
+
+$$
+\widetilde{x}
+=\frac{x-\mu^{\mathrm{fit}}_x}{s^{\mathrm{fit}}_x}.
+$$
+
+因此，一个起报样本 $t$ 在 lead $\ell$ 下的 44 维输入向量为
+
+$$
+\mathbf{z}_{t,\ell}
+=
+\left[
+\widetilde{\widehat{\mathbf{y}}}^{\,F}_{t,\ell},
+\widetilde{\mathbf{h}}^{\mathrm{last}}_t,
+\widetilde{\mathbf{h}}^{\mathrm{mean}}_t,
+\widetilde{\mathbf{h}}^{\mathrm{trend}}_t
+\right]
+\in\mathbb{R}^{44}.
+$$
+
+这里四个粗体向量都各含 11 个模态。校准输出写为
+
+$$
+\widehat{y}^{\,\mathrm{cal}}_{t,j,\ell}
+=\beta_{0,j,\ell}
++\mathbf{z}_{t,\ell}^{\mathsf T}\boldsymbol{\beta}_{j,\ell}.
+$$
+
+其中，$\beta_{0,j,\ell}$ 是 target $j$、lead $\ell$ 的截距；$\boldsymbol{\beta}_{j,\ell}\in\mathbb{R}^{44}$ 是该校准单元拟合出的 44 个权重。把属于源模态 $m$ 的四个权重记为
+
+$$
+\boldsymbol{\beta}_{j,\ell,m}
+=
+\left[
+\beta^{F}_{j,\ell,m},
+\beta^{\mathrm{last}}_{j,\ell,m},
+\beta^{\mathrm{mean}}_{j,\ell,m},
+\beta^{\mathrm{trend}}_{j,\ell,m}
+\right]^{\mathsf T},
+$$
+
+则上面的点积可以直接展开为
+
+$$
+\widehat{y}^{\,\mathrm{cal}}_{t,j,\ell}
+=\beta_{0,j,\ell}
++\sum_{m=1}^{11}
+\left(
+\beta^{F}_{j,\ell,m}\widetilde{\widehat y}^{\,F}_{t,m,\ell}
++\beta^{\mathrm{last}}_{j,\ell,m}\widetilde h^{\mathrm{last}}_{t,m}
++\beta^{\mathrm{mean}}_{j,\ell,m}\widetilde h^{\mathrm{mean}}_{t,m}
++\beta^{\mathrm{trend}}_{j,\ell,m}\widetilde h^{\mathrm{trend}}_{t,m}
+\right).
+$$
+
+这就是拟合出的 $\boldsymbol{\beta}$ 最终做的事情：在验证或测试样本到来时，把每个固定权重乘到对应的**标准化特征**上，再把 44 项与截距相加，得到 target $j$ 在 lead $\ell$ 的校准预测。
+
+$\boldsymbol{\beta}$ 不是“11 个模态各有一个统一缩放系数”。每个 target—lead 都有自己的一组 44 个权重：
+
+- $\beta^{F}_{j,\ell,j}$ 乘在目标模态自己的冻结预测上，最接近通常所说的缩放系数；
+- $\beta^{F}_{j,\ell,m}$（$m\neq j$）把其他模态的冻结预测作为跨模态线性修正；
+- 其余三个 $\beta$ 分别决定各模态的历史末值、均值和趋势应怎样修正最终输出；
+- 因为输入已经标准化，$\beta$ 表示“特征变化一个拟合段标准差时，校准输出改变多少”，不是直接作用于原始物理量的裸乘数。
+
+只有 univariate 基线近似于简单的
+
+$$
+\widehat y^{\,\mathrm{cal}}
+=\beta_0+\beta^F\widetilde{\widehat y}^{\,F},
+$$
+
+即只对目标自身的冻结预测做截距与斜率修正。Syn prior 使用的是完整的 44 项加权和。这里没有改变 Modeformer 的预测路径；校准器只是根据冻结预测和最近一年的背景状态，对最终数值做一次轻量修正。
+
+#### Syn 在校准的哪个位置起作用
+
+对每个 target—lead 单元，把源模态 $m$ 参与的所有二源 Syn 相加，得到该模态的 Syn 重要性
+
+$$
+c_{j,\ell,m}
+=\sum_{r\neq m}\operatorname{Syn}_{j,\ell}(m,r).
+$$
+
+这里 $r$ 是与源模态 $m$ 组成 Syn 对的另一个源模态。Syn 按定义非负；有限样本估计中接近零的小负数按预先声明的数值容差处理。记原始估计为 $\widehat{\operatorname{Syn}}$，本实验固定 $\delta_{\mathrm{Syn}}=0.002$ bit，并使用
+
+$$
+\operatorname{Syn}^{*}=
+\begin{cases}
+\widehat{\operatorname{Syn}}, & \widehat{\operatorname{Syn}}\ge 0,\\
+0, & -\delta_{\mathrm{Syn}}\le \widehat{\operatorname{Syn}}<0,\\
+\text{报错并停止}, & \widehat{\operatorname{Syn}}<-\delta_{\mathrm{Syn}}.
+\end{cases}
+$$
+
+因此，容差内的小负估计只作为数值零，不解释为负协同；显著越过容差的负值则不会进入校准。当前缓存的最小原始值为 `-0.001426` bit，全部 `4,009` 个负估计都位于容差内。上式的 $c_{j,\ell,m}$ 实际对 $\operatorname{Syn}^{*}$ 求和；$c_{j,\ell,m}$ 越大，表示在预测 target $j$ 的 lead $\ell$ 时，模态 $m$ 参与的二源 Syn 总强度越大。校准器通过下面的广义 ridge 目标拟合截距和 44 个 $\beta$：
+
+$$
+\left(\widehat{\beta}_{0,j,\ell},
+\widehat{\boldsymbol{\beta}}_{j,\ell}\right)
+=\arg\min_{\beta_{0,j,\ell},\boldsymbol{\beta}_{j,\ell}}
+\left[
+\sum_{t\in\mathcal{D}_{\mathrm{fit}}}
+\left(
+y_{t,j,\ell}
+-\beta_{0,j,\ell}
+-\mathbf{z}_{t,\ell}^{\mathsf T}\boldsymbol{\beta}_{j,\ell}
+\right)^2
++\alpha\sum_{m=1}^{11}
+w_{j,\ell,m}
+\left\lVert\boldsymbol{\beta}_{j,\ell,m}\right\rVert_2^2
+\right],
+$$
+
+其中
+
+$$
+w_{j,\ell,m}
+\propto
+\left(c_{j,\ell,m}+\epsilon\right)^{-\gamma},
+\qquad
+\frac{1}{11}\sum_{m=1}^{11}w_{j,\ell,m}=1.
+$$
+
+公式中各量的作用是：
+
+| 符号 | 含义及作用 |
+|---|---|
+| $y_{t,j,\ell}$ | ORAS5 中真实的 target $j$、lead $\ell$ 目标值 |
+| $\mathcal{D}_{\mathrm{fit}}$ | 用于拟合 $\beta$ 的起报样本集合 |
+| $\widehat{\beta}_{0,j,\ell}$ | 拟合后的截距，主要承担目标均值修正 |
+| $\widehat{\boldsymbol{\beta}}_{j,\ell}$ | 拟合后的 44 个预测权重，最终直接用于计算校准输出 |
+| $c_{j,\ell,m}$ | 源模态 $m$ 的 Syn 重要性 |
+| $w_{j,\ell,m}$ | 模态 $m$ 的 ridge 惩罚权重；它不直接乘到预测值上 |
+| $\alpha$ | 所有系数的总体收缩强度 |
+| $\gamma$ | Syn 对不同模态惩罚强弱的区分程度 |
+| $\epsilon$ | 防止 $c_{j,\ell,m}=0$ 时权重发散的小量 |
+
+其中 $\bar c_{j,\ell}$ 是 11 个源模态 Syn 重要性的均值。实现中取 $\epsilon=0.05\bar c_{j,\ell}$，避免零 Syn 产生无限惩罚，并把 11 个权重归一化到均值为 1。因此，Syn 较高的源模态具有较小的 $w_{j,\ell,m}$，其四个 $\beta$ 受到较少收缩；Syn 较低的模态受到更多收缩。$\alpha$ 控制整体正则化强度，$\gamma$ 控制不同模态之间的区分程度。若 $\gamma=0$，所有 $w_{j,\ell,m}$ 都相同，模型就退化为 uniform ridge。实验只在验证段选择 $\alpha$ 和 $\gamma$，最终选择为 $\alpha=10000$、$\gamma=2$；测试段从未参与选参。
+
+需要特别区分 $w$ 和 $\beta$：**Syn 生成的 $w$ 只在拟合阶段决定各组 $\beta$ 应该被压缩多少；真正生成校准预测的是拟合完成后的 $\widehat{\beta}_{0,j,\ell}$ 和 $\widehat{\boldsymbol{\beta}}_{j,\ell}$。** 到验证和测试阶段，$w$ 不再直接乘到预测值上。
+
+#### 数据怎样划分，指标怎样计算
+
+校准使用 ORAS5 1980—2014 月资料。按起报时间顺序划分为 253 个拟合样本、36 个验证样本和 48 个测试样本：拟合段截至 2001 年 12 月，验证段为 2004—2006 年，测试段为 2009—2012 年。相邻数据段之间保留与 24 个月预测窗匹配的空档，避免不同数据段共享未来目标月份。
+
+主指标是 nRMSE。先在每个 target—lead 单元内计算测试 RMSE，再除以该模态在拟合段的标准差，最后对全部 264 个单元等权平均。因此，图 2e 中数值越低越好，每个模态和每个 lead 对总指标具有相同权重。
+
+#### 图 2e 的四个点怎样比较
+
+四个方法使用完全相同的测试样本：
+
+- **Frozen**：三个 checkpoint 的等权平均预测，不做校准。
+- **Univariate**：每个 target—lead 只使用该 target 自己的冻结预测，学习一个截距和斜率。
+- **Uniform ridge**：使用全部 44 个特征，但所有源模态采用相同正则化强度。
+- **Syn prior**：与 uniform ridge 使用相同的 44 个特征、相同参数量和相同训练样本，唯一变化是正则化强度按 Syn 分配。
+
+Frozen 的 nRMSE 为 `1.000`，univariate 降至 `0.931`。这说明原始预测中存在可以由简单线性映射修正的均值或振幅偏差；这种降幅主要是数值校准，不等于模型学到了新的气候动力。相应地，univariate 的平均 ACC 与 Frozen 完全相同，均为 `0.195`，说明这一步主要修正数值尺度，没有增加新的时间型态信息。
+
+Syn prior 的 nRMSE 最低，为 `0.918`。从 Frozen 到 Syn prior 的总降幅为 `0.083`，但这个数同时包含普通校准和 Syn 结构两部分，不能全部归因于 Syn。公平的 Syn 对照是 uniform ridge：两者只有正则化权重不同。Uniform ridge 的 nRMSE 为 `0.938`，因此 Syn-specific 改善为 `0.0206`，相对改善 `2.20%`；12 个月循环 block-bootstrap 的 95% 区间为 `[0.0037, 0.0353]`，2,000 次重采样中 `99%` 保持正值。三个独立 checkpoint 上的改善也都为正，分别为 `0.0155`、`0.0137` 和 `0.0132`。
+
+与 univariate 相比，Syn prior 的点估计也低 `0.0127`，但其 bootstrap 区间跨过零。因此，当前最强证据不是“Syn 一定优于所有简单校准”，而是：**在相同的多模态特征和模型容量下，按 Syn 分配正则化比均匀分配更有效。**
+
+#### 图 2f 为什么需要随机对照
+
+Syn prior 与 uniform ridge 的比较只能说明 Syn 加权的非均匀正则化优于均匀正则化，不能判断正确的模态对应关系是否优于任意一种非均匀分配。图 2f 因而在每个 target—lead 单元内保留 11 个 Syn 重要性数值，只随机打乱它们对应的源模态标签。这样既保留了权重分布，又破坏了“哪个模态应当少收缩”的结构。随机对照数量在完整运行前固定为 200；每个对照都使用与真实 Syn 相同的特征、参数量、数据划分和超参数搜索预算，并在验证段重新选择 $\alpha$ 与 $\gamma$。
+
+真实 Syn 相对 uniform ridge 的 nRMSE 改善为 `0.0206`；200 个随机分配中，最佳改善为 `0.0111`，没有一个达到真实 Syn。有限随机检验因此为
+
+$$
+P=\frac{0+1}{200+1}=0.00498.
+$$
+
+这说明图 2e 的额外改善不是“随便给不同模态不同惩罚”就能得到，而依赖 Syn 权重是否分配给正确的源模态。它把图 2a—d 的机制读数推进了一步：Syn 不仅可用于解释冻结模型，还可作为有限样本校准的结构先验。
+
+这一结论仍限定在平均 nRMSE。Syn prior 的平均 ACC 为 `0.274`，略低于 uniform ridge 的 `0.281`；不同 target 的收益也不完全一致。因此，图 2e—f 支持的是“Syn 引导的正则化改善全模态平均幅值误差”，而不是“每个高 Syn 模态都会预测得更准”，也不是已证明的业务预测增益。
 
 ## 4. 综合讨论与解释边界
 
-图 1—3 形成一条由观测场到训练模型、再到源模块和目标端定位的递进证据链。图 1 表明，全球 SLP 中的二源协同超边具有明确的预测尺度结构：短期联系分散，中长期逐渐收敛到少数可复现源组合；主导源对同时招募更多、地理覆盖更广的目标，并呈现多种连续时间型态。图 2 表明，一个已经训练完成的气候 Transformer 也在中期更依赖多模态联合读出，而且这种联合信息可以分解到具有明确气候含义的 ENSO—IOD 嵌套源模块；图 2e 又把主要接收端定位到未来 IOD，说明中期增强不是 11 个 target 的均匀同步抬升。图 3 进一步表明，该五模态源核心在不依赖自由 greedy 路径时仍保留大部分系统级联合增量。
+图 1—3 形成一条由观测场到训练模型、再到预测用途的递进证据链。图 1 表明，全球 SLP 中的二源协同超边具有明确的预测尺度结构。图 2a—d 表明，训练完成的气候 Transformer 在中期更依赖多模态联合读出，并可定位到 ENSO—IOD 嵌套源模块和未来 IOD 接收端；图 2e—f 进一步表明，这些机制读数可以作为输出校准的结构先验，而不是只停留在事后解释。图 3 则确认五模态源核心不依赖自由 greedy 路径。
 
 这种呼应不应被写成两个实验已经相互验证。SLP 实验分析的是重新拟合的 60 个压力场分量，UniCM 实验分析的是预定义海气模态上的冻结神经网络；两者的变量、时间单位、动力载体和估计维度均不同。更稳妥的结论是，两种独立设置都显示：高阶可预测信息具有尺度选择性，并且需要以“联合状态”而非静态节点重要性来描述。
 
@@ -152,18 +354,20 @@ IOD 的特殊性不是“它最容易预测”，而是“它的中期预测最�
 - SLP 的 60 个 Varimax 分量是在 1948—2026 扩展样本上重新拟合得到的，编号不是官方固定标签；在完成载荷物理校准前，不能把未校准节点直接命名为确定气候过程。
 - SLP 全量穷举解决了 shortlist 覆盖偏差，但尚未进行 block-bootstrap 显著性筛选、季节分层和替代推演模型验证。
 - 图 1g 的四条超边是事后选取的代表型态，用于说明时间响应的异质性，不代表全部候选的总体分布。
-- UniCM 分析只针对 frozen checkpoint 的 learned mechanism，不使用 reanalysis 数据重新验证预测，也不做单个历史事件归因。
+- UniCM 的机制分析针对 frozen checkpoint，不做单个历史事件归因。
+- Syn 正则化实验表明最大熵机制读数可以作为有限样本校准的结构先验，但当前证据只来自一个 ORAS5 时间切分、固定 `start_month=0` 和 affine degree-1 TM；在完成滚动起报、12 个起报月份和独立再分析资料复核前，不应把 `2.20%` 的相对 nRMSE 改善外推为稳定业务收益。
 - UniCM 的高维 EI、$\Xi$ 和二源 Syn 使用 affine/Gaussian degree-1 TM 等价的 log-det 估计；它适合机制筛查，但不等同于高阶 transport-map PEID 的最终非线性分解。
 - 贪婪 $\Xi$ 分解依赖层级路径和数值容差；原子集合不是唯一的高阶 PID 表示。
 - 固定模块集合由同一批 checkpoint 的 greedy 结果提出，因此图 3 排除了“必须进入自由路径才有信号”，但不是独立 checkpoint 或观测资料上的外部验证；其绝对量仍需 degree-2/3 TM 和干预支撑敏感性复核。
-- 图 2e 的标量 target $\Xi_j$ 与联合 target $\Xi$ 使用不同的 readout 维度；$\sum_j\Xi_j$ 不等于联合 target $\Xi$，因此 IOD 的标量值不能解释为系统总量的占比。当前固定起报月份还混合了 lead 与目标季节，其接收端定位需通过 12 个 `start_month` 和固定五模态源集合的 $\Xi_{S\rightarrow j}$ 共同验证。
+- 图 2d 的标量 target $\Xi_j$ 与联合 target $\Xi$ 使用不同的 readout 维度；$\sum_j\Xi_j$ 不等于联合 target $\Xi$，因此 IOD 的标量值不能解释为系统总量的占比。当前固定起报月份还混合了 lead 与目标季节，其接收端定位需通过 12 个 `start_month` 和固定五模态源集合的 $\Xi_{S\rightarrow j}$ 共同验证。
 
 ## 5. 图表与数据索引
 
-- 两张论文主图的可复现脚本：`scripts/plot_earth_system_main_figures.py`
+- 论文主图的可复现脚本：`scripts/plot_earth_system_main_figures.py`
 - 图 1 PNG/SVG/PDF：`fig/earth_slp_hyperedge_dynamics.{png,svg,pdf}`
 - 图 1 的 `No.0 + No.1` 目标跨度与数量摘要：`fig/earth_slp_hyperedge_dynamics_summary.json`
-- 图 2 PNG/SVG/PDF：`fig/earth_unicm_hierarchical_ei.{png,svg,pdf}`
+- 图 2 PNG/SVG/PDF：`fig/earth_unicm_hierarchical_ei.{png,svg,pdf}`；e—f 的预测校准数据来自 `results/unicm_synergy_regularized_forecast/summary.json`
+- 图 2e—f 的 target-specific Syn、校准脚本与报告：`results/unicm_target_pair_syn_tm_degree1_signed_n8192/target_pair_syn_summary.csv`、`scripts/run_unicm_synergy_regularized_calibration.py`、`results/unicm_synergy_regularized_forecast/report.md`
 - Runge 周尺度分量输入：`results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv`
 - Runge 全候选三阶 TM 结果：`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/multistep_conditioned_ei_tm_exhaustive`
 - Runge 代表超边强制 TM 趋势：`fig/runge_slp_daily_1948_2026_20260628/multistep_conditioned_ei_tm_targeted/forced_tm_edge_trends_H001_H060.csv`

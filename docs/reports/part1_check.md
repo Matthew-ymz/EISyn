@@ -26,6 +26,6 @@
 - 在同一系统、参数和 seed 下，SHAP 与 MLP+PEID 使用同一个 fitted MLP；JSON 中记录 MLP digest，用来审计二者是否确实共享模型。JSON 还应分别记录观测数据 digest 和 PEID intervention-state digest，但两者无需相等。
 - Oracle PEID 仅作为事后机制一致性诊断，并与 MLP+PEID 复用相同的干预域、采样 states 和目标噪声；Oracle PEID 不参与 MLP 训练数据与观测方法数据是否一致的判断。
 - Standard Map、Wilson-Cowan refractory、Kuramoto、Ikeda y_tau 和 Nicholson-Bailey 的正式信息量数值使用三阶 transport map。Coupled Hénon 的 WMS、SURD、MLP+PEID 与 Oracle PEID 统一使用每变量 `6` 个等宽 bins；SHAP interaction 仍读取连续 MLP 响应。估计器一致性不意味着样本状态必须相同：PEID 仍可使用独立均匀 intervention states。
-- 图中 MLP+PEID 直接报告配置 estimator 返回的 Syn，不再做 `max(0, Syn)` 截断。若估计值为小负数，则保留在图和 JSON 中，解释为有限样本、密度模型或 surrogate 误差诊断，而不是手动投影到非负轴。
+- Syn 按定义非负。每个数值实验必须用 Syn 原生单位声明零容差：容差内的小负值记为数值零，并在 JSON 中记录容差、数量和最小原始值；小于负容差的值必须显式报错。不得使用未声明的 `max(0, Syn)`。
 - panel a 使用 `symlog` 纵轴，并在图内明确标注；这是为了同时保留 Standard Map 上 SURD 的极端退化估计和约 `0.03-0.18` bits 的 PEID 趋势，不改变任何原始数值。
 - 对由扫描参数显式关闭的结构交互，主图仍显示同一套生成数据和同一 fitted MLP 经配置 estimator 得到的零点 residual；`raw_*` 字段保留为同值审计列。若 MLP residual 明显大于同 estimator 的 Oracle 零点 residual，则说明 surrogate 在 broad readout 上仍有形状误差，而不是说明真实机制存在协同。
