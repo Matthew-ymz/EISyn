@@ -2576,10 +2576,10 @@ def _sample_uniform_states(spec: ModelSpec, *, samples: int, seed: int) -> np.nd
 
 def _method_plot_specs() -> list[tuple[str, str, str, str]]:
     return [
-        ("wms", "WMS", "#9C6B5A", "o"),
-        ("surd_synergy", "SURD synergy", "#E3A13D", "s"),
-        ("shap_interaction", "MLP+SHAP interaction", "#7068A8", "^"),
-        ("peid_synergy", "MLP+PEID synergy", "#2F7D5A", "D"),
+        ("wms", "WMS", "#4C6A92", "o"),
+        ("surd_synergy", "SURD synergy", "#9AA0A6", "s"),
+        ("shap_interaction", "MLP+SHAP interaction", "#D99A3D", "^"),
+        ("peid_synergy", "MLP+PEID synergy", "#2A8C72", "D"),
     ]
 
 
@@ -2588,7 +2588,7 @@ def _oracle_peid_plot_spec() -> tuple[str, str, str, str]:
 
 
 def _mmi_pid_plot_spec() -> tuple[str, str, str, str]:
-    return ("mmi_pid_synergy", "MMI-PID synergy", "#4C78A8", "P")
+    return ("mmi_pid_synergy", "MMI-PID synergy", "#7C6FA6", "P")
 
 
 def _available_method_plot_specs(
@@ -5633,6 +5633,8 @@ def _plot_panel(
     symlog_linthresh: float | None = None,
     include_oracle_peid: bool = True,
     separate_surd_axis: bool = False,
+    title_fontsize: float = 9,
+    annotation_fontsize: float = 7,
 ) -> None:
     x_values = np.asarray([float(row[parameter_key]) for row in summary], dtype=float)
     specs = _available_method_plot_specs(summary, include_oracle_peid=include_oracle_peid)
@@ -5645,15 +5647,15 @@ def _plot_panel(
         plot_axis.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.13, linewidth=0)
     axis.axhline(0.0, color="#888888", linewidth=0.8, linestyle="--")
     axis.set_xlabel(xlabel)
-    axis.set_title(label, loc="left", fontsize=9, fontweight="bold")
+    axis.set_title(label, loc="left", fontsize=title_fontsize, fontweight="bold")
     axis.grid(True, axis="y", alpha=0.20, linewidth=0.6)
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
     if separate_surd_axis:
-        surd_axis.set_ylabel("SURD synergy (bits)", color="#E3A13D")
-        surd_axis.tick_params(axis="y", colors="#E3A13D")
+        surd_axis.set_ylabel("SURD synergy (bits)", color="#6F757A")
+        surd_axis.tick_params(axis="y", colors="#6F757A")
         surd_axis.spines["top"].set_visible(False)
-        surd_axis.spines["right"].set_color("#E3A13D")
+        surd_axis.spines["right"].set_color("#6F757A")
     if symlog_linthresh is not None:
         axis.set_yscale("symlog", linthresh=float(symlog_linthresh))
         axis.text(
@@ -5663,7 +5665,7 @@ def _plot_panel(
             transform=axis.transAxes,
             ha="right",
             va="bottom",
-            fontsize=7,
+            fontsize=annotation_fontsize,
             color="#666666",
         )
 
@@ -5715,6 +5717,12 @@ def run_part1_combined_synergy_figure(
     nicholson_bailey_result_path: Path = ROOT / "results" / "discrete_iteration_dynamics_benchmark" / "nicholson_bailey_synergy_sweep.json",
     mmi_pid_result_path: Path = ROOT / "results" / "part1_mmi_pid_synergy_report" / "summary.json",
     figure_path: Path = PART1_COMBINED_FIGURE_PATH,
+    font_size: float = 8,
+    title_font_size: float = 9,
+    figure_size: tuple[float, float] = (14.8, 7.2),
+    include_panel_letters: bool = True,
+    legend_font_size: float | None = None,
+    compact_xlabels: bool = False,
 ) -> dict[str, object]:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
@@ -5723,7 +5731,11 @@ def run_part1_combined_synergy_figure(
         {
             "font.family": "sans-serif",
             "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
-            "font.size": 8,
+            "font.size": font_size,
+            "axes.labelsize": font_size,
+            "xtick.labelsize": 0.92 * font_size,
+            "ytick.labelsize": 0.92 * font_size,
+            "legend.fontsize": legend_font_size or 0.92 * font_size,
             "axes.linewidth": 0.8,
             "pdf.fonttype": 42,
             "svg.fonttype": "none",
@@ -5777,62 +5789,106 @@ def run_part1_combined_synergy_figure(
         if controlled_henon_parameter_key == "lambda"
         else "Hénon unique channel gamma"
     )
-    fig, axes = plt.subplots(2, 3, figsize=(14.8, 7.2), constrained_layout=True)
+    xlabels = (
+        {
+            "standard": r"$J$",
+            "wilson_cowan": r"$g$",
+            "kuramoto": r"$K$",
+            "controlled_henon": r"$\lambda$" if controlled_henon_parameter_key == "lambda" else r"$\gamma$",
+            "ikeda": r"$u$",
+            "nicholson_bailey": r"$a$",
+        }
+        if compact_xlabels
+        else {
+            "standard": "Standard map coupling J",
+            "wilson_cowan": "Wilson-Cowan sigmoid gain g",
+            "kuramoto": "Kuramoto coupling K",
+            "controlled_henon": controlled_henon_xlabel,
+            "ikeda": "Ikeda parameter u",
+            "nicholson_bailey": "Nicholson-Bailey attack rate a",
+        }
+    )
+    fig, axes = plt.subplots(2, 3, figsize=figure_size, constrained_layout=True)
     axes = axes.flat
+    panel_prefixes = ("a  ", "b  ", "c  ", "d  ", "e  ", "f  ") if include_panel_letters else ("",) * 6
+    controlled_henon_title = (
+        "Controlled Hénon unique sweep"
+        if include_panel_letters
+        else "Controlled Hénon\nunique sweep"
+    )
     _plot_panel(
         axes[0],
         standard_summary,
         parameter_key="coupling",
-        xlabel="Standard map coupling J",
-        label="a  Coupled standard map",
+        xlabel=xlabels["standard"],
+        label=f"{panel_prefixes[0]}Coupled standard map",
         symlog_linthresh=0.2,
         include_oracle_peid=False,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     axes[0].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[1],
         wilson_cowan_refractory_summary,
         parameter_key=wilson_cowan_refractory_parameter_key,
-        xlabel="Wilson-Cowan sigmoid gain g",
-        label="b  Wilson-Cowan gain",
+        xlabel=xlabels["wilson_cowan"],
+        label=f"{panel_prefixes[1]}Wilson-Cowan gain",
         include_oracle_peid=False,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     _plot_panel(
         axes[2],
         kuramoto_summary,
         parameter_key=kuramoto_parameter_key,
-        xlabel="Kuramoto coupling K",
-        label="c  Kuramoto phase locking",
+        xlabel=xlabels["kuramoto"],
+        label=f"{panel_prefixes[2]}Kuramoto phase locking",
         include_oracle_peid=False,
         separate_surd_axis=True,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     _plot_panel(
         axes[3],
         controlled_henon_summary,
         parameter_key=controlled_henon_parameter_key,
-        xlabel=controlled_henon_xlabel,
-        label="d  Controlled Hénon unique sweep",
+        xlabel=xlabels["controlled_henon"],
+        label=f"{panel_prefixes[3]}{controlled_henon_title}",
         include_oracle_peid=False,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     axes[3].set_ylabel("Synergy / Interaction")
     _plot_panel(
         axes[4],
         ikeda_summary,
         parameter_key=ikeda_parameter_key,
-        xlabel="Ikeda parameter u",
-        label="e  Ikeda optical cavity",
+        xlabel=xlabels["ikeda"],
+        label=f"{panel_prefixes[4]}Ikeda optical cavity",
         include_oracle_peid=False,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     _plot_panel(
         axes[5],
         nicholson_bailey_summary,
         parameter_key=nicholson_bailey_parameter_key,
-        xlabel="Nicholson-Bailey attack rate a",
-        label="f  Nicholson-Bailey",
+        xlabel=xlabels["nicholson_bailey"],
+        label=f"{panel_prefixes[5]}Nicholson-Bailey",
         include_oracle_peid=False,
+        title_fontsize=title_font_size,
+        annotation_fontsize=0.88 * font_size,
     )
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="center left", bbox_to_anchor=(1.005, 0.5), frameon=False)
+    fig.legend(
+        handles,
+        labels,
+        loc="center left",
+        bbox_to_anchor=(1.005, 0.5),
+        frameon=False,
+        fontsize=legend_font_size,
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure_path, dpi=300, bbox_inches="tight")
     plt.close(fig)

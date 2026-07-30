@@ -2874,15 +2874,15 @@ def _beta_sweep_trend_stats(frame: pd.DataFrame) -> dict[str, float]:
 
 
 _BETA_NCS_METHOD_STYLES = {
-    "observational": {"color": "#4C78A8", "alpha": 0.62, "linewidth": 1.15},
-    "mmi_pid": {"color": "#B07AA1", "alpha": 0.74, "linewidth": 1.15},
-    "mlp_peid": {"color": "#009E73", "alpha": 1.00, "linewidth": 1.65},
+    "observational": {"color": "#4C6A92", "alpha": 0.68, "linewidth": 1.15},
+    "mmi_pid": {"color": "#7C6FA6", "alpha": 0.80, "linewidth": 1.15},
+    "mlp_peid": {"color": "#2A8C72", "alpha": 1.00, "linewidth": 1.65},
     "oracle_peid": {"color": "#7E57C2", "alpha": 1.00, "linewidth": 1.65},
-    "surd": {"color": "#8C8C8C", "alpha": 0.62, "linewidth": 1.15},
-    "shap": {"color": "#E68613", "alpha": 0.62, "linewidth": 1.15},
-    "pcmci": {"color": "#D65F8F", "alpha": 0.62, "linewidth": 1.15},
-    "neural_granger": {"color": "#27A6B8", "alpha": 0.62, "linewidth": 1.15},
-    "liang_if": {"color": "#C44E52", "alpha": 0.74, "linewidth": 1.15},
+    "surd": {"color": "#9AA0A6", "alpha": 0.72, "linewidth": 1.15},
+    "shap": {"color": "#D99A3D", "alpha": 0.78, "linewidth": 1.15},
+    "pcmci": {"color": "#CC7C99", "alpha": 0.70, "linewidth": 1.15},
+    "neural_granger": {"color": "#6CB7C5", "alpha": 0.76, "linewidth": 1.15},
+    "liang_if": {"color": "#C85A4A", "alpha": 0.80, "linewidth": 1.15},
 }
 
 _BETA_MLP_READOUT_OVERRIDE_COLUMNS = (
@@ -2936,25 +2936,25 @@ def _override_beta_mlp_readouts(
     return result
 
 
-def _configure_beta_ncs_style() -> None:
+def _configure_beta_ncs_style(font_scale: float = 1.0) -> None:
     import matplotlib as mpl
 
     mpl.rcParams.update(
         {
             "font.family": "sans-serif",
             "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
-            "font.size": 6.5,
-            "axes.labelsize": 6.5,
-            "axes.titlesize": 7.0,
+            "font.size": 6.5 * font_scale,
+            "axes.labelsize": 6.5 * font_scale,
+            "axes.titlesize": 7.0 * font_scale,
             "axes.spines.right": False,
             "axes.spines.top": False,
             "axes.linewidth": 0.65,
-            "xtick.labelsize": 6.0,
-            "ytick.labelsize": 6.0,
+            "xtick.labelsize": 6.0 * font_scale,
+            "ytick.labelsize": 6.0 * font_scale,
             "xtick.major.width": 0.65,
             "ytick.major.width": 0.65,
             "legend.frameon": False,
-            "legend.fontsize": 5.8,
+            "legend.fontsize": 5.8 * font_scale,
             "pdf.fonttype": 42,
             "svg.fonttype": "none",
             "savefig.facecolor": "white",
@@ -3286,6 +3286,12 @@ def _plot_sine_beta_combined_readout_sweep(
     mlp_readout_result: dict[str, object] | None = None,
     stem: str = "sine_beta_combined_readout_sweep",
     include_oracle: bool = True,
+    font_scale: float = 1.0,
+    figure_size: tuple[float, float] = (7.2, 5.65),
+    include_panel_labels: bool = True,
+    legend_columns: int = 5,
+    compact_text: bool = False,
+    reserve_legend_band: bool = False,
 ) -> Path | None:
     beta_result = _override_beta_mlp_readouts(beta_result, mlp_readout_result)
     summary_rows = beta_result.get("summary", [])
@@ -3299,20 +3305,24 @@ def _plot_sine_beta_combined_readout_sweep(
     import matplotlib.pyplot as plt
 
     frame = pd.DataFrame(summary_rows).sort_values("beta")
-    _configure_beta_ncs_style()
+    _configure_beta_ncs_style(font_scale=font_scale)
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
         2,
         1,
-        figsize=(7.2, 5.65),
+        figsize=figure_size,
         sharex=True,
         constrained_layout=True,
         gridspec_kw={"height_ratios": [1.05, 1.0]},
     )
+    if reserve_legend_band:
+        layout_engine = fig.get_layout_engine()
+        if layout_engine is not None:
+            layout_engine.set(rect=(0.0, 0.0, 1.0, 0.77))
     single_bits, synergy_bits = axes
     single_native = single_bits.twinx()
     single_ng = single_bits.twinx()
-    single_ng.spines.right.set_position(("axes", 1.10))
+    single_ng.spines.right.set_position(("axes", 1.14 if compact_text else 1.10))
     single_ng.spines.right.set_visible(True)
     synergy_shap = synergy_bits.twinx()
 
@@ -3389,7 +3399,7 @@ def _plot_sine_beta_combined_readout_sweep(
                 alpha=style["alpha"],
                 linewidth=style["linewidth"],
             )
-    single_native.set_ylabel("SHAP / PCMCI native readout")
+    single_native.set_ylabel("SHAP / PCMCI" if compact_text else "SHAP / PCMCI native readout")
 
     for y_col, std_col, label, source, method in [
         ("neural_granger_x_to_z_mean", "neural_granger_x_to_z_std", "NG x->z", "x", "neural_granger"),
@@ -3407,7 +3417,7 @@ def _plot_sine_beta_combined_readout_sweep(
                 alpha=style["alpha"],
                 linewidth=style["linewidth"],
             )
-    single_ng.set_ylabel("Neural Granger group norm")
+    single_ng.set_ylabel("Neural Granger" if compact_text else "Neural Granger group norm")
 
     if liang_result and liang_result.get("summary"):
         liang_frame = pd.DataFrame(liang_result["summary"]).sort_values(["beta", "source"])
@@ -3464,30 +3474,43 @@ def _plot_sine_beta_combined_readout_sweep(
             alpha=style["alpha"],
             linewidth=style["linewidth"],
         )
-    synergy_shap.set_ylabel("SHAP interaction readout")
+    synergy_shap.set_ylabel("SHAP interaction" if compact_text else "SHAP interaction readout")
 
     _set_beta_axis_ticks(single_bits, single_native, single_ng, synergy_bits, synergy_shap)
     synergy_bits.set_xlabel(r"$\beta$: common-driver strength")
-    _add_ncs_panel_label(single_bits, "a")
-    _add_ncs_panel_label(synergy_bits, "b")
+    if include_panel_labels:
+        _add_ncs_panel_label(single_bits, "a")
+        _add_ncs_panel_label(synergy_bits, "b")
 
     source_handles = [
         Line2D([], [], color="#374151", marker=source_markers["x"], linestyle="none", markersize=4.2, label=r"$x \to z$"),
         Line2D([], [], color="#374151", marker=source_markers["y"], linestyle="none", markersize=4.2, label=r"$y \to z$"),
     ]
-    method_specs = [
-        ("Obs. MI / WMS (bits)", "observational"),
-        ("MMI-PID (bits)", "mmi_pid"),
-        ("MLP+PEID (bits)", "mlp_peid"),
-        ("SURD (bits)", "surd"),
-        ("SHAP (native)", "shap"),
-        ("PCMCI-CMIknn (native)", "pcmci"),
-        ("Neural Granger (group norm)", "neural_granger"),
-    ]
+    method_specs = (
+        [
+            ("Obs. MI / WMS", "observational"),
+            ("MMI-PID", "mmi_pid"),
+            ("MLP+PEID", "mlp_peid"),
+            ("SURD", "surd"),
+            ("SHAP", "shap"),
+            ("PCMCI", "pcmci"),
+            ("Neural Granger", "neural_granger"),
+        ]
+        if compact_text
+        else [
+            ("Obs. MI / WMS (bits)", "observational"),
+            ("MMI-PID (bits)", "mmi_pid"),
+            ("MLP+PEID (bits)", "mlp_peid"),
+            ("SURD (bits)", "surd"),
+            ("SHAP (native)", "shap"),
+            ("PCMCI-CMIknn (native)", "pcmci"),
+            ("Neural Granger (group norm)", "neural_granger"),
+        ]
+    )
     if include_oracle:
         method_specs.insert(3, ("Oracle+PEID (bits)", "oracle_peid"))
     if liang_result and liang_result.get("summary"):
-        method_specs.append(("Liang IF (flow)", "liang_if"))
+        method_specs.append(("Liang IF" if compact_text else "Liang IF (flow)", "liang_if"))
     method_handles = [
         Line2D(
             [],
@@ -3503,8 +3526,8 @@ def _plot_sine_beta_combined_readout_sweep(
     fig.legend(
         handles=source_handles + method_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.045),
-        ncol=5,
+        bbox_to_anchor=(0.5, 1.015 if reserve_legend_band else 1.045),
+        ncol=legend_columns,
         handlelength=2.0,
         handletextpad=0.6,
         columnspacing=1.0,
