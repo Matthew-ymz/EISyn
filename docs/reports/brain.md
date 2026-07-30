@@ -6,7 +6,7 @@
 
 1. **Schaefer100 DMF 跨连接组复现。**将原 83 ROI 的有向 F-TRACT 代理矩阵替换为 93 名受试者的 100×100 对称结构连接群体均值后，$\Xi$ 从 $G=0$ 的 8.452 bits 上升，在 $G=1.3$ 达到 $26.131\pm0.163$ bits（均值 ± 跨 seed SD）的峰值，随后下降；8/8 个 seed 的峰位一致。平均发放率的最大离散导数位于 $G=1.5$。以 $\Xi$ 峰为中心重新选定的候选临界窗 $G\in\{1.2,1.3,1.4\}$ 中，88.00% 的 $\Xi$ 来自跨 ROI 协同，其中网络间分量占总量的 66.27%。
 2. **HCP500/1000 PCA–Yeo7 $\Xi$ 分解。**在相同 30 名 HCP REST1_LR 被试中，Schaefer-500（$p=8,\alpha=10$）与重新验证的 Schaefer-1000（$p=5,\alpha=1$）均在 30/30 名被试中高于独立 PC1 circular-shift null。两种粒度的全七网络核都常进入 top-3，但不高于 matched null；相对地，缺少 Limbic 的六网络核均高于 matched null cohort（500：17/30 对 8.65/30；1000：12/30 对 6.35/30；各 20-null 未校正 $p=0.047619$）。
-3. **HCP500 任务诱发表征、$\Xi$ 层级分解与认知画像。**任务态先在 `taskRetained-taskRegressed` 上拟合各 Yeo7 网络的 PC1，再用同一载荷投影 `taskRetained`；REST 则在自身时序上拟合并投影。最终共享配置为一维网络状态、三阶历史与 Ridge $\alpha=1$，即 21 维 source 预测 7 维下一时刻 target。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 7.040 bits，高于七任务的 4.301--5.537 bits；七项配对 Wilcoxon 检验经 BH 校正后均显著。七网络归因份额在仅比较任务态时 7/7 个网络均有显著状态效应；greedy 层级分解进一步描述了跨网络 $\Xi$ 在主要网络组合间的分配。同一 29 人的冻结 SEM 认知因子，以及一般认知与 LANGUAGE、MOTOR 全七网络 atom 的相反方向关联，一并纳入合并主图。进一步扫描 REST 与七任务中的全部 120 个网络组合后，晶体认知、记忆和加工速度均得到覆盖 29/29 人且原始双侧与逐项置换 $p<0.05$ 的候选；但三项均未通过每个认知因子 2,872 个特征范围内的 BH 或 maxT 校正，因此只构成待独立复现的探索性线索。固定同一分析契约替换为 Schaefer-1000 后，图 2a--c 强复现，LANGUAGE--MOTOR 方向差异中等复现，三个领域认知候选仅弱复现。
+3. **HCP1000 任务诱发表征、$\Xi$ 层级分解与认知画像。**正文以 Schaefer-1000 为主要空间粒度：任务态先在 `taskRetained-taskRegressed` 上拟合各 Yeo7 网络的 PC1，再用同一载荷投影 `taskRetained`；REST 则在自身时序上拟合并投影。共享配置为一维网络状态、三阶历史与 Ridge $\alpha=1$，即 21 维 source 预测 7 维下一时刻 target。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 6.985 bits，高于七任务的 4.288--5.686 bits；七项配对 Wilcoxon 检验经 BH 校正后均显著。七网络归因份额在仅比较任务态时 7/7 个网络均有显著状态效应，greedy 层级分解进一步描述了跨网络 $\Xi$ 在主要网络组合间的分配。合并主图同时展示一般认知与 LANGUAGE、MOTOR 全七网络 atom 的任务依赖关系，LANGUAGE 内 SomMot+Limbic+Cont 与 Story、Math ACC 的方向分化，以及 WM 中 Cont+Default 固定组合与 0-back 表现的负相关。Schaefer-500 的旧主图、领域认知探索及跨粒度对照移至附录 K。
 
 这些实验分别回答不同问题：DMF 实验检验 $\Xi$ 是否能定位可控模型中的临界动力学带；HCP 静息态实验检验降维后的真实网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构；任务态实验检验以任务诱发 PCA 选择观测方向后，system-level $\Xi$ 及其网络和层级组合归因是否随状态改变。它们不构成对特定脑机制、因果方向或唯一稀疏 atom 的证明。
 
@@ -22,8 +22,8 @@
    7. [综合结论与文献对照](#dmf-insights)
    8. [解释边界](#dmf-limits)
    9. [参考文献](#dmf-references)
-2. [**HCP500 任务态 $\Xi$、认知画像与脑区分布**](#hcp-wm)
-   1. [主要结果：任务诱发 PCA–$\Xi$ 网络归因与层级分解](#hcp-task-evoked-xi-main)
+2. [**HCP 任务态 $\Xi$、认知画像与脑区分布**](#hcp-wm)
+   1. [主要结果：Schaefer-1000 任务诱发 PCA–$\Xi$ 网络归因与层级分解](#hcp-task-evoked-xi-main)
    2. [协同核分布及静息态对照](#hcp-wm-phi)
    3. [七任务 raw $\Xi$ 历史表征参照](#hcp-all-tasks)
    4. [七任务态的 Schaefer-500 任务特异脑区分布](#hcp-task-specific-regions)
@@ -355,11 +355,11 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 
 <a id="hcp-wm"></a>
 
-## 2. HCP500 任务态 $\Xi$、认知画像与脑区分布
+## 2. HCP 任务态 $\Xi$、认知画像与脑区分布
 
 <a id="hcp-task-evoked-xi-main"></a>
 
-### 2.1 主要结果：任务诱发 PCA–$\Xi$、层级分解与认知画像
+### 2.1 主要结果：Schaefer-1000 任务诱发 PCA–$\Xi$、层级分解与认知画像
 
 本实验先在每个 Yeo7 网络内提取任务诱发 PCA 方向。对任务态，PCA 只在前 75% 时间点的
 
@@ -369,7 +369,7 @@ $$
 -\mathbf{X}^{\mathrm{regressed}}_{sc}
 $$
 
-上拟合，再用所得载荷投影原始 $\mathbf{X}^{\mathrm{retained}}_{sc}$。因此任务态同时读取 retained 和 regressed 两组数据，但不是将两者拼接后共同做 PCA：`retained - regressed` 只负责拟合 PCA 方向，完整 retained 时序负责生成后续动力学状态。task GLM 移除的成分由此决定降维方向，而动力学仍保留完整任务信号。REST 没有任务回归版本，故在自身前 75% 时序上拟合并投影 PCA。最终每个网络保留第一主成分（$k=1$），形成七维网络状态 $\mathbf{x}_t$；任务态 PC1 的平均累计解释方差为 67.35%，REST 为 44.53%。
+上拟合，再用所得载荷投影原始 $\mathbf{X}^{\mathrm{retained}}_{sc}$。因此任务态同时读取 retained 和 regressed 两组数据，但不是将两者拼接后共同做 PCA：`retained - regressed` 只负责拟合 PCA 方向，完整 retained 时序负责生成后续动力学状态。task GLM 移除的成分由此决定降维方向，而动力学仍保留完整任务信号。REST 没有任务回归版本，故在自身前 75% 时序上拟合并投影 PCA。正文使用 Schaefer-1000；最终每个网络保留第一主成分（$k=1$），形成七维网络状态 $\mathbf{x}_t$。任务态 PC1 的平均累计解释方差为 64.74%，REST 为 37.77%。
 
 共享动力学配置为 $(k,p,\alpha)=(1,3,1)$。三阶网络历史
 
@@ -393,9 +393,9 @@ $$
 -\sum_{j=1}^{21}EI(h_{t,j};\mathbf{x}_{t+1}).
 $$
 
-该量对应 PEID 在 singleton source partition 下的 system-level synergy。本文统一使用 $\Xi$；“system-level $\Xi$”特指这里的 21 个网络–滞后 singleton source partition，而附录 I.1 的“raw $\Xi$”使用固定七维 PC1 历史表征。两者符号相同，但 source 构造和可比范围不同。232 个“被试 $\times$ 状态”模型的平均 held-out RMSE/持久性基线比为 0.907，其中 207/232 个模型优于持久性基线。
+该量对应 PEID 在 singleton source partition 下的 system-level synergy。本文统一使用 $\Xi$；“system-level $\Xi$”特指这里的 21 个网络–滞后 singleton source partition，而附录 I.1 的“raw $\Xi$”使用固定七维 PC1 历史表征。两者符号相同，但 source 构造和可比范围不同。Schaefer-1000 的 232 个“被试 $\times$ 状态”模型平均 held-out RMSE/持久性基线比为 0.903，其中 212/232 个模型优于持久性基线。
 
-合并主图 a 汇总整体幅度。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 7.040 bits，七任务为 4.301--5.537 bits。REST 与每个任务的双侧配对 Wilcoxon 检验在七项内作 BH 校正后均显著，最小均值差仍为 REST--SOCIAL 的 1.503 bits（$q=0.00922$）。因此，当前表征首先保留了 **REST 整体 $\Xi$ 显著高于全部任务态** 的幅度结论。
+合并主图 a 汇总整体幅度。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 6.985 bits，七任务为 4.288--5.686 bits。REST 与每个任务的双侧配对 Wilcoxon 检验在七项内作 BH 校正后均显著，最小均值差仍为 REST--SOCIAL 的 1.299 bits（$q=0.0168$）。因此，当前表征首先保留了 **REST 整体 $\Xi$ 显著高于全部任务态** 的幅度结论。
 
 为解释整体 $\Xi$ 如何分配，三个滞后在每个 Yeo7 网络内绑定为模块 $M_g$。网络内协同与跨网络协同分别定义为
 
@@ -439,151 +439,78 @@ C_g
 \sum_{g=1}^{7}C_g=\Xi.
 $$
 
-例如，`sub-100206` 的 LANGUAGE--Control 中，Control 的精确 Shapley 值为 0.701236 bits，网络内协同为 0.243910 bits，因此 $C_{\mathrm{Control}}=0.945146$ bits；除以该被试的 system-level $\Xi=4.699821$ bits 后，Control 份额为 20.11%。主图 b 对每名被试先计算 $P_{scg}=C_{scg}/\Xi_{sc}$，再对 29 名被试取平均，所以每列严格合计 100%。
+例如，`sub-100206` 的 Schaefer-1000 LANGUAGE system-level $\Xi$ 为 4.690 bits，Control 的守恒归因为 0.721 bits，占 15.37%。主图 c 对每名被试先计算 $P_{scg}=C_{scg}/\Xi_{sc}$，再对 29 名被试取平均，所以每列严格合计 100%。
 
-![REST 与七任务的 system-level Xi、网络份额、层级 atom 和认知画像联合结果](../../results/hcp_schaefer500_task_evoked_xi_tuning/final/task_evoked_xi_main_combined.png)
+![HCP Schaefer-1000 任务态 Xi、认知画像、层级分解与任务表现](../../results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.png)
 
-*图2. 任务状态重塑全脑协同的层级组织，并使同一高阶网络组合与认知表现呈现任务依赖的不同方向。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：同一 29 名被试的一般认知、晶体认知、记忆和加工速度因子画像；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 绝对贡献的逐被试关系；g--i：全组合扫描为晶体认知、记忆和加工速度提出的三个次级探索候选。d 中每个认知因子在 29 人内部单独标准化。e--f 是本图主要的脑--认知证据；g--i 采用低权重版式，并标出原始与逐项置换 $p$。全部虚线仅作线性视觉引导，统计量均为 Spearman 秩相关；搜索空间校正结果集中列于附录 K。*
+*图 2｜Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：同一 29 名被试的四个冻结认知因子；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 绝对贡献的逐被试关系；g--h：LANGUAGE 中 SomMot+Limbic+Cont 固定组合总协同分别与 Story、Math ACC 的关系；i：WM 中 Cont+Default 固定组合总协同与 0-back ACC 的关系，并在图内同时标出 2-back 相关和两条件差异检验。d 中每个认知因子在 29 人内部单独标准化；g 和 i 为显示重叠而对横坐标加入固定轻微抖动，统计仍使用原始分数。全部虚线只作线性视觉引导，统计量均为 Spearman 秩相关。*
 
-图 2a--c 先回答任务是否只改变整体协同强度，还是同时重组协同的内部结构。在当前任务诱发 PCA 表征下，REST 的 system-level $\Xi$ 高于全部七项任务，与无外部任务约束时自发动力学保留更大范围的全系统联合可预测性相容。进入任务后，整体 $\Xi$ 普遍下降，但这种下降并不是七个网络按相同比例同步收缩：REST 中 SomMot、DorsAttn 和 Default 的平均份额较高，LANGUAGE 的 Control 份额升至 20.5%，RELATIONAL 与 SOCIAL 的 DorsAttn 份额分别达到 20.5% 和 21.4%。仅比较七任务，七个网络的状态效应均经 BH 校正显著（最大 $q=0.0248$）。因此，任务不仅压缩了协同总量，也把剩余协同重新分配到与当前计算需求相匹配的网络。
+图 2a--c 显示任务不只改变整体协同强度，也重组协同的内部结构。REST 的 system-level $\Xi$ 高于全部七项任务，与无外部任务约束时自发动力学保留更大范围的全系统联合可预测性相容。进入任务后，整体 $\Xi$ 普遍下降，但七个网络并非同比例收缩：REST 中 SomMot、DorsAttn 和 Default 的平均份额较高，LANGUAGE 的 Control 份额升至 19.4%，RELATIONAL 与 SOCIAL 的 DorsAttn 份额分别达到 20.2% 和 21.3%。仅比较七任务，7/7 个网络仍有经 BH 校正的状态效应。因此，任务不仅压缩协同总量，也把剩余协同重新分配到与当前计算需求相匹配的网络。
 
-层级 atom 进一步显示，这种重组发生在网络组合层面。REST 的全七网络 atom 为 1.113 bits；除 MOTOR 外，多数任务的主要高阶组合集中在缺少 Limbic 的六网络核，绝对贡献为 0.692--1.023 bits。MOTOR 同时保留全七网络与缺 Limbic 六网络两个相近的高层组合。这个结果提示，任务态并非简单关闭全脑整合，而是把广泛协同约束到少数可重复出现的高阶组合中。图 2d 所示四个认知因子在被试间又并不同步变化，使这些组合能够进一步用于检验认知优势究竟对应“更多协同”，还是“更合适的协同配置”。
+层级 atom 进一步显示，这种重组发生在网络组合层面。REST 的全七网络 atom 为 1.047 bits；多数任务的主要高阶组合集中在缺少 Limbic 的六网络核，绝对贡献为 0.702--1.096 bits。MOTOR 同时保留全七网络与缺 Limbic 六网络两个较大的高层组合。任务态因此不是简单关闭全脑整合，而是把广泛协同约束到少数可重复出现的高阶组合中。
 
-图 2e--f 给出主结果：同一个全七网络 atom 与一般认知的关系随任务而改变。在 LANGUAGE 中，一般认知越高，全七网络 atom 的贡献越大（$\rho=+0.518$，原始双侧 $p=0.00402$）；在 MOTOR 中，方向相反（$\rho=-0.400$，原始双侧 $p=0.03133$）。两个 atom 均覆盖 29/29 名被试，因此该反转不由稀疏零值驱动。LANGUAGE 同时要求故事理解、语义提取、心算和反应选择，较高认知表现可能受益于广泛网络在最高层级的联合组织；MOTOR 则是重复手、足和舌运动的感觉运动定位任务，较高认知表现未必需要把协同集中到全七网络组合，更可能依赖相对分离和专门化的处理。
+图 2e--f 给出一般认知的任务依赖关系。LANGUAGE 全七网络 atom 与一般认知正相关（$\rho=+0.578$，逐项置换 $p=0.00120$，两项 Holm $p=0.00240$）；MOTOR 保持负方向，但单项证据较弱（$\rho=-0.306$，逐项置换及 Holm $p=0.107$）。两个相关之差为 $0.884$，双侧置换 $p=0.000400$。这个结果不表示认知越高，全脑协同越多或越少，而是说明认知优势可能表现为按任务需求重新配置高阶协同：复杂语言加工偏向更广泛的联合组织，重复运动执行较少依赖最高层级的全系统绑定。这一解释与任务依赖的整合--分离和高效重配置文献相容（[Shine et al., 2016](https://doi.org/10.1016/j.neuron.2016.09.018)；[Schultz and Cole, 2016](https://doi.org/10.1523/JNEUROSCI.0358-16.2016)），但功能连接与 PEID atom 并非同一测量。
 
-MOTOR 中的负相关不是“认知越高，整体协同越低”。一般认知与 MOTOR 的 system-level $\Xi$（$\rho=0.070$，$p=0.718$）以及跨网络总 $\Xi$（$\rho=0.004$，$p=0.982$）均接近零。变化发生在协同的层级归属，而不是总量：较高一般认知对应更少的协同集中于最高层全七网络 atom，但不对应全系统协同整体减少。由此，图 2 的核心科学故事不是 LANGUAGE 与 MOTOR 具有完全相反的脑机制，而是**认知优势表现为按任务需求配置高阶协同：复杂语言加工偏向更广泛的联合组织，简单运动执行偏向较少依赖最高层级的全系统绑定。**
+Schaefer-500 与 Schaefer-1000 的群体状态结果高度一致：56 个“状态 $\times$ 网络”平均归因份额的跨粒度相关为 0.955，平均绝对差为 0.597 个百分点，每个状态的 top-3 greedy atom 平均共享 2.50/3 个。正文因此以 1000 分区为主，500 分区旧主图、领域认知探索和完整跨粒度说明统一移至附录 K。
 
-这一解释与任务依赖的整合--分离文献相容。HCP 任务研究显示，MOTOR 对应较强的网络分离，而 LANGUAGE、SOCIAL 和 N-back 更偏向整合（[Shine et al., 2016](https://doi.org/10.1016/j.neuron.2016.09.018)）。大样本研究进一步发现，一般认知偏向更强的全局整合，而加工速度和晶体认知可受益于更强分离（[Wang et al., 2021](https://doi.org/10.1073/pnas.2022288118)）；较高智力也与更小、更有效的任务网络重配置相关（[Schultz and Cole, 2016](https://doi.org/10.1523/JNEUROSCI.0358-16.2016)；[Thiele et al., 2022](https://doi.org/10.1093/cercor/bhab473)）。这些文献支持“不同任务具有不同最优整合水平”的机制框架，但功能连接、模块化和网络重配置并不等同于本文的 PEID atom，只能提供收敛而非直接验证。
+#### LANGUAGE 内 Story--Math 分化：SomMot+Limbic+Cont 固定组合
 
-图 2g--i 将同一故事扩展到领域认知，但证据等级更低。记忆较高对应 SOCIAL 中 SalVentAttn+Limbic+Default 首层残差较大，可解释为显著性选择、社会情感意义与内部情境表征的联合组织；晶体认知和加工速度较高则分别对应 EMOTION 中 DorsAttn+Limbic、RELATIONAL 中 Vis+Limbic+Cont 的首层残差较小，与分离、专门化或较少依赖广泛绑定的解释相容。不过，三项结果均从每项认知的 2,872 个特征中筛选，且没有通过 BH 或 maxT 校正，只能用于提出独立验证假设。
+HCP 的 LANGUAGE run 并不是单一语言条件，而是在同一次扫描中交替呈现 Story 和 Math。Story 要求被试听取 5--9 句的伊索寓言改编故事，再从两个选项中判断故事主题；Math 同样使用听觉呈现和二选一按键反应，但要求连续完成加减运算，而且题目难度会按被试表现自适应。这一设计有意用 Math 控制听觉输入、持续加工和反应选择，同时突出 Story 的叙事意义提取，因此 Story--Math 也是该范式最初用于定位前颞叶语义加工的核心对照（[Binder et al., 2011](https://doi.org/10.1016/j.neuroimage.2010.09.048)；[Barch et al., 2013](https://doi.org/10.1016/j.neuroimage.2013.05.033)）。
 
-因此，图 2 支持的最窄结论是：**任务状态同时改变全脑协同的总量、网络归因和层级组合，而认知表现与这种组织方式的关系具有任务依赖性。** 其中 LANGUAGE--MOTOR 的一般认知方向差异是主候选，三个领域认知关系是次级探索候选。确认前者仍需直接检验一般认知 $\times$ 任务状态交互，或对 LANGUAGE--MOTOR 的被试内 atom 差值实施家系分块置换，并在独立 run 或 cohort 中复现。
+这里检验的不是某个网络的平均激活，也不是两两功能连接。令
 
-**Schaefer-1000 跨空间粒度复现。**为检验上述结论是否依赖 Schaefer-500，本实验保持同一 29 名被试、扫描、状态、任务诱发 PCA、$(k,p,\alpha)=(1,3,1)$、affine-TM 估计、干预支持与层级算法不变，只将空间分区替换为 Schaefer-1000。这里的“1000”指 parcel 数，不是 1000 名被试，因此结果验证的是空间粒度鲁棒性，而不是独立队列复现。
+$$
+S=\{\mathrm{SomMot},\mathrm{Limbic},\mathrm{Cont}\},
+$$
 
-群体状态结论得到强复现。Schaefer-1000 的 REST system-level $\Xi$ 均值为 6.985 bits，七任务为 4.288--5.686 bits；REST 与 7/7 个任务的配对 Wilcoxon 检验经 BH 校正后均显著。500/1000 的 56 个“状态 $\times$ 网络”平均归因份额 Spearman 相关为 0.955，平均绝对差仅 0.597 个百分点，且 Schaefer-1000 中 7/7 个网络仍保留显著任务状态效应。每个状态的 top-3 greedy atom 平均有 2.50/3 个在两种粒度间相同。因此，图 2a--c 的整体强度、网络重分配和主要高阶组合均评为**强复现**。
-
-个体认知结果较弱且出现清晰分层。LANGUAGE 全七网络 atom 与一般认知的相关由 $\rho=+0.518$ 增至 $+0.578$（逐项置换 $p=0.00120$，两项 Holm 校正 $p=0.00240$）；MOTOR 仍为负相关，但由 $\rho=-0.400$ 减弱至 $-0.306$（逐项置换及 Holm $p=0.107$）。LANGUAGE 减 MOTOR 的相关差为 0.884，双侧置换 $p=0.000400$。因此，任务依赖的方向差异本身稳定，但 MOTOR 单项证据不再显著，图 2e--f 只评为**中等复现**。图 2g--i 的三个预指定候选方向全部保持，但效应均明显衰减：晶体认知为 $\rho=-0.324$、记忆为 $+0.241$、加工速度为 $-0.306$；逐项置换 $p$ 分别为 0.0821、0.208 和 0.106，三项 Holm 校正后均为 0.246。因此三个领域认知候选只评为**弱复现**，不应作为稳定结论。
-
-![HCP Schaefer-1000 任务态 Xi、认知画像与层级分解](../../results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.png)
-
-*图 2R｜Schaefer-1000 按图 2 的相同版式独立重绘。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：同一 29 名被试的四个冻结认知因子；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 绝对贡献的逐被试关系；g--i：HCP500 已预先固定的三个领域认知候选在 Schaefer-1000 中的结果。该图不绘制 500--1000 差值，面板、配色、色标和统计标注均沿用原 HCP500 图 2，便于直接做整体视觉比较。*
-
-#### 逐被试热图与认知排序检查
-
-为避免合并主图的跨被试均值掩盖个体异质性，对 29 名被试分别绘制两张使用共享色标的热图（附录图 K1--K2）：第一张为 $7$ 个 Yeo7 网络 $\times$ $8$ 个状态的 $C_g/\Xi$ 组成份额，第二张为合并主图 c 中固定 $12$ 个 greedy atom $\times$ $8$ 个状态的绝对贡献（bits）。每页右侧同时显示该被试四个认知因子的 29 人内部 $z$ 分数。这里的“脑区归因”仍是 Yeo7 网络级归因，不是 500 个 parcel 的逐区定位。29 页逐被试结果汇总在 [逐被试 $\Xi$--认知画像 PDF](../../results/hcp_cognition_individual_xi_profiles/individual_xi_cognition_profiles.pdf) 中。
-
-左右面板的被试严格一一对应。脚本先去除 $\Xi$ 数组 Subject 的 `sub-` 前缀，要求认知表与 $\Xi$ 数组的 29 人集合完全相等，再按 $\Xi$ 数组顺序重排认知表；任一缺失、额外或重复 Subject 都会终止运行。随后每种认知排序只生成一个行索引，并把同一索引同时应用于左侧认知矩阵和右侧网络/atom 矩阵。因此每一行始终属于同一个 Subject，不存在左右两图各自排序的问题。
-
-两张认知排序图均显示明显的被试和状态异质性，但没有随一般认知从上到下形成稳定、单调的整列颜色梯度。换言之，视觉上更突出的首先是状态结构和个体特异配置，而不是一个跨状态、跨网络一致的一般认知轴。
-
-为检查领域认知是否对应不同的视觉梯度，进一步分别按四个认知因子从高到低排序。每次只改变行顺序；29 人、八状态、网络与 atom 列顺序、色标和数值均保持不变。四组排序图统一列于附录 K。分项排序后仍未出现覆盖多数状态和多数网络的平滑颜色梯度。这并不排除局部的状态--组合关联，因此下一步不再依赖整幅热图是否形成梯度，而是对每个认知因子逐一检验状态--atom 单元。
-
-附录图 K3 同时保留网络归因和固定 12 个主要 atom 的描述性相关，适合总体定位；附录图 K4--K5 的探索性筛选则扩大到全部 120 个候选网络组合和 REST 加七个任务态，共检验每个认知因子的 960 个状态--atom 单元。当前阶段按用户指定只使用双侧 Spearman 原始 $p<0.05$，再按 $|\rho|$ 从高到低排序，不以校正后的 $q$ 值淘汰候选。为避免只由极少数人的 greedy 路径决定主表，主候选还要求该 atom 在至少 5/29 名被试中具有正贡献；仅 2--4 人非零的结果保留在机器可读汇总中，但不进入主表。这里的零表示该组合未在当前被试的 greedy 路径上获得正贡献，不表示相应脑网络没有活动。
-
-| 认知因子 | 排名 | 状态 | 脑网络组合 | $\rho$ | 原始 $p$ | 非零人数 |
-|---|---:|---|---|---:|---:|---:|
-| 一般认知 | 1 | LANGUAGE | Vis+SomMot+DorsAttn+SalVentAttn+Limbic+Cont+Default | +0.518 | 0.00402 | 29/29 |
-|  | 2 | WM | Vis+SomMot+DorsAttn+Cont | +0.457 | 0.01266 | 5/29 |
-|  | 3 | MOTOR | Vis+SomMot+DorsAttn+SalVentAttn+Limbic+Cont+Default | -0.400 | 0.03133 | 29/29 |
-|  | 4 | EMOTION | Vis+SomMot+DorsAttn+Cont+Default | -0.383 | 0.04048 | 9/29 |
-| 晶体认知 | 1 | GAMBLING | Vis+DorsAttn+SalVentAttn+Cont+Default | +0.427 | 0.02081 | 5/29 |
-| 记忆 | 1 | RELATIONAL | Vis+DorsAttn+SalVentAttn+Cont+Default | +0.576 | 0.001073 | 9/29 |
-|  | 2 | REST | SomMot+DorsAttn+SalVentAttn | -0.423 | 0.02207 | 5/29 |
-|  | 3 | RELATIONAL | DorsAttn+Cont | +0.400 | 0.03177 | 7/29 |
-|  | 4 | SOCIAL | Vis+DorsAttn+Cont | -0.377 | 0.04378 | 8/29 |
-| 加工速度 | 1 | MOTOR | SomMot+DorsAttn+SalVentAttn+Limbic+Cont+Default | -0.499 | 0.005812 | 5/29 |
-|  | 2 | EMOTION | Vis+DorsAttn+Cont+Default | -0.436 | 0.01802 | 6/29 |
-|  | 3 | WM | Vis+SomMot+DorsAttn+Cont | +0.416 | 0.02466 | 5/29 |
-|  | 4 | SOCIAL | Vis+SomMot+DorsAttn+Cont+Default | -0.409 | 0.02757 | 7/29 |
-|  | 5 | SOCIAL | Vis+DorsAttn+Cont+Default | -0.396 | 0.03338 | 5/29 |
-
-这些候选的脑科学合理性并不相同。优先级最高的是图 2e--f 所示的一般认知--全七网络 atom 配对反转：LANGUAGE 与 MOTOR 两个方向都覆盖 29/29 人，因而不受稀疏零值驱动。它与任务依赖的整合--分离和高效重配置文献相容，但尚不能据此断言两个任务具有完全相反的脑机制。记忆--RELATIONAL 五网络正相关是数值上最强的稀疏候选，且同一状态的 DorsAttn+Cont 组合也呈正相关，二者共同指向视觉输入、注意选择、显著性切换、控制和默认网络在关系记忆/推理中的联合组织。已有研究也支持任务表现依赖共享与条件特异的网络组合，而非单个网络独立工作（Chen 等，全文，Zotero key: `5RK9JBYE`）。
-
-加工速度--MOTOR 六网络负相关可解释为速度表现更依赖分离和专门化，而不是广泛整合；这一方向与加工速度和网络分离度的既有关系相容（Wang 等，Zotero key: `Z6QHLFTB`），但本候选只有 5 人非零，暂不能作稳定机制结论。晶体认知--GAMBLING 五网络正相关同样只有 5 人非零，而且任务内容与语言/语义知识并非直接匹配，因此脑科学先验较弱，应排在后续验证的第二梯队。更一般地，高阶协同能够揭示两两功能连接看不到的多源关系，而且局部高阶指标可能改善任务解码和脑--行为关联（Varley 等，Zotero key: `WVS8LLKY`；Santoro 等，Zotero key: `PWMFVJB9`）；这些文献支持分析对象本身，但不直接验证本样本中的具体状态--组合结果。
-
-据此对三个覆盖不足的第一名候选开展下述指定组合起步实验；一般认知在 LANGUAGE 和 MOTOR 中的全七网络 atom 均已覆盖 29/29 人，不需要用这一方法补齐。完整的 3,840 个初筛相关结果和低支持人数候选见 [探索性结果说明](../../results/hcp_cognition_atom_exploration/report.md)、[`all_associations.jsonl`](../../results/hcp_cognition_atom_exploration/all_associations.jsonl) 与 [`summary.json`](../../results/hcp_cognition_atom_exploration/summary.json)。这些原始 $p$ 值尚未调整人口学、头动、信号质量或家系结构，只用于发现假设，不应表述为已确认的脑--认知定位。
-
-#### 指定候选组合起步的 29 人补充实验
-
-补充实验只改变层级读出方式，完整个体散点与数值重合审计见附录图 K6--K7。对晶体认知--GAMBLING 五网络、记忆--RELATIONAL 五网络和加工速度--MOTOR 六网络，均从预先指定的候选网络集合 $S$ 单独启动 greedy 分解。29 名被试、任务数据、task-evoked PCA、$k=1$、$p=3$、$\alpha=1$、时间切分、仿射/Gaussian EI 估计器和全七网络下一时刻 target 均保持不变。因此，对任一候选 $S$，固定组合总协同定义为
+且 $M_g$ 表示网络 $g$ 的三个滞后 source 绑定后形成的模块，则固定组合总协同为
 
 $$
 \Xi_S
-=EI\!\left(\mathbf{H}_S\rightarrow\mathbf{Y}_{\mathrm{all}}\right)
--\sum_{g\in S}EI\!\left(\mathbf{H}_g\rightarrow\mathbf{Y}_{\mathrm{all}}\right),
+=EI(M_S;\mathbf{x}_{t+1})
+-\sum_{g\in S}EI(M_g;\mathbf{x}_{t+1}).
 $$
 
-其中 $\mathbf{H}_S$ 是候选网络集合的历史状态，$\mathbf{Y}_{\mathrm{all}}$ 始终是全七网络下一时刻状态。固定源集合和固定 target 的定义与 PEID 理论一致（全文，Zotero key: `MYATYWAJ`）；连续变量下不保证协同严格非负，但本实验三组候选的 87 个被试--任务值均为正。为保持与原结果的单因素可比性，这里不同时更换为 TM 估计器；TM 复现应作为独立稳健性实验。
+$\Xi_S$ 测量三个网络的联合历史对下一时刻七网络状态所提供的、不能由三个网络分别预测后简单相加得到的信息。它与前文 greedy atom 的路径残差不同：本节对 29 名被试都直接读取同一个预先指定组合，因此没有“某组合只在少数被试路径中出现”的稀疏覆盖问题。
 
-原自由 greedy 中的 5、9、5 个候选记录全部是 `split_residual`，并非 terminal atom。因此设置两个互补指标：（1）指定组合起步后的首步 greedy 残差，它与原自由路径上的同名 atom 具有相同定义；（2）固定组合总协同 $\Xi_S$，它等于候选子树的总量，路径无关，但不应与旧的局部 split residual 数值相等。代码一致性审计得到：对全部 87 个“被试 $\times$ 候选任务”重跑自由 greedy，候选 atom 与旧缓存的最大绝对差为 0 bits；在原先 19 个非零记录上，指定组合首步残差与重跑自由路径同名 atom 的最大绝对差也为 0 bits，均通过 $10^{-10}$ bits 容差。
+| Story $\rho$（逐项置换 $p$） | Math $\rho$（逐项置换 $p$） | $\Delta\rho=\rho_{\mathrm{Story}}-\rho_{\mathrm{Math}}$ | Williams 原始 $p$ | 三候选 Holm $p$ | $\Delta\rho$ bootstrap 95% CI |
+|---:|---:|---:|---:|---:|---:|
+| $+0.318$（0.0927） | $-0.222$（0.2442） | $+0.539$ | 0.0298 | 0.0895 | $[+0.055,+0.981]$ |
 
-| 认知--任务候选 | 原自由路径覆盖 | 指定首步残差：$\rho$；原始 $p$ | 固定组合总协同：$\rho$；原始 $p$ | 原未覆盖组的固定总协同：$\rho$；原始 $p$ |
+图 2g--h 直接给出 Schaefer-1000 的两个脑--行为散点。结果支持一个稳定的**方向模式**，而不是两个分别都显著的单项相关：SomMot+Limbic+Cont 与 Story ACC 为正，与 Math ACC 为负，两个相关之差 $\Delta\rho=0.539$；其原始差异检验和 bootstrap 区间支持正差异，但三个预指定组合内 Holm $p=0.0895$，未达到严格复现阈值。因此最准确的表述是：**Story 正、Math 负是优先验证的配置模式，而不是两个已经确认的单项脑--行为效应。**Story 只有 4 个不同取值且中位数为 100%，图 2g 中的大量重叠点和天花板效应必须与相关系数一起解读。
+
+这个方向模式不是由单个极端被试造成的。逐一剔除任一被试后，Story $\rho$ 始终为 $[+0.236,+0.420]$、Math $\rho$ 为 $[-0.286,-0.150]$，$\Delta\rho$ 为 $[+0.429,+0.657]$。Story 与 Math ACC 本身只有很弱的正相关（$\rho=+0.136$，$p=0.481$），所以脑指标的相反方向不能简化为“Story 做得好的人必然 Math 做得差”。作为事后敏感性检查，在秩空间控制另一项 ACC 后，Story 方向仍为正（partial $\rho=+0.360$），Math 方向仍为负（partial $\rho=-0.282$）；这些 partial 结果未预先注册，也未作多重比较校正。与 Schaefer-500 的效应量、逐一剔除范围和跨分区个体一致性统一列于附录 K。
+
+**为什么 Story 是正相关？**一个连贯故事要求被试把连续听觉语音转成语义单元，跨多句话维持角色、事件和因果关系，再把当前内容与已有概念知识结合，最后根据整体主题作出选择。SomMot 在这里不应窄化为“做按键动作”：听觉语言加工包含语音--感觉运动映射，运动和体感皮层也可携带与语音知觉相关的信息（[Hickok et al., 2011](https://pubmed.ncbi.nlm.nih.gov/21315253/)）。Cont 则可作为随任务目标改变连接模式的灵活枢纽，维持当前问题、选择相关语义并协调分布式网络（[Cole et al., 2013](https://doi.org/10.1038/nn.3470)）；叙事理解研究也观察到额下回、额顶控制区与颞叶、扣带和感觉运动区域之间随语境改变的耦合（[Smirnov et al., 2014](https://doi.org/10.1016/j.neuropsychologia.2014.09.007)）。
+
+Limbic 在本结果中尤其需要准确命名。Yeo7 的 Limbic 主要覆盖眶额和前颞皮层，它不是“情绪脑”的同义词，更不能直接等同于杏仁核或海马。前颞叶是原 Story--Math 范式希望增强的语义整合区域；近期多回波 fMRI 证据还提示，传统 Yeo Limbic 的大部分前颞和眶额区域可能更适合看作扩展 Default 系统的一部分，并指出这些区域在常规单回波 BOLD 中信号质量较差（[Girn et al., 2024](https://doi.org/10.1162/netn_a_00385)）。因此，当前正相关最通顺的神经解释是：**Story 表现较好的人，在听觉/感觉运动表征、前颞--眶额的概念与情境表征、以及目标导向控制之间形成了更强的联合时间约束；三者共同提供的信息超过各自信息的简单相加。**这与“叙事理解需要跨句意义整合和控制系统协调”相容，但不能把协同值进一步定位到某个具体前颞亚区或某一种语义过程。
+
+**为什么 Math 是负相关？**负相关并不表示 Math 表现好的人“控制网络更弱”，更不表示他们的全脑协同更低。它只表示在 LANGUAGE 动力学中，SomMot、Limbic 与 Cont 这一个固定三网络组合的额外联合信息较少。连续心算更直接依赖双侧顶内沟、上/下顶叶以及额叶--扣带控制系统；运算复杂度增加时，顶内沟、额下回和扣带的参与也会上升（[Kong et al., 2005](https://doi.org/10.1016/j.cogbrainres.2004.09.011)）。这些关键算术通路并不完整包含在当前三网络组合中，尤其没有显式纳入 DorsAttn。由此，一个合理但仍待验证的机制是：Math 表现较好的人把动力学更集中到数值--顶叶和任务控制通路，较少需要把前颞/眶额情境表征与感觉运动、控制系统长期绑定；这可表现为当前组合协同较低，却不意味着计算所需的其他组合协同也较低。
+
+Story 正、Math 负因而可以组成一个连贯的**任务配置故事**：同样的听觉输入和按键输出之上，Story 更依赖把语音序列、概念情境和目标选择绑定成整体叙事模型，Math 更依赖对数字和运算步骤进行受控、相对专门化的串行操作。SomMot+Limbic+Cont 的高协同可能标记前一种跨系统整合配置，帮助 Story；对后一种计算配置，它可能不是必要资源，甚至可能反映较不经济的广泛绑定。这里的重点不是“协同越多越好”，而是**同一高阶组合是否匹配当前任务的计算结构**。
+
+这个故事目前足够通顺，值得作为优先候选加强验证，但还不能写成已证实的神经机制。第一，1000 分区只更换空间粒度，仍是同一 29 人，不是独立队列复现。第二，Story ACC 只有 4 个取值、范围为 75%--100%、中位数为 100%，明显的天花板和秩并列限制了效应分辨率；Math 有 19 个取值且采用自适应难度，两种 ACC 的测量尺度也不完全对称。第三，候选来自同一批被试的 500 分区探索，1000 分区检验只能提供跨图谱稳健性。第四，当前模型没有控制头动、信号质量、人口学变量和 HCP 家系结构，Yeo Limbic 还受前颞/眶额信号质量与网络边界不确定性影响。下一步最有价值的确认实验应在看新数据前固定 SomMot+Limbic+Cont、Story 正/Math 负和 $\Delta\rho>0$ 三个方向，优先使用另一 run 或独立 cohort，并采用家系交换块置换、运动与信号质量协变量；同时加入 DorsAttn/顶叶算术组合，直接检验“Story 的跨系统整合”与“Math 的顶叶专门化”是否形成可区分的双重模式。
+
+#### WM 内 0-back--2-back 分化：Cont+Default 固定组合
+
+HCP 的 WM run 同时包含 0-back 和 2-back。0-back 要求被试持续监测当前刺激并识别预先指定的固定目标，主要负荷是警觉、目标匹配和规则维持；2-back 则要求持续保存并更新最近两个刺激的顺序，额外增加了工作记忆更新和干扰抑制。为了判断先前 WM 总准确率相关究竟更接近一般任务控制还是高负荷工作记忆，这里不再搜索新组合，而是固定 Cont+Default，并分别关联两项条件准确率。被试 `104012` 缺少 2-back 分数，因此条件比较使用共同的 28 人。
+
+| 空间粒度 | 2-back $\rho$（两条件 max-T $p$） | 0-back $\rho$（两条件 max-T $p$） | $\Delta\rho=\rho_{\mathrm{2back}}-\rho_{\mathrm{0back}}$ | 配对置换 $p$ |
 |---|---:|---:|---:|---:|
-| 晶体认知--GAMBLING 五网络 | 5/29 | +0.291；0.126 | +0.135；0.485 | -0.016；0.942（$n=24$） |
-| 记忆--RELATIONAL 五网络 | 9/29 | +0.304；0.109 | +0.151；0.435 | -0.080；0.738（$n=20$） |
-| 加工速度--MOTOR 六网络 | 5/29 | -0.351；0.0617 | -0.370；0.0482 | -0.432；0.0349（$n=24$） |
+| Schaefer-1000 | $-0.131$（0.7402） | **$-0.567$（0.00421）** | $+0.436$ | **0.00864** |
+| Schaefer-500 | $-0.248$（0.3491） | **$-0.494$（0.0156）** | $+0.246$ | 0.1351 |
 
-三组指定首步残差和固定组合总协同均覆盖 29/29 人。晶体认知和记忆仍保持初筛的正方向，但效应减弱，且原先未覆盖被试中的固定组合总协同接近零相关。这说明它们原先较高的 $\rho$ 主要依赖“该组合是否进入自由 greedy 路径”，目前没有证据支持组合协同大小在全部被试中形成稳定认知梯度。
+图 2i 展示正文 Schaefer-1000 结果：0-back 表现越高，WM 状态下 Cont+Default 固定组合总协同越低。该负相关通过针对 0-back 和 2-back 两项检验的 max-T 校正，而且两条相关的配对差异也显著。Schaefer-500 保留相同方向并独立达到 0-back 的两条件校正阈值，但条件差异未显著。因此，跨粒度最稳定的发现是 **0-back 与 Cont+Default 协同负相关**；“0-back 明显强于 2-back”的条件交互在 Schaefer-1000 中成立，在 500 分区中只有同方向支持。
 
-加工速度结果不同：MOTOR 六网络固定组合总协同在全部 29 人中与加工速度负相关（$\rho=-0.370$，原始 $p=0.0482$），在原先自由路径未覆盖的 24 人中方向更强（$\rho=-0.432$，原始 $p=0.0349$）。29 次逐一剔除被试后，相关范围为 $-0.504$ 至 $-0.324$，方向一致率为 100%，说明结果不是由单个被试决定。在 MOTOR 的七个同规模六网络组合中，该候选的固定总协同按 $|\rho|$ 排名第 1，指定首步残差排名第 2；相比之下，晶体认知和记忆候选的指定首步残差分别只排同规模组合的第 5/21 和第 3/21。三项候选的强制首层“候选与补集”桥接残差均未达到原始 $p<0.05$，因此当前线索更接近候选集合内部的总协同，而不是候选与剩余网络之间的额外桥接。
+年龄和性别不能解释 Schaefer-1000 的主模式：校正后 0-back 为 $\rho=-0.597$、max-T $p=0.00138$，2-back 为 $\rho=-0.163$、max-T $p=0.633$，条件差异为 $0.434$、配对置换 $p=0.00536$。反过来，在秩空间进一步用 0-back、年龄和性别解释 2-back 后，Cont+Default 与剩余 2-back 差异只有 partial $\rho=+0.129$、置换 $p=0.514$。这说明当前脑指标关联的主要不是 2-back 特有的更新能力，而更接近两种 WM 条件共享、但由 0-back 更纯粹测量的持续注意、固定目标识别和规则保持。
 
-综合两轮结果，一般认知在 LANGUAGE 与 MOTOR 中的全七网络 atom 配对反转是覆盖最完整的主候选；本次补充实验进一步支持加工速度--MOTOR 六网络总协同负相关，但不支持把晶体认知--GAMBLING或记忆--RELATIONAL的自由路径相关直接推广为全体被试的连续协同关系。完整实验合同、逐被试机器可读结果和统计汇总见 [补充实验报告](../../results/hcp_cognition_targeted_greedy_followup/report.md)、[`records.jsonl`](../../results/hcp_cognition_targeted_greedy_followup/records.jsonl) 与 [`summary.json`](../../results/hcp_cognition_targeted_greedy_followup/summary.json)。这些候选仍来自同一 29 人初筛，原未覆盖组只是扩展诊断而非独立验证集，所有原始 $p$ 值仍应按探索性证据解释。
+从神经功能上看，Control 支持任务规则和目标导向调节，Default 更常参与内部思维和与当前外部目标无关的加工。较好的 0-back 表现伴随较低的 Cont+Default 额外联合预测信息，与两个系统在简单外部目标监测中保持更清晰的功能分工、减少不必要的跨系统绑定相容。这里的“较低协同”并不等于 Default 活动更低，也不能直接证明两网络之间的功能连接减弱或存在抑制；它只表示两网络历史联合后超出各自信息简单相加的部分较少。因此，最准确的解释是 **高效注意和目标匹配可能依赖 Control 与 Default 的较低高阶联合约束**，而不是“整体协同越低，认知越好”。
 
-#### 全 120 个网络组合的定向 Greedy 扫描
+这一结果仍有明确边界。当前 Cont+Default 指标由完整 WM run 估计，0-back 和 2-back 只在行为端分开；所以本分析证明的是同一 WM 脑指标对两类行为分数具有不同关联，尚未证明两个 block 内部的脑网络动力学本身不同。真正的条件神经验证需要取得每名被试的 0-back/2-back 事件时序，分别重算两套 Cont+Default 指标，并检验“2-back 脑指标--2-back 表现”和“0-back 脑指标--0-back 表现”的配对交互。
 
-前述指定组合实验只检验三个由自由 greedy 路径提出的候选，不能回答其他尚未进入自由路径的组合是否具有更稳定的全样本关联。因此在不改变影像数据、29 名被试、任务 PCA、$k=1$、$p=3$、$\alpha=1$、时间切分、EI 估计器和全七网络下一时刻 target 的前提下，进一步扫描 REST 与七任务中的全部 120 个二至七网络组合；完整搜索景观见附录图 K8。对每个候选集合 $S$ 同时读取：（1）从 $S$ 单独启动 greedy 层级分解时的首层残差；（2）路径无关的固定组合总协同 $\Xi_S$；（3）强制将 $S$ 与其补集置于全网络根节点两侧时的桥接残差。前两类各有 $8\times120=960$ 个特征，桥接残差因全七网络没有非空补集而有 $8\times119=952$ 个特征，故每项认知共扫描 2,872 个有效特征。
+#### Schaefer-500 探索与个体诊断（附录 K）
 
-全部 232 个“状态 $\times$ 被试”动力学模型均重新拟合。重跑得到的自由 greedy 单元与既有缓存逐项比较，最大绝对差为 $2.22\times10^{-16}$ bits；每个候选首层残差也与标准递归 greedy 实现逐项一致。由此排除了新扫描通过改变模型或近似旧分解数值获得相关的可能。
-
-三个最强全样本候选已作为图 2g--i 合并到主图底行。三项均覆盖 29/29 人且贡献均为正；面板内的 raw $p$ 是 $t$ 近似的未校正双侧值，perm $p$ 是 20,000 次被试标签置换的逐项双侧值。BH 与 maxT 搜索空间校正统一列于附录 K。独立三联散点仍保留为[补充导出](../../results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_top_candidates_scatter.png)，但不再在正文中作为与一般认知 e--f 平级的单独结果图展示。
-
-| 认知 | 状态与网络组合 | 层级读出 | $\rho$ | 原始 $p$ | 逐项置换 $p$ | 逐一剔除 $\rho$ 范围 |
-|---|---|---|---:|---:|---:|---:|
-| 晶体认知 | EMOTION；DorsAttn+Limbic | 首层残差 | -0.571 | 0.001204 | 0.001350 | $[-0.650,-0.534]$ |
-| 记忆 | SOCIAL；SalVentAttn+Limbic+Default | 首层残差 | +0.657 | 0.0001076 | 0.0002500 | $[+0.619,+0.695]$ |
-| 加工速度 | RELATIONAL；Vis+Limbic+Cont | 首层残差 | -0.552 | 0.001918 | 0.002450 | $[-0.644,-0.506]$ |
-
-三项候选在 29 次逐一剔除被试后均保持原方向，说明各自的全样本相关不是由单个被试决定。记忆候选的效应最强：SOCIAL 中显著性、边缘和默认网络的三网络首层残差越大，记忆因子越高。这一组合在功能上可对应显著性选择、情境/情感信息和内部表征的联合组织，但当前数据不能把这种功能解释收窄为某一种记忆过程。晶体认知的统计第一名位于 EMOTION 的 DorsAttn+Limbic，任务内容匹配较间接；更贴近语义加工先验的备选是 LANGUAGE 中 Vis+SomMot 的正相关（$\rho=+0.514$，原始 $p=0.00436$，逐项置换 $p=0.00525$）。加工速度的统计第一名位于 RELATIONAL 的 Vis+Limbic+Cont，负方向可解释为更高速度伴随较少依赖广泛关系整合，但任务对应同样不直接；此前 MOTOR 六网络固定总协同的负相关在任务先验上更明确，尽管效应较弱。统计第一名与脑科学优先验证对象因此不必相同，后续确认实验应在看新数据前固定候选和方向。
-
-##### 三项领域认知的完整覆盖候选簇
-
-为回答单个最强候选能否扩展为较完整的领域解释，从首层残差中进一步整理出每项认知四个互不完全相同、任务内容相对可解释的代表候选。筛选要求统一为：29/29 名被试均有正的首层残差、原始双侧与 20,000 次逐项置换 $p<0.05$、29 次逐一剔除后方向一致率为 100%。这一步只对既有 8,616 条缓存结果做去重和解释性整理，不重新拟合模型。
-
-| 认知 | 状态；网络组合 | $\rho$ | 原始 $p$ | 逐项置换 $p$ |
-|---|---|---:|---:|---:|
-| 晶体认知 | LANGUAGE；Vis+SomMot | +0.514 | 0.00436 | 0.00525 |
-|  | EMOTION；DorsAttn+Limbic | -0.571 | 0.00120 | 0.00135 |
-|  | REST；DorsAttn+SalVentAttn+Cont | +0.441 | 0.01653 | 0.01715 |
-|  | WM；DorsAttn+SalVentAttn+Cont | -0.441 | 0.01667 | 0.01960 |
-| 记忆 | SOCIAL；SalVentAttn+Limbic+Default | +0.657 | 0.000108 | 0.000250 |
-|  | SOCIAL；Limbic+Default | +0.521 | 0.00374 | 0.00365 |
-|  | RELATIONAL；Vis+SalVentAttn | +0.519 | 0.00390 | 0.00455 |
-|  | EMOTION；Vis+DorsAttn+SalVentAttn+Default | +0.528 | 0.00327 | 0.00370 |
-| 加工速度 | RELATIONAL；Vis+Limbic+Cont | -0.552 | 0.00192 | 0.00245 |
-|  | LANGUAGE；SomMot+Limbic | -0.508 | 0.00487 | 0.00585 |
-|  | SOCIAL；DorsAttn+Cont | -0.496 | 0.00626 | 0.00760 |
-|  | MOTOR；DorsAttn+SalVentAttn+Limbic+Cont+Default | -0.464 | 0.01132 | 0.01315 |
-
-![三项领域认知的完整覆盖探索候选簇](../../results/hcp_cognition_exhaustive_targeted_greedy/extended_task_aligned_correlations.png)
-
-*图 2S｜三项领域认知各四个完整覆盖的首层残差候选。每个面板均为相同 29 名被试，虚线只作线性视觉引导，统计量为 Spearman 秩相关。候选同时满足原始与逐项置换 $p<0.05$，但均未通过每项认知 2,872 个特征范围内的 BH 或 maxT 校正；同一行的嵌套网络组合和不同任务候选也并非相互独立的发现。*
-
-这 12 个面板支持三种不同但仍属探索性的组织模式。**晶体认知呈任务依赖，而不是统一的“协同越多越好”。**LANGUAGE 中 Vis+SomMot 的正相关与视觉语言输入、语义提取后的发音/按键映射相容；EMOTION 的 DorsAttn+Limbic 则为负。更直接的是同一 DorsAttn+SalVentAttn+Cont 组合在 REST 为正、WM 为负；其 REST 减 WM 的被试内差值与晶体认知相关为 $\rho=+0.610$（原始 $p=0.000438$，逐项置换 $p=0.00105$）。这提示较高晶体认知可能对应任务匹配的重配置：语言相关路径保留更强联合组织，而在工作记忆等非语义主导状态中不必维持相同的注意--显著性--控制绑定。该差值同样是事后选出的，不能作为独立交互检验。
-
-**记忆候选方向最一致。**SOCIAL 的 SalVentAttn+Limbic+Default 与其嵌套的 Limbic+Default 均为正，RELATIONAL 的 Vis+SalVentAttn、EMOTION 的 Vis+DorsAttn+SalVentAttn+Default 也为正。共同交集不是单一“记忆区”，而是显著性选择与切换、边缘系统的情感/价值信息、Default 的内部情境表征，以及在关系任务中的视觉输入。因而较窄的解释是：记忆因子较高者在社会、情绪和关系判断时更稳定地形成“外部线索选择--内部情境表征”的联合组织。它与大样本结果中记忆更依赖整合--分离平衡而非单向全局整合相容（Wang 等，全文，Zotero key: `Z6QHLFTB`），但不能据此区分编码、维持或提取阶段。
-
-**加工速度候选则跨任务一致为负。**RELATIONAL、LANGUAGE、SOCIAL 和 MOTOR 的四个代表组合均显示，速度因子越高，特定组合的首层残差越小。这与更快加工依赖较强网络分离、较少不必要的广泛绑定和更经济的任务网络配置相容；大样本文献也报告较强分离与加工速度、晶体认知相关（Wang 等，全文，Zotero key: `Z6QHLFTB`）。但这里降低的是指定组合的局部层级残差，不是 system-level $\Xi$，所以不能写成“加工越快，全脑协同越低”。任务表现由共享与条件特异的网络组合共同决定的证据（Chen 等，全文，Zotero key: `5RK9JBYE`）也支持按“配置效率”而非单脑区强弱解释这些结果。
-
-这组扩展图的价值是把三个认知小项分别组织成可预注册的候选模式，而不是增加确认性阳性结果的数量。12 个面板来自同一搜索空间，包含嵌套网络与相关任务，不能按 12 次独立复现计数；三个原始第一名在 Schaefer-1000 中也均明显衰减。最合理的下一步是每项认知冻结一个方向明确的模式：晶体认知检验 LANGUAGE 正相关及 REST--WM 任务差，记忆检验 SalVentAttn--Limbic--Default 正相关，加工速度检验 MOTOR/RELATIONAL 的负相关，并在独立 run 或独立被试中使用家系交换块和预先限定的小型假设家系。
-
-晶体认知、记忆和加工速度分别有 118、115 和 62 个特征达到原始 $p<0.05$，其中 115、105 和 62 个同时达到逐项置换 $p<0.05$；但三项均有 0 个特征达到 BH $q<0.05$ 或 maxT $p<0.05$。固定的 15/14 人发现--确认拆分也没有给出显著确认：三个发现半样本中选出的候选在确认半样本的 $p$ 分别为 0.573、0.829 和 0.260，且记忆和加工速度发生方向反转。由于同一 29 人同时承担搜索和效应估计，逐项置换没有校正 2,872 次筛选，而且当前无限制置换没有显式保持 HCP 家系交换块，所以本轮实现了“为三项认知提出覆盖完整、原始和逐项置换 $p<0.05$ 的候选”，但没有获得可按确认性神经影像发现表述的结果。下一步应把少数脑科学上可解释的候选预先固定，在独立被试或独立 run 中进行家系感知的置换检验。
-
-完整搜索口径、全部 8,616 条“认知 $\times$ 特征”结果和统计汇总见 [全组合扫描报告](../../results/hcp_cognition_exhaustive_targeted_greedy/report.md)、[实验合同](../../results/hcp_cognition_exhaustive_targeted_greedy/experiment_contract.md)、[`all_associations.jsonl`](../../results/hcp_cognition_exhaustive_targeted_greedy/all_associations.jsonl) 与 [`summary.json`](../../results/hcp_cognition_exhaustive_targeted_greedy/summary.json)。
-
-计算闭合误差支持上述守恒读法：最大 $\Xi$ 恒等式误差为 $3.55\times10^{-15}$ bits，网络和 atom 份额的闭合误差均低于 $10^{-15}$。但 $C_g$ 合并了网络内部跨滞后协同和跨网络 Shapley 份额，因此“某网络份额较高”不等同于局部激活更强，也不是该网络具有因果必要性的证明。任务 PCA 的载荷来自 retained--regressed 差值，而动力学投影对象仍是 retained；REST 的 PCA 基底又来自自身时序，因此 REST--任务绝对差还包含表征选择差异。greedy atom 具有路径依赖性，只应解释为当前候选空间和算法下的层级归因，而不是唯一真实的脑网络层级。
-
-参数先在固定 8 名被试上筛选，再在未参与筛选的 21 名被试上确认，最后用 29 名共同被试汇总；LOSO 未参与选择。相对基线 $(k,p,\alpha)=(1,5,10)$，最终 $(1,3,1)$ 将网络和 atom 的 between/within total-variation ratio 分别从 0.493 提高到 0.788、从 0.496 提高到 0.611。更弱正则 $\alpha=0.3$ 虽进一步增大分离度，却不能保持 REST--SOCIAL 显著，因此未作为主配置。
+Schaefer-500 的逐被试热图、领域认知筛选、指定组合补充、全 120 组合扫描和扩展候选均移至附录 K。它们保留候选生成、个体一致性和多重比较审计，但不再作为正文主结果。
 
 <a id="hcp-wm-phi"></a>
 
@@ -658,7 +585,7 @@ REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task G
 ### 3.1 结论的适用范围
 
 - DMF 结果支持 Schaefer100 群体平均对称 SC 在无裁剪、$[0.30,0.70]^{200}$ 全状态干预下，于发放率转折附近形成 $\Xi$ 峰，并以跨 ROI、尤其跨网络分量为主。数据包缺少上游标签、SC 单位和纤维追踪元数据，ROI 顺序仍是经矩阵相关审计支持的推断；83/100 差异也不是节点数或拓扑的单因素效应。
-- HCP 静息态结果来自 REST1_LR；任务态主 $\Xi$ 分析覆盖七种 `taskRetained` LR 任务。任务 PCA 在 retained--regressed 差值上拟合，再投影 retained；最终共享参数为 $(k,p,\alpha)=(1,3,1)$。该参数先在 8 名被试上筛选，并在未参与筛选的 21 名被试上确认；29 名完整汇总保持 REST 的 system-level $\Xi$ 显著高于全部任务，同时显示七网络份额具有任务状态效应，并给出主要 greedy atom 的描述性组成。相对地，附录 I 的 $(p,\alpha)=(8,10)$ raw $\Xi$ 与附录 E 的 25 点扫描保留为历史表征和参数敏感性参照，不再作为任务空间归因的主结果。长度匹配检验表明 REST 高方差只在 EMOTION 与 MOTOR 上最稳定。30 名被试的 Schaefer-500 TEVF 仍直接描述 task GLM 移除的 parcel 级时间能量，而新 $\Xi$ 分解描述沿任务诱发 PCA 方向观察到的完整 retained 动力学；二者不能互换。尚未检验 RL run、独立 cohort、任务事件或条件子类型分层、去趋势、运动或生理混杂回归、GSR、皮层下结构或其他 null 构造。
+- HCP 静息态结果来自 REST1_LR；任务态主 $\Xi$ 分析覆盖七种 `taskRetained` LR 任务。正文以 Schaefer-1000 为主，Schaefer-500 的原合并图和探索性认知筛选保留在附录 K。任务 PCA 在 retained--regressed 差值上拟合，再投影 retained；最终共享参数为 $(k,p,\alpha)=(1,3,1)$。该参数先在 8 名被试上筛选，并在未参与筛选的 21 名被试上确认；29 名完整汇总保持 REST 的 system-level $\Xi$ 显著高于全部任务，同时显示七网络份额具有任务状态效应，并给出主要 greedy atom 的描述性组成。相对地，附录 I 的 $(p,\alpha)=(8,10)$ raw $\Xi$ 与附录 E 的 25 点扫描保留为历史表征和参数敏感性参照，不再作为任务空间归因的主结果。长度匹配检验表明 REST 高方差只在 EMOTION 与 MOTOR 上最稳定。30 名被试的 Schaefer-500 TEVF 仍直接描述 task GLM 移除的 parcel 级时间能量，而新 $\Xi$ 分解描述沿任务诱发 PCA 方向观察到的完整 retained 动力学；二者不能互换。WM 的 0-back/2-back 已在行为端分层，但脑指标仍由完整 WM run 估计；尚未检验 block 特异脑动力学、RL run、独立 cohort、去趋势、运动或生理混杂回归、GSR、皮层下结构或其他 null 构造。
 - WM 与既有静息态的主幅度比较分别使用 304 和 900 个拟合时间点，只比较 raw Xi，因此均值差仍包含有效样本长度差异。独立的 12 窗口长度匹配分析只检验跨被试方差；WM 的 `sub-103515` 具有极端早期 PC1 瞬变，普通方差比对其高度敏感。
 - HCP 的全体被试 Xi 结果使用 20 个 null，p 值分辨率有限，且未校正跨被试、跨模块集合和 greedy 选择造成的多重比较。
 - 三项领域认知的全组合扫描在同一 29 人中完成搜索和效应估计。虽然晶体认知、记忆和加工速度各自的最强候选均覆盖 29/29 人，并同时达到原始双侧和逐项置换 $p<0.05$，但每项认知 2,872 个特征内均没有 BH $q<0.05$ 或 maxT $p<0.05$ 的结果，固定拆分也未显著确认。它们只用于提出候选；确认性检验需要预先固定少数假设、保持 HCP 家系交换结构并使用独立数据。
@@ -682,6 +609,7 @@ REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task G
 | HCP500 REST–七任务预测误差诊断 | `results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_summary.json`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_report.md`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_overview.{png,svg,pdf}`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_by_condition.{png,svg,pdf}` |
 | HCP500 REST 与七任务特异脑区分布 | `results/hcp_schaefer500_task_specific_regions/summary.json`、`results/hcp_schaefer500_task_specific_regions/report.md`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_maps.npz`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/rest_all_tasks_variance_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/task_map_discriminability.{png,svg,pdf}` |
 | HCP500 任务诱发 PCA–$\Xi$ 网络与层级分解 | `results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/summary.json`、`results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/arrays.npz`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/report.md`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/task_evoked_xi_main_combined.{png,svg,pdf}`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/parameter_tuning_comparison.{png,svg,pdf}` |
+| HCP1000 任务诱发 PCA–$\Xi$、一般认知与任务表现 | `results/hcp_schaefer1000_task_evoked_xi_replication/summary.json`、`results/hcp_schaefer1000_task_evoked_xi_replication/arrays.npz`、`results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.{png,svg,pdf}`、`results/hcp_language_story_math_candidates_schaefer1000_replication/summary.json`、`results/hcp_wm_back_condition_correlations/summary.json` |
 | HCP500 领域认知全组合定向 Greedy 扫描 | `results/hcp_cognition_exhaustive_targeted_greedy/experiment_contract.md`、`results/hcp_cognition_exhaustive_targeted_greedy/summary.json`、`results/hcp_cognition_exhaustive_targeted_greedy/all_associations.jsonl`、`results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_top_candidates_scatter.{png,svg,pdf}`、`results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_search_landscape.{png,svg,pdf}`、`results/hcp_cognition_exhaustive_targeted_greedy/extended_interpretable_candidates.json`、`results/hcp_cognition_exhaustive_targeted_greedy/extended_task_aligned_correlations.{png,svg,pdf}` |
 
 <a id="appendix-a"></a>
@@ -1285,9 +1213,19 @@ REST 的 Yeo7 方差富集以 Limbic（1.38）、Vis（1.26）和 Default（1.22
 
 ## 附录 K：HCP500 个体认知画像与候选筛选诊断
 
-本附录集中展示图 2 所概括的个体异质性、探索性筛选和数值一致性检查。正文只保留合并主图 2；以下图形用于审计候选如何产生、是否受稀疏路径或单个被试驱动，以及大范围搜索带来的多重比较风险。
+本附录集中保留 Schaefer-500 的原合并主图、个体异质性、探索性筛选和数值一致性检查。正文图 2 改以 Schaefer-1000 为主，并用直接的 Story、Math 任务表现替换旧图 g--i；以下材料用于说明 500 分区结论如何产生、哪些部分跨粒度保留，以及探索性候选受到的多重比较限制。
 
-图 2g--i 的搜索空间校正结果集中如下。BH 在每项认知的 2,872 个候选特征内计算，maxT 使用同一搜索空间；三项候选均未达到校正后阈值。
+![Schaefer-500 REST 与七任务的 system-level Xi、网络份额、层级 atom 和认知画像](../../results/hcp_schaefer500_task_evoked_xi_tuning/final/task_evoked_xi_main_combined.png)
+
+*图 K0｜Schaefer-500 原合并主图。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：四个冻结认知因子；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 的关系；g--i：从全组合扫描提出的晶体认知、记忆和加工速度探索候选。该图现在只作为 1000 分区正文主图的补充和候选来源记录。*
+
+Schaefer-500 使用与正文相同的一维网络状态、三阶历史和 Ridge $\alpha=1$；任务态 PC1 平均累计解释方差为 67.35%，REST 为 44.53%。232 个模型的平均 held-out RMSE/持久性基线比为 0.907，其中 207/232 个优于持久性基线。REST system-level $\Xi$ 均值为 7.040 bits，七任务为 4.301--5.537 bits，七项 REST--任务配对检验经 BH 校正后均显著。REST 中 SomMot、DorsAttn 和 Default 的平均份额较高，LANGUAGE 的 Control 份额为 20.5%，RELATIONAL 与 SOCIAL 的 DorsAttn 份额分别为 20.5% 和 21.4%；仅比较七任务时 7/7 个网络均有显著状态效应。REST 的全七网络 atom 为 1.113 bits，多数任务的主要高阶组合集中在缺少 Limbic 的六网络核，贡献为 0.692--1.023 bits。
+
+旧图 K0e--f 中，LANGUAGE 全七网络 atom 与一般认知正相关（$\rho=+0.518$，原始 $p=0.00402$），MOTOR 为负相关（$\rho=-0.400$，原始 $p=0.03133$）。换到 Schaefer-1000 后，LANGUAGE 增至 $+0.578$，MOTOR 减弱为 $-0.306$；两个相关之差仍为 $0.884$，置换 $p=0.000400$。因此群体状态、网络重分配和主要高阶组合属于强跨粒度结果，LANGUAGE--MOTOR 的一般认知方向差异属于中等跨粒度结果。
+
+SomMot+Limbic+Cont 的 Story--Math 模式也由 Schaefer-500 提出。500 分区中 Story $\rho=+0.406$、Math $\rho=-0.224$，$\Delta\rho=+0.630$，Williams 原始 $p=0.0093$、三候选 Holm $p=0.0280$、bootstrap 95% CI 为 $[+0.192,+1.012]$。1000 分区保留 85.6% 的差异效应量；同一人的固定组合协同在两种分区间高度相关（$\rho=+0.849$，$p=5.97\times10^{-9}$）。这个很小的 $p$ 说明同一批被试的个体排序对 parcel 粒度稳定，不是独立队列复现，也不等于 Story 或 Math 脑--行为相关本身具有同样强的显著性。
+
+旧图 K0g--i 的搜索空间校正结果集中如下。BH 在每项认知的 2,872 个候选特征内计算，maxT 使用同一搜索空间；三项候选均未达到校正后阈值。
 
 | 认知候选 | BH $q$ | maxT $p$ |
 |---|---:|---:|
@@ -1334,4 +1272,4 @@ REST 的 Yeo7 方差富集以 Limbic（1.38）、Vis（1.26）和 Default（1.22
 
 ![三项领域认知的全组合相关搜索景观](../../results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_search_landscape.png)
 
-*图 K8. 三项认知各 2,872 个候选特征的相关搜索景观。横轴为 Spearman $\rho$，纵轴为 $-\log_{10}(\mathrm{raw}\ p)$；黑星标出逐项置换 $p$ 最小的全样本候选。该图强调图 2g--i 来自大范围数据驱动筛选，而不是三个预先指定的单项检验。*
+*图 K8. 三项认知各 2,872 个候选特征的相关搜索景观。横轴为 Spearman $\rho$，纵轴为 $-\log_{10}(\mathrm{raw}\ p)$；黑星标出逐项置换 $p$ 最小的全样本候选。该图强调旧图 K0g--i 来自大范围数据驱动筛选，而不是三个预先指定的单项检验。*

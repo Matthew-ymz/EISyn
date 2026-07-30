@@ -196,13 +196,48 @@ def plot_main_combined(
     root: Path,
     output: Path,
     cognition_scores: Path,
-    cognition_exhaustive_root: Path,
+    cognition_exhaustive_root: Path | None,
+    *,
+    language_story_math_root: Path | None = None,
+    language_behavior_scores: Path | None = None,
+    wm_back_condition_root: Path | None = None,
+    wm_fixed_candidate_metrics: Path | None = None,
 ) -> None:
-    """Combine Xi, attribution, primary cognition, and secondary exploratory associations."""
+    """Combine Xi, attribution, cognition, and the selected behavioral evidence."""
     summary = load_json(root / "full" / SELECTED / "summary.json")
     archive = np.load(root / "full" / SELECTED / "arrays.npz")
-    exhaustive_summary = load_json(cognition_exhaustive_root / "summary.json")
-    exhaustive_metrics = np.load(cognition_exhaustive_root / "metrics.npz")
+    use_language_behavior = language_story_math_root is not None
+    if use_language_behavior != (language_behavior_scores is not None):
+        raise ValueError(
+            "Language Story/Math result root and behavior table must be provided together"
+        )
+    if use_language_behavior:
+        language_summary = load_json(language_story_math_root / "summary.json")
+        language_metrics = np.load(
+            language_story_math_root / "fixed_candidates_schaefer1000.npz"
+        )
+        exhaustive_summary = None
+        exhaustive_metrics = None
+    else:
+        if cognition_exhaustive_root is None:
+            raise ValueError("Exploratory cognition results are required for legacy layout")
+        exhaustive_summary = load_json(cognition_exhaustive_root / "summary.json")
+        exhaustive_metrics = np.load(cognition_exhaustive_root / "metrics.npz")
+        language_summary = None
+        language_metrics = None
+    use_wm_back_condition = wm_back_condition_root is not None
+    if use_wm_back_condition != (wm_fixed_candidate_metrics is not None):
+        raise ValueError(
+            "WM back-condition result root and fixed metrics must be provided together"
+        )
+    if use_wm_back_condition and not use_language_behavior:
+        raise ValueError("WM back-condition panel requires the direct-behavior layout")
+    if use_wm_back_condition:
+        wm_back_summary = load_json(wm_back_condition_root / "summary.json")
+        wm_fixed_metrics = np.load(wm_fixed_candidate_metrics)
+    else:
+        wm_back_summary = None
+        wm_fixed_metrics = None
     states = archive["states"].astype(str).tolist()
     values = np.asarray(archive["system_xi"], dtype=float).T
     network_mean = archive["network_share"].mean(axis=1).T * 100.0
@@ -222,15 +257,30 @@ def plot_main_combined(
     model_subjects = [
         str(subject).removeprefix("sub-") for subject in archive["subjects"].astype(str)
     ]
-    exhaustive_subjects = [
-        str(subject).removeprefix("sub-")
-        for subject in exhaustive_metrics["subjects"].astype(str)
-    ]
-    if exhaustive_subjects != model_subjects:
-        raise ValueError("Main-figure and exhaustive-search subject orders differ")
+    if use_language_behavior:
+        language_subjects = [
+            str(subject).removeprefix("sub-")
+            for subject in language_metrics["subjects"].astype(str)
+        ]
+        if language_subjects != model_subjects:
+            raise ValueError("Main-figure and Story/Math subject orders differ")
+        if use_wm_back_condition:
+            wm_subjects = [
+                str(subject).removeprefix("sub-")
+                for subject in wm_fixed_metrics["subjects"].astype(str)
+            ]
+            if wm_subjects != model_subjects:
+                raise ValueError("Main-figure and WM subject orders differ")
+    else:
+        exhaustive_subjects = [
+            str(subject).removeprefix("sub-")
+            for subject in exhaustive_metrics["subjects"].astype(str)
+        ]
+        if exhaustive_subjects != model_subjects:
+            raise ValueError("Main-figure and exhaustive-search subject orders differ")
 
     # Asymmetric evidence hierarchy: e-f are the primary cognition panels,
-    # while the shorter, muted g-i row contains full-search exploratory leads.
+    # while the bottom row contains either exploratory leads or direct task behavior.
     figure = plt.figure(figsize=(14.8, 9.4), constrained_layout=False)
     figure.subplots_adjust(left=0.052, right=0.988, top=0.975, bottom=0.065)
     outer_grid = figure.add_gridspec(
@@ -257,9 +307,15 @@ def plot_main_combined(
     network_axis = figure.add_subplot(middle_grid[0, 1])
     language_axis = figure.add_subplot(middle_grid[0, 2])
     motor_axis = figure.add_subplot(middle_grid[0, 3], sharey=language_axis)
-    exploratory_grid = outer_grid[2, 0].subgridspec(1, 3, wspace=0.16)
+    bottom_columns = (
+        3 if use_wm_back_condition else (2 if use_language_behavior else 3)
+    )
+    exploratory_grid = outer_grid[2, 0].subgridspec(
+        1, bottom_columns, wspace=0.18 if use_language_behavior else 0.16
+    )
     domain_axes = tuple(
-        figure.add_subplot(exploratory_grid[0, column]) for column in range(3)
+        figure.add_subplot(exploratory_grid[0, column])
+        for column in range(bottom_columns)
     )
 
     rest_color, task_color = "#4C78A8", "#D07A3A"
@@ -461,84 +517,323 @@ def plot_main_combined(
     language_axis.set_ylabel("All-network hierarchy-atom contribution (bits)")
     motor_axis.tick_params(axis="y", labelleft=False)
 
-    exhaustive_states = exhaustive_metrics["states"].astype(str).tolist()
-    exhaustive_coalitions = exhaustive_metrics["coalitions"].astype(str).tolist()
-    domain_specs = (
-        ("cry_score", "Crystallized cognition"),
-        ("mem_score", "Memory"),
-        ("spd_score", "Processing speed"),
-    )
-    for domain_axis, (score_name, score_label) in zip(
-        domain_axes, domain_specs, strict=True
-    ):
-        candidate = exhaustive_summary["scores"][score_name]["selected_full_sample"]
-        metric = str(candidate["metric"])
-        state = str(candidate["state"])
-        coalition = str(candidate["coalition"])
-        x_values = cognition_aligned[score_name].to_numpy(dtype=float)
-        y_values = np.asarray(exhaustive_metrics[metric], dtype=float)[
-            exhaustive_states.index(state),
-            :,
-            exhaustive_coalitions.index(coalition),
+    if use_language_behavior:
+        coalition = "SomMot+Limbic+Cont"
+        coalition_names = language_metrics["coalitions"].astype(str).tolist()
+        candidate_index = coalition_names.index(coalition)
+        y_values = np.asarray(language_metrics["values"], dtype=float)[
+            candidate_index
         ]
-        association = spearmanr(x_values, y_values)
-        if not np.isclose(
-            float(association.statistic), float(candidate["rho"]), atol=1.0e-12
+        behavior = pd.read_csv(language_behavior_scores, dtype={"Subject": str})
+        behavior["Subject"] = behavior["Subject"].str.removeprefix("sub-")
+        behavior = behavior.set_index("Subject").loc[model_subjects]
+        behavior_specs = (
+            (
+                "Language_Task_Story_Acc",
+                "Story accuracy (%)",
+                "#D66A4E",
+                "Story",
+            ),
+            (
+                "Language_Task_Math_Acc",
+                "Math accuracy (%)",
+                "#4C78A8",
+                "Math",
+            ),
+        )
+        candidate = next(
+            row
+            for row in language_summary["schaefer1000"]
+            if row["coalition"] == coalition
+        )
+        shared_min = float(y_values.min())
+        shared_max = float(y_values.max())
+        shared_pad = 0.08 * max(shared_max - shared_min, 0.1)
+        jitter_rng = np.random.default_rng(2026072903)
+        for index, (
+            domain_axis,
+            (column, score_label, color, condition),
+        ) in enumerate(zip(domain_axes[:2], behavior_specs, strict=True)):
+            x_values = behavior[column].to_numpy(dtype=float)
+            association = spearmanr(x_values, y_values)
+            expected_rho = float(
+                candidate["story_rho"]
+                if condition == "Story"
+                else candidate["math_rho"]
+            )
+            expected_p = float(
+                candidate["story_p_permutation"]
+                if condition == "Story"
+                else candidate["math_p_permutation"]
+            )
+            if not np.isclose(
+                float(association.statistic), expected_rho, atol=1.0e-12
+            ):
+                raise AssertionError(f"{condition} panel rho mismatch")
+            jitter_width = 0.45 if condition == "Story" else 0.20
+            displayed_x = x_values + jitter_rng.uniform(
+                -jitter_width, jitter_width, size=len(x_values)
+            )
+            domain_axis.scatter(
+                displayed_x,
+                y_values,
+                s=25,
+                color=color,
+                edgecolor="white",
+                linewidth=0.45,
+                alpha=0.84,
+                zorder=3,
+            )
+            guide_x = np.linspace(
+                float(x_values.min()), float(x_values.max()), 200
+            )
+            slope, intercept = np.polyfit(x_values, y_values, deg=1)
+            domain_axis.plot(
+                guide_x,
+                slope * guide_x + intercept,
+                color=color,
+                linewidth=1.0,
+                linestyle="--",
+                zorder=2,
+            )
+            x_pad = 0.04 * max(float(np.ptp(x_values)), 1.0)
+            domain_axis.set(
+                xlabel=score_label,
+                xlim=(
+                    float(x_values.min()) - x_pad,
+                    float(x_values.max()) + x_pad,
+                ),
+                ylim=(shared_min - shared_pad, shared_max + shared_pad),
+            )
+            domain_axis.set_title(
+                f"LANGUAGE · {short_atom(coalition)} · {condition}",
+                loc="right",
+                fontsize=7.6,
+                fontweight="bold",
+                color="#454545",
+                pad=3,
+            )
+            domain_axis.text(
+                0.02,
+                0.97,
+                f"Spearman $\\rho$ = {expected_rho:+.3f}\n"
+                f"pointwise permutation $p$ = {expected_p:.4f}\n"
+                f"n = {len(x_values)}",
+                transform=domain_axis.transAxes,
+                ha="left",
+                va="top",
+                fontsize=7.3,
+                color="#303942",
+            )
+            domain_axis.grid(color="#E8EBED", linewidth=0.55, zorder=0)
+            domain_axis.tick_params(labelsize=7.7)
+            domain_axis.xaxis.label.set_size(8.3)
+            domain_axis.yaxis.label.set_size(8.3)
+        domain_axes[0].set_ylabel("Fixed-coalition synergy (bits)")
+        domain_axes[1].tick_params(axis="y", labelleft=False)
+        if use_wm_back_condition:
+            wm_axis = domain_axes[2]
+            validation = wm_back_summary["schaefer1000_validation"]
+            wm_states = wm_fixed_metrics["states"].astype(str).tolist()
+            wm_coalitions = wm_fixed_metrics["coalitions"].astype(str).tolist()
+            wm_index = wm_states.index("WM")
+            if wm_coalitions[wm_index] != "Cont+Default":
+                raise ValueError("Unexpected frozen Schaefer-1000 WM coalition")
+            wm_values_all = np.asarray(
+                wm_fixed_metrics["values"][wm_index], dtype=float
+            )
+            wm_complete = behavior["WM_Task_0bk_Acc"].notna() & behavior[
+                "WM_Task_2bk_Acc"
+            ].notna()
+            wm_x = behavior.loc[wm_complete, "WM_Task_0bk_Acc"].to_numpy(
+                dtype=float
+            )
+            wm_y = wm_values_all[np.asarray(wm_complete, dtype=bool)]
+            wm_association = spearmanr(wm_x, wm_y)
+            if not np.isclose(
+                float(wm_association.statistic),
+                float(validation["rho_0back"]),
+                atol=1.0e-12,
+            ):
+                raise AssertionError("WM 0-back panel rho mismatch")
+            wm_jitter = np.random.default_rng(2026073101).uniform(
+                -0.24, 0.24, size=len(wm_x)
+            )
+            wm_color = "#8B6BAE"
+            wm_axis.scatter(
+                wm_x + wm_jitter,
+                wm_y,
+                s=25,
+                color=wm_color,
+                edgecolor="white",
+                linewidth=0.45,
+                alpha=0.86,
+                zorder=3,
+            )
+            wm_guide_x = np.linspace(float(wm_x.min()), float(wm_x.max()), 200)
+            wm_slope, wm_intercept = np.polyfit(wm_x, wm_y, deg=1)
+            wm_axis.plot(
+                wm_guide_x,
+                wm_slope * wm_guide_x + wm_intercept,
+                color=wm_color,
+                linewidth=1.0,
+                linestyle="--",
+                zorder=2,
+            )
+            wm_x_pad = 0.04 * max(float(np.ptp(wm_x)), 1.0)
+            wm_y_pad = 0.08 * max(float(np.ptp(wm_y)), 0.1)
+            wm_axis.set(
+                xlabel="0-back accuracy (%)",
+                ylabel="Fixed-coalition synergy (bits)",
+                xlim=(
+                    float(wm_x.min()) - wm_x_pad,
+                    float(wm_x.max()) + wm_x_pad,
+                ),
+                ylim=(
+                    float(wm_y.min()) - wm_y_pad,
+                    float(wm_y.max()) + wm_y_pad,
+                ),
+            )
+            wm_axis.set_title(
+                "WM · Cont+Default · 0-back",
+                loc="right",
+                fontsize=7.6,
+                fontweight="bold",
+                color="#454545",
+                pad=3,
+            )
+            wm_axis.text(
+                0.98,
+                0.97,
+                f"0-back $\\rho$ = {float(validation['rho_0back']):+.3f}\n"
+                f"two-condition max-T $p$ = "
+                f"{float(validation['p_max_t_0back']):.4f}\n"
+                f"n = {len(wm_x)}",
+                transform=wm_axis.transAxes,
+                ha="right",
+                va="top",
+                fontsize=7.3,
+                color="#303942",
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "none",
+                    "alpha": 0.82,
+                    "pad": 1.5,
+                },
+            )
+            wm_axis.text(
+                0.02,
+                0.72,
+                f"2-back $\\rho$ = {float(validation['rho_2back']):+.3f}\n"
+                f"$\\Delta\\rho$ = "
+                f"{float(validation['delta_rho_2back_minus_0back']):+.3f}"
+                f" · paired $p$ = "
+                f"{float(validation['p_condition_difference']):.4f}",
+                transform=wm_axis.transAxes,
+                ha="left",
+                va="top",
+                fontsize=6.9,
+                color="#4B5563",
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "none",
+                    "alpha": 0.82,
+                    "pad": 1.5,
+                },
+            )
+            wm_axis.grid(color="#E8EBED", linewidth=0.55, zorder=0)
+            wm_axis.tick_params(labelsize=7.7)
+            wm_axis.xaxis.label.set_size(8.3)
+            wm_axis.yaxis.label.set_size(8.3)
+    else:
+        exhaustive_states = exhaustive_metrics["states"].astype(str).tolist()
+        exhaustive_coalitions = (
+            exhaustive_metrics["coalitions"].astype(str).tolist()
+        )
+        domain_specs = (
+            ("cry_score", "Crystallized cognition"),
+            ("mem_score", "Memory"),
+            ("spd_score", "Processing speed"),
+        )
+        for domain_axis, (score_name, score_label) in zip(
+            domain_axes, domain_specs, strict=True
         ):
-            raise AssertionError(f"Domain-panel rho mismatch for {score_name}")
-        domain_axis.set_facecolor("#FAFAFA")
-        domain_axis.scatter(
-            x_values,
-            y_values,
-            s=19,
-            color="#C58A70",
-            edgecolor="white",
-            linewidth=0.4,
-            alpha=0.78,
-            zorder=3,
-        )
-        guide_x = np.linspace(float(x_values.min()), float(x_values.max()), 200)
-        slope, intercept = np.polyfit(x_values, y_values, deg=1)
-        domain_axis.plot(
-            guide_x,
-            slope * guide_x + intercept,
-            color="#7B8490",
-            linewidth=0.8,
-            linestyle="--",
-            zorder=2,
-        )
-        x_pad = 0.06 * max(float(np.ptp(x_values)), 0.1)
-        y_pad = 0.08 * max(float(np.ptp(y_values)), 0.1)
-        domain_axis.set(
-            xlabel=score_label,
-            xlim=(float(x_values.min()) - x_pad, float(x_values.max()) + x_pad),
-            ylim=(float(y_values.min()) - y_pad, float(y_values.max()) + y_pad),
-        )
-        domain_axis.set_title(
-            f"{state} · {short_atom(coalition)}",
-            loc="right",
-            fontsize=7.3,
-            fontweight="normal",
-            color="#525A65",
-            pad=2,
-        )
-        domain_axis.text(
-            0.02,
-            0.97,
-            f"$\\rho$ = {float(candidate['rho']):+.3f} · "
-            f"raw $p$ = {float(candidate['p_raw_two_sided']):.3g} · "
-            f"perm $p$ = {float(candidate['p_permutation_pointwise']):.3g}\n"
-            "n = 29",
-            transform=domain_axis.transAxes,
-            ha="left",
-            va="top",
-            fontsize=7.0,
-            color="#4B5563",
-        )
-        domain_axis.tick_params(labelsize=7.7)
-        domain_axis.xaxis.label.set_size(8.3)
-        domain_axis.yaxis.label.set_size(8.3)
-    domain_axes[0].set_ylabel(r"$\mathrm{Syn}_{EID}$ (bits)")
+            candidate = exhaustive_summary["scores"][score_name][
+                "selected_full_sample"
+            ]
+            metric = str(candidate["metric"])
+            state = str(candidate["state"])
+            coalition = str(candidate["coalition"])
+            x_values = cognition_aligned[score_name].to_numpy(dtype=float)
+            y_values = np.asarray(exhaustive_metrics[metric], dtype=float)[
+                exhaustive_states.index(state),
+                :,
+                exhaustive_coalitions.index(coalition),
+            ]
+            association = spearmanr(x_values, y_values)
+            if not np.isclose(
+                float(association.statistic), float(candidate["rho"]), atol=1.0e-12
+            ):
+                raise AssertionError(f"Domain-panel rho mismatch for {score_name}")
+            domain_axis.set_facecolor("#FAFAFA")
+            domain_axis.scatter(
+                x_values,
+                y_values,
+                s=19,
+                color="#C58A70",
+                edgecolor="white",
+                linewidth=0.4,
+                alpha=0.78,
+                zorder=3,
+            )
+            guide_x = np.linspace(float(x_values.min()), float(x_values.max()), 200)
+            slope, intercept = np.polyfit(x_values, y_values, deg=1)
+            domain_axis.plot(
+                guide_x,
+                slope * guide_x + intercept,
+                color="#7B8490",
+                linewidth=0.8,
+                linestyle="--",
+                zorder=2,
+            )
+            x_pad = 0.06 * max(float(np.ptp(x_values)), 0.1)
+            y_pad = 0.08 * max(float(np.ptp(y_values)), 0.1)
+            domain_axis.set(
+                xlabel=score_label,
+                xlim=(
+                    float(x_values.min()) - x_pad,
+                    float(x_values.max()) + x_pad,
+                ),
+                ylim=(
+                    float(y_values.min()) - y_pad,
+                    float(y_values.max()) + y_pad,
+                ),
+            )
+            domain_axis.set_title(
+                f"{state} · {short_atom(coalition)}",
+                loc="right",
+                fontsize=7.3,
+                fontweight="normal",
+                color="#525A65",
+                pad=2,
+            )
+            domain_axis.text(
+                0.02,
+                0.97,
+                f"$\\rho$ = {float(candidate['rho']):+.3f} · "
+                f"raw $p$ = {float(candidate['p_raw_two_sided']):.3g} · "
+                f"perm $p$ = {float(candidate['p_permutation_pointwise']):.3g}\n"
+                "n = 29",
+                transform=domain_axis.transAxes,
+                ha="left",
+                va="top",
+                fontsize=7.0,
+                color="#4B5563",
+            )
+            domain_axis.tick_params(labelsize=7.7)
+            domain_axis.xaxis.label.set_size(8.3)
+            domain_axis.yaxis.label.set_size(8.3)
+        domain_axes[0].set_ylabel(r"$\mathrm{Syn}_{EID}$ (bits)")
 
     axes = (
         overall_axis,
@@ -549,9 +844,15 @@ def plot_main_combined(
         motor_axis,
         *domain_axes,
     )
-    panel_x_positions = (-0.05, -0.09, -0.09, -0.17, -0.09, -0.09, -0.09, -0.09, -0.09)
+    panel_x_positions = (
+        (-0.05, -0.09, -0.09, -0.17, -0.09, -0.09)
+        + tuple(-0.05 if use_language_behavior else -0.09 for _ in domain_axes)
+    )
     for label, axis, x_position in zip(
-        "abcdefghi", axes, panel_x_positions, strict=True
+        "abcdefghijklmnopqrstuvwxyz"[:len(axes)],
+        axes,
+        panel_x_positions,
+        strict=True,
     ):
         axis.text(
             x_position,
