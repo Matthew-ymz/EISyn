@@ -158,6 +158,37 @@ def save_figure(fig: plt.Figure, base: Path) -> list[Path]:
     return outputs
 
 
+def align_and_expand_map_row(
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    *,
+    gap: float = 0.008,
+    width_scale: float = 1.08,
+) -> None:
+    """Give the three map panels equal size and centre the middle panel."""
+    fig.canvas.draw()
+    positions = [ax.get_position() for ax in axes]
+    current_span = positions[-1].x1 - positions[0].x0
+    target_span = min(current_span * width_scale, 0.98)
+    panel_width = (target_span - gap * (len(axes) - 1)) / len(axes)
+    left = 0.5 - target_span / 2.0
+    top = max(position.y1 for position in positions)
+    height = panel_width * fig.get_figwidth() / (2.0 * fig.get_figheight())
+    bottom = top - height
+
+    for index, ax in enumerate(axes):
+        ax.set_in_layout(False)
+        ax.set_anchor("C")
+        ax.set_position(
+            [
+                left + index * (panel_width + gap),
+                bottom,
+                panel_width,
+                height,
+            ]
+        )
+
+
 def add_latitude_ticks_only(ax: plt.Axes) -> None:
     latitudes = (-60, -30, 0, 30, 60)
     labels = ("60°S", "30°S", "0°", "30°N", "60°N")
@@ -423,7 +454,7 @@ def plot_runge_figure(
     grid = fig.add_gridspec(
         3,
         6,
-        height_ratios=[0.50, 1.0, 1.0],
+        height_ratios=[0.68, 1.0, 1.0],
         hspace=0.16,
     )
     map_axes = [
@@ -627,6 +658,7 @@ def plot_runge_figure(
     ax_g.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     add_panel_label(ax_g, "g", x=-0.085, y=1.02)
 
+    align_and_expand_map_row(fig, map_axes)
     outputs = save_figure(fig, output_base)
     coverage_records = (
         primary_coverage.reset_index()[

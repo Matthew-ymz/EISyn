@@ -46,6 +46,7 @@ NAMES = tuple(f"theta{i}" for i in range(1, 6))
 PAIRWISE_MODULE = NAMES[:2]
 TRIADIC_MODULE = NAMES[2:]
 PLANTED_MODULES = (PAIRWISE_MODULE, TRIADIC_MODULE)
+CONTEXT_SECOND_HARMONIC_NAMES = TRIADIC_MODULE
 FREQUENCIES = np.array([-0.55, -0.05, 0.42, -0.40, 0.12], dtype=float)
 PAIRWISE_COUPLING = 1.8
 TRIADIC_COUPLING = 2.0
@@ -163,6 +164,11 @@ def phase_state_features(phases: np.ndarray) -> np.ndarray:
     )
 
 
+def phase_mlp_features(phases: np.ndarray) -> np.ndarray:
+    """Return the Fourier features used by the learned transition model."""
+    return phase_state_features(phases)
+
+
 def normalize_phase_features(features: np.ndarray) -> np.ndarray:
     """Project predicted cos-sin pairs back onto the unit circle."""
     values = np.asarray(features, dtype=float).copy()
@@ -265,7 +271,7 @@ def fit_learned_future_model(
     """Fit the full phase-increment transition and its residual covariance."""
     from scripts.classic_network_dynamics_benchmark import fit_mlp
 
-    source = phase_state_features(phases)
+    source = phase_mlp_features(phases)
     target = np.angle(np.exp(1j * (future_phases - phases)))
     fitted = fit_mlp(source, target, seed=int(seed), epochs=int(epochs))
     split = max(32, int(0.8 * len(source)))
@@ -279,6 +285,18 @@ def fit_learned_future_model(
         "heldout_circular_mae_rad": float(np.mean(np.abs(residual))),
         "heldout_feature_mse": float(np.mean(residual**2)),
         "constant_baseline_feature_mse": float(fitted.baseline_mse),
+        "per_source_mae_rad": {
+            name: float(np.mean(np.abs(residual[:, index])))
+            for index, name in enumerate(NAMES)
+        },
+        "per_source_r2": {
+            name: float(
+                1.0
+                - np.mean(residual[:, index] ** 2)
+                / max(np.var(heldout_target[:, index]), 1.0e-12)
+            )
+            for index, name in enumerate(NAMES)
+        },
     }
     return fitted, residual_covariance, diagnostics
 
@@ -291,7 +309,7 @@ def learned_future_readout(
     seed: int,
 ) -> np.ndarray:
     """Sample all five learned finite-time phase changes on interventions."""
-    mean = np.asarray(fitted.predict(phase_state_features(phases)), dtype=float)
+    mean = np.asarray(fitted.predict(phase_mlp_features(phases)), dtype=float)
     rng = np.random.default_rng(int(seed))
     residual = rng.multivariate_normal(
         mean=np.zeros(mean.shape[1], dtype=float),
@@ -328,11 +346,14 @@ def phase_source_blocks(phases: np.ndarray) -> dict[str, np.ndarray]:
 def phase_transport_context(phases: np.ndarray) -> np.ndarray:
     """Return the fixed Fourier context used by the single conditional TM."""
     values = np.asarray(phases, dtype=float)
+    second_harmonic_columns = [
+        NAMES.index(name) for name in CONTEXT_SECOND_HARMONIC_NAMES
+    ]
     return np.column_stack(
         [
             phase_state_features(values),
-            np.cos(2.0 * values[:, 2:]),
-            np.sin(2.0 * values[:, 2:]),
+            np.cos(2.0 * values[:, second_harmonic_columns]),
+            np.sin(2.0 * values[:, second_harmonic_columns]),
         ]
     )
 
@@ -560,10 +581,13 @@ def coherent_joint_tm_ei_table(
                     torch.sin(values[:, index : index + 1]),
                 ]
             )
+        second_harmonic_columns = [
+            NAMES.index(name) for name in CONTEXT_SECOND_HARMONIC_NAMES
+        ]
         components.extend(
             [
-                torch.cos(2.0 * values[:, 2:]),
-                torch.sin(2.0 * values[:, 2:]),
+                torch.cos(2.0 * values[:, second_harmonic_columns]),
+                torch.sin(2.0 * values[:, second_harmonic_columns]),
             ]
         )
         return torch.cat(components, dim=1)

@@ -26,6 +26,10 @@ $$
 
 其中 $S_{xy}$ 为 SURD synergy。
 
+![干预协同、方法压力测试与六振子 MLP 层级分解总览](../../fig/part1_synergy_comparison/figure1_integrated_hierarchy_draft.png)
+
+*图：a，PEID 的干预语义；b，共同驱动与固定结构协同的压力测试；c，六类动力学上的多方法比较；d，已知六振子 mixed-order Kuramoto 机制仅用于生成数据，随后由 MLP 学习完整有限时转移，再在独立干预上估计 EI 并分解。d 中 $\{1,2,3\}$ 采用固定总 RMS 的不对称边权 $\rho=0.25$，并同时报告绝对原子量和归一化组成。*
+
 
 
 # 共同驱动压力测试：原模型邻域的一位小数动力学
@@ -74,10 +78,14 @@ $$
 
 曲线为四个配对 seeds 的均值，MLP+PEID 的 $U_x,U_y$ 和 synergy 均使用 `5120` 个干预样本。$U_x$ 的 beta 均值为 `0.0223` bits、线性斜率为 `0.0009` bits / $\beta$；$U_y$ 的 beta 均值为 `0.0169` bits、线性斜率为 `0.0062` bits / $\beta$。两条曲线因而没有明显的单调 beta 漂移，但仍保留约 `0.02` bits 的非零偏移。MLP+PEID synergy 从 $\beta=0$ 时的 `0.675` 降至 $\beta=1$ 时的 `0.593` bits，线性斜率为 `-0.0634` bits / $\beta$；SHAP interaction 从 `0.225` 增至 `0.527`，而 observational WMS、MMI-PID synergy 和 SURD synergy 总体下降。MLP 对 $z_{t+1}$ 的平均增量 $R^2$ 为 `0.937`，没有出现由拟合失效造成的整体读出崩塌。
 
+图 1b 的关键不在于哪条曲线数值最大，而在于固定结构下各方法是否把共同驱动造成的分布变化误读为协同机制变化。随着 $\beta$ 从 `0` 增至 `1`，观测相关 $\lvert\operatorname{corr}(x,y)\rvert$ 从 `0.018` 增至 `0.859`，但结构项 $\sin(x_ty_t)$ 的系数始终为 `1.0`。在这一受控条件下，SHAP interaction 从 `0.225` 增至 `0.527`，说明它会把共同驱动改变后的预测归因放大为更强的交互；WMS 从 `0.346` 降至 `-0.032`，MMI-PID synergy 从 `0.350` 降至 `0.037`，SURD synergy 从 `0.205` 降至 `0.039`，说明观测冗余的增加会压低甚至反转这些分布依赖的协同读出。Neural Granger 的二源汇总分数从 `3.346` 降至 `3.093`，PCMCI-CMIknn 从 `0.479` 降至 `0.100`；它们仍能报告预测或条件依赖，却没有给出不可约二源协同原子，因此这些变化不能直接解释为 hyperedge 强度。
+
+相比之下，MLP+PEID 在整个 sweep 中始终保持约 `0.6` bits 的正协同，只从 `0.675` 缓慢降至 `0.593` bits，且两个单源 EI 始终很小。已知生成机制上的 Oracle PEID 在所有 $\beta$ 下严格不变，进一步确认理论目标确实是固定的；MLP+PEID 的轻微下降应归因于有限样本、动力学拟合和变化状态分布下的估计误差，而不是被表述为完全不变。由此，图 1b 支持的最终结论是：**共同驱动可以让观测型信息分解、预测归因和成对因果读出产生方向相反的变化，但这些变化都不等同于结构协同的改变；在当前实验范围内，干预式 PEID 最接近保持固定 causal hyperedge 的强度，因此能更可靠地区分“共同出现的依赖”与“不可约的联合因果机制”。**
+
 
 # 五方法协同比较
 
-每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
+每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。六个 panel 分别基于 coupled standard map、Wilson–Cowan、active-rotator/Kuramoto、受控 Hénon-style、Ikeda 和 Nicholson–Bailey 动力学；各系统的经典来源分别见 [Chirikov (1979)](https://doi.org/10.1016/0370-1573(79)90023-1)、[Wilson & Cowan (1972)](https://doi.org/10.1016/S0006-3495(72)86068-5)、[Shinomoto & Kuramoto (1986)](https://doi.org/10.1143/PTP.75.1105)、[Hénon (1976)](https://doi.org/10.1007/BF01608556)、[Ikeda (1979)](https://doi.org/10.1016/0030-4018(79)90090-7) 和 [Nicholson & Bailey (1935)](https://doi.org/10.1111/j.1096-3642.1935.tb01680.x)。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
 
 
 ![Six-system five-method synergy comparison](../../fig/part1_synergy_comparison/six_system_five_method_synergy_panels.png)
@@ -86,7 +94,7 @@ $$
 
 ## Coupled Standard Map
 
-**领域背景**：Standard Map 是哈密顿混沌中的经典受冲击转子模型。$K$ 控制单转子非线性，$J$ 控制转子间耦合。
+**领域背景**：Standard Map 是哈密顿混沌中的经典受冲击转子模型；本文在其基础上加入第二转子及正弦差分耦合。$K$ 控制单转子非线性，$J$ 控制转子间耦合（[Chirikov, 1979](https://doi.org/10.1016/0370-1573(79)90023-1)）。
 
 双转子 Coupled Standard Map 的冲量方程为
 
@@ -111,7 +119,7 @@ $$
 
 ## Wilson-Cowan Refractory Map
 
-**领域背景**：Wilson-Cowan 模型描述兴奋性与抑制性神经元群体的平均活动。sigmoid gain $g$ 控制群体对净输入的响应陡峭程度。
+**领域背景**：Wilson-Cowan 模型描述兴奋性与抑制性神经元群体的平均活动。sigmoid gain $g$ 控制群体对净输入的响应陡峭程度（[Wilson & Cowan, 1972](https://doi.org/10.1016/S0006-3495(72)86068-5)）。
 
 连续方程写为
 
@@ -141,7 +149,7 @@ $$
 
 ## Kuramoto Active-Rotator Phase Model
 
-**领域背景**：Kuramoto 模型用于研究耦合振荡器的同步与锁相。Active-rotator 扩展加入周期势，$K$ 表示相位差耦合强度。
+**领域背景**：Kuramoto 模型用于研究耦合振荡器的同步与锁相。Active-rotator 扩展加入周期势，$K$ 表示相位差耦合强度（[Shinomoto & Kuramoto, 1986](https://doi.org/10.1143/PTP.75.1105)）。
 
 该 panel 使用经典 active-rotator/Kuramoto 相位动力学：
 
@@ -297,6 +305,55 @@ $\Xi_{\{4,5\}}=0.410$ bits，使递归路径一直展示到算法终点。
 
 因此，这个例子不再是“真值向量场到标量读出”的理想演示，而是数据生成、动力学拟合、独立干预和层级分解相互分离的 learned-dynamics 正对照。证据支持：在当前噪声和弱连接范围内，根层 `2+3` 分区稳定恢复。证据不支持：当前有限 TM 容量与积分精度可无条件推广到更高维系统，或 Greedy 树能够唯一表示共享节点和重叠超边。完整方程、EI 表和积分收敛诊断见[混合阶 Kuramoto 已知动力学说明](../ref/mixed_order_kuramoto_hierarchy.md)。
 
+## 六振子等规模 pairwise–triadic 对照
+
+为排除团块大小本身造成的差异，六个振子被分成两个三节点团块。$\{1,2,3\}$ 内只有两两 Kuramoto 边，$\{4,5,6\}$ 内只有不可约三体局部项：
+
+$$
+\dot\theta_i
+=\omega_i+\sum_{\substack{j\in\{1,2,3\}\\j\ne i}}
+w_{ij}\sin(\theta_j-\theta_i),
+\qquad i\in\{1,2,3\},
+$$
+
+$$
+\dot\theta_i
+=\omega_i+K_3\sin(\theta_j+\theta_k-2\theta_i),
+\qquad
+\{i,j,k\}=\{4,5,6\}.
+$$
+
+两团之间保留 $K_{\mathrm{out}}=0.04$ 的弱两两连接。为只改变三条两两边的集中程度，定义
+
+$$
+(w_{12},w_{13},w_{23})
+=c(\rho)(1,\rho,\rho),
+\qquad
+c(\rho)=\frac{K_2}{2}\sqrt{\frac{3}{1+2\rho^2}},
+$$
+
+其中 $K_2=1.5$，$\rho\in\{1,0.5,0.25\}$。因此所有条件都满足
+
+$$
+w_{12}^2+w_{13}^2+w_{23}^2
+=3\left(\frac{K_2}{2}\right)^2
+=1.6875,
+$$
+
+总耦合 RMS 不随 $\rho$ 改变。三体团块固定 $K_3=1.5/\sqrt{2}$。$\rho=1$ 对应三条等强边 $(0.75,0.75,0.75)$；主图采用的 $\rho=0.25$ 对应 $(1.225,0.306,0.306)$，三条边仍全部非零。
+
+已知方程只生成带过程噪声的有限时转移。MLP 使用全部六个当前相位的一阶和二阶 Fourier 特征，拟合 $\tau=0.20$ 后的完整六维 wrapped phase increment；每个 seed 使用 4800 个训练样本。拟合完成后，另取 6000 个独立均匀相位干预，通过 MLP 和留出残差协方差生成响应，再使用与已知动力学对照相同的模块内三阶 polynomial triangular TM 估计 EI，最后执行 Greedy $\Phi$ 分解。
+
+三个配对 seeds 中，$\{1,2,3\}$ 的 pair atom 占比随不对称性严格单调地从 $32.0\pm0.1\%$ 增至 $43.0\pm0.1\%$ 和 $55.6\pm0.3\%$。作为固定参考，$\{4,5,6\}$ 的 triple residual 分别为 $96.8\pm0.1\%$、$96.8\pm0.2\%$ 和 $96.7\pm0.3\%$。因此两团 triple residual 的配对差从 $28.8\pm0.1$ 增至 $39.8\pm0.2$ 和 $52.3\pm0.4$ 个百分点，三个 seeds 在每个不对称条件下均同方向。MLP held-out 圆周 MAE 在三档条件下均约为 $0.0355$ rad，说明分解变化没有伴随拟合质量恶化。
+
+![固定总 RMS 时两两边不对称性对 MLP-EI 分解的影响](../../fig/part1_synergy_comparison/pairwise_asymmetry_kuramoto_mlp.png)
+
+*图：a，$\rho$ 降低时，$\{1,2,3\}$ 的二阶原子质量逐步增加，三阶残差相应减少；最下方是固定的 $\{4,5,6\}$ 三体参考。b，三个配对 seeds 的两团 triple residual 差异随不对称性单调扩大。灰线表示单个 seed，橙色表示均值，误差线为 SEM。*
+
+这个结果支持的解释是：等强 pairwise 三角形的任意二分都会切断两条同量级边，因此这些跨切分的真实两两作用会留在三节点父块，被 Greedy 记为 triple residual；当一条边占主导时，Greedy 先捕获这条强边，留在父块的两条跨切分边较弱，pair atom 占比因而提高。这里改变了生成机制本身，不应称为对同一真值的“恢复精度提升”。它只说明，在总耦合 RMS 固定时，边权集中程度会系统地改变 Greedy 原子组成，并能构造更直观的 pairwise–triadic 对照。
+
+这里还暴露出一个估计边界：额外尝试的单个六维条件 flow 能改善整体 held-out likelihood，却优先拟合了较容易的两两依赖，并在小规模检查中低估三体团块。主图因此采用与已知动力学对照一致的模块内 TM 口径，不把该失败的六维 flow 结果写成全局六源根切分证据。所有正式模块内 EI 与 $\Phi$ 审计均声明 $0.10$ bits 的有限样本容差，且没有使用非负裁剪或单调投影。
+
 已有研究显示，多体相位作用可以产生普通 pairwise 模型中没有或不稳定出现的现象：
 
 - 同一参数下存在大量同步吸引子，最终同步度强烈依赖初始相位；
@@ -315,7 +372,7 @@ $\Xi_{\{4,5\}}=0.410$ bits，使递归路径一直展示到算法终点。
 
 ## Controlled Hénon Unique-Information Sweep
 
-**领域背景**：Hénon 映射是经典二维耗散混沌模型。这里使用受控 Hénon-style 读出，把显式二源交互项和单源观测通道分开。
+**领域背景**：Hénon 映射是经典二维耗散混沌模型（[Hénon, 1976](https://doi.org/10.1007/BF01608556)）。这里使用的是由其二次非线性构造的受控 Hénon-style 读出，而不是未经修改的经典迭代映射；该构造把显式二源交互项和单源观测通道分开。
 
 读出定义为
 
@@ -333,7 +390,7 @@ $$
 
 ## Ikeda Optical Cavity
 
-**领域背景**：Ikeda 映射源自非线性光学环形腔，描述光场在逐次反馈后的演化。$u$ 控制反馈中保留的场幅。
+**领域背景**：Ikeda 映射源自非线性光学环形腔，描述光场在逐次反馈后的演化。$u$ 控制反馈中保留的场幅（[Ikeda, 1979](https://doi.org/10.1016/0030-4018(79)90090-7)）。
 
 Ikeda 离散映射为
 
@@ -357,7 +414,7 @@ $$
 
 ## Nicholson–Bailey Host–Parasitoid Map
 
-**领域背景**：Nicholson-Bailey 模型描述宿主与寄生蜂的世代更新。$R$ 是宿主繁殖率，$a$ 是寄生蜂攻击效率。
+**领域背景**：Nicholson-Bailey 模型描述宿主与寄生蜂的世代更新。$R$ 是宿主繁殖率，$a$ 是寄生蜂攻击效率（[Nicholson & Bailey, 1935](https://doi.org/10.1111/j.1096-3642.1935.tb01680.x)）。
 
 宿主密度 $H_t$ 与寄生蜂密度 $P_t$。离散映射为
 
@@ -369,6 +426,96 @@ $$
 **协同源和目标**：只计算 `H+P->H_tau`。
 
 当 $a=0$ 时，$P_t$ 不影响目标；当 $a>0$ 时，指数项形成乘性门控。随着攻击效率继续增大，指数响应逐渐饱和，因此信息协同表现为平台而非线性增长。
+
+# 图 1c 六类经典非线性动力系统附录
+
+本附录集中给出图 1c 六个 benchmark 的领域背景、实验方程和经典来源。正文关注参数扫描的比较结果；这里明确区分经典模型与为受控比较所作的耦合或读出改写。
+
+## Coupled Standard Map
+
+Standard map 是周期受冲击转子的面积保持 Poincaré 映射，也是研究哈密顿混沌、共振重叠和全局随机化的经典模型（[Chirikov, 1979](https://doi.org/10.1016/0370-1573(79)90023-1)）。本文使用两个转子，并以 $J\sin(q_{2,t}-q_{1,t})$ 引入反对称耦合：
+
+$$
+\begin{aligned}
+I_{1,t}&=K\sin q_{1,t}+J\sin(q_{2,t}-q_{1,t}),\\
+I_{2,t}&=K\sin q_{2,t}-J\sin(q_{2,t}-q_{1,t}),\\
+p_{i,t+1}&=\operatorname{wrap}(p_{i,t}+I_{i,t}),\\
+q_{i,t+1}&=\operatorname{wrap}(q_{i,t}+p_{i,t+1}).
+\end{aligned}
+$$
+
+其中 $\operatorname{wrap}(a)=((a+\pi)\bmod 2\pi)-\pi$。图 1c 扫描转子间耦合 $J$，并计算 $\{q_{1,t},q_{2,t}\}\to I_{1,t}$。
+
+## Wilson–Cowan Refractory Map
+
+Wilson–Cowan 方程以兴奋性群体活动 $E$ 和抑制性群体活动 $I$ 描述神经群体的平均动力学，并用 sigmoid 响应表示净输入到群体激活率的转换（[Wilson & Cowan, 1972](https://doi.org/10.1016/S0006-3495(72)86068-5)）。本文使用带 refractory factor 的形式：
+
+$$
+\begin{aligned}
+\dot E&=-E+(1-\rho E)S\!\left(g(w_{EE}E-w_{EI}I+P_E)\right),\\
+\dot I&=-I+(1-\rho I)S\!\left(g(w_{IE}E-w_{II}I+P_I)\right),\\
+S(z)&=(1+e^{-z})^{-1}.
+\end{aligned}
+$$
+
+实验采用 $\Delta t=0.05$ 的一步 Euler 映射，固定 $\rho=0.5$、$(w_{EE},w_{EI},w_{IE},w_{II})=(3.2,2.6,2.4,1.7)$、$(P_E,P_I)=(0.35,-0.20)$，扫描 gain $g$，并计算 $\{E_t,I_t\}\to E_{t+\Delta t}$。
+
+## Kuramoto Active-Rotator Phase Model
+
+Active-rotator 模型把周期相位势与正弦相位差耦合结合起来，可描述自持振荡器或可激发元件的锁相与集体转变（[Shinomoto & Kuramoto, 1986](https://doi.org/10.1143/PTP.75.1105)）。本文的有向双振子系统为
+
+$$
+\begin{aligned}
+\dot{\theta}_1&=1.0+0.2\sin\theta_1+K\sin(\theta_2-\theta_1),\\
+\dot{\theta}_2&=0.9+0.2\sin\theta_2.
+\end{aligned}
+$$
+
+图 1c 扫描 $K$，并计算 $\{\theta_{1,t},\theta_{2,t}\}\to\dot\theta_{1,t}$。$K=0$ 时第二振子不进入目标机制；增大 $K$ 后，相位差项引入不可分的联合响应，同时锁相也会增强观测冗余。
+
+## Controlled Hénon-Style Readout
+
+经典 Hénon 映射以二次折叠和耗散收缩生成二维 strange attractor（[Hénon, 1976](https://doi.org/10.1007/BF01608556)）。图 1c 使用的是受 Hénon 二次非线性启发的受控读出，而不是经典 Hénon 轨迹本身：
+
+$$
+\mathbf{z}_{t+1}
+=
+\begin{bmatrix}
+1-1.4x_t^2+\kappa(\lambda)x_ty_t\\
+\gamma(\lambda)y_t+\epsilon_t
+\end{bmatrix},
+\qquad
+\epsilon_t\sim\mathcal N(0,0.5^2).
+$$
+
+随 $\lambda:0\to1$，$\kappa(\lambda):0.5\to0.1$ 线性减小，而 $\gamma(\lambda):0.3\to2.0$ 线性增大。该单因素路径同时削弱显式交互项并增强独立单源通道，用于检验方法能否区分 synergy 与 unique information。
+
+## Ikeda Optical-Cavity Map
+
+Ikeda 模型源自含非线性介质的光学环形腔，反馈相位依赖场强，因此可产生多稳态、失稳和混沌响应（[Ikeda, 1979](https://doi.org/10.1016/0030-4018(79)90090-7)）。本文使用
+
+$$
+\begin{aligned}
+\theta_t&=0.4-\frac{6}{1+x_t^2+y_t^2},\\
+x_{t+1}&=1+u(x_t\cos\theta_t-y_t\sin\theta_t),\\
+y_{t+1}&=u(x_t\sin\theta_t+y_t\cos\theta_t).
+\end{aligned}
+$$
+
+图 1c 扫描反馈保留系数 $u$，并计算 $\{x_t,y_t\}\to y_{t+1}$。$u=0$ 是结构零点；$u>0$ 时，两源通过强度依赖相位形成联合非线性响应。
+
+## Nicholson–Bailey Host–Parasitoid Map
+
+Nicholson–Bailey 模型是离散世代 host–parasitoid 动力学的经典起点；其指数逃逸概率来自寄生蜂随机、独立搜索宿主的假设（[Nicholson & Bailey, 1935](https://doi.org/10.1111/j.1096-3642.1935.tb01680.x)）。本文使用
+
+$$
+H_{t+1}=R H_t e^{-aP_t},
+\qquad
+P_{t+1}=H_t(1-e^{-aP_t}),
+\qquad R=1.6.
+$$
+
+图 1c 扫描攻击效率 $a$，并计算 $\{H_t,P_t\}\to H_{t+1}$。当 $a=0$ 时，$P_t$ 不进入宿主更新；当 $a>0$ 时，$H_t$ 与 $P_t$ 通过指数存活门控共同决定下一代宿主密度。
 
 # 附录 A：`1/0.5` 简化系数对照
 
