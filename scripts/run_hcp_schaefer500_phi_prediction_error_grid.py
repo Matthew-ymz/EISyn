@@ -364,6 +364,7 @@ def plot_condition_heatmaps(
 
 
 def write_report(summary: Mapping[str, Any], path: Path) -> None:
+    n_subjects = int(summary["config"]["n_subjects"])
     aggregate = summary["aggregate"]
     p8 = [point for point in summary["grid_points"] if int(point["order"]) == 8]
     p8_weak = next(point for point in p8 if float(point["alpha"]) == 0.1)
@@ -375,7 +376,7 @@ def write_report(summary: Mapping[str, Any], path: Path) -> None:
     lines = [
         "# REST–七任务预测误差超参数诊断",
         "",
-        "使用与 raw Phi 扫描完全相同的 29 名共同被试、Yeo7-PC1 表征和前 75%/后 25% 时间切分。每个状态和网格点独立重拟合 Δ-Ridge。主指标是按训练段 delta 标准差归一化的留出 delta-NRMSE；同时检查测试减训练误差与持久性基线技能。",
+        f"使用与 raw Phi 扫描完全相同的 {n_subjects} 名共同被试、Yeo7-PC1 表征和前 75%/后 25% 时间切分。每个状态和网格点独立重拟合 Δ-Ridge。主指标是按训练段 delta 标准差归一化的留出 delta-NRMSE；同时检查测试减训练误差与持久性基线技能。",
         "",
         "## 各 p 的整体最优 alpha",
         "",
@@ -387,8 +388,8 @@ def write_report(summary: Mapping[str, Any], path: Path) -> None:
     lines.extend(
         [
             "",
-            f"在 8 个状态 × 5 个 p 的 40 个独立条件阶数组合中，alpha=10 是留出误差最小值的 {aggregate['n_condition_order_cells_best_at_alpha_10']}/40。",
-            f"若对八种状态与29名被试等权汇总，并以最低留出误差选择一组共享超参数，全网格最优点为 `p={aggregate['pooled_global_best']['order']}, alpha={aggregate['pooled_global_best']['alpha']:g}`（delta-NRMSE={aggregate['pooled_global_best']['test_delta_nrmse']:.6f}）；该点的最小 REST-minus-task Phi 边际为 {aggregate['pooled_global_best']['minimum_rest_minus_task_phi']:.6f} bits，七项 Phi 对比中 {aggregate['pooled_global_best']['n_holm_significant_phi_contrasts']}/7 经 Holm 校正显著。",
+            f"在 {aggregate['n_condition_order_cells']} 个独立的状态–阶数组合中，alpha=10 是留出误差最小值的 {aggregate['n_condition_order_cells_best_at_alpha_10']}/{aggregate['n_condition_order_cells']}。",
+            f"若对八种状态与{n_subjects}名被试等权汇总，并以最低留出误差选择一组共享超参数，全网格最优点为 `p={aggregate['pooled_global_best']['order']}, alpha={aggregate['pooled_global_best']['alpha']:g}`（delta-NRMSE={aggregate['pooled_global_best']['test_delta_nrmse']:.6f}）；该点的最小 REST-minus-task Phi 边际为 {aggregate['pooled_global_best']['minimum_rest_minus_task_phi']:.6f} bits，七项 Phi 对比中 {aggregate['pooled_global_best']['n_holm_significant_phi_contrasts']}/7 经 Holm 校正显著。",
             "",
             "## p=8 的过拟合诊断",
             "",
@@ -425,6 +426,9 @@ def run(
     orders: Sequence[int] = DEFAULT_ORDERS,
     alphas: Sequence[float] = DEFAULT_ALPHAS,
     task_data_key: str = "Schaefer500_taskRetained",
+    rest_data_key: str = "Schaefer500",
+    parcel_count: int = 500,
+    max_subjects: int | None = None,
 ) -> dict[str, Any]:
     output_dir = Path(output_dir)
     subjects, reduced, lengths = prepare_reduced_series(
@@ -433,13 +437,25 @@ def run(
         labels_path,
         output_dir / "reduced_series_cache.npz",
         task_data_key=task_data_key,
+        rest_data_key=rest_data_key,
+        parcel_count=parcel_count,
+        max_subjects=max_subjects,
     )
-    rows = []
+    checkpoint_path = output_dir / "prediction_checkpoint.json"
+    rows: list[dict[str, Any]] = []
+    completed: set[tuple[int, float]] = set()
+    if checkpoint_path.is_file():
+        checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        rows = list(checkpoint.get("rows", []))
+        completed = {(int(p), float(a)) for p, a in checkpoint.get("completed_grid_points", [])}
     total = len(subjects) * len(CONDITIONS) * len(orders) * len(alphas)
-    progress = tqdm(total=total, desc="prediction grid", unit="fit", mininterval=1.0)
+    finished = len(completed) * len(subjects) * len(CONDITIONS)
+    progress = tqdm(total=total, initial=finished, desc="prediction grid", unit="fit", mininterval=1.0)
     try:
         for order in orders:
             for alpha in alphas:
+                if (int(order), float(alpha)) in completed:
+                    continue
                 for subject in subjects:
                     for condition in CONDITIONS:
                         series = reduced[(subject, condition)]
@@ -453,12 +469,23 @@ def run(
                             {"subject": subject, "condition": condition, "order": int(order), "alpha": float(alpha), **metrics}
                         )
                         progress.update(1)
+                completed.add((int(order), float(alpha)))
+                checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                checkpoint_path.write_text(
+                    json.dumps(
+                        {"completed_grid_points": sorted(completed), "rows": rows}, indent=2
+                    ),
+                    encoding="utf-8",
+                )
     finally:
         progress.close()
     grid = summarize_grid(rows, orders, alphas)
     phi_diagnostics = add_phi_diagnostics(grid, phi_summary_path)
     summary = {
         "config": {
+            "task_data_key": task_data_key,
+            "rest_data_key": rest_data_key,
+            "parcel_count": int(parcel_count),
             "subjects": list(subjects),
             "n_subjects": len(subjects),
             "conditions": list(CONDITIONS),
@@ -498,6 +525,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--phi-summary", type=Path, default=DEFAULT_PHI_SUMMARY)
     parser.add_argument("--orders", default=",".join(map(str, DEFAULT_ORDERS)))
     parser.add_argument("--alphas", default=",".join(map(str, DEFAULT_ALPHAS)))
+    parser.add_argument("--task-data-key", default="Schaefer500_taskRetained")
+    parser.add_argument("--rest-data-key", default="Schaefer500")
+    parser.add_argument("--parcel-count", type=int, choices=(500, 1000), default=500)
+    parser.add_argument("--max-subjects", type=int)
     args = parser.parse_args(argv)
     summary = run(
         args.task_root,
@@ -507,6 +538,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.phi_summary,
         orders=_parse_ints(args.orders),
         alphas=_parse_floats(args.alphas),
+        task_data_key=args.task_data_key,
+        rest_data_key=args.rest_data_key,
+        parcel_count=args.parcel_count,
+        max_subjects=args.max_subjects,
     )
     diagnostics = {key: value for key, value in summary["phi_error_diagnostics"].items() if key != "pair_rows"}
     print(json.dumps({"aggregate": summary["aggregate"], "correlations": diagnostics}, indent=2))

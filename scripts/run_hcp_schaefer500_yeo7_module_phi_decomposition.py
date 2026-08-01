@@ -171,6 +171,11 @@ def null_rank_frequency(rows: Sequence[Mapping[str, Any]], sources: Sequence[str
 def format_core_label(sources: Sequence[str]) -> str:
     """Abbreviate and wrap a module core label for a dense heatmap axis."""
     abbreviations = {"Vis": "Vis", "SomMot": "Som", "DorsAttn": "DAN", "SalVentAttn": "SVAN", "Limbic": "Lim", "Cont": "Cont", "Default": "Def"}
+    missing = [name for name in abbreviations if name not in sources]
+    if not missing:
+        return "All 7"
+    if len(missing) <= 2:
+        return "Missing\n" + " + ".join(abbreviations[name] for name in missing)
     names = [abbreviations[name] for name in sources]
     return " + ".join(names[:3]) + ("\n" + " + ".join(names[3:]) if len(names) > 3 else "")
 
@@ -269,14 +274,22 @@ def run(
     subjects = tuple(subjects) if subjects is not None else discover_subjects(data_root)
     if not subjects:
         raise FileNotFoundError(f"No HCP subject MAT files found below {data_root}.")
-    rows = []
+    checkpoint_path = Path(output_dir) / "checkpoint.json"
+    rows: list[dict[str, Any]] = []
+    if checkpoint_path.is_file():
+        rows = list(json.loads(checkpoint_path.read_text(encoding="utf-8")).get("rows", []))
+    completed = {str(row["subject"]) for row in rows}
     for subject in subjects:
+        if subject in completed:
+            continue
         paths = sorted((Path(data_root) / subject).glob("*.mat"))
         if len(paths) != 1:
             raise FileNotFoundError(f"Expected exactly one MAT file for {subject}, found {len(paths)}.")
         raw = load_hcp_series(paths[0], parcel_count=count, data_key=key)
         print(f"[{len(rows) + 1}/{len(subjects)}] {subject}", flush=True)
         rows.append(analyze_subject(raw, groups, subject=subject, development_end=development_end, order=order, alpha=alpha, null_replicates=null_replicates, seed=seed, top_k=top_k))
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint_path.write_text(json.dumps({"rows": rows}, indent=2), encoding="utf-8")
     core_summary = summarize_cores(rows)
     null_rank_comparison = [null_rank_frequency(rows, core["sources"], observed_frequency=int(core["top_frequency"])) for core in core_summary]
     null_core_summary = summarize_null_cores(rows)

@@ -93,10 +93,11 @@ def plot_subject_differences(rows: Sequence[Mapping[str, Any]], destination: Pat
 
 def write_report(summary: Mapping[str, Any], path: Path) -> None:
     aggregate = summary["aggregate"]
+    config = summary["config"]
     lines = [
-        "# 30 被试 Yeo7-PC1 history-source PhiEID 与 20-null 比较",
+        f"# {aggregate['n_subjects']} 被试 Yeo7-PC1 history-source PhiEID 与 {config['null_replicates']}-null 比较",
         "",
-        "所有被试均固定使用训练段内拟合的 Yeo7-PC1、前 900 点、Δ-Ridge `p=8, alpha=10`。"
+        f"所有被试均固定使用训练段内拟合的 Yeo7-PC1、前 {config['development_end']} 点、Δ-Ridge `p={config['order']}, alpha={config['alpha']:g}`。"
         "每个 null 对七条 PC1 独立 circular shift 后重拟合相同模型。",
         "",
         "| 被试 | observed Phi（bits） | null mean | observed − null | empirical p |",
@@ -108,7 +109,7 @@ def write_report(summary: Mapping[str, Any], path: Path) -> None:
     lines.extend([
         "",
         f"Observed 高于 null mean：{aggregate['subjects_observed_above_null_mean']}/{aggregate['n_subjects']}。",
-        f"经验 p<0.05：{aggregate['subjects_empirical_p_lt_0_05']}/{aggregate['n_subjects']}；20 个 null 的最小可得经验 p 为 1/21=0.047619。",
+        f"经验 p<0.05：{aggregate['subjects_empirical_p_lt_0_05']}/{aggregate['n_subjects']}；{config['null_replicates']} 个 null 的最小可得经验 p 为 1/{config['null_replicates'] + 1}={1 / (config['null_replicates'] + 1):.6f}。",
     ])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -126,18 +127,30 @@ def run(
     seed: int = 20260714,
     parcel_count: int = 500,
     data_key: str | None = None,
+    subjects: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     count = int(parcel_count)
     key = data_key or default_data_key(count)
     groups = load_yeo7_groups(labels, expected_parcels=count)
     files = sorted(Path(data_root).glob("sub-*/*.mat"))
+    if subjects is not None:
+        requested = {value if value.startswith("sub-") else f"sub-{value}" for value in subjects}
+        files = [path for path in files if path.parent.name in requested]
     if not files:
         raise FileNotFoundError(f"No HCP subject MAT files found below {data_root}.")
-    rows = []
+    checkpoint_path = Path(output_dir) / "checkpoint.json"
+    rows: list[dict[str, Any]] = []
+    if checkpoint_path.is_file():
+        rows = list(json.loads(checkpoint_path.read_text(encoding="utf-8")).get("rows", []))
+    completed = {str(row["subject"]) for row in rows}
     for index, path in enumerate(files, start=1):
+        if path.parent.name in completed:
+            continue
         raw = load_hcp_series(path, parcel_count=count, data_key=key)
         print(f"[{index}/{len(files)}] {path.parent.name}", flush=True)
         rows.append(analyze_subject(raw, groups, subject=path.parent.name, development_end=development_end, order=order, alpha=alpha, null_replicates=null_replicates, seed=seed))
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint_path.write_text(json.dumps({"rows": rows}, indent=2), encoding="utf-8")
     summary = {"config": {"parcel_count": count, "data_key": key, "labels": str(labels), "network_sizes": {name: len(indices) for name, indices in groups.items()}, "representation": "Yeo7 PC1 fitted separately on each subject development segment", "development_end": int(development_end), "model": "delta Ridge", "order": int(order), "alpha": float(alpha), "source_dimension": int(order * 7), "target_dimension": 7, "null": "independent non-zero circular shift of each of seven PC1 time series, with model refitting", "null_replicates": int(null_replicates), "seed": int(seed), "empirical_significance_threshold": 0.05}, "rows": rows, "aggregate": aggregate_rows(rows)}
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -159,9 +172,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--alpha", type=float, default=10.0)
     parser.add_argument("--null-replicates", type=int, default=20)
     parser.add_argument("--seed", type=int, default=20260714)
+    parser.add_argument("--subjects", default="", help="Comma-separated subject IDs; defaults to all available subjects.")
     args = parser.parse_args(argv)
     labels = args.labels or default_yeo7_labels(args.parcel_count)
-    summary = run(args.data_root, labels, args.output_dir, development_end=args.development_end, order=args.order, alpha=args.alpha, null_replicates=args.null_replicates, seed=args.seed, parcel_count=args.parcel_count, data_key=args.data_key or None)
+    subjects = tuple(value.strip() for value in args.subjects.split(",") if value.strip()) or None
+    summary = run(args.data_root, labels, args.output_dir, development_end=args.development_end, order=args.order, alpha=args.alpha, null_replicates=args.null_replicates, seed=args.seed, parcel_count=args.parcel_count, data_key=args.data_key or None, subjects=subjects)
     print(json.dumps(summary["aggregate"], indent=2, sort_keys=True))
     return 0
 

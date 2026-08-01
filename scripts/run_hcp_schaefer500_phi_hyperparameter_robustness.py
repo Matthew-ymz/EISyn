@@ -67,10 +67,15 @@ def prepare_reduced_series(
     cache_path: Path,
     *,
     task_data_key: str,
+    rest_data_key: str = "Schaefer500",
+    parcel_count: int = 500,
+    max_subjects: int | None = None,
 ) -> tuple[list[str], dict[tuple[str, str], np.ndarray], dict[str, int]]:
     task_files = discover_subject_task_files(task_root, TASKS)
     rest_files = discover_rest_files(rest_root)
     common = sorted(set(task_files) & set(rest_files))
+    if max_subjects is not None:
+        common = common[: int(max_subjects)]
     if not common:
         raise FileNotFoundError("No subjects are shared by complete REST and seven-task inputs.")
     expected_keys = {_cache_key(subject, condition) for subject in common for condition in CONDITIONS}
@@ -85,18 +90,20 @@ def prepare_reduced_series(
                 lengths = {condition: int(len(reduced[(common[0], condition)])) for condition in CONDITIONS}
                 return common, reduced, lengths
 
-    groups = load_yeo7_groups(labels_path, expected_parcels=500)
+    groups = load_yeo7_groups(labels_path, expected_parcels=parcel_count)
     reduced: dict[tuple[str, str], np.ndarray] = {}
     progress = tqdm(total=len(common) * len(CONDITIONS), desc="Yeo7 PC1", unit="series", mininterval=1.0)
     try:
         for subject in common:
-            rest_raw = load_hcp_series(rest_files[subject], parcel_count=500, data_key="Schaefer500")
+            rest_raw = load_hcp_series(rest_files[subject], parcel_count=parcel_count, data_key=rest_data_key)
             rest_end = development_end_for_length(len(rest_raw))
             reduced[(subject, "REST")] = fit_yeo7_pc1(rest_raw[:rest_end], groups).transform(rest_raw)
             progress.update(1)
             for task in TASKS:
                 condition = task.removesuffix("_LR")
-                task_raw = load_task_series(task_files[subject][task], data_key=task_data_key, parcel_count=500)
+                task_raw = load_task_series(
+                    task_files[subject][task], data_key=task_data_key, parcel_count=parcel_count
+                )
                 task_end = development_end_for_length(len(task_raw))
                 reduced[(subject, condition)] = fit_yeo7_pc1(task_raw[:task_end], groups).transform(task_raw)
                 progress.update(1)
@@ -187,11 +194,20 @@ def run_grid(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     rows: list[dict[str, Any]] = []
     grid: list[dict[str, Any]] = []
+    completed: set[tuple[int, float]] = set()
+    if checkpoint_path.is_file():
+        cached = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        rows = list(cached.get("rows", []))
+        grid = list(cached.get("completed_grid_points", []))
+        completed = {(int(item["order"]), float(item["alpha"])) for item in grid}
     total = len(subjects) * len(CONDITIONS) * len(orders) * len(alphas)
-    progress = tqdm(total=total, desc="raw Phi grid", unit="fit", mininterval=1.0)
+    finished = len(completed) * len(subjects) * len(CONDITIONS)
+    progress = tqdm(total=total, initial=finished, desc="raw Phi grid", unit="fit", mininterval=1.0)
     try:
         for order_index, order in enumerate(orders):
             for alpha_index, alpha in enumerate(alphas):
+                if (int(order), float(alpha)) in completed:
+                    continue
                 values = np.empty((len(subjects), len(CONDITIONS)), dtype=float)
                 for subject_index, subject in enumerate(subjects):
                     for condition_index, condition in enumerate(CONDITIONS):
@@ -232,6 +248,7 @@ def run_grid(
                 )
     finally:
         progress.close()
+    grid.sort(key=lambda item: (orders.index(int(item["order"])), alphas.index(float(item["alpha"]))))
     return rows, grid
 
 
@@ -383,10 +400,11 @@ def plot_task_margins(
 
 def write_report(summary: Mapping[str, Any], path: Path) -> None:
     aggregate = summary["aggregate"]
+    n_subjects = int(summary["config"]["n_subjects"])
     lines = [
         "# REST–七任务 raw Phi 超参数鲁棒性",
         "",
-        "同一组 `(p, alpha)` 同时用于 REST 和七种任务态；每名被试、每个状态独立重新拟合 PCA、标准化、Ridge 系数、截距与残差协方差。分析限于 29 名共同被试，各时间序列使用前 75%，不计算 null。",
+        f"同一组 `(p, alpha)` 同时用于 REST 和七种任务态；每名被试、每个状态独立重新拟合 PCA、标准化、Ridge 系数、截距与残差协方差。分析包含 {n_subjects} 名共同被试，各时间序列使用前 75%，不计算 null。",
         "",
         f"扫描 {aggregate['n_grid_points']} 组参数。REST 在 {aggregate['n_rest_highest_group_mean']}/{aggregate['n_grid_points']} 组中为群体均值最高状态；在 {aggregate['n_all_seven_holm_significant']}/{aggregate['n_grid_points']} 组中，七项 paired sign-flip 检验均在七任务内 Holm 校正后显著。",
         "",
@@ -425,6 +443,9 @@ def run(
     orders: Sequence[int] = DEFAULT_ORDERS,
     alphas: Sequence[float] = DEFAULT_ALPHAS,
     task_data_key: str = "Schaefer500_taskRetained",
+    rest_data_key: str = "Schaefer500",
+    parcel_count: int = 500,
+    max_subjects: int | None = None,
     permutation_replicates: int = 200_000,
 ) -> dict[str, Any]:
     output_dir = Path(output_dir)
@@ -435,6 +456,9 @@ def run(
         labels_path,
         output_dir / "reduced_series_cache.npz",
         task_data_key=task_data_key,
+        rest_data_key=rest_data_key,
+        parcel_count=parcel_count,
+        max_subjects=max_subjects,
     )
     rows, grid = run_grid(
         reduced,
@@ -447,6 +471,8 @@ def run(
     summary = {
         "config": {
             "task_data_key": task_data_key,
+            "rest_data_key": rest_data_key,
+            "parcel_count": int(parcel_count),
             "subjects": list(subjects),
             "n_subjects": len(subjects),
             "conditions": list(CONDITIONS),
@@ -489,6 +515,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--orders", default=",".join(map(str, DEFAULT_ORDERS)))
     parser.add_argument("--alphas", default=",".join(map(str, DEFAULT_ALPHAS)))
     parser.add_argument("--task-data-key", default="Schaefer500_taskRetained")
+    parser.add_argument("--rest-data-key", default="Schaefer500")
+    parser.add_argument("--parcel-count", type=int, choices=(500, 1000), default=500)
+    parser.add_argument("--max-subjects", type=int)
     parser.add_argument("--permutation-replicates", type=int, default=200_000)
     args = parser.parse_args(argv)
     summary = run(
@@ -499,6 +528,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         orders=_parse_ints(args.orders),
         alphas=_parse_floats(args.alphas),
         task_data_key=args.task_data_key,
+        rest_data_key=args.rest_data_key,
+        parcel_count=args.parcel_count,
+        max_subjects=args.max_subjects,
         permutation_replicates=args.permutation_replicates,
     )
     print(json.dumps(summary["aggregate"], indent=2))

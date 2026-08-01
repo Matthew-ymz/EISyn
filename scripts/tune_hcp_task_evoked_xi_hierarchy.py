@@ -486,7 +486,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     # stable PCA path as the mixed-k screening batches.
     max_k = max(2, max(required_k))
     projection_cache: dict[tuple[str, str, int], tuple[np.ndarray, dict[str, float], int]] = {}
-    projection_jobs = [(subject, state, Path(discovered[subject][state])) for subject in subjects for state in STATES]
+    jobs = [
+        (params, subject, state)
+        for params in configs
+        for subject in subjects
+        for state in STATES
+        if (config_id(*params), subject, state) not in records
+    ]
+    pending_projection_keys = {
+        (subject, state) for _, subject, state in jobs
+    }
+    projection_jobs = [
+        (subject, state, Path(discovered[subject][state]))
+        for subject, state in sorted(pending_projection_keys)
+    ]
     projection_progress = tqdm(projection_jobs, desc=f"PCA cache {args.stage}", unit="state", mininterval=1.0)
     for subject, state, path in projection_progress:
         projections, cumulative, development_end = prepare_projection(
@@ -503,13 +516,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             projection_cache[(subject, state, k)] = (
                 projections[k], cumulative[k], development_end
             )
-    jobs = [
-        (params, subject, state)
-        for params in configs
-        for subject in subjects
-        for state in STATES
-        if (config_id(*params), subject, state) not in records
-    ]
     update_live_status(
         log_dir,
         status="running",

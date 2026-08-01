@@ -66,15 +66,17 @@ def discover_inputs(task_root: Path) -> tuple[list[str], dict[str, dict[str, Pat
     }
 
 
-def load_task_pair(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    payload = loadmat(path, variable_names=["Schaefer500_taskRetained", "Schaefer500_taskRegressed"])
+def load_task_pair(path: Path, parcel_count: int = 500) -> tuple[np.ndarray, np.ndarray]:
+    retained_key = f"Schaefer{parcel_count}_taskRetained"
+    regressed_key = f"Schaefer{parcel_count}_taskRegressed"
+    payload = loadmat(path, variable_names=[retained_key, regressed_key])
     try:
-        retained = np.asarray(payload["Schaefer500_taskRetained"], dtype=float)
-        regressed = np.asarray(payload["Schaefer500_taskRegressed"], dtype=float)
+        retained = np.asarray(payload[retained_key], dtype=float)
+        regressed = np.asarray(payload[regressed_key], dtype=float)
     except KeyError as exc:
-        raise ValueError(f"Missing paired Schaefer-500 task arrays in {path}.") from exc
-    if retained.shape != regressed.shape or retained.ndim != 2 or retained.shape[1] != 500:
-        raise ValueError(f"Expected paired [time, 500] arrays in {path}, got {retained.shape} and {regressed.shape}.")
+        raise ValueError(f"Missing paired Schaefer-{parcel_count} task arrays in {path}.") from exc
+    if retained.shape != regressed.shape or retained.ndim != 2 or retained.shape[1] != parcel_count:
+        raise ValueError(f"Expected paired [time, {parcel_count}] arrays in {path}, got {retained.shape} and {regressed.shape}.")
     if not np.isfinite(retained).all() or not np.isfinite(regressed).all():
         raise ValueError(f"Non-finite values found in {path}.")
     return retained, regressed
@@ -90,13 +92,14 @@ def discover_rest_inputs(rest_root: Path) -> dict[str, Path]:
     return paths
 
 
-def load_rest_series(path: Path) -> np.ndarray:
-    payload = loadmat(path, variable_names=["Schaefer500"])
-    if "Schaefer500" not in payload:
-        raise ValueError(f"Missing Schaefer500 REST array in {path}.")
-    values = np.asarray(payload["Schaefer500"], dtype=float)
-    if values.ndim != 2 or values.shape[1] != 500 or not np.isfinite(values).all():
-        raise ValueError(f"Expected finite [time, 500] REST data in {path}, got {values.shape}.")
+def load_rest_series(path: Path, parcel_count: int = 500) -> np.ndarray:
+    key = f"Schaefer{parcel_count}"
+    payload = loadmat(path, variable_names=[key])
+    if key not in payload:
+        raise ValueError(f"Missing {key} REST array in {path}.")
+    values = np.asarray(payload[key], dtype=float)
+    if values.ndim != 2 or values.shape[1] != parcel_count or not np.isfinite(values).all():
+        raise ValueError(f"Expected finite [time, {parcel_count}] REST data in {path}, got {values.shape}.")
     return values
 
 
@@ -144,7 +147,7 @@ def task_evoked_variance_fraction(
     return np.clip(raw_fraction, 0.0, 1.0), diagnostics
 
 
-def parse_schaefer_labels(path: Path) -> list[dict[str, Any]]:
+def parse_schaefer_labels(path: Path, expected_parcels: int = 500) -> list[dict[str, Any]]:
     labels: list[dict[str, Any]] = []
     for line in Path(path).read_text().splitlines():
         fields = line.split()
@@ -164,8 +167,8 @@ def parse_schaefer_labels(path: Path) -> list[dict[str, Any]]:
                 "network": parts[2],
             }
         )
-    if len(labels) != 500 or [item["index"] for item in labels] != list(range(500)):
-        raise ValueError(f"Expected ordered 500-parcel labels in {path}, found {len(labels)}.")
+    if len(labels) != expected_parcels or [item["index"] for item in labels] != list(range(expected_parcels)):
+        raise ValueError(f"Expected ordered {expected_parcels}-parcel labels in {path}, found {len(labels)}.")
     return labels
 
 
@@ -178,11 +181,15 @@ def spatial_enrichment(fractions: np.ndarray, *, eps: float = 1.0e-12) -> np.nda
     return fractions / mean
 
 
-def temporal_variance_enrichment(series: np.ndarray, *, eps: float = 1.0e-12) -> np.ndarray:
+def temporal_variance_enrichment(
+    series: np.ndarray, *, expected_parcels: int | None = None, eps: float = 1.0e-12
+) -> np.ndarray:
     """Return parcel temporal variance divided by the run's mean parcel variance."""
     series = np.asarray(series, dtype=float)
-    if series.ndim != 2 or series.shape[1] != 500 or not np.isfinite(series).all():
-        raise ValueError(f"Expected finite [time, 500] series, got {series.shape}.")
+    if series.ndim != 2 or not np.isfinite(series).all():
+        raise ValueError(f"Expected finite [time, parcel] series, got {series.shape}.")
+    if expected_parcels is not None and series.shape[1] != expected_parcels:
+        raise ValueError(f"Expected {expected_parcels} parcels, got {series.shape[1]}.")
     variance = np.var(series, axis=0, ddof=1)
     mean_variance = float(np.mean(variance))
     if mean_variance <= eps:
@@ -332,6 +339,7 @@ def plot_region_profiles(
     network_specificity: np.ndarray,
     blocks: Sequence[tuple[int, int, str]],
     output_dir: Path,
+    parcel_count: int = 500,
 ) -> None:
     configure_style()
     figure = plt.figure(figsize=(12.6, 7.0), constrained_layout=True)
@@ -347,7 +355,7 @@ def plot_region_profiles(
     for _, end, _ in blocks[:-1]:
         ax.axvline(end - 0.5, color="white", linewidth=0.45, alpha=0.75)
     ax.set_ylabel("Task")
-    ax.set_xlabel("Schaefer-500 parcel (atlas order)")
+    ax.set_xlabel(f"Schaefer-{parcel_count} parcel (atlas order)")
     colorbar = figure.colorbar(image, ax=ax, location="right", shrink=0.82, pad=0.015)
     colorbar.set_label("Task-evoked variance fraction")
     add_panel_label(ax, "a")
@@ -384,7 +392,7 @@ def plot_region_profiles(
     for _, end, _ in blocks[:-1]:
         ax.axvline(end - 0.5, color="black", linewidth=0.4, alpha=0.45)
     ax.set_ylabel("Task")
-    ax.set_xlabel("Schaefer-500 parcel (atlas order)")
+    ax.set_xlabel(f"Schaefer-{parcel_count} parcel (atlas order)")
     colorbar = figure.colorbar(image, ax=ax, location="right", shrink=0.82, pad=0.015)
     colorbar.set_label("Task-specific spatial enrichment")
     add_panel_label(ax, "c")
@@ -424,6 +432,7 @@ def plot_rest_task_state_profiles(
     network_specificity: np.ndarray,
     blocks: Sequence[tuple[int, int, str]],
     output_dir: Path,
+    parcel_count: int = 500,
 ) -> None:
     """Plot REST and all tasks using the common temporal-variance metric."""
     configure_style()
@@ -448,7 +457,7 @@ def plot_rest_task_state_profiles(
         ax.axvline(end - 0.5, color="white", linewidth=0.45, alpha=0.75)
     ax.axhline(0.5, color="white", linewidth=1.0)
     ax.set_ylabel("State")
-    ax.set_xlabel("Schaefer-500 parcel (atlas order)")
+    ax.set_xlabel(f"Schaefer-{parcel_count} parcel (atlas order)")
     colorbar = figure.colorbar(image, ax=ax, location="right", shrink=0.82, pad=0.015)
     colorbar.set_label("Temporal-variance enrichment")
     add_panel_label(ax, "a")
@@ -495,7 +504,7 @@ def plot_rest_task_state_profiles(
         ax.axvline(end - 0.5, color="black", linewidth=0.4, alpha=0.45)
     ax.axhline(0.5, color="black", linewidth=1.0)
     ax.set_ylabel("State")
-    ax.set_xlabel("Schaefer-500 parcel (atlas order)")
+    ax.set_xlabel(f"Schaefer-{parcel_count} parcel (atlas order)")
     colorbar = figure.colorbar(image, ax=ax, location="right", shrink=0.82, pad=0.015)
     colorbar.set_label("State-specific variance enrichment")
     add_panel_label(ax, "c")
@@ -540,6 +549,7 @@ def plot_discriminability(
     parcel_permutation: dict[str, Any],
     network_permutation: dict[str, Any],
     output_dir: Path,
+    parcel_count: int = 500,
 ) -> None:
     configure_style()
     figure, axes = plt.subplots(1, 3, figsize=(11.2, 3.45), constrained_layout=True)
@@ -572,7 +582,7 @@ def plot_discriminability(
                 parcel_permutation,
                 network_permutation,
             ),
-            ("Schaefer-500 parcels", "Yeo7 network means"),
+            (f"Schaefer-{parcel_count} parcels", "Yeo7 network means"),
         ),
         start=1,
     ):
@@ -624,8 +634,9 @@ def summarize_top_parcels(
 
 
 def write_report(summary: dict[str, Any], output_dir: Path) -> None:
+    parcel_count = int(summary["parcel_count"])
     lines = [
-        "# HCP 七任务 Schaefer-500 任务特异脑区分布",
+        f"# HCP 七任务 Schaefer-{parcel_count} 任务特异脑区分布",
         "",
         "## 方法",
         "",
@@ -635,17 +646,17 @@ def write_report(summary: dict[str, Any], output_dir: Path) -> None:
         "",
         "$$\\mathrm{TEVF}=\\frac{\\sum_t u(t)^2}{\\sum_t r(t)^2}.$$",
         "在 OLS 任务回归下，$e$ 与 $u$ 正交，因此该量是 parcel 级任务成分解释比例。",
-        "为分离整体效应强度与空间形状，将每张 500-parcel 图除以其 parcel 均值，得到均值为 1 的空间富集图 $q$；任务 $c$ 的特异性为",
+        f"为分离整体效应强度与空间形状，将每张 {parcel_count}-parcel 图除以其 parcel 均值，得到均值为 1 的空间富集图 $q$；任务 $c$ 的特异性为",
         "",
         "$$d_{c,i}=q_{c,i}-\\frac{1}{6}\\sum_{c'\\ne c}q_{c',i}.$$",
-        "因此每个任务的 $d$ 在 500 个 parcel 上严格和为 0，不会把任务整体更强误当成空间特异。",
+        f"因此每个任务的 $d$ 在 {parcel_count} 个 parcel 上严格和为 0，不会把任务整体更强误当成空间特异。",
         "",
         "个体级验证采用 leave-one-subject-out 最近质心分类。每张 $q$ 图先在 parcel 维去均值并作 $L_2$ 归一化；训练质心只由其余被试形成，以余弦相似度预测留出被试的七张任务图。显著性通过在每个被试内部独立置换七个任务标签并完整重跑 LOSO 得到。Yeo7 对照把同一 TEVF 图先聚合为七个网络均值，再执行完全相同的流程。",
         "",
         "## 结果",
         "",
         f"纳入 {summary['n_subjects']} 名具有全部七个 LR 任务的被试。",
-        f"Schaefer-500 空间图的 LOSO 准确率为 {100 * summary['classification']['parcel']['accuracy']:.1f}%（chance = 14.3%，置换 $p={summary['classification']['parcel']['permutation_pvalue']:.4f}$）；",
+        f"Schaefer-{parcel_count} 空间图的 LOSO 准确率为 {100 * summary['classification']['parcel']['accuracy']:.1f}%（chance = 14.3%，置换 $p={summary['classification']['parcel']['permutation_pvalue']:.4f}$）；",
         f"Yeo7 网络均值图准确率为 {100 * summary['classification']['network']['accuracy']:.1f}%（置换 $p={summary['classification']['network']['permutation_pvalue']:.4f}$）。",
         "",
         "![任务诱发 parcel 分布](task_evoked_region_profiles.png)",
@@ -654,9 +665,9 @@ def write_report(summary: dict[str, Any], output_dir: Path) -> None:
         "",
         "## REST 与七任务的共同口径比较",
         "",
-        "REST 没有 task GLM，因此不能定义 TEVF。为避免把 REST 人为设为零，八状态比较改用每个状态都可计算的 parcel 时间方差，并将每张图除以其 500-parcel 平均方差。该量只比较空间形状，不比较不同 run 的绝对 BOLD 方差。状态特异性定义为本状态的方差富集减去其余七状态的平均方差富集。",
+        f"REST 没有 task GLM，因此不能定义 TEVF。为避免把 REST 人为设为零，八状态比较改用每个状态都可计算的 parcel 时间方差，并将每张图除以其 {parcel_count}-parcel 平均方差。该量只比较空间形状，不比较不同 run 的绝对 BOLD 方差。状态特异性定义为本状态的方差富集减去其余七状态的平均方差富集。",
         "",
-        f"REST 与全部七任务共同的被试数为 {summary['rest_comparison']['n_subjects']}。500-parcel 方差富集图的八状态 LOSO 准确率为 {100 * summary['rest_comparison']['classification']['parcel']['accuracy']:.1f}%（chance = 12.5%，置换 $p={summary['rest_comparison']['classification']['parcel']['permutation_pvalue']:.4f}$）；Yeo7 网络均值准确率为 {100 * summary['rest_comparison']['classification']['network']['accuracy']:.1f}%（$p={summary['rest_comparison']['classification']['network']['permutation_pvalue']:.4f}$）。",
+        f"REST 与全部七任务共同的被试数为 {summary['rest_comparison']['n_subjects']}。{parcel_count}-parcel 方差富集图的八状态 LOSO 准确率为 {100 * summary['rest_comparison']['classification']['parcel']['accuracy']:.1f}%（chance = 12.5%，置换 $p={summary['rest_comparison']['classification']['parcel']['permutation_pvalue']:.4f}$）；Yeo7 网络均值准确率为 {100 * summary['rest_comparison']['classification']['network']['accuracy']:.1f}%（$p={summary['rest_comparison']['classification']['network']['permutation_pvalue']:.4f}$）。",
         "",
         "![REST 与七任务的共同方差空间分布](rest_all_tasks_variance_profiles.png)",
         "",
@@ -676,7 +687,7 @@ def write_report(summary: dict[str, Any], output_dir: Path) -> None:
             "",
             "## 与 EI/Phi 的关系",
             "",
-            "TEVF 回答的是“任务设计解释了哪个 parcel 的多少时间变异”，不是系统动力学的有效信息或整合信息。现有 Yeo7-Phi 分析把 500 个 parcel 压缩为七个 PC1、逐状态标准化并在整段时序上拟合平稳一步动力学，因此对任务平均激活、parcel 内部异质性和事件结构不敏感。两类指标应并列使用：Phi 描述预测动力学整合，TEVF 与 $d$ 描述任务相关脑区分布；不能把 TEVF 称为 Phi 的节点归因。",
+            f"TEVF 回答的是“任务设计解释了哪个 parcel 的多少时间变异”，不是系统动力学的有效信息或整合信息。现有 Yeo7-Phi 分析把 {parcel_count} 个 parcel 压缩为七个 PC1、逐状态标准化并在整段时序上拟合平稳一步动力学，因此对任务平均激活、parcel 内部异质性和事件结构不敏感。两类指标应并列使用：Phi 描述预测动力学整合，TEVF 与 $d$ 描述任务相关脑区分布；不能把 TEVF 称为 Phi 的节点归因。",
             "",
         ]
     )
@@ -692,16 +703,20 @@ def main() -> None:
     parser.add_argument("--permutations", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=20260718)
     parser.add_argument("--top-k", type=int, default=10)
+    parser.add_argument("--parcel-count", type=int, choices=(500, 1000), default=500)
+    parser.add_argument("--max-subjects", type=int)
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     subjects, paths = discover_inputs(args.task_root)
-    labels = parse_schaefer_labels(args.label_file)
-    fractions = np.empty((len(subjects), len(TASKS), 500), dtype=float)
+    if args.max_subjects is not None:
+        subjects = subjects[: args.max_subjects]
+    labels = parse_schaefer_labels(args.label_file, expected_parcels=args.parcel_count)
+    fractions = np.empty((len(subjects), len(TASKS), args.parcel_count), dtype=float)
     diagnostics: list[dict[str, Any]] = []
     for subject_index, subject in enumerate(tqdm(subjects, desc="Subjects", unit="subject")):
         for task_index, task in enumerate(TASKS):
-            retained, regressed = load_task_pair(paths[subject][task])
+            retained, regressed = load_task_pair(paths[subject][task], args.parcel_count)
             fraction, diagnostic = task_evoked_variance_fraction(retained, regressed)
             fractions[subject_index, task_index] = fraction
             diagnostics.append({"subject": subject, "task": task, **diagnostic})
@@ -749,6 +764,7 @@ def main() -> None:
         network_specificity_subject.mean(axis=0),
         atlas_blocks(labels),
         args.output_dir,
+        args.parcel_count,
     )
     plot_discriminability(
         centroid_correlation,
@@ -757,23 +773,28 @@ def main() -> None:
         parcel_permutation,
         network_permutation,
         args.output_dir,
+        args.parcel_count,
     )
 
     rest_paths = discover_rest_inputs(args.rest_root)
     state_subjects = [subject for subject in subjects if subject in rest_paths]
     if not state_subjects:
         raise ValueError("No subjects are shared by REST and all seven task states.")
-    state_enrichment = np.empty((len(state_subjects), len(STATES), 500), dtype=float)
+    state_enrichment = np.empty((len(state_subjects), len(STATES), args.parcel_count), dtype=float)
     state_timepoints: dict[str, int] = {}
     for subject_index, subject in enumerate(
         tqdm(state_subjects, desc="REST + task variance maps", unit="subject")
     ):
-        rest_series = load_rest_series(rest_paths[subject])
-        state_enrichment[subject_index, 0] = temporal_variance_enrichment(rest_series)
+        rest_series = load_rest_series(rest_paths[subject], args.parcel_count)
+        state_enrichment[subject_index, 0] = temporal_variance_enrichment(
+            rest_series, expected_parcels=args.parcel_count
+        )
         state_timepoints.setdefault("REST", int(len(rest_series)))
         for task_index, task in enumerate(TASKS, start=1):
-            retained, _ = load_task_pair(paths[subject][task])
-            state_enrichment[subject_index, task_index] = temporal_variance_enrichment(retained)
+            retained, _ = load_task_pair(paths[subject][task], args.parcel_count)
+            state_enrichment[subject_index, task_index] = temporal_variance_enrichment(
+                retained, expected_parcels=args.parcel_count
+            )
             state_timepoints.setdefault(task, int(len(retained)))
     state_specificity = task_specific_contrast(state_enrichment)
     network_state_enrichment = aggregate_networks(state_enrichment, network_indices)
@@ -801,15 +822,17 @@ def main() -> None:
         network_state_specificity.mean(axis=0),
         atlas_blocks(labels),
         args.output_dir,
+        args.parcel_count,
     )
 
     summary = {
-        "analysis": "Schaefer-500 task-evoked variance fraction and task-specific spatial enrichment",
+        "analysis": f"Schaefer-{args.parcel_count} task-evoked variance fraction and task-specific spatial enrichment",
+        "parcel_count": int(args.parcel_count),
         "n_subjects": len(subjects),
         "subjects": subjects,
         "tasks": list(TASKS),
         "task_timepoints": {
-            task: int(load_task_pair(paths[subjects[0]][task])[0].shape[0]) for task in TASKS
+            task: int(load_task_pair(paths[subjects[0]][task], args.parcel_count)[0].shape[0]) for task in TASKS
         },
         "metric": {
             "task_evoked_fraction": "sum_t ((retained-centered) - (regressed-centered))^2 / sum_t (retained-centered)^2",
@@ -860,7 +883,7 @@ def main() -> None:
             "states": list(STATES),
             "timepoints": state_timepoints,
             "metric": {
-                "temporal_variance_enrichment": "parcel temporal variance / mean temporal variance across 500 parcels",
+                "temporal_variance_enrichment": f"parcel temporal variance / mean temporal variance across {args.parcel_count} parcels",
                 "state_specificity": "variance enrichment(state) - mean variance enrichment(other seven states)",
             },
             "network_temporal_variance_enrichment": {
