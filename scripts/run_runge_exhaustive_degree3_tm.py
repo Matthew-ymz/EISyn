@@ -484,6 +484,7 @@ def validate_h1_gate(
     *,
     expected_input_fingerprint: str,
     expected_estimator_fingerprint: str,
+    expected_candidate_count: int = 102660,
 ) -> bool:
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -494,7 +495,7 @@ def validate_h1_gate(
         payload.get("input_fingerprint") == str(expected_input_fingerprint)
         and payload.get("estimator_fingerprint") == str(expected_estimator_fingerprint)
         and all(bool(payload.get(key)) for key in required_truthy)
-        and int(payload.get("candidate_count", -1)) == 102660
+        and int(payload.get("candidate_count", -1)) == int(expected_candidate_count)
         and float(payload.get("max_abs_error", float("inf"))) <= 1e-8
         and float(payload.get("runtime_seconds", 0.0)) > 0.0
         and float(payload.get("peak_memory_mb", 0.0)) > 0.0
@@ -690,11 +691,13 @@ def run_exhaustive(args: argparse.Namespace) -> dict[str, object]:
         "candidate_universe_hash": fingerprint_array(enumerate_cross_target_candidates(sources.shape[1])),
     }
     estimator_fingerprint = fingerprint_json(estimator_config)
+    expected_candidate_count = len(enumerate_cross_target_candidates(sources.shape[1]))
     gate_path = result_root / "h1_gate.json"
     if 1 not in horizons and not validate_h1_gate(
         gate_path,
         expected_input_fingerprint=str(identity["input_fingerprint"]),
         expected_estimator_fingerprint=estimator_fingerprint,
+        expected_candidate_count=expected_candidate_count,
     ):
         raise RuntimeError("H=1 fail-closed gate is missing or invalid; refusing later horizons.")
     cache = prepare_source_cache(sources, degree=args.degree, ridge=args.ridge, min_scale=args.min_scale)
@@ -704,6 +707,7 @@ def run_exhaustive(args: argparse.Namespace) -> dict[str, object]:
             gate_path,
             expected_input_fingerprint=str(identity["input_fingerprint"]),
             expected_estimator_fingerprint=estimator_fingerprint,
+            expected_candidate_count=expected_candidate_count,
         ):
             raise RuntimeError("H=1 gate did not pass; refusing later horizons.")
         started = time.perf_counter()
@@ -750,7 +754,7 @@ def run_exhaustive(args: argparse.Namespace) -> dict[str, object]:
         frame = pd.concat(frames, ignore_index=True).sort_values(
             ["source_a", "source_b", "target"], kind="mergesort", ignore_index=True
         )
-        expected_count = len(enumerate_cross_target_candidates(sources.shape[1]))
+        expected_count = expected_candidate_count
         finite = bool(np.isfinite(frame.select_dtypes(include=[np.number]).to_numpy()).all())
         if len(frame) != expected_count or not finite:
             raise RuntimeError(f"H={horizon} incomplete or non-finite: rows={len(frame)}, finite={finite}.")
@@ -799,7 +803,7 @@ def run_exhaustive(args: argparse.Namespace) -> dict[str, object]:
                 "rank_diagnostics_complete": bool(diagnostics.get("complete")),
                 "all_passed": bool(
                     max_error <= 1e-8
-                    and len(frame) == 102660
+                    and len(frame) == expected_candidate_count
                     and finite
                     and diagnostics.get("complete")
                     and elapsed > 0.0
@@ -811,6 +815,7 @@ def run_exhaustive(args: argparse.Namespace) -> dict[str, object]:
                 gate_path,
                 expected_input_fingerprint=str(identity["input_fingerprint"]),
                 expected_estimator_fingerprint=estimator_fingerprint,
+                expected_candidate_count=expected_candidate_count,
             ):
                 raise RuntimeError("H=1 gate failed; refusing later horizons.")
     return {"input_fingerprint": identity["input_fingerprint"], "summaries": summaries}

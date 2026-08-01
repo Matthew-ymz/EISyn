@@ -971,6 +971,21 @@ def _finite_or_none(value: object) -> float | None:
     return number if np.isfinite(number) else None
 
 
+def _json_safe(value: object) -> object:
+    """Recursively replace non-finite diagnostics while preserving strict JSON."""
+
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (float, np.floating)):
+        number = float(value)
+        return number if np.isfinite(number) else None
+    if isinstance(value, np.integer):
+        return int(value)
+    return value
+
+
 @dataclass(frozen=True)
 class EiPathEffects:
     direct_effects: pd.DataFrame
@@ -1605,6 +1620,7 @@ def run(config: PairwiseMlpEiConfig) -> dict[str, Path]:
                 "top_mediators": path_effects.mediator_scores.head(10).to_dict("records"),
             }
         )
+        manifest = _json_safe(manifest)
         (result_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True, allow_nan=False))
         write_path_summary(result_dir / "summary.md", manifest, path_effects.gateway_scores, path_effects.mediator_scores, test_metrics)
     else:
@@ -1612,6 +1628,7 @@ def run(config: PairwiseMlpEiConfig) -> dict[str, Path]:
         gateway_scores.to_csv(result_dir / "gateway_scores.csv", index=False)
         ranking_title = "Pairwise MLP-TM-EI gateway ranking" if config.ei_estimator == "tm" else "Pairwise MLP-EI gateway ranking"
         save_gateway_ranking(gateway_scores, fig_dir / "gateway_ranking.png", title=ranking_title)
+        manifest = _json_safe(manifest)
         (result_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True, allow_nan=False))
         write_summary(result_dir / "summary.md", manifest, gateway_scores, test_metrics)
     return {

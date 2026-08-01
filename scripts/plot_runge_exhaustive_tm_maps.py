@@ -51,8 +51,6 @@ DEFAULT_RESULT_DIR = (
     "multistep_conditioned_ei_tm_exhaustive"
 )
 DEFAULT_OUTPUT_DIR = ROOT / "fig/runge_slp_daily_1948_2026_20260628/multistep_conditioned_ei_tm_exhaustive"
-N_COMPONENTS = 60
-CANDIDATE_COUNT = 102660
 TOP_N = 10
 RANKING_COLUMNS = (
     "source_a",
@@ -99,15 +97,15 @@ def fingerprint_array(values: np.ndarray) -> str:
     return digest.hexdigest()
 
 
-def canonical_candidates() -> np.ndarray:
+def canonical_candidates(n_components: int) -> np.ndarray:
     """Build the degree-3 cross-target candidate universe in canonical order."""
 
     return np.asarray(
         [
             (source_a, source_b, target)
-            for source_a in range(N_COMPONENTS)
-            for source_b in range(source_a + 1, N_COMPONENTS)
-            for target in range(N_COMPONENTS)
+            for source_a in range(int(n_components))
+            for source_b in range(source_a + 1, int(n_components))
+            for target in range(int(n_components))
             if target not in (source_a, source_b)
         ],
         dtype=np.int16,
@@ -152,7 +150,21 @@ def _load_ranking_arrays(path: Path) -> tuple[dict[str, np.ndarray], dict[str, o
     return arrays, metadata
 
 
-def _validate_metadata(summary: dict[str, object], metadata: dict[str, object], horizon: int) -> None:
+def _candidate_count(n_components: int) -> int:
+    return int(n_components) * (int(n_components) - 1) * (int(n_components) - 2) // 2
+
+
+def _infer_n_components(candidate_count: int) -> int:
+    for n_components in range(3, 10000):
+        count = _candidate_count(n_components)
+        if count == int(candidate_count):
+            return n_components
+        if count > int(candidate_count):
+            break
+    raise ValueError(f"candidate_count={candidate_count} is not a complete cross-target universe.")
+
+
+def _validate_metadata(summary: dict[str, object], metadata: dict[str, object], horizon: int) -> int:
     if any(field not in metadata for field in METADATA_FIELDS):
         raise ValueError("Ranking metadata is incomplete.")
     if int(metadata["schema_version"]) != 1:
@@ -165,39 +177,46 @@ def _validate_metadata(summary: dict[str, object], metadata: dict[str, object], 
             raise ValueError(f"summary.json {field} does not match ranking metadata.")
     if int(metadata["horizon"]) != int(horizon):
         raise ValueError("Ranking horizon does not match requested horizon.")
-    if int(metadata["candidate_count"]) != CANDIDATE_COUNT:
-        raise ValueError(f"candidate_count must equal {CANDIDATE_COUNT}.")
-    if int(summary.get("candidate_count", -1)) != CANDIDATE_COUNT or not bool(summary.get("finite")):
+    candidate_count = int(metadata["candidate_count"])
+    n_components = _infer_n_components(candidate_count)
+    if int(summary.get("candidate_count", -1)) != candidate_count or not bool(summary.get("finite")):
         raise ValueError("summary.json does not certify a finite exhaustive candidate ranking.")
+    return n_components
 
 
-def _validate_ranking(arrays: dict[str, np.ndarray], metadata: dict[str, object]) -> pd.DataFrame:
+def _validate_ranking(
+    arrays: dict[str, np.ndarray],
+    metadata: dict[str, object],
+    *,
+    n_components: int,
+) -> pd.DataFrame:
+    candidate_count = _candidate_count(n_components)
     lengths = {len(values) for values in arrays.values()}
-    if lengths != {CANDIDATE_COUNT}:
-        raise ValueError(f"full_ranking.npz must contain exactly {CANDIDATE_COUNT} rows.")
+    if lengths != {candidate_count}:
+        raise ValueError(f"full_ranking.npz must contain exactly {candidate_count} rows.")
     for column, values in arrays.items():
         if not np.issubdtype(values.dtype, np.number) or not np.isfinite(values).all():
             raise ValueError(f"Ranking column {column} must contain finite numeric values.")
     triples = np.column_stack([arrays["source_a"], arrays["source_b"], arrays["target"]])
     if not np.all(np.equal(triples, np.floor(triples))):
         raise ValueError("Candidate indices must be integers.")
-    if np.any(triples < 0) or np.any(triples >= N_COMPONENTS):
-        raise ValueError("Candidate indices must be in [0, 59].")
+    if np.any(triples < 0) or np.any(triples >= n_components):
+        raise ValueError(f"Candidate indices must be in [0, {n_components - 1}].")
     triples = triples.astype(np.int16)
     if not np.all(triples[:, 0] < triples[:, 1]):
         raise ValueError("Candidates require source_a < source_b.")
     if np.any(triples[:, 0] == triples[:, 2]) or np.any(triples[:, 1] == triples[:, 2]):
         raise ValueError("Candidate sources must be distinct from target.")
-    if len(np.unique(triples, axis=0)) != CANDIDATE_COUNT:
+    if len(np.unique(triples, axis=0)) != candidate_count:
         raise ValueError("Candidate universe contains duplicate triples.")
-    canonical = canonical_candidates()
-    if canonical.shape != (CANDIDATE_COUNT, 3) or not np.array_equal(
+    canonical = canonical_candidates(n_components)
+    if canonical.shape != (candidate_count, 3) or not np.array_equal(
         triples[np.lexsort((triples[:, 2], triples[:, 1], triples[:, 0]))], canonical
     ):
         raise ValueError("Candidate universe is not the exact canonical degree-3 cross-target universe.")
     if fingerprint_array(triples) != str(metadata["candidate_order_hash"]):
         raise ValueError("Candidate order hash does not match ranking metadata.")
-    expected_ranks = np.arange(1, CANDIDATE_COUNT + 1, dtype=arrays["tm_rank"].dtype)
+    expected_ranks = np.arange(1, candidate_count + 1, dtype=arrays["tm_rank"].dtype)
     if not np.array_equal(arrays["tm_rank"], expected_ranks):
         raise ValueError("tm_rank must be consecutive ranks 1..N.")
     if np.any(arrays["delta2_tm"][:-1] < arrays["delta2_tm"][1:]):
@@ -208,13 +227,16 @@ def _validate_ranking(arrays: dict[str, np.ndarray], metadata: dict[str, object]
 def load_exhaustive_top10(result_dir: str | Path, *, horizon: int, top_n: int = TOP_N) -> pd.DataFrame:
     """Load a verified global TM ranking and return top rows with paper labels."""
 
-    if int(top_n) < 1 or int(top_n) > CANDIDATE_COUNT:
-        raise ValueError(f"top_n must be between 1 and {CANDIDATE_COUNT}.")
+    if int(top_n) < 1:
+        raise ValueError("top_n must be positive.")
     horizon_dir = Path(result_dir).expanduser() / f"H{int(horizon):03d}"
     summary = _load_json(horizon_dir / "summary.json")
     arrays, metadata = _load_ranking_arrays(horizon_dir / "full_ranking.npz")
-    _validate_metadata(summary, metadata, int(horizon))
-    ranking = _validate_ranking(arrays, metadata)
+    n_components = _validate_metadata(summary, metadata, int(horizon))
+    candidate_count = _candidate_count(n_components)
+    if int(top_n) > candidate_count:
+        raise ValueError(f"top_n must be between 1 and {candidate_count}.")
+    ranking = _validate_ranking(arrays, metadata, n_components=n_components)
     frame = ranking.head(int(top_n)).copy()
     frame["source_a_local"] = frame["source_a"].astype(int)
     frame["source_b_local"] = frame["source_b"].astype(int)
@@ -243,13 +265,14 @@ def load_exhaustive_top10(result_dir: str | Path, *, horizon: int, top_n: int = 
 
 def load_nodes(component_maps_path: str | Path) -> pd.DataFrame:
     component_maps = np.load(Path(component_maps_path), allow_pickle=False)["component_maps"]
-    if component_maps.ndim != 3 or component_maps.shape[2] != N_COMPONENTS:
-        raise ValueError("component_maps must have 60 components on a [lat, lon, component] grid.")
+    if component_maps.ndim != 3 or component_maps.shape[2] < 3:
+        raise ValueError("component_maps must be a [lat, lon, component] grid with at least 3 components.")
+    n_components = int(component_maps.shape[2])
     lat = np.linspace(-90.0, 90.0, component_maps.shape[0])
     lon = ((np.linspace(0.0, 360.0, component_maps.shape[1], endpoint=False) + 180.0) % 360.0) - 180.0
     order = np.argsort(lon)
     rows = []
-    for local in range(N_COMPONENTS):
+    for local in range(n_components):
         center_lon, center_lat = component_center(component_maps[:, order, local], lat, lon[order])
         rows.append({"local": local, "paper": local_to_paper(local), "lon": center_lon, "lat": center_lat})
     return pd.DataFrame(rows)

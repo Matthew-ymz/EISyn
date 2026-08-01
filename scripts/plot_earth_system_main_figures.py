@@ -382,13 +382,17 @@ def build_pair01_geographic_coverage(
     nodes: pd.DataFrame,
     *,
     top_ks: tuple[int, ...] = ROBUSTNESS_K,
+    focal_pair: tuple[int, int] = (0, 1),
 ) -> pd.DataFrame:
     node_lookup = nodes.set_index("local")
     rows: list[dict[str, float | int]] = []
     for horizon, ranking in rankings.items():
         for top_k in top_ks:
             top = ranking.head(top_k)
-            focal = top[(top["source_a"] == 0) & (top["source_b"] == 1)].copy()
+            focal = top[
+                (top["source_a"] == int(focal_pair[0]))
+                & (top["source_b"] == int(focal_pair[1]))
+            ].copy()
             targets = focal["target"].astype(int).tolist()
             if not targets:
                 rows.append(
@@ -428,6 +432,7 @@ def plot_runge_figure(
     result_dir: Path = RUNGE_RESULT_DIR,
     component_maps: Path = DEFAULT_COMPONENT_MAPS,
     trend_csv: Path = RUNGE_TREND_CSV,
+    focal_pair: tuple[int, int] = (0, 1),
 ) -> list[Path]:
     nodes = load_nodes(component_maps)
     frames, _, _ = load_runge_top10_matrix(result_dir)
@@ -442,6 +447,7 @@ def plot_runge_figure(
     coverage = build_pair01_geographic_coverage(
         rankings,
         nodes,
+        focal_pair=focal_pair,
     )
     trends = pd.read_csv(trend_csv)
     land = extract_polygons(load_geojson(LAND_URL))
@@ -674,7 +680,8 @@ def plot_runge_figure(
         "source_pair_top_k": 200,
         "maximum_target_span_definition": (
             "Largest great-circle distance between the component centres of all "
-            "No.0 + No.1 targets retained in the global top-200 at each horizon."
+            f"No.{focal_pair[0]} + No.{focal_pair[1]} targets retained in the "
+            "global top-200 at each horizon."
         ),
         "pair_0_1_target_coverage": coverage_records,
         "outputs": [str(path) for path in outputs],
@@ -1034,12 +1041,24 @@ def main() -> int:
         default=FIG_DIR,
         help="Directory for the publication figure bundle.",
     )
+    parser.add_argument("--runge-result-dir", type=Path, default=RUNGE_RESULT_DIR)
+    parser.add_argument("--runge-component-maps", type=Path, default=DEFAULT_COMPONENT_MAPS)
+    parser.add_argument("--runge-trend-csv", type=Path, default=RUNGE_TREND_CSV)
+    parser.add_argument("--runge-focal-pair", default="0,1")
+    parser.add_argument("--skip-unicm", action="store_true")
     args = parser.parse_args()
     configure_matplotlib()
+    focal_pair = tuple(int(value) for value in str(args.runge_focal_pair).split(","))
+    if len(focal_pair) != 2:
+        raise ValueError("--runge-focal-pair must contain two comma-separated indices.")
     runge_outputs = plot_runge_figure(
-        Path(args.output_dir) / "earth_slp_hyperedge_dynamics"
+        Path(args.output_dir) / "earth_slp_hyperedge_dynamics",
+        result_dir=args.runge_result_dir,
+        component_maps=args.runge_component_maps,
+        trend_csv=args.runge_trend_csv,
+        focal_pair=(min(focal_pair), max(focal_pair)),
     )
-    unicm_outputs = plot_unicm_figure(
+    unicm_outputs = [] if args.skip_unicm else plot_unicm_figure(
         Path(args.output_dir) / "earth_unicm_hierarchical_ei"
     )
     print(
