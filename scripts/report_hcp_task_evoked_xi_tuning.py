@@ -200,6 +200,7 @@ def plot_main_combined(
     *,
     language_story_math_root: Path | None = None,
     language_behavior_scores: Path | None = None,
+    language_math_difficulty_root: Path | None = None,
     wm_back_condition_root: Path | None = None,
     wm_fixed_candidate_metrics: Path | None = None,
 ) -> None:
@@ -216,6 +217,18 @@ def plot_main_combined(
         language_metrics = np.load(
             language_story_math_root / "fixed_candidates_schaefer1000.npz"
         )
+        if language_math_difficulty_root is not None:
+            math_difficulty_summary = load_json(
+                language_math_difficulty_root / "summary.json"
+            )
+            math_difficulty_data = pd.read_csv(
+                language_math_difficulty_root / "source_data.tsv",
+                sep="\t",
+                dtype={"subject": str},
+            )
+        else:
+            math_difficulty_summary = None
+            math_difficulty_data = None
         exhaustive_summary = None
         exhaustive_metrics = None
     else:
@@ -225,6 +238,8 @@ def plot_main_combined(
         exhaustive_metrics = np.load(cognition_exhaustive_root / "metrics.npz")
         language_summary = None
         language_metrics = None
+        math_difficulty_summary = None
+        math_difficulty_data = None
     use_wm_back_condition = wm_back_condition_root is not None
     if use_wm_back_condition != (wm_fixed_candidate_metrics is not None):
         raise ValueError(
@@ -527,20 +542,6 @@ def plot_main_combined(
         behavior = pd.read_csv(language_behavior_scores, dtype={"Subject": str})
         behavior["Subject"] = behavior["Subject"].str.removeprefix("sub-")
         behavior = behavior.set_index("Subject").loc[model_subjects]
-        behavior_specs = (
-            (
-                "Language_Task_Story_Acc",
-                "Story accuracy (%)",
-                "#D66A4E",
-                "Story",
-            ),
-            (
-                "Language_Task_Math_Acc",
-                "Math accuracy (%)",
-                "#4C78A8",
-                "Math",
-            ),
-        )
         candidate = next(
             row
             for row in language_summary["schaefer1000"]
@@ -548,12 +549,34 @@ def plot_main_combined(
         )
         shared_min = float(y_values.min())
         shared_max = float(y_values.max())
+        if math_difficulty_data is not None:
+            validation_y = math_difficulty_data[
+                "fixed_coalition_synergy_bits"
+            ].to_numpy(dtype=float)
+            shared_min = min(shared_min, float(validation_y.min()))
+            shared_max = max(shared_max, float(validation_y.max()))
         shared_pad = 0.08 * max(shared_max - shared_min, 0.1)
         jitter_rng = np.random.default_rng(2026072903)
-        for index, (
-            domain_axis,
-            (column, score_label, color, condition),
-        ) in enumerate(zip(domain_axes[:2], behavior_specs, strict=True)):
+        legacy_specs = [
+            (
+                domain_axes[0],
+                "Language_Task_Story_Acc",
+                "Story accuracy (%)",
+                "#D66A4E",
+                "Story",
+            )
+        ]
+        if math_difficulty_data is None:
+            legacy_specs.append(
+                (
+                    domain_axes[1],
+                    "Language_Task_Math_Acc",
+                    "Math accuracy (%)",
+                    "#4C78A8",
+                    "Math",
+                )
+            )
+        for domain_axis, column, score_label, color, condition in legacy_specs:
             x_values = behavior[column].to_numpy(dtype=float)
             association = spearmanr(x_values, y_values)
             expected_rho = float(
@@ -629,6 +652,86 @@ def plot_main_combined(
             domain_axis.tick_params(labelsize=7.7)
             domain_axis.xaxis.label.set_size(8.3)
             domain_axis.yaxis.label.set_size(8.3)
+        if math_difficulty_data is not None:
+            difficulty_axis = domain_axes[1]
+            x_all = math_difficulty_data[
+                "math_average_difficulty"
+            ].to_numpy(dtype=float)
+            validation_y = math_difficulty_data[
+                "fixed_coalition_synergy_bits"
+            ].to_numpy(dtype=float)
+            display_rng = np.random.default_rng(2026073104)
+            jitter_width = 0.012 * max(float(np.ptp(x_all)), 1.0)
+            displayed_x = x_all + display_rng.uniform(
+                -jitter_width, jitter_width, size=len(x_all)
+            )
+            difficulty_axis.scatter(
+                displayed_x,
+                validation_y,
+                s=25,
+                color="#D66A4E",
+                marker="o",
+                edgecolor="white",
+                linewidth=0.45,
+                alpha=0.86,
+                zorder=3,
+            )
+            guide_x = np.linspace(
+                float(x_all.min()), float(x_all.max()), 200
+            )
+            slope, intercept = np.polyfit(x_all, validation_y, deg=1)
+            difficulty_axis.plot(
+                guide_x,
+                slope * guide_x + intercept,
+                color="#4B5563",
+                linewidth=1.0,
+                linestyle="--",
+                zorder=2,
+            )
+            x_pad = 0.045 * max(float(np.ptp(x_all)), 1.0)
+            y_span = max(shared_max - shared_min, 0.1)
+            difficulty_axis.set(
+                xlabel="Corrected Story average difficulty",
+                xlim=(
+                    float(x_all.min()) - x_pad,
+                    float(x_all.max()) + x_pad,
+                ),
+                ylim=(
+                    shared_min - 0.07 * y_span,
+                    shared_max + 0.34 * y_span,
+                ),
+            )
+            difficulty_axis.set_title(
+                f"LANGUAGE · {short_atom(coalition)} · corrected Story difficulty",
+                loc="right",
+                fontsize=7.6,
+                fontweight="bold",
+                color="#454545",
+                pad=3,
+            )
+            primary = math_difficulty_summary["primary"]
+            difficulty_axis.text(
+                0.02,
+                0.97,
+                f"Spearman $\\rho$ = "
+                f"{float(primary['rho_pooled']):+.3f}\n"
+                f"cohort-blocked permutation $p$ = "
+                f"{float(primary['p_blocked_permutation_two_sided']):.4f}\n"
+                f"LANGUAGE-family max-T $p$ = "
+                f"{float(primary['language_family_max_t_p']):.4f}\n"
+                "n = 57",
+                transform=difficulty_axis.transAxes,
+                ha="left",
+                va="top",
+                fontsize=6.8,
+                color="#303942",
+            )
+            difficulty_axis.grid(
+                color="#E8EBED", linewidth=0.55, zorder=0
+            )
+            difficulty_axis.tick_params(labelsize=7.7)
+            difficulty_axis.xaxis.label.set_size(8.3)
+            difficulty_axis.yaxis.label.set_size(8.3)
         domain_axes[0].set_ylabel("Fixed-coalition synergy (bits)")
         domain_axes[1].tick_params(axis="y", labelleft=False)
         if use_wm_back_condition:

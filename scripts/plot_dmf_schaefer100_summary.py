@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot the Schaefer100 DMF A--H summary and the 83-vs-100 comparison."""
+"""Plot the Schaefer100 DMF A--G summary and the 83-vs-100 comparison."""
 
 from __future__ import annotations
 
@@ -30,6 +30,9 @@ OLD_TOPOLOGY = ROOT / "results" / "dmf_phi_eid_hierarchical_topology" / "critica
 DEFAULT_SURFACE_ASSET = (
     ROOT / "results" / "dmf_schaefer100" / "schaefer100_fsaverage5_surface.npz"
 )
+DEFAULT_HORIZON = (
+    ROOT / "results" / "dmf_schaefer100" / "multihorizon" / "full" / "results.npz"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,9 +40,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--main", type=Path, required=True)
     parser.add_argument("--wms", type=Path, required=True)
+    parser.add_argument("--phi-r", type=Path)
     parser.add_argument("--topology", type=Path, required=True)
     parser.add_argument("--yeo7", type=Path, required=True)
     parser.add_argument("--prep", type=Path, required=True)
+    parser.add_argument("--horizon", type=Path, default=DEFAULT_HORIZON)
     parser.add_argument("--surface-asset", type=Path, default=DEFAULT_SURFACE_ASSET)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--comparison-output", type=Path)
@@ -103,6 +108,18 @@ def critical_format(axis: plt.Axes, _critical_g: np.ndarray) -> None:
 def direct_values(main: dict[str, np.ndarray], name: str) -> np.ndarray:
     modes = [str(value) for value in np.asarray(main["modes"])]
     return np.asarray(main[name], dtype=float)[modes.index("direct")]
+
+
+def centers_to_edges(values: np.ndarray) -> np.ndarray:
+    centers = np.asarray(values, dtype=float)
+    midpoints = 0.5 * (centers[:-1] + centers[1:])
+    return np.concatenate(
+        (
+            [centers[0] - (midpoints[0] - centers[0])],
+            midpoints,
+            [centers[-1] + (centers[-1] - midpoints[-1])],
+        )
+    )
 
 
 def add_rate_information_panel(
@@ -197,49 +214,58 @@ def load_schaefer100_surface_map(
 
 def plot_summary(args: argparse.Namespace) -> None:
     source, main, wms = load(args.source), load(args.main), load(args.wms)
+    phi_r = load(args.phi_r) if args.phi_r is not None else None
     topology, yeo = load(args.topology), load(args.yeo7)
+    horizon = load(args.horizon)
     critical_g = np.asarray(topology["G"], dtype=float)
     phi = direct_values(main, "phi_eid")
     whole = direct_values(main, "whole_ei")
     singleton = direct_values(main, "singleton_ei_sum")
 
-    figure = plt.figure(figsize=(16.8, 7.1))
-    grid = GridSpec(2, 15, figure=figure, height_ratios=(1.0, 0.95))
+    figure = plt.figure(figsize=(19.2, 7.2))
+    grid = GridSpec(2, 18, figure=figure, height_ratios=(1.0, 0.95))
     top_grid = GridSpecFromSubplotSpec(
         1,
-        5,
+        7,
         subplot_spec=grid[0, :],
-        width_ratios=(5.0, 1.15, 3.55, 0.45, 5.0),
+        width_ratios=(6.0, 1.10, 3.0, 1.25, 3.35, 1.10, 1.9),
         wspace=0.0,
     )
     bottom_grid = GridSpecFromSubplotSpec(
         1,
-        9,
+        5,
         subplot_spec=grid[1, :],
-        width_ratios=(3.10, 0.95, 1.65, 0.45, 2.65, 0.55, 2.65, 0.55, 4.00),
+        width_ratios=(3.65, 0.55, 3.65, 0.55, 8.0),
         wspace=0.0,
     )
-    ax_a = figure.add_subplot(top_grid[0, 0])
+    panel_a_grid = GridSpecFromSubplotSpec(
+        2,
+        1,
+        subplot_spec=top_grid[0, 0],
+        height_ratios=(3.1, 1.25),
+        hspace=0.05,
+    )
+    ax_a = figure.add_subplot(panel_a_grid[0, 0])
+    ax_a_wms = figure.add_subplot(panel_a_grid[1, 0], sharex=ax_a)
     ax_b = figure.add_subplot(top_grid[0, 2])
     ax_c = figure.add_subplot(top_grid[0, 4])
-    ax_d = figure.add_subplot(bottom_grid[0, 0])
-    ax_e = figure.add_subplot(bottom_grid[0, 2])
-    ax_f = figure.add_subplot(bottom_grid[0, 4])
-    ax_g = figure.add_subplot(bottom_grid[0, 6])
-    panel_h = GridSpecFromSubplotSpec(
+    ax_d = figure.add_subplot(top_grid[0, 6])
+    ax_e = figure.add_subplot(bottom_grid[0, 0])
+    ax_f = figure.add_subplot(bottom_grid[0, 2])
+    panel_g = GridSpecFromSubplotSpec(
         3,
         2,
-        subplot_spec=bottom_grid[0, 8],
+        subplot_spec=bottom_grid[0, 4],
         height_ratios=(1.0, 1.0, 0.10),
         hspace=-0.38,
         wspace=-0.32,
     )
-    ax_h = [
-        figure.add_subplot(panel_h[row, column], projection="3d")
+    ax_g = [
+        figure.add_subplot(panel_g[row, column], projection="3d")
         for row in range(2)
         for column in range(2)
     ]
-    ax_h_cb = figure.add_subplot(panel_h[2, :])
+    ax_g_cb = figure.add_subplot(panel_g[2, :])
 
     ax_a_info = add_rate_information_panel(
         ax_a, source=source, g=np.asarray(main["G"], dtype=float), values=phi,
@@ -247,45 +273,114 @@ def plot_summary(args: argparse.Namespace) -> None:
         ylabel=r"$\Xi$ (bits)",
     )
     ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
+    ax_a.set_xlabel("")
+    ax_a.tick_params(axis="x", labelbottom=False)
+    for transition_g, line_color, line_style in (
+        (1.3, "#6A3D9A", "--"),
+        (1.5, "0.25", ":"),
+    ):
+        ax_a.axvline(transition_g, color=line_color, ls=line_style, lw=0.9, zorder=1)
+        ax_a_wms.axvline(transition_g, color=line_color, ls=line_style, lw=0.9, zorder=1)
+    wms_values = np.asarray(wms["phi_wms"], dtype=float)
+    wms_mean, wms_error = np.mean(wms_values, axis=0), sd(wms_values)
+    ax_a_wms.plot(
+        np.asarray(wms["G"], dtype=float),
+        wms_mean,
+        color="#1B9E77",
+        lw=1.35,
+        marker="o",
+        ms=2.0,
+        zorder=3,
+    )
+    ax_a_wms.fill_between(
+        np.asarray(wms["G"], dtype=float),
+        wms_mean - wms_error,
+        wms_mean + wms_error,
+        color="#1B9E77",
+        alpha=0.22,
+        lw=0,
+    )
+    ax_a_wms.grid(True, color="0.90", lw=0.5, zorder=0)
+    ax_a_wms.set_xlabel("Global coupling $G$")
+    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$", color="#1B9E77")
+    ax_a_wms.tick_params(axis="y", colors="#1B9E77")
+    if phi_r is not None:
+        phi_r_values = np.asarray(phi_r["phi_r_mean"], dtype=float)
+        phi_r_mean, phi_r_error = np.mean(phi_r_values, axis=0), sd(phi_r_values)
+        phi_r_g = np.asarray(phi_r["G"], dtype=float)
+        phi_r_peak_g = float(phi_r_g[int(np.argmax(phi_r_mean))])
+        ax_a_phi_r = ax_a_wms.twinx()
+        ax_a_phi_r.plot(
+            phi_r_g,
+            phi_r_mean,
+            color="#D55E00",
+            lw=1.35,
+            marker="s",
+            ms=1.9,
+            zorder=4,
+        )
+        ax_a_phi_r.fill_between(
+            phi_r_g,
+            phi_r_mean - phi_r_error,
+            phi_r_mean + phi_r_error,
+            color="#D55E00",
+            alpha=0.18,
+            lw=0,
+            zorder=2,
+        )
+        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
+        ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
+        ax_a_phi_r.spines["right"].set_visible(True)
+        for axis in (ax_a, ax_a_wms):
+            axis.axvline(phi_r_peak_g, color="#D55E00", ls="-.", lw=0.8, zorder=1)
     panel_label(ax_a, "A")
 
-    for values, color, label in (
-        (whole, "#0072B2", "Whole EI"),
-        (singleton, "#D55E00", "Sum of singleton EI"),
-    ):
-        mean, error = np.mean(values, axis=0), sd(values)
-        ax_b.plot(main["G"], mean, color=color, lw=1.45, label=label)
-        ax_b.fill_between(main["G"], mean - error, mean + error, color=color, alpha=0.24, lw=0)
-    critical_format(ax_b, critical_g)
-    ax_b.set_ylabel("EI (bits)", labelpad=7)
-    ax_b.legend(loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.3)
-    panel_label(ax_b, "B")
-
-    add_rate_information_panel(
-        ax_c, source=source, g=np.asarray(wms["G"], dtype=float),
-        values=np.asarray(wms["phi_wms"], dtype=float), critical_g=critical_g,
-        color="#1B9E77", label=r"Observational $\Phi^{WMS}$",
-        ylabel=r"$\Phi^{WMS}$ (bits)",
+    horizon_g = np.asarray(horizon["G"], dtype=float)
+    horizons = np.asarray(horizon["horizons"], dtype=float)
+    horizon_phi = np.asarray(horizon["phi_eid"], dtype=float)
+    mean_horizon_phi = np.mean(horizon_phi, axis=0)
+    peak_g_by_seed = horizon_g[np.argmax(horizon_phi, axis=1)]
+    peak_g_mean = np.mean(peak_g_by_seed, axis=0)
+    image = ax_b.pcolormesh(
+        centers_to_edges(horizon_g),
+        centers_to_edges(horizons),
+        mean_horizon_phi.T,
+        shading="flat",
+        cmap="magma",
     )
-    panel_label(ax_c, "C")
+    ax_b.plot(
+        peak_g_mean,
+        horizons,
+        color="white",
+        lw=1.15,
+        marker="o",
+        ms=2.3,
+        zorder=3,
+    )
+    ax_b.set_xlabel("Global coupling $G$")
+    ax_b.set_ylabel("Target horizon (steps)")
+    ax_b.set_yticks(horizons)
+    colorbar = figure.colorbar(image, ax=ax_b, fraction=0.055, pad=0.035)
+    colorbar.set_label(r"Mean $\Xi$ (bits)")
+    panel_label(ax_b, "B")
 
     strength = np.asarray(topology["strength"], dtype=float)
     local = np.asarray(topology["within_roi"], dtype=float).mean(axis=(0, 1))
     cross = np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
-    ax_d.scatter(strength, local, s=9, color="#4C78A8", alpha=0.82, label="Within ROI")
-    ax_d.set_xlabel("Weighted structural strength")
-    ax_d.set_ylabel("Within-ROI coupling (bits)", color="#4C78A8")
-    ax_d.tick_params(axis="y", colors="#4C78A8")
-    ax_d.grid(True, color="0.90", lw=0.5)
-    ax_d2 = ax_d.twinx()
-    ax_d2.scatter(strength, cross, s=9, marker="D", color="#D55E00", alpha=0.78, label="Cross-ROI")
-    ax_d2.set_ylabel("Cross-ROI leverage (bits)", color="#D55E00", labelpad=7)
-    ax_d2.tick_params(axis="y", colors="#D55E00")
-    ax_d2.spines["right"].set_visible(True)
-    handles = ax_d.get_legend_handles_labels()[0] + ax_d2.get_legend_handles_labels()[0]
-    labels = ax_d.get_legend_handles_labels()[1] + ax_d2.get_legend_handles_labels()[1]
-    ax_d.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.0)
-    panel_label(ax_d, "D")
+    ax_c.scatter(strength, local, s=9, color="#4C78A8", alpha=0.82, label="Within ROI")
+    ax_c.set_xlabel("Weighted structural strength")
+    ax_c.set_ylabel("Within-ROI coupling (bits)", color="#4C78A8", labelpad=1)
+    ax_c.tick_params(axis="y", colors="#4C78A8")
+    ax_c.grid(True, color="0.90", lw=0.5)
+    ax_c2 = ax_c.twinx()
+    ax_c2.scatter(strength, cross, s=9, marker="D", color="#D55E00", alpha=0.78, label="Cross-ROI")
+    ax_c2.set_ylabel("")
+    ax_c2.tick_params(axis="y", colors="#D55E00")
+    ax_c2.spines["right"].set_visible(True)
+    handles = ax_c.get_legend_handles_labels()[0] + ax_c2.get_legend_handles_labels()[0]
+    labels = ax_c.get_legend_handles_labels()[1] + ax_c2.get_legend_handles_labels()[1]
+    ax_c.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.0)
+    panel_label(ax_c, "C")
 
     fine = np.asarray(topology["fine_phi"], dtype=float)
     within_total = np.asarray(topology["within_roi_total"], dtype=float)
@@ -294,13 +389,13 @@ def plot_summary(args: argparse.Namespace) -> None:
         axis=-1,
     ).mean(axis=1) * 100.0
     means, errors = seed_fractions.mean(axis=0), sd(seed_fractions, axis=0)
-    ax_e.bar([0, 1], means, yerr=errors, color=("#66CCEE", "#775DA6"), width=0.68, capsize=2)
-    ax_e.set_xticks([0, 1], ["Within\nROI", "Cross\nROI"])
-    ax_e.set_ylabel(r"Fraction of $\Xi$ (%)", labelpad=7)
-    ax_e.grid(True, axis="y", color="0.90", lw=0.5)
+    ax_d.bar([0, 1], means, yerr=errors, color=("#66CCEE", "#775DA6"), width=0.68, capsize=2)
+    ax_d.set_xticks([0, 1], ["Within\nROI", "Cross\nROI"])
+    ax_d.set_ylabel(r"Fraction of $\Xi$ (%)", labelpad=7)
+    ax_d.grid(True, axis="y", color="0.90", lw=0.5)
     for index, value in enumerate(means):
-        ax_e.text(index, value + max(1.0, 0.03 * means.max()), f"{value:.1f}%", ha="center", va="bottom")
-    panel_label(ax_e, "E")
+        ax_d.text(index, value + max(1.0, 0.03 * means.max()), f"{value:.1f}%", ha="center", va="bottom")
+    panel_label(ax_d, "D")
 
     within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
     within_network_by_seed = within_network.mean(axis=1)
@@ -310,7 +405,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
     order = np.argsort(network_values)
     ypos = np.arange(len(order))
-    ax_f.barh(
+    ax_e.barh(
         ypos, network_values[order], xerr=network_errors[order],
         color=[network_color(network_names[index]) for index in order], capsize=2,
     )
@@ -322,33 +417,33 @@ def plot_summary(args: argparse.Namespace) -> None:
         "Frontoparietal control": "Control",
         "Default mode": "Default",
     }
+    ax_e.set_yticks(
+        ypos,
+        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
+        fontsize=5.8,
+    )
+    ax_e.tick_params(axis="y", pad=1)
+    ax_e.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
+    ax_e.grid(True, axis="x", color="0.90", lw=0.5)
+    panel_label(ax_e, "E")
+
+    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
+    between_shapley_by_seed = between_shapley.mean(axis=1)
+    shapley_values = between_shapley_by_seed.mean(axis=0)
+    shapley_errors = sd(between_shapley_by_seed, axis=0)
+    ax_f.barh(
+        ypos, shapley_values[order], xerr=shapley_errors[order],
+        color=[network_color(network_names[index]) for index in order], capsize=2,
+    )
     ax_f.set_yticks(
         ypos,
         [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
         fontsize=5.8,
     )
     ax_f.tick_params(axis="y", pad=1)
-    ax_f.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
+    ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
     ax_f.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_f, "F")
-
-    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
-    between_shapley_by_seed = between_shapley.mean(axis=1)
-    shapley_values = between_shapley_by_seed.mean(axis=0)
-    shapley_errors = sd(between_shapley_by_seed, axis=0)
-    ax_g.barh(
-        ypos, shapley_values[order], xerr=shapley_errors[order],
-        color=[network_color(network_names[index]) for index in order], capsize=2,
-    )
-    ax_g.set_yticks(
-        ypos,
-        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
-        fontsize=5.8,
-    )
-    ax_g.tick_params(axis="y", pad=1)
-    ax_g.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
-    ax_g.grid(True, axis="x", color="0.90", lw=0.5)
-    panel_label(ax_g, "G")
 
     left_mesh, right_mesh, left_values, right_values = load_schaefer100_surface_map(
         args.surface_asset,
@@ -356,8 +451,8 @@ def plot_summary(args: argparse.Namespace) -> None:
         cross,
     )
     draw_brain_map_four_views(
-        ax_h,
-        ax_h_cb,
+        ax_g,
+        ax_g_cb,
         left_mesh,
         right_mesh,
         left_values,
@@ -367,13 +462,35 @@ def plot_summary(args: argparse.Namespace) -> None:
         colorbar_label_size=6.2,
         zoom=1.25,
     )
-    for axis, label in zip(ax_h, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
+    for axis, label in zip(ax_g, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
         axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")
-    ax_h[0].text2D(
-        -0.10, 1.05, "H", transform=ax_h[0].transAxes, fontsize=10, fontweight="bold"
+    ax_g[0].text2D(
+        -0.10, 1.05, "G", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
     )
     figure.subplots_adjust(left=0.052, right=0.987, top=0.91, bottom=0.10, hspace=0.32)
     save(figure, args.output)
+
+    appendix, appendix_axis = plt.subplots(
+        1, 1, figsize=(3.55, 2.55), constrained_layout=True
+    )
+    for values, color, label in (
+        (whole, "#0072B2", "Whole EI"),
+        (singleton, "#D55E00", "Sum of singleton EI"),
+    ):
+        mean, error = np.mean(values, axis=0), sd(values)
+        appendix_axis.plot(main["G"], mean, color=color, lw=1.45, label=label)
+        appendix_axis.fill_between(
+            main["G"], mean - error, mean + error, color=color, alpha=0.22, lw=0
+        )
+    critical_format(appendix_axis, critical_g)
+    appendix_axis.set_ylabel("EI (bits)")
+    appendix_axis.legend(
+        loc="lower center", bbox_to_anchor=(0.5, 1.03), ncol=2, fontsize=6.3
+    )
+    save(
+        appendix,
+        args.output.parent / "dmf_schaefer100_ei_components_appendix",
+    )
 
 
 def spectral_radius(matrix: np.ndarray) -> float:

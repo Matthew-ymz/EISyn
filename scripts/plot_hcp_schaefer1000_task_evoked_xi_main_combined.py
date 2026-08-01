@@ -32,6 +32,9 @@ WM_FIXED_METRICS = (
     / "results/hcp_task_score_synergy_schaefer1000_validation"
     / "fixed_candidates_schaefer1000.npz"
 )
+LANGUAGE_MATH_DIFFICULTY = (
+    ROOT / "results/hcp_language_math_difficulty_57"
+)
 
 
 def main() -> int:
@@ -43,6 +46,7 @@ def main() -> int:
         None,
         language_story_math_root=LANGUAGE_RESULTS,
         language_behavior_scores=LANGUAGE_BEHAVIOR,
+        language_math_difficulty_root=LANGUAGE_MATH_DIFFICULTY,
         wm_back_condition_root=WM_BACK_RESULTS,
         wm_fixed_candidate_metrics=WM_FIXED_METRICS,
     )

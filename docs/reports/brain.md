@@ -1,27 +1,29 @@
-# 脑科学实验：Schaefer100 DMF 临界识别与 HCP Yeo7 $\Xi$ 分解
+# 脑科学实验：Schaefer100 DMF 耦合转变与 HCP Yeo7 $\Xi$ 分解
 
 ## 结论
 
 本报告保留三个互补结果块。
 
-1. **Schaefer100 DMF 跨连接组复现。**将原 83 ROI 的有向 F-TRACT 代理矩阵替换为 93 名受试者的 100×100 对称结构连接群体均值后，$\Xi$ 从 $G=0$ 的 8.452 bits 上升，在 $G=1.3$ 达到 $26.131\pm0.163$ bits（均值 ± 跨 seed SD）的峰值，随后下降；8/8 个 seed 的峰位一致。平均发放率的最大离散导数位于 $G=1.5$。以 $\Xi$ 峰为中心重新选定的候选临界窗 $G\in\{1.2,1.3,1.4\}$ 中，88.00% 的 $\Xi$ 来自跨 ROI 协同，其中网络间分量占总量的 66.27%。
+1. **Schaefer100 DMF 跨连接组复现、时间尺度依赖与 SC 归因。**将原 83 ROI 的有向 F-TRACT 代理矩阵替换为 93 名受试者的 100×100 对称结构连接群体均值后，$\Xi$ 在粗网格 $G=1.3$ 达峰。作为独立的信息动力学读出，Rosas、Luppi 与合作者提出的 pairwise BOLD-like $\Phi^R$ 在 $G=1.2$ 达峰，8 个 seed 的峰位等分于 1.2 和 1.3；两者共同定位于发放率最大变化点 $G=1.5$ 之前的同一粗网格临界带，但不构成严格临界性的证明。$G\times$ target horizon 热图显示，$\Xi$ 景观和峰值位置随预测时距明显改变，因此单一 300-step 峰位不能视为时间尺度无关的系统常数。峰值邻近窗中，88.00% 的 $\Xi$ 来自跨 ROI 协同，其中网络间分量占总量的 66.27%。三类结构 null 均产生更高的峰值 $\Xi$，否定了“经验 SC 最大化整体协同”的简单解释；但在精确保留 Yeo 网络块对权重分布后，经验边布局的网络间份额仍高 1.81 个百分点，并在 8/8 个配对 seed 中同向。加密耦合诊断和详细峰位轨迹尚未形成足以支持正文主张的独立结论，统一保留在附录。
 2. **HCP500/1000 PCA–Yeo7 $\Xi$ 分解。**在相同 30 名 HCP REST1_LR 被试中，Schaefer-500（$p=8,\alpha=10$）与重新验证的 Schaefer-1000（$p=5,\alpha=1$）均在 30/30 名被试中高于独立 PC1 circular-shift null。两种粒度的全七网络核都常进入 top-3，但不高于 matched null；相对地，缺少 Limbic 的六网络核均高于 matched null cohort（500：17/30 对 8.65/30；1000：12/30 对 6.35/30；各 20-null 未校正 $p=0.047619$）。
-3. **HCP1000 任务诱发表征、$\Xi$ 层级分解与认知画像。**正文以 Schaefer-1000 为主要空间粒度：任务态先在 `taskRetained-taskRegressed` 上拟合各 Yeo7 网络的 PC1，再用同一载荷投影 `taskRetained`；REST 则在自身时序上拟合并投影。共享配置为一维网络状态、三阶历史与 Ridge $\alpha=1$，即 21 维 source 预测 7 维下一时刻 target。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 6.985 bits，高于七任务的 4.288--5.686 bits；七项配对 Wilcoxon 检验经 BH 校正后均显著。七网络归因份额在仅比较任务态时 7/7 个网络均有显著状态效应，greedy 层级分解进一步描述了跨网络 $\Xi$ 在主要网络组合间的分配。合并主图同时展示一般认知与 LANGUAGE、MOTOR 全七网络 atom 的任务依赖关系，LANGUAGE 内 SomMot+Limbic+Cont 与 Story、Math ACC 的方向分化，以及 WM 中 Cont+Default 固定组合与 0-back 表现的负相关。Schaefer-500 的旧主图、领域认知探索及跨粒度对照移至附录 K。
+3. **HCP1000 任务诱发表征、$\Xi$ 层级分解与认知画像。**正文以 Schaefer-1000 为主要空间粒度：任务态先在 `taskRetained-taskRegressed` 上拟合各 Yeo7 网络的 PC1，再用同一载荷投影 `taskRetained`；REST 则在自身时序上拟合并投影。共享配置为一维网络状态、三阶历史与 Ridge $\alpha=1$，即 21 维 source 预测 7 维下一时刻 target。29 名共同被试中，REST 的 system-level $\Xi$ 均值为 6.985 bits，高于七任务的 4.288--5.686 bits；七项配对 Wilcoxon 检验经 BH 校正后均显著。七网络归因份额在仅比较任务态时 7/7 个网络均有显著状态效应，greedy 层级分解进一步描述了跨网络 $\Xi$ 在主要网络组合间的分配。扩展到 57 人并按已确认的 S1200 派生表字段互换校正后，正文保留 SomMot+Limbic+Cont 与 corrected Story difficulty 的正相关（$\rho=+0.349$，cohort-blocked permutation $p=0.00765$）；该结果属于逐项显著的探索性关联，固定 12 项家族 max-$T$ 为 $p=0.0704$。DorsAttn+Cont 与 corrected Math difficulty 的描述性趋势及完整组合筛查移至附录 K。Schaefer-500 的旧主图、领域认知探索及跨粒度对照也保留在附录 K。
 
-这些实验分别回答不同问题：DMF 实验检验 $\Xi$ 是否能定位可控模型中的临界动力学带；HCP 静息态实验检验降维后的真实网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构；任务态实验检验以任务诱发 PCA 选择观测方向后，system-level $\Xi$ 及其网络和层级组合归因是否随状态改变。它们不构成对特定脑机制、因果方向或唯一稀疏 atom 的证明。
+这些实验分别回答不同问题：DMF 实验检验 $\Xi$ 的耦合景观、预测时距依赖和多尺度空间归因；HCP 静息态实验检验降维后的真实网络动力学中是否存在高于同步破坏 null 的跨网络高阶结构；任务态实验检验以任务诱发 PCA 选择观测方向后，system-level $\Xi$ 及其网络和层级组合归因是否随状态改变。它们不构成对特定脑机制、因果方向、严格临界点或唯一稀疏 atom 的证明。
 
 ## 目录
 
-1. [**Schaefer100 DMF：跨连接组临界复现**](#dmf-critical)
+1. [**Schaefer100 DMF：跨连接组耦合转变**](#dmf-critical)
    1. [数据来源、完整性与 ROI 顺序](#dmf-data)
    2. [结构连接聚合与尺度](#dmf-sc)
    3. [DMF 与分析契约](#dmf-intervention)
    4. [全局扫描](#dmf-phi)
-   5. [临界窗层级分解](#dmf-hierarchy)
-   6. [结构关联与稳定性](#dmf-topology)
-   7. [综合结论与文献对照](#dmf-insights)
-   8. [解释边界](#dmf-limits)
-   9. [参考文献](#dmf-references)
+   5. [预测时间尺度](#dmf-horizon)
+   6. [峰值邻近窗层级分解](#dmf-hierarchy)
+   7. [结构关联与稳定性](#dmf-topology)
+   8. [结构保持 null：经验 SC 的增量](#dmf-structural-nulls)
+   9. [综合结论与文献对照](#dmf-insights)
+   10. [解释边界](#dmf-limits)
+   11. [参考文献](#dmf-references)
 2. [**HCP 任务态 $\Xi$、认知画像与脑区分布**](#hcp-wm)
    1. [主要结果：Schaefer-1000 任务诱发 PCA–$\Xi$ 网络归因与层级分解](#hcp-task-evoked-xi-main)
    2. [协同核分布及静息态对照](#hcp-wm-phi)
@@ -30,9 +32,10 @@
 3. [**讨论：解释边界与可复现性**](#discussion)
    1. [结论的适用范围](#discussion-scope)
    2. [结果与图形产物](#discussion-artifacts)
-4. [**附录 A：Kuramoto 振子数与 whole-state $\Xi$ 曲线形状**](#appendix-a)
-   1. [临界峰的 EI 与 effectiveness 机制](#appendix-a-1)
-   2. [时间窗、相变前检测与系统规模边界](#appendix-a-2)
+4. [**附录 A：DMF 补充诊断、EI 分量与 Kuramoto 对照**](#appendix-a)
+   1. [Schaefer100 DMF 补充动力学结果](#appendix-a-1)
+   2. [临界峰的 EI 与 effectiveness 机制](#appendix-a-2)
+   3. [时间窗、相变前检测与系统规模边界](#appendix-a-3)
 5. [**附录 B：Schaefer100 DMF 动力学方程**](#appendix-b)
 6. [**附录 C：83 ROI 与 100 ROI 受控比较**](#appendix-c)
 7. [**附录 D：Schaefer100 可复现文件**](#appendix-d)
@@ -58,7 +61,7 @@
 
 <a id="dmf-critical"></a>
 
-## 1. Schaefer100 DMF：跨连接组临界复现
+## 1. Schaefer100 DMF：跨连接组耦合转变
 
 93 名受试者的 100×100 结构连接（SC）矩阵群体均值，并沿用之前文献相同的 DMF、干预采样和 Gaussian 条件协方差估计流程，重新完成全局耦合扫描、observational WMS、ROI/结构模块分解和 Yeo-7 网络分解。
 
@@ -96,7 +99,7 @@ $$
 
 并将 300 个积分步后的完整 200 维 E/I 状态作为 target。状态不裁剪，正式运行的最大裁剪率为 0%。JFIC 最终收敛，最大绝对发放率误差为 0.0461 Hz；31/31 个 $G$ 条件均检测到稳定状态。
 
-这里需要区分两个参照：平均发放率最大离散导数位于 $G=1.5$，而全局扫描得到的 $\Xi$ 峰值点是 $G=1.3$。由于图 1 下排 D–H 要回答的是“$\Xi$ 峰附近的协同如何分布”，旧窗口 $G\in\{1.4,1.5,1.6\}$ 全部落在峰后，不能覆盖峰前—峰值—峰后的局部形状。因此本版按当前 0.1 网格，以 8/8 个 seed 一致的峰位 $G=1.3$ 为中心，重新选定对称三点窗口 $G\in\{1.2,1.3,1.4\}$。这是依据完整扫描结果作出的峰值邻近窗，不是独立预注册的临界性检验；$G=1.5$ 仍保留为发放率转折参照。
+这里需要区分两个参照：平均发放率最大离散导数位于 $G=1.5$，而全局扫描得到的 $\Xi$ 峰值点是 $G=1.3$。由于图 1 C–G 要回答的是“$\Xi$ 峰附近的协同如何分布”，旧窗口 $G\in\{1.4,1.5,1.6\}$ 全部落在峰后，不能覆盖峰前—峰值—峰后的局部形状。因此本版按当前 0.1 网格，以 8/8 个 seed 一致的峰位 $G=1.3$ 为中心，重新选定对称三点窗口 $G\in\{1.2,1.3,1.4\}$。这是依据完整扫描结果作出的峰值邻近窗，不是独立预注册的临界性检验；$G=1.5$ 仍保留为发放率转折参照。
 
 系统级指标为
 
@@ -107,25 +110,46 @@ $$
 
 为保持与旧 83 ROI 实验的估计口径一致，本实验继续使用 ridge 为 $10^{-6}$ 的 Gaussian 条件协方差估计。200 维 source、200 维 target、21×8 个条件和每条件 2,048 个样本使逐条件 TM 全量扫描的计算代价过高。Gaussian 估计只刻画二阶依赖，可能遗漏高阶非线性结构，并对协方差正则化敏感；因此主要解释曲线形状、配对峰位和层级比例，而不把绝对 bits 直接外推到其他估计器。
 
+为与 Mediano、Rosas、Luppi 等人在 DMF 上使用的 integrated information decomposition 指标对照，另从每个自然稳态模拟的区域兴奋性发放率生成 Balloon–Windkessel BOLD-like 序列，并对全部 $\binom{100}{2}=4{,}950$ 个无序 ROI 对计算 Gaussian minimum-mutual-information（MMI）$\Phi^R$。对任一 ROI 对 $(X,Y)$ 和一个 BOLD 积分样本的滞后，定义
+
+$$
+\Phi^R_{XY}
+=I(X_t,Y_t;X_{t+1},Y_{t+1})
+-I(X_t;X_{t+1})-I(Y_t;Y_{t+1})
++\min_{i,j\in\{X,Y\}}I(i_t;j_{t+1}).
+$$
+
+每个 seed–$G$ 条件先对 ROI 对取平均，再跨 8 个 seed 汇总。该扫描使用与主实验相同的经验 SC、固定 JFIC、$G=0.0$–3.0 网格、seed 3–10、$\Delta t=0.001$ s 和噪声幅度 0.01；自然轨迹总长 1.5 s，最短 burn-in 为 0.3 s。$\Phi^R$ 的非负容差预先设为 $10^{-10}$ bits：仅容差内负值可记为数值零，低于阈值则中止。正式扫描的最小逐对原始值为 0.00104 bits，没有负值或归零。这里的 $\Phi^R$ 是 pairwise、observational、BOLD-like、one-step 指标，而式（2）的 $\Xi$ 是 full-state、interventional、300-step 指标；二者只比较随 $G$ 的峰形与峰位，不比较绝对 bits。
+
+两个补充实验保持结构连接、JFIC、噪声、干预支持、样本量、seed 和估计器不变。动力学诊断实验只将 $G=1.10$–1.70 加密到 0.02，并增加 rate susceptibility、神经发放率相位 metastability 和确定性固定点 Jacobian 最大实部。预测时距实验只改变 target horizon 为 50、100、200、300、400、500 steps，并在同一 seed 和 $G$ 内复用配对 source 与噪声前缀。两项实验均预先声明 $\Xi$ 非负容差为 $10^{-8}$ bits；容差内负值可视为数值零，低于该阈值则中止。正式结果中最小值分别为 22.728 和 1.531 bits，没有负值、容差内归零或状态边界越界。
+
 <a id="dmf-phi"></a>
 
 ### 1.4 全局扫描
 
-平均发放率从 $G=0$ 的 1.952 Hz 单调上升到 $G=3.0$ 的 43.123 Hz，最大离散导数位于 $G=1.5$。$\Xi$ 从 $G=0$ 的 $8.452\pm0.102$ bits 上升，在 $G=1.3$ 达到 $26.131\pm0.163$ bits 的峰值，随后降至 $G=3.0$ 的 $6.302\pm0.038$ bits；这里及图 1 A–C 的误差均为跨 8 个 seed 的 SD。峰前增幅为 17.679 bits，即 209.17%。8/8 个 seed 的峰均位于 $G=1.3$。重新选定窗口内 $G=1.2,1.3,1.4$ 的均值依次为 25.617、26.131 和 25.887 bits，覆盖峰前上升、峰值和峰后回落。
+平均发放率从 $G=0$ 的 1.952 Hz 单调上升到 $G=3.0$ 的 43.123 Hz，最大离散导数位于 $G=1.5$。$\Xi$ 从 $G=0$ 的 $8.452\pm0.102$ bits 上升，在 $G=1.3$ 达到 $26.131\pm0.163$ bits 的峰值，随后降至 $G=3.0$ 的 $6.302\pm0.038$ bits；图 1 A 的误差均为跨 8 个 seed 的 SD。峰前增幅为 17.679 bits，即 209.17%。8/8 个 seed 的峰均位于 $G=1.3$。重新选定窗口内 $G=1.2,1.3,1.4$ 的均值依次为 25.617、26.131 和 25.887 bits，覆盖峰前上升、峰值和峰后回落。
 
 图中的误差条带改用跨 seed SD，以直接呈现随机 seed 波动。在 $G=1.3$，$\Xi$ 的 SD 为 0.163 bits，仅占均值的 0.62%；whole EI 与单变量 EI 之和的 SD 分别为 0.327 和 0.224 bits，对应变异系数为 0.15% 和 0.11%。因此 seed 波动相对于曲线幅度很小，不影响峰位判断。
 
 observational $\Phi^{WMS}$ 从 $G=0$ 的 −21.433 bits 下降，在 $G=1.3$ 达到最负均值 −502.591 bits，并在 $G=1.4$ 跳回 −189.520 bits，呈现与发放率转折对齐的明显折点。其绝对值受 Gaussian 条件协方差和 ridge 影响，应优先解释形状。
 
+pairwise BOLD-like $\Phi^R$ 从 $G=0$ 的 $3.631\pm0.159$ bits 上升，在 $G=1.2$ 达到 $6.906\pm0.095$ bits，随后回落；4/8 个 seed 的峰位为 $G=1.2$，另 4/8 个为 $G=1.3$。在 $G=1.3$，均值仍为 6.324 bits，但 SD 增至 1.249 bits，来自两个 seed 的提前回落。因此，$\Phi^R$ 与 $\Xi$ 支持的是 $G=1.2$–1.3 的共同峰带，而不是完全重合的单点定位；两者都早于发放率最大变化点 $G=1.5$。由于 $\Phi^R$ 与 $\Xi$ 共享同一 DMF 和 SC，且 observable、source/target 维度与预测时距不同，这一对齐属于同模型内的交叉指标一致性，不是独立数据复现。
+
 ![Schaefer100 DMF 多尺度汇总](../../fig/dmf_schaefer100/dmf_schaefer100_summary_full.png)
 
-*图 1｜Schaefer100 DMF 多尺度汇总。A：平均发放率与全系统 $\Xi$；B：whole EI 与单变量 EI 之和；C：平均发放率与 observational $\Phi^{WMS}$。A–C 展示完整 $G=0$–3 扫描；曲线为 8 个 seed 的均值，阴影为跨 seed 标准差（SD）。D–H 基于以 $\Xi$ 峰 $G=1.3$ 为中心重新选定的候选临界窗 $G\in\{1.2,1.3,1.4\}$，先在每个 seed–$G$ 条件中独立分解，再对 8 个 seed × 3 个 $G$ 的 24 个条件汇总。D：各 ROI 的局部 E/I（ROI 内）耦合与跨 ROI leverage 在 24 个条件上的均值；E：先在每个 seed–$G$ 条件内计算 ROI 内/跨 ROI 比例，再在每个 seed 内平均三个 $G$；柱高为 8 个 seed 的均值，误差线为跨 seed SD。F：Yeo-7 网络内跨 ROI 分量；G：网络间 $\Xi$ 精确 Shapley 归因；F–G 同样先在每个 seed 内平均三个 $G$，再显示 8 个 seed 的均值与 SD，标签斜杠后的数字为 ROI 数，且采用相同网络顺序和颜色。H：每个 ROI 的跨 ROI leverage 在 24 个条件上的均值，按官方 Schaefer2018-100/fsaverage5 parcel 边界直接映射到左、右半球的外侧面和内侧面四视角，四个视角共用同一色标；灰色为图谱背景/内侧壁，不做质心插值。*
+*图 1｜Schaefer100 DMF 多尺度汇总。A：上部为平均发放率与 full-state interventional $\Xi$，下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$；曲线为 8 个 seed 的均值，阴影为跨 seed SD。橙色点划线、紫色虚线和灰色点线依次标出粗网格 $\Phi^R$ 峰 $G=1.2$、$\Xi$ 峰 $G=1.3$ 与发放率最大变化点 $G=1.5$。三种信息量的 observable、维度与预测时距不同，双轴只用于比较峰形和峰位。B：$G\times$ target horizon 的跨 seed 平均 $\Xi$ 热图，白线为各时距的平均峰位；不同 horizon 改变 target 分布，颜色的绝对 bits 不宜直接作跨行强度比较。C–G 基于峰值邻近窗 $G\in\{1.2,1.3,1.4\}$，先在每个 seed–$G$ 条件中独立分解，再对 8 个 seed × 3 个 $G$ 的 24 个条件汇总。C：各 ROI 的局部 E/I（ROI 内）耦合与跨 ROI leverage；D：ROI 内/跨 ROI 比例，柱高为 8 个 seed 的均值，误差线为跨 seed SD；E：Yeo-7 网络内跨 ROI 分量；F：网络间 $\Xi$ 精确 Shapley 归因；E–F 标签斜杠后的数字为 ROI 数，并采用相同网络顺序和颜色；G：每个 ROI 的跨 ROI leverage 在 24 个条件上的均值，映射到双侧外侧面与内侧面。EI 分量及其余补充动力学图见附录 A。*
+
+<a id="dmf-horizon"></a>
+
+### 1.5 预测时间尺度
+
+图 1B 只改变 target horizon 为 50、100、200、300、400 和 500 steps；同一 seed 与 $G$ 下复用 source 与噪声前缀。热图显示 $\Xi(G)$ 景观随预测时距发生明显变化，因此单一 300-step 峰位不能被解释为时间尺度无关的系统常数。由于 horizon 同时改变未来状态的可预测信息量，正文不进一步比较各行绝对 bits，也不依据峰位折线提出单调迁移机制；逐 seed 峰位轨迹、代表性曲线和加密动力学诊断统一保留在附录 A。
 
 <a id="dmf-hierarchy"></a>
 
-### 1.5 峰值邻近窗层级分解
+### 1.6 峰值邻近窗层级分解
 
-本节所有 D–H 结果都采用相同汇总流程。对每个 seed $s\in\{3,\ldots,10\}$ 和每个 $G\in\{1.2,1.3,1.4\}$，先独立生成干预样本、演化目标状态、估计条件协方差并完成层级分解；随后对所得 24 个 seed–$G$ 条件做等权汇总。因此正文中的 bits 是 24 个条件的算术平均，不是某个特定 $G$ 的取值。图 E 的比例仍先在每个条件内计算，而不是用平均分量除以平均总量。为单独显示随机 seed 波动，图 E–G 的误差线先在每个 seed 内平均三个 $G$，再计算 8 个 seed 之间的 SD；三个 $G$ 的位置差异不进入误差线。该 SD 描述模拟随机性，不应解释为人群统计不确定性。
+本节所有图 1 C–G 结果都采用相同汇总流程。对每个 seed $s\in\{3,\ldots,10\}$ 和每个 $G\in\{1.2,1.3,1.4\}$，先独立生成干预样本、演化目标状态、估计条件协方差并完成层级分解；随后对所得 24 个 seed–$G$ 条件做等权汇总。因此正文中的 bits 是 24 个条件的算术平均，不是某个特定 $G$ 的取值。图 1D 的比例仍先在每个条件内计算，而不是用平均分量除以平均总量。为单独显示随机 seed 波动，图 1D–F 的误差线先在每个 seed 内平均三个 $G$，再计算 8 个 seed 之间的 SD；三个 $G$ 的位置差异不进入误差线。该 SD 描述模拟随机性，不应解释为人群统计不确定性。
 
 在每个 seed–$G$ 条件内，系统量首先按 ROI 块分解为
 
@@ -203,7 +227,7 @@ $$
 
 ROI 内分量为 3.105 bits（12.00%），跨 ROI 分量为 22.773 bits（88.00%），合计 25.878 bits。式（3）的最大数值闭合误差为 $1.6\times10^{-13}$ bits，且 24/24 个条件均为跨 ROI 大于 ROI 内。
 
-按图 E 的 seed-blocked 汇总，ROI 内与跨 ROI 比例的跨 seed SD 均为 0.20 个百分点，说明 88.00% 的跨 ROI 优势不是由个别 seed 推高。
+按图 1D 的 seed-blocked 汇总，ROI 内与跨 ROI 比例的跨 seed SD 均为 0.20 个百分点，说明 88.00% 的跨 ROI 优势不是由个别 seed 推高。
 
 进一步按 Yeo-7 分组：
 
@@ -271,11 +295,11 @@ $$
 I(\mathbf{x};\mathbf{y}),
 $$
 
-其中每支箭头表示把更细的 source 块合并后新增的 EI，三支箭头依次对应 ROI 内、网络内跨 ROI 和网络间分量。图 G 后续使用 Shapley 值，只是把最后的网络间 EI 增量对称归因给七个网络；Shapley 不参与式（3）和式（4）本身的数值闭合。
+其中每支箭头表示把更细的 source 块合并后新增的 EI，三支箭头依次对应 ROI 内、网络内跨 ROI 和网络间分量。图 1F 后续使用 Shapley 值，只是把最后的网络间 EI 增量对称归因给七个网络；Shapley 不参与式（3）和式（4）本身的数值闭合。
 
 网络内跨 ROI 分量为 5.622 bits，占总 $\Xi$ 的 21.73%；网络间分量为 17.151 bits，占总量的 66.27%。24/24 个条件均为网络间大于网络内。网络内分量以 Visual（2.288 bits）和 Somatomotor（1.677 bits）最高，其后为 Dorsal attention（0.610）、Default mode（0.577）、Salience/ventral attention（0.299）、Frontoparietal control（0.153）和 Limbic（0.018）。这些绝对量同时受网络所含 ROI 数影响，不能直接解释为单位 ROI 效应。
 
-为把网络间整合与图 F 的网络内分量对照，图 G 对七个 Yeo 网络的全部 $2^7=128$ 个联盟进行精确 Shapley 归因。对任意网络子集 $S$，联盟价值定义为该子集的联合 EI 超出其成员网络 EI 之和的部分，单网络和空集价值为 0。网络 $i$ 的份额为
+为把网络间整合与图 1E 的网络内分量对照，图 1F 对七个 Yeo 网络的全部 $2^7=128$ 个联盟进行精确 Shapley 归因。对任意网络子集 $S$，联盟价值定义为该子集的联合 EI 超出其成员网络 EI 之和的部分，单网络和空集价值为 0。网络 $i$ 的份额为
 
 $$
 \psi_i=\sum_{S\subseteq\mathcal{N}\setminus\{i\}}\frac{|S|!(7-|S|-1)!}{7!}\left[v(S\cup\{i\})-v(S)\right]. \tag{5}
@@ -283,33 +307,49 @@ $$
 
 按 Shapley 效率性质，$\sum_i\psi_i=\Xi_{\mathrm{between\ networks}}$；代码在每个 seed–$G$ 条件上检验该闭合关系。这里的 $\psi_i$ 是多变量网络间整合的对称归因，不是成对网络边，也不是唯一的生物学因果归属。主图报告守恒的绝对 bits，网络规模诊断另按每 ROI 及每个跨网络连接机会数归一化记录在结果摘要中。
 
-峰值邻近窗平均归因以 Default mode（3.541 bits）、Salience/ventral attention（3.416）和 Dorsal attention（2.909）最高，其后为 Frontoparietal control（2.788）、Somatomotor（2.587）、Visual（1.539）和 Limbic（0.371）。七项之和为 17.151 bits，与式（4）的网络间分量一致，最大逐条件闭合误差为 $3.6\times10^{-15}$ bits。按每 ROI 或每个跨网络连接机会数归一化后，前三名均为 Salience/ventral attention、Frontoparietal control 和 Dorsal attention，说明主要排序并非仅由网络规模造成。图 F 与图 G 因而形成明确对照：Visual 更突出网络内部模块化耦合，而显著性、默认、注意和控制相关网络承担更多跨网络整合归因。
+峰值邻近窗平均归因以 Default mode（3.541 bits）、Salience/ventral attention（3.416）和 Dorsal attention（2.909）最高，其后为 Frontoparietal control（2.788）、Somatomotor（2.587）、Visual（1.539）和 Limbic（0.371）。七项之和为 17.151 bits，与式（4）的网络间分量一致，最大逐条件闭合误差为 $3.6\times10^{-15}$ bits。按每 ROI 或每个跨网络连接机会数归一化后，前三名均为 Salience/ventral attention、Frontoparietal control 和 Dorsal attention，说明主要排序并非仅由网络规模造成。图 1E 与图 1F 因而形成明确对照：Visual 更突出网络内部模块化耦合，而显著性、默认、注意和控制相关网络承担更多跨网络整合归因。
 
 <a id="dmf-topology"></a>
 
-### 1.6 结构关联与稳定性
+### 1.7 结构关联与稳定性
 
 跨 ROI leverage 与加权结构强度呈正 Spearman 相关（$\rho=0.971$，$p=2.02\times10^{-62}$），ROI 内耦合与结构强度呈负相关（$\rho=-0.984$，$p=3.09\times10^{-75}$），ROI involvement 与结构强度呈正相关（$\rho=0.969$，$p=5.14\times10^{-61}$）。24 个条件的 ROI involvement 排名两两 Spearman 相关中位数为 0.984，最小值为 0.936，说明空间排序不由单一 seed 或单一 $G$ 驱动。
 
 involvement 和 leverage 是留一块条件总相关下降量。它们是非负敏感性分数，但彼此重叠，不是互斥且可相加的信息原子。
 
-图 H 进一步显示，跨 ROI leverage 不是集中在单一功能系统，而是在双侧形成多个空间锚点。最高值包括 SomMot parcel、枕叶视觉 parcel、Salience/ventral attention 的内侧及额岛 parcel，以及楔前叶/后扣带和部分扣带–控制 parcel。楔前叶/后扣带高值与结构连接研究中的 posterior medial structural core 相互印证：Hagmann et al.（2008）将后内侧和顶叶皮层识别为高 degree、strength 和 betweenness 的结构核心，van den Heuvel 与 Sporns（2011）也把双侧楔前叶列入富集俱乐部枢纽。额岛、扣带和控制区高值则与 connector-hub 文献中“跨模块连接支持整合，同时维持模块化”的机制相容（Bertolero et al., 2018）。不过，本实验中 leverage 与结构强度的相关达到 $\rho=0.971$，因此图 H 首先是当前 SC 骨架在干预动力学中的空间投影，不能把这种对应视为独立于结构强度的新验证。
+图 1G 进一步显示，跨 ROI leverage 不是集中在单一功能系统，而是在双侧形成多个空间锚点。最高值包括 SomMot parcel、枕叶视觉 parcel、Salience/ventral attention 的内侧及额岛 parcel，以及楔前叶/后扣带和部分扣带–控制 parcel。楔前叶/后扣带高值与结构连接研究中的 posterior medial structural core 相互印证：Hagmann et al.（2008）将后内侧和顶叶皮层识别为高 degree、strength 和 betweenness 的结构核心，van den Heuvel 与 Sporns（2011）也把双侧楔前叶列入富集俱乐部枢纽。额岛、扣带和控制区高值则与 connector-hub 文献中“跨模块连接支持整合，同时维持模块化”的机制相容（Bertolero et al., 2018）。不过，本实验中 leverage 与结构强度的相关达到 $\rho=0.971$，因此图 1G 首先是当前 SC 骨架在干预动力学中的空间投影，不能把这种对应视为独立于结构强度的新验证。
 
-更值得注意的是，图 H 同时突出视觉和躯体运动等单模态区域，以及楔前叶/后扣带、显著性和控制相关区域，并不沿“单模态到跨模态”的主梯度单调升高（Margulies et al., 2016）。这对“高协同只位于高阶联合皮层”的简单解释构成修正，却与 Varley et al.（2023）的结果相容：高阶协同子系统遍布皮层，其较稳定的参与热点包括枕极、楔前叶和扣带区域，而且高协同组合往往跨越经典功能网络。结合图 F–G，可得到一个新的层级区分：视觉和 SomMot parcel 可以因结构嵌入而具有较高的跨 ROI leverage，但这不等于其所属网络承担最多的跨网络归因；后者仍以 Default、Salience/ventral attention、Dorsal attention 和 Frontoparietal control 更突出。因此，图 H 定位的是“移除某个 ROI 会使跨区条件总相关下降多少”，而不是认知层级、网络间 Shapley 份额或局部协同的直接脑图。
+更值得注意的是，图 1G 同时突出视觉和躯体运动等单模态区域，以及楔前叶/后扣带、显著性和控制相关区域，并不沿“单模态到跨模态”的主梯度单调升高（Margulies et al., 2016）。这对“高协同只位于高阶联合皮层”的简单解释构成修正，却与 Varley et al.（2023）的结果相容：高阶协同子系统遍布皮层，其较稳定的参与热点包括枕极、楔前叶和扣带区域，而且高协同组合往往跨越经典功能网络。结合图 1E–F，可得到一个新的层级区分：视觉和 SomMot parcel 可以因结构嵌入而具有较高的跨 ROI leverage，但这不等于其所属网络承担最多的跨网络归因；后者仍以 Default、Salience/ventral attention、Dorsal attention 和 Frontoparietal control 更突出。因此，图 1G 定位的是“移除某个 ROI 会使跨区条件总相关下降多少”，而不是认知层级、网络间 Shapley 份额或局部协同的直接脑图。
+
+<a id="dmf-structural-nulls"></a>
+
+### 1.8 结构保持 null：经验 SC 的增量
+
+结构强度与 leverage 的相关不能回答经验连接布局是否具有超出低阶结构约束的作用。为此，本实验对经验 SC 和三类单一 null 实现分别重新校准 JFIC，并在完全相同的 $G=0.0$--$3.0$ 网格、8 个配对 seed、干预分布、300-step horizon 和 Gaussian 估计器下完成全扫描。权重置乱 null 保留全局权重多重集；degree/strength null 精确保留每个节点的二值 degree 和加权 strength，同时改变 79.9% 的缺失边位置；Yeo-block null 则在每个无序网络块对内独立置乱，精确保留全部块对的权重多重集与总权重。所有构造均保持对称、非负、零对角线及总体密度。正式扫描没有状态越界或低于 $-10^{-8}$ bits 的 Syn 非负性违反，层级分解闭合误差不超过 $2.1\times10^{-13}$ bits。
+
+![经验 SC 与结构保持 null 的 DMF 对照](../../fig/dmf_schaefer100/dmf_schaefer100_structural_nulls.png)
+
+*图 S1｜经验 SC 与三类结构 null。a：全耦合扫描的 $\Xi$ 均值曲线，阴影为跨 8 个配对 seed 的 SD；b：逐 seed 峰值 $\Xi$ 与峰位 $G$ 的均值和 SD；c：以各矩阵自身平均峰位为中心的三点窗口中，跨 ROI 与网络间分量占总 $\Xi$ 的比例；d：各 null 精确保留的结构约束。误差条只描述模拟 seed 波动；每类 null 仅生成一张图，因此不构成跨图实现的 null 分布或显著性检验。*
+
+结果首先否定了较强的结构最优性假设。经验 SC 的峰值 $\Xi$ 为 26.131 bits，而权重置乱、degree/strength 和 Yeo-block null 分别为 32.688、32.278 和 31.826 bits。经验减 null 的配对差依次为 $-6.558\pm0.170$、$-6.147\pm0.098$ 和 $-5.695\pm0.072$ bits，三组均为 0/8 个 seed 中经验值更高。跨 ROI 份额也从经验 SC 的 88.00% 上升至 92.00%、90.77% 和 90.87%。因此，经验解剖结构并不最大化整体联合干预优势或跨 ROI 协同；更随机的边布局反而产生更高且更广泛的 $\Xi$。
+
+网络间份额给出一个更窄的正归因。经验 SC 为 66.27%，低于权重置乱的 79.55% 和 degree/strength null 的 75.76%，却高于 Yeo-block null 的 64.46%。在精确保留每个 Yeo 块对的权重分布和总量后，经验具体边布局仍提高 1.81 个百分点，并在 8/8 个配对 seed 中同向。这表明经验网络块之间“有多少连接权重”并不能完全解释网络间归因，块内具体边位置还贡献了稳定但较小的增量。不过该结论只比较了一张经验图与每类一张 null 图，8 个 seed 不是 8 张独立结构图，因此目前只能称为探索性结构归因，不能报告拓扑 null 的显著性。
+
+原始峰位变化较小：经验 SC 的逐 seed 平均峰位为 $G=1.300$，三类 null 分别为 1.350、1.263 和 1.313。由于谱半径同时从经验值 0.701 降至 0.517--0.560，有效峰耦合 $G\rho(\mathbf{C})$ 的经验值 0.911 反而高于三类 null 的 0.698、0.678 和 0.735。谱半径是置乱后的下游拓扑性质，因此原始 $G$ 与有效耦合必须并列解释：峰在原始扫描轴上近似保留，不等于网络的有效耦合尺度不变。
 
 <a id="dmf-insights"></a>
 
-### 1.7 综合结论与文献对照
+### 1.9 综合结论与文献对照
 
 **第一，$\Xi$ 峰反映的是“联合干预优势”最大，而不是系统信息总量最大。**在 $G=1.3$，whole EI 已由 $G=0$ 的 219.636 bits 降至 176.926 bits，单变量 EI 之和则由 211.184 bits 更快降至 150.795 bits；两者差值因而达到峰值。这说明耦合首先削弱单个变量独立解释未来全系统状态的能力，同时暂时保留联合状态中的关系信息。该解释与 causal emergence 将有效信息写成 determinism 与 degeneracy 权衡的思路一致，也与“信息转换”框架中局部信息转化为高阶协同的概念相容（Hoel et al., 2013；Varley & Hoel, 2022）。本实验新增的是：在具有结构连接约束的 DMF 中，这种联合优势沿耦合参数形成可重复的非单调峰。
 
-**第二，$\Xi$ 峰可以作为动力学转变的邻近标志，但当前数据不足以把它称为严格临界点。**8/8 个 seed 的 $\Xi$ 峰均位于 $G=1.3$，平均发放率最大离散导数则位于 $G=1.5$；二者相邻而不重合。whole-brain 模型常在稳定性边界或亚稳态附近产生丰富动力学，临界性文献也强调应同时检查 susceptibility、长程相关、尺度不变性或 Jacobian 稳定性，而不能只凭单条峰形判定（Deco et al., 2011；Breakspear, 2017；Cocchi et al., 2017）。因此本文使用“转变前沿”“临界窗”或“临界性候选带”，不把 $G=1.3$ 宣称为已证明的相变点。
+**第二，$\Xi$ 景观依赖预测时间尺度，当前证据不足以把单一峰位解释为严格临界点。**图 1B 显示，target horizon 改变时，$\Xi(G)$ 的幅度和峰值位置都会变化。whole-brain 模型确实常在稳定性边界或亚稳态附近产生丰富动力学，但临界性判定要求多个独立诊断和尺度检验共同支持（Deco et al., 2011；Breakspear, 2017；Cocchi et al., 2017）。附录中的加密扫描、susceptibility、metastability 与 Jacobian 尚未形成一致定位，因此只作为探索性诊断，不承担正文主结论。
 
 **第三，峰值邻近窗中的主要信息结构跨越功能网络边界。**跨 ROI 分量占总 $\Xi$ 的 88.00%，其中网络间分量占总量的 66.27%，且 24/24 个 seed–$G$ 条件中网络间分量均高于网络内分量。该结果与人脑高阶信息研究的总体方向一致：Luppi et al.（2022）发现协同信息更集中于跨模态、整合性皮层，Varley et al.（2023）发现高协同子系统通常跨越多个经典功能网络。区别在于，已有工作主要分析观察性 fMRI 中的统计协同；这里的 $\Xi$ 来自最大熵干预下的未来状态可区分性，并具有 ROI→网络→网络间的精确闭合分解。因此它提供的是结构约束动力学中的干预式协同证据，而不是对既有 O-information 或 PID 空间图的重复计算。
 
-**第四，Visual 的高值只发生在网络内部，不表示它是最高级的全脑整合系统。**Visual 在图 F 的网络内跨 ROI 分量最高（2.288 bits），但在图 G 的网络间 Shapley 归因仅为 1.539 bits，明显低于 Default mode、Salience/ventral attention 和 Dorsal attention。视觉皮层具有高密度、拓扑规则且强同模块的局部连接，在以绝对 bits 汇总多个 parcel 的指标中容易形成较大的内部联合量；这更接近稳定的专门化模块，而非跨系统广播。真正与跨网络整合相关的是 Default mode（3.541 bits）和 Salience/ventral attention（3.416 bits）等网络。后者与显著性网络切换和控制模型相符（Menon & Uddin, 2010），前者及注意/控制网络的贡献也与 connector hub、rich-club 和动态整合研究相容（van den Heuvel & Sporns, 2011；Shine et al., 2016；Bertolero et al., 2018）。所以最有信息量的结论不是“Visual 最高”，而是 **Visual 呈现高网络内、低网络间的模块化特征；Default/Salience 呈现较低网络内、较高网络间的整合特征**。
+**第四，Visual 的高值只发生在网络内部，不表示它是最高级的全脑整合系统。**Visual 在图 1E 的网络内跨 ROI 分量最高（2.288 bits），但在图 1F 的网络间 Shapley 归因仅为 1.539 bits，明显低于 Default mode、Salience/ventral attention 和 Dorsal attention。视觉皮层具有高密度、拓扑规则且强同模块的局部连接，在以绝对 bits 汇总多个 parcel 的指标中容易形成较大的内部联合量；这更接近稳定的专门化模块，而非跨系统广播。真正与跨网络整合相关的是 Default mode（3.541 bits）和 Salience/ventral attention（3.416 bits）等网络。后者与显著性网络切换和控制模型相符（Menon & Uddin, 2010），前者及注意/控制网络的贡献也与 connector hub、rich-club 和动态整合研究相容（van den Heuvel & Sporns, 2011；Shine et al., 2016；Bertolero et al., 2018）。所以最有信息量的结论不是“Visual 最高”，而是 **Visual 呈现高网络内、低网络间的模块化特征；Default/Salience 呈现较低网络内、较高网络间的整合特征**。
 
-**第五，结构中心性可能决定协同从局部向全局重新分配的空间通道。**结构强度与跨 ROI leverage 呈强正相关（$\rho=0.971$），与 ROI 内耦合呈强负相关（$\rho=-0.984$）。这比“强连接脑区拥有更多信息”的一般陈述更具体：结构嵌入越强，归因越从局部 E/I 闭环转向跨区联合预测。该模式与 rich-club/connector-hub 文献关于结构骨架支持全局通信的结果一致，但这里仍是相关证据，不能据此断言结构强度单独造成了 $\Xi$ 重分配。最直接的后续检验应是保持权重分布不变的 degree/strength-preserving rewiring，或对高强度节点实施匹配的虚拟 lesion。
+**第五，结构强度解释空间 leverage，但经验边布局并不最大化整体 $\Xi$。**结构强度与跨 ROI leverage 呈强正相关（$\rho=0.971$），与 ROI 内耦合呈强负相关（$\rho=-0.984$），说明结构嵌入越强，归因越从局部 E/I 闭环转向跨区联合预测。然而三类结构 null 的峰值 $\Xi$ 和跨 ROI 份额都高于经验 SC，权重置乱及 degree/strength null 的网络间份额也更高。这排除了“真实强连接节点或经验拓扑经过组织以最大化整体协同”的简单解释。仍然成立的正结果更窄：在精确保留 Yeo 网络块对权重后，经验边位置使网络间份额提高 1.81 个百分点。结构中心性相关因而描述了当前骨架上的空间映射，而结构 null 进一步把可归因增量限定在块对总量之外的具体边布局。
 
 **第六，相似的 $\Xi$ 峰形可以由不同的信息机制产生。**DMF 在发放率转折后表现为 whole-source 与 singleton-sum 的 determinism、degeneracy 四项共同下降；Kuramoto 对照则在强同步端出现 degeneracy 和 singleton 重复读出的持续增长。两者都可形成“先升后降”的 $\Xi$，但峰后动力学含义不同。这说明峰形本身不是机制指纹；将 determinism 与 degeneracy 分开呈现是必要的附录验证，也构成本实验相较只报告单一整合曲线的一个方法学增量。
 
@@ -317,23 +357,23 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 
 **第八，受体数据为下一阶段提供了有文献依据但尚未使用的异质性层。**数据包中的 `average.csv` 含 19 个受体/转运体指标，但没有进入当前 DMF。Hansen et al.（2022）表明受体/转运体空间分布与结构连接、功能连接及神经动力学相关；这支持未来把区域受体谱映射为局部增益、时间常数或 E/I 参数的受控实验。当前结果不能被解释为受体梯度导致的网络差异，除非完成“仅改变受体调制项、其余参数固定”的比较并使用空间自相关保持 null。
 
-综合而言，本实验最值得强调的新启发是：**临界邻近的全脑协同并非简单地“信息更多”，而是信息从单节点可读出形式转向跨 ROI、尤其跨功能网络的联合可读出形式；同时，专门化模块与整合网络在网络内和网络间归因上呈现可解释的双重分离。**这一结论把动力学扫描、干预式有效信息和多尺度脑网络归因连接在同一条可审计证据链上。
+综合而言，本实验最值得强调的新启发是：**$\Xi$ 峰附近的全脑协同并非简单地“信息更多”，而是有限预测时距下的信息从单节点可读出形式转向跨 ROI、尤其跨功能网络的联合可读出形式；经验 SC 并不最大化这种整体协同，却在网络块权重固定后保留了较小而稳定的跨网络组织增量。**这一结论把动力学扫描、干预式有效信息、多尺度归因和结构保持对照连接在同一条可审计证据链上，但不把信息峰等同于严格临界点，也不把单一 null 实现当作总体显著性证据。
 
-下一步最优先的三个验证是：（1）在 $G=1.1$–1.7 之间加密扫描，并同时计算 susceptibility、metastability 与 Jacobian 稳定性；（2）对 93 个个体 SC 分别复现峰位和网络归因，以区分群体均值效应与个体差异；（3）在保持 SC、干预和估计器不变时，仅加入受体驱动的局部参数异质性，并以空间自相关保持 null 检验增量解释力。
+下一步最优先的三个验证是：（1）为每类结构约束生成至少 10 个独立 null 实现，构造峰值 $\Xi$、峰位和层级份额的拓扑零分布；（2）对 93 个个体 SC 分别复现峰位和网络归因，以区分群体均值效应与个体差异；（3）在保持 SC、干预和估计器不变时，仅加入受体驱动的局部参数异质性，并以空间自相关保持 null 检验增量解释力。
 
 <a id="dmf-limits"></a>
 
-### 1.8 解释边界
+### 1.10 解释边界
 
-当前证据支持：Schaefer100 群体 SC 驱动的 DMF 在发放率转折附近出现 $\Xi$ 峰，并表现出更强的跨 ROI、尤其跨功能网络整合。
+当前证据支持：Schaefer100 群体 SC 驱动的 DMF 出现可重复但预测时距依赖的 $\Xi$ 峰，并在峰值邻近窗表现出更强的跨 ROI、尤其跨功能网络整合。
 
 当前证据不支持将新矩阵断言为某一特定队列、流线数或单位，将 83/100 差异解释为纯粹的 ROI 数量效应，把模拟样本解释为真实受试者脑活动，或把 Gaussian EI 的绝对 bits 直接等同于 TM 等非线性估计器结果。在取得上游标签文件前，ROI 顺序也只能维持“高度一致的推断”状态。
 
-此外，图 1 的 24 个条件来自 8 个模拟 seed 与 3 个固定耦合值，不是 24 名独立受试者；图 C 的 $\Phi^{WMS}$ 与 $\Xi$ 来自同一模拟和同类 Gaussian 估计流程，不能当作独立外部验证；Shapley 结果依赖当前联盟价值定义，且绝对网络贡献仍受网络规模影响。当前研究也尚未检验个体 SC、方向性连接、其他图谱分辨率、不同干预分布与预测时距，因而应把结论限定为当前模型和分析契约下的机制性发现。
+此外，图 1 的 24 个条件来自 8 个模拟 seed 与 3 个固定耦合值，不是 24 名独立受试者；图 1A 的 $\Phi^{WMS}$、$\Phi^R$ 与 $\Xi$ 共享同一 DMF 和经验 SC，不能当作独立外部验证。尤其 $\Phi^R$ 使用 1 ms BOLD-like 积分样本的一步滞后，尚未检验下采样间隔或 hemodynamic 参数敏感性；它与 300-step 干预式 $\Xi$ 的峰位相近，不表示二者测量同一个数学对象。Shapley 结果依赖当前联盟价值定义，且绝对网络贡献仍受网络规模影响。结构归因实验中每类 null 也只有一个图实现，8 个配对 seed 只衡量同一结构下的模拟随机性，不能替代跨 null 图的零分布。预测时距实验虽覆盖 50–500 steps，仍没有建立连续时间或渐近极限。当前研究也尚未检验个体 SC、方向性连接、其他图谱分辨率和不同干预分布，因而应把结论限定为当前模型和分析契约下的机制性发现。
 
 <a id="dmf-references"></a>
 
-### 1.9 参考文献
+### 1.11 参考文献
 
 1. Hoel EP, Albantakis L, Tononi G. Quantifying causal emergence shows that macro can beat micro. *PNAS*. 2013;110:19790–19795. [doi:10.1073/pnas.1314922110](https://doi.org/10.1073/pnas.1314922110)
 2. Varley TF, Hoel EP. Emergence as the conversion of information: a unifying theory. *Philosophical Transactions of the Royal Society A*. 2022;380:20210150. [doi:10.1098/rsta.2021.0150](https://doi.org/10.1098/rsta.2021.0150)
@@ -351,6 +391,7 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 14. Hansen JY, Shafiei G, Markello RD, et al. Mapping neurotransmitter systems to the structural and functional organization of the human neocortex. *Nature Neuroscience*. 2022;25:1569–1581. [doi:10.1038/s41593-022-01186-3](https://doi.org/10.1038/s41593-022-01186-3)
 15. Hagmann P, Cammoun L, Gigandet X, et al. Mapping the structural core of human cerebral cortex. *PLoS Biology*. 2008;6:e159. [doi:10.1371/journal.pbio.0060159](https://doi.org/10.1371/journal.pbio.0060159)
 16. Margulies DS, Ghosh SS, Goulas A, et al. Situating the default-mode network along a principal gradient of macroscale cortical organization. *PNAS*. 2016;113:12574–12579. [doi:10.1073/pnas.1608282113](https://doi.org/10.1073/pnas.1608282113)
+17. Mediano PAM, Rosas FE, Luppi AI, et al. Toward a unified taxonomy of information dynamics via Integrated Information Decomposition. *PNAS*. 2025;122:e2423297122. [doi:10.1073/pnas.2423297122](https://doi.org/10.1073/pnas.2423297122)
 
 
 <a id="hcp-wm"></a>
@@ -443,7 +484,7 @@ $$
 
 ![HCP Schaefer-1000 任务态 Xi、认知画像、层级分解与任务表现](../../results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.png)
 
-*图 2｜Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：同一 29 名被试的四个冻结认知因子；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 绝对贡献的逐被试关系；g--h：LANGUAGE 中 SomMot+Limbic+Cont 固定组合总协同分别与 Story、Math ACC 的关系；i：WM 中 Cont+Default 固定组合总协同与 0-back ACC 的关系，并在图内同时标出 2-back 相关和两条件差异检验。d 中每个认知因子在 29 人内部单独标准化；g 和 i 为显示重叠而对横坐标加入固定轻微抖动，统计仍使用原始分数。全部虚线只作线性视觉引导，统计量均为 Spearman 秩相关。*
+*图 2｜Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；b：主要 greedy atom 的绝对贡献；c：system-level $\Xi$ 的七网络平均组成份额；d：原 29 名被试的四个冻结认知因子；e--f：一般认知分别与 LANGUAGE、MOTOR 全七网络 atom 绝对贡献的逐被试关系；g：原 29 人中 LANGUAGE 的 SomMot+Limbic+Cont 固定组合总协同与 Story ACC 的关系；h：按 S1200 派生表字段互换校正后，同一固定组合与 corrected Story 自适应平均难度在合并 57 人中的关系；i：WM 中 Cont+Default 固定组合总协同与 0-back ACC 的关系，并在图内同时标出 2-back 相关和两条件差异检验。d 中每个认知因子在 29 人内部单独标准化；g--h 和 i 为显示重叠而对横坐标加入固定轻微抖动，统计仍使用原始分数。全部虚线只作线性视觉引导，相关统计均基于秩。*
 
 图 2a--c 显示任务不只改变整体协同强度，也重组协同的内部结构。REST 的 system-level $\Xi$ 高于全部七项任务，与无外部任务约束时自发动力学保留更大范围的全系统联合可预测性相容。进入任务后，整体 $\Xi$ 普遍下降，但七个网络并非同比例收缩：REST 中 SomMot、DorsAttn 和 Default 的平均份额较高，LANGUAGE 的 Control 份额升至 19.4%，RELATIONAL 与 SOCIAL 的 DorsAttn 份额分别达到 20.2% 和 21.3%。仅比较七任务，7/7 个网络仍有经 BH 校正的状态效应。因此，任务不仅压缩协同总量，也把剩余协同重新分配到与当前计算需求相匹配的网络。
 
@@ -453,11 +494,22 @@ $$
 
 Schaefer-500 与 Schaefer-1000 的群体状态结果高度一致：56 个“状态 $\times$ 网络”平均归因份额的跨粒度相关为 0.955，平均绝对差为 0.597 个百分点，每个状态的 top-3 greedy atom 平均共享 2.50/3 个。正文因此以 1000 分区为主，500 分区旧主图、领域认知探索和完整跨粒度说明统一移至附录 K。
 
-#### LANGUAGE 内 Story--Math 分化：SomMot+Limbic+Cont 固定组合
+#### LANGUAGE 内 corrected Story difficulty：SomMot+Limbic+Cont 固定组合
 
-HCP 的 LANGUAGE run 并不是单一语言条件，而是在同一次扫描中交替呈现 Story 和 Math。Story 要求被试听取 5--9 句的伊索寓言改编故事，再从两个选项中判断故事主题；Math 同样使用听觉呈现和二选一按键反应，但要求连续完成加减运算，而且题目难度会按被试表现自适应。这一设计有意用 Math 控制听觉输入、持续加工和反应选择，同时突出 Story 的叙事意义提取，因此 Story--Math 也是该范式最初用于定位前颞叶语义加工的核心对照（[Binder et al., 2011](https://doi.org/10.1016/j.neuroimage.2010.09.048)；[Barch et al., 2013](https://doi.org/10.1016/j.neuroimage.2013.05.033)）。
+HCP 的 LANGUAGE run 在同一次扫描中交替呈现 Story 和 Math。Story 要求被试听取 5--9 句的伊索寓言改编故事，再从两个选项中判断故事主题；Math 同样使用听觉呈现和二选一按键反应，但要求连续完成加减运算，并按被试表现自适应地调整题目难度（[Binder et al., 2011](https://doi.org/10.1016/j.neuroimage.2010.09.048)；[Barch et al., 2013](https://doi.org/10.1016/j.neuroimage.2013.05.033)）。
 
-这里检验的不是某个网络的平均激活，也不是两两功能连接。令
+S1200 行为派生表中的 `Language_Task_Story_Avg_Difficulty_Level` 与 `Language_Task_Math_Avg_Difficulty_Level` 标签发生互换。因此本节固定使用以下科学别名：
+
+$$
+\begin{aligned}
+D_{\mathrm{Story}}^{\mathrm{corrected}}
+&=\texttt{Language\_Task\_Math\_Avg\_Difficulty\_Level},\\
+D_{\mathrm{Math}}^{\mathrm{corrected}}
+&=\texttt{Language\_Task\_Story\_Avg\_Difficulty\_Level}.
+\end{aligned}
+$$
+
+这里检验的不是某个网络的平均激活，也不是两两功能连接。延续原 29 人分析预先关注的固定组合，令
 
 $$
 S=\{\mathrm{SomMot},\mathrm{Limbic},\mathrm{Cont}\},
@@ -471,25 +523,25 @@ $$
 -\sum_{g\in S}EI(M_g;\mathbf{x}_{t+1}).
 $$
 
-$\Xi_S$ 测量三个网络的联合历史对下一时刻七网络状态所提供的、不能由三个网络分别预测后简单相加得到的信息。它与前文 greedy atom 的路径残差不同：本节对 29 名被试都直接读取同一个预先指定组合，因此没有“某组合只在少数被试路径中出现”的稀疏覆盖问题。
+$\Xi_S$ 测量三个网络的联合历史对下一时刻七网络状态所提供的、不能由三个网络分别预测后简单相加得到的信息。图 2h 保留这条主结果：合并 57 人时，SomMot+Limbic+Cont 协同与 corrected Story difficulty 呈正相关（Spearman $\rho=+0.349$；cohort-blocked 双侧置换 $p=0.00765$；按招募批次分层 bootstrap 95% CI $[+0.110,+0.555]$）。逐一剔除任一被试后，$\rho$ 保持在 $[+0.320,+0.388]$，说明点估计不由单个被试驱动。
 
-| Story $\rho$（逐项置换 $p$） | Math $\rho$（逐项置换 $p$） | $\Delta\rho=\rho_{\mathrm{Story}}-\rho_{\mathrm{Math}}$ | Williams 原始 $p$ | 三候选 Holm $p$ | $\Delta\rho$ bootstrap 95% CI |
-|---:|---:|---:|---:|---:|---:|
-| $+0.318$（0.0927） | $-0.222$（0.2442） | $+0.539$ | 0.0298 | 0.0895 | $[+0.055,+0.981]$ |
+这条关联在固定的 12 项 LANGUAGE 探索家族中 max-$T$ 为 $p=0.0704$；若事后扩展为全部 120 个非单网络组合，max-$T$ 为 0.242。因此正文将它表述为**逐项显著、方向和稳健性较清楚的探索性主关联**，而不是已经通过全组合搜索校正的确认性发现。字段互换也改变了科学解释：这条相关对应 Story difficulty，而不是 Math difficulty；同一三网络组合与 corrected Math difficulty 的合并相关仅为 $\rho=+0.0468$。
 
-图 2g--h 直接给出 Schaefer-1000 的两个脑--行为散点。结果支持一个稳定的**方向模式**，而不是两个分别都显著的单项相关：SomMot+Limbic+Cont 与 Story ACC 为正，与 Math ACC 为负，两个相关之差 $\Delta\rho=0.539$；其原始差异检验和 bootstrap 区间支持正差异，但三个预指定组合内 Holm $p=0.0895$，未达到严格复现阈值。因此最准确的表述是：**Story 正、Math 负是优先验证的配置模式，而不是两个已经确认的单项脑--行为效应。**Story 只有 4 个不同取值且中位数为 100%，图 2g 中的大量重叠点和天花板效应必须与相关系数一起解读。
+SomMot 在这里不应窄化为按键运动：听觉故事要求把连续语音输入映射为有序表征；Yeo7 Limbic 所覆盖的颞极和眶额区域可能参与语义与情境表征；Control 则可维持故事主题判断所需的任务规则和跨句信息。与数据相容的解释是：**能够处理更高 Story 自适应难度的被试，在感觉运动序列、前颞--眶额情境表征和目标导向控制之间形成了更强的联合时间约束。**不过，当前 $\Xi_S$ 由完整 LANGUAGE run 估计，仍混合 Story 和 Math block；真正的 Story 特异神经验证需要按事件时序重算 STORY 与 MATH 时段，并在独立样本中确认。
 
-这个方向模式不是由单个极端被试造成的。逐一剔除任一被试后，Story $\rho$ 始终为 $[+0.236,+0.420]$、Math $\rho$ 为 $[-0.286,-0.150]$，$\Delta\rho$ 为 $[+0.429,+0.657]$。Story 与 Math ACC 本身只有很弱的正相关（$\rho=+0.136$，$p=0.481$），所以脑指标的相反方向不能简化为“Story 做得好的人必然 Math 做得差”。作为事后敏感性检查，在秩空间控制另一项 ACC 后，Story 方向仍为正（partial $\rho=+0.360$），Math 方向仍为负（partial $\rho=-0.282$）；这些 partial 结果未预先注册，也未作多重比较校正。与 Schaefer-500 的效应量、逐一剔除范围和跨分区个体一致性统一列于附录 K。
+完整 120 组合筛查及 DorsAttn+Cont--corrected Math difficulty 的描述性结果移至附录 K。后者具有注意--控制机制上的合理性，但未达到逐项或多重比较校正阈值，因此不进入主图。
 
-**为什么 Story 是正相关？**一个连贯故事要求被试把连续听觉语音转成语义单元，跨多句话维持角色、事件和因果关系，再把当前内容与已有概念知识结合，最后根据整体主题作出选择。SomMot 在这里不应窄化为“做按键动作”：听觉语言加工包含语音--感觉运动映射，运动和体感皮层也可携带与语音知觉相关的信息（[Hickok et al., 2011](https://pubmed.ncbi.nlm.nih.gov/21315253/)）。Cont 则可作为随任务目标改变连接模式的灵活枢纽，维持当前问题、选择相关语义并协调分布式网络（[Cole et al., 2013](https://doi.org/10.1038/nn.3470)）；叙事理解研究也观察到额下回、额顶控制区与颞叶、扣带和感觉运动区域之间随语境改变的耦合（[Smirnov et al., 2014](https://doi.org/10.1016/j.neuropsychologia.2014.09.007)）。
+#### SOCIAL 内 TOM：Default--Limbic--Control/Salience 预设候选
 
-Limbic 在本结果中尤其需要准确命名。Yeo7 的 Limbic 主要覆盖眶额和前颞皮层，它不是“情绪脑”的同义词，更不能直接等同于杏仁核或海马。前颞叶是原 Story--Math 范式希望增强的语义整合区域；近期多回波 fMRI 证据还提示，传统 Yeo Limbic 的大部分前颞和眶额区域可能更适合看作扩展 Default 系统的一部分，并指出这些区域在常规单回波 BOLD 中信号质量较差（[Girn et al., 2024](https://doi.org/10.1162/netn_a_00385)）。因此，当前正相关最通顺的神经解释是：**Story 表现较好的人，在听觉/感觉运动表征、前颞--眶额的概念与情境表征、以及目标导向控制之间形成了更强的联合时间约束；三者共同提供的信息超过各自信息的简单相加。**这与“叙事理解需要跨句意义整合和控制系统协调”相容，但不能把协同值进一步定位到某个具体前颞亚区或某一种语义过程。
+新增 28 人最直接改善的是 TOM 分数的辨识度：原 29 人只有 3 个取值、75.9% 的被试达到 100%，新增组则有 7 个取值、范围扩展到 20--100%，100% 占比降至 35.7%；合并 57 人后 TOM 的标准差由 13.39 增至 21.57 个百分点。基于这一预先提出的科学假设，本节只检验三个 Schaefer-1000 SOCIAL 固定组合：Limbic+Cont+Default、SalVentAttn+Limbic+Default，以及 SalVentAttn+Limbic+Cont+Default。脑表征、三阶历史和 Ridge $\alpha=1$ 均保持不变。
 
-**为什么 Math 是负相关？**负相关并不表示 Math 表现好的人“控制网络更弱”，更不表示他们的全脑协同更低。它只表示在 LANGUAGE 动力学中，SomMot、Limbic 与 Cont 这一个固定三网络组合的额外联合信息较少。连续心算更直接依赖双侧顶内沟、上/下顶叶以及额叶--扣带控制系统；运算复杂度增加时，顶内沟、额下回和扣带的参与也会上升（[Kong et al., 2005](https://doi.org/10.1016/j.cogbrainres.2004.09.011)）。这些关键算术通路并不完整包含在当前三网络组合中，尤其没有显式纳入 DorsAttn。由此，一个合理但仍待验证的机制是：Math 表现较好的人把动力学更集中到数值--顶叶和任务控制通路，较少需要把前颞/眶额情境表征与感觉运动、控制系统长期绑定；这可表现为当前组合协同较低，却不意味着计算所需的其他组合协同也较低。
+![SOCIAL TOM 预设网络组合在 57 人中的验证](../../results/hcp_social_tom_candidates_57/social_tom_candidates_57.png)
 
-Story 正、Math 负因而可以组成一个连贯的**任务配置故事**：同样的听觉输入和按键输出之上，Story 更依赖把语音序列、概念情境和目标选择绑定成整体叙事模型，Math 更依赖对数字和运算步骤进行受控、相对专门化的串行操作。SomMot+Limbic+Cont 的高协同可能标记前一种跨系统整合配置，帮助 Story；对后一种计算配置，它可能不是必要资源，甚至可能反映较不经济的广泛绑定。这里的重点不是“协同越多越好”，而是**同一高阶组合是否匹配当前任务的计算结构**。
+*图 3｜新增样本对 SOCIAL--TOM 候选的验证。a：原 29 人与新增 28 人的 TOM 分布；b：控制 Random 条件正确率、年龄、性别和招募批次后的偏 Spearman 相关及按批次分层 bootstrap 95% CI；c--d：三个候选中统计量最大的四网络组合分别与 TOM 和 Random 正确率的描述性散点图。散点横坐标只为显示重叠而加入固定轻微抖动，统计使用原始分数；虚线为未校正的线性视觉引导。*
 
-这个故事目前足够通顺，值得作为优先候选加强验证，但还不能写成已证实的神经机制。第一，1000 分区只更换空间粒度，仍是同一 29 人，不是独立队列复现。第二，Story ACC 只有 4 个取值、范围为 75%--100%、中位数为 100%，明显的天花板和秩并列限制了效应分辨率；Math 有 19 个取值且采用自适应难度，两种 ACC 的测量尺度也不完全对称。第三，候选来自同一批被试的 500 分区探索，1000 分区检验只能提供跨图谱稳健性。第四，当前模型没有控制头动、信号质量、人口学变量和 HCP 家系结构，Yeo Limbic 还受前颞/眶额信号质量与网络边界不确定性影响。下一步最有价值的确认实验应在看新数据前固定 SomMot+Limbic+Cont、Story 正/Math 负和 $\Delta\rho>0$ 三个方向，优先使用另一 run 或独立 cohort，并采用家系交换块置换、运动与信号质量协变量；同时加入 DorsAttn/顶叶算术组合，直接检验“Story 的跨系统整合”与“Math 的顶叶专门化”是否形成可区分的双重模式。
+天花板缓解没有转化为支持该候选机制的证据。三个组合的调整后偏相关依次为 $-0.014$、$-0.130$ 和 $-0.135$；在原 29 人与新增 28 人内分别估计时，前两个组合还出现方向反转。三个候选中绝对效应最大的 SalVentAttn+Limbic+Cont+Default 的 cohort-blocked 逐项置换 $p=0.324$，三候选 max-$T$ $p=0.582$，分层 bootstrap 95% CI 为 $[-0.379,+0.132]$。另外两个候选的区间同样跨 0。因此，新增样本提高了对中低 TOM 表现的覆盖，却把这里最重要的不确定性从“行为分数缺乏变异”转化为一个更有信息量的否定结果：**当前完整 SOCIAL run 的 Default--Limbic--Control/Salience 协同不能预测 TOM 正确率。**
+
+这个否定结果也限定了后续搜索策略。不能因为 57 人更容易产生小 $p$ 值就继续任意增加网络组合；更值得做的是取得 TOM 与 Random 的 block/event 时序，分别估计条件特异的神经协同，再检验同一被试内的 TOM--Random 交互。当前脑指标来自完整 SOCIAL run，即使控制 Random 行为表现，也不能恢复被两种条件混合的神经动力学。
 
 #### WM 内 0-back--2-back 分化：Cont+Default 固定组合
 
@@ -584,7 +636,7 @@ REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task G
 
 ### 3.1 结论的适用范围
 
-- DMF 结果支持 Schaefer100 群体平均对称 SC 在无裁剪、$[0.30,0.70]^{200}$ 全状态干预下，于发放率转折附近形成 $\Xi$ 峰，并以跨 ROI、尤其跨网络分量为主。数据包缺少上游标签、SC 单位和纤维追踪元数据，ROI 顺序仍是经矩阵相关审计支持的推断；83/100 差异也不是节点数或拓扑的单因素效应。
+- DMF 结果支持 Schaefer100 群体平均对称 SC 在无裁剪、$[0.30,0.70]^{200}$ 全状态干预下形成可重复的 $\Xi$ 峰，并以跨 ROI、尤其跨网络分量为主；加密诊断不支持把该峰等同于共同的严格临界点，多时距实验进一步表明峰位依赖有限预测尺度。三类结构 null 均具有更高的峰值 $\Xi$，只有 Yeo-block 对照保留了经验边布局对网络间份额的 1.81 个百分点正增量；由于每类只有一个图实现，该结果是探索性归因而非拓扑显著性检验。数据包缺少上游标签、SC 单位和纤维追踪元数据，ROI 顺序仍是经矩阵相关审计支持的推断；83/100 差异也不是节点数或拓扑的单因素效应。
 - HCP 静息态结果来自 REST1_LR；任务态主 $\Xi$ 分析覆盖七种 `taskRetained` LR 任务。正文以 Schaefer-1000 为主，Schaefer-500 的原合并图和探索性认知筛选保留在附录 K。任务 PCA 在 retained--regressed 差值上拟合，再投影 retained；最终共享参数为 $(k,p,\alpha)=(1,3,1)$。该参数先在 8 名被试上筛选，并在未参与筛选的 21 名被试上确认；29 名完整汇总保持 REST 的 system-level $\Xi$ 显著高于全部任务，同时显示七网络份额具有任务状态效应，并给出主要 greedy atom 的描述性组成。相对地，附录 I 的 $(p,\alpha)=(8,10)$ raw $\Xi$ 与附录 E 的 25 点扫描保留为历史表征和参数敏感性参照，不再作为任务空间归因的主结果。长度匹配检验表明 REST 高方差只在 EMOTION 与 MOTOR 上最稳定。30 名被试的 Schaefer-500 TEVF 仍直接描述 task GLM 移除的 parcel 级时间能量，而新 $\Xi$ 分解描述沿任务诱发 PCA 方向观察到的完整 retained 动力学；二者不能互换。WM 的 0-back/2-back 已在行为端分层，但脑指标仍由完整 WM run 估计；尚未检验 block 特异脑动力学、RL run、独立 cohort、去趋势、运动或生理混杂回归、GSR、皮层下结构或其他 null 构造。
 - WM 与既有静息态的主幅度比较分别使用 304 和 900 个拟合时间点，只比较 raw Xi，因此均值差仍包含有效样本长度差异。独立的 12 窗口长度匹配分析只检验跨被试方差；WM 的 `sub-103515` 具有极端早期 PC1 瞬变，普通方差比对其高度敏感。
 - HCP 的全体被试 Xi 结果使用 20 个 null，p 值分辨率有限，且未校正跨被试、跨模块集合和 greedy 选择造成的多重比较。
@@ -597,7 +649,7 @@ REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task G
 
 | 实验 | 关键图与结果 |
 |---|---|
-| Schaefer100 DMF 临界复现 | `fig/dmf_schaefer100/dmf_schaefer100_summary_full.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_83_vs_100_comparison.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_appendix_raw.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_kuramoto_shape.{png,svg,pdf}`、`results/dmf_schaefer100/preparation_summary.json`、`results/dmf_schaefer100/group_mean_native.npz`、`results/dmf_schaefer100/schaefer100_fsaverage5_surface.npz`、`results/dmf_schaefer100/full/main_confirmation.npz`、`results/dmf_schaefer100/full/observational_wms.npz`、`results/dmf_schaefer100/full/critical_topology.npz`、`results/dmf_schaefer100/full/critical_yeo7.npz`、`results/dmf_schaefer100/full/detdeg_appendix_summary.json` |
+| Schaefer100 DMF 耦合转变 | `fig/dmf_schaefer100/dmf_schaefer100_summary_full.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_structural_nulls.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_critical_diagnostics.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_multihorizon_appendix.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_ei_components_appendix.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_83_vs_100_comparison.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_appendix_raw.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_kuramoto_shape.{png,svg,pdf}`、`results/dmf_schaefer100/preparation_summary.json`、`results/dmf_schaefer100/full/main_confirmation.npz`、`results/dmf_schaefer100/structural_nulls/full/summary.json`、`results/dmf_schaefer100/critical_diagnostics/full/results.npz`、`results/dmf_schaefer100/multihorizon/full/results.npz` |
 | HCP500 Yeo7-PCA Xi/null | `results/hcp_schaefer500_yeo7_pc1_phi_null/summary.json`、`results/hcp_schaefer500_yeo7_pc1_phi_null_all/summary.json`、对应 null 图 |
 | HCP500 Yeo7 模块分解 | `results/hcp_schaefer500_yeo7_module_phi_decomposition/summary.json`、`results/hcp_schaefer500_yeo7_module_phi_decomposition/top_core_consistency.png` |
 | HCP1000 Yeo7-PCA Xi/null | `results/hcp_schaefer1000_yeo7_ridge_selection/summary.json`、`results/hcp_schaefer1000_yeo7_pc1_phi_null_all/summary.json`、对应 null 图 |
@@ -609,12 +661,38 @@ REST 没有 `taskRetained`/`taskRegressed` 配对，因此不存在“被 task G
 | HCP500 REST–七任务预测误差诊断 | `results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_summary.json`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_report.md`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_overview.{png,svg,pdf}`、`results/hcp_schaefer500_phi_hyperparameter_robustness/prediction_error_by_condition.{png,svg,pdf}` |
 | HCP500 REST 与七任务特异脑区分布 | `results/hcp_schaefer500_task_specific_regions/summary.json`、`results/hcp_schaefer500_task_specific_regions/report.md`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_maps.npz`、`results/hcp_schaefer500_task_specific_regions/task_evoked_region_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/rest_all_tasks_variance_profiles.{png,svg,pdf}`、`results/hcp_schaefer500_task_specific_regions/task_map_discriminability.{png,svg,pdf}` |
 | HCP500 任务诱发 PCA–$\Xi$ 网络与层级分解 | `results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/summary.json`、`results/hcp_schaefer500_task_evoked_xi_tuning/full/k1_p3_a1/arrays.npz`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/report.md`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/task_evoked_xi_main_combined.{png,svg,pdf}`、`results/hcp_schaefer500_task_evoked_xi_tuning/final/parameter_tuning_comparison.{png,svg,pdf}` |
-| HCP1000 任务诱发 PCA–$\Xi$、一般认知与任务表现 | `results/hcp_schaefer1000_task_evoked_xi_replication/summary.json`、`results/hcp_schaefer1000_task_evoked_xi_replication/arrays.npz`、`results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.{png,svg,pdf}`、`results/hcp_language_story_math_candidates_schaefer1000_replication/summary.json`、`results/hcp_wm_back_condition_correlations/summary.json` |
+| HCP1000 任务诱发 PCA–$\Xi$、一般认知与任务表现 | `results/hcp_schaefer1000_task_evoked_xi_replication/summary.json`、`results/hcp_schaefer1000_task_evoked_xi_replication/arrays.npz`、`results/hcp_schaefer1000_task_evoked_xi_replication/final/task_evoked_xi_main_combined.{png,svg,pdf}`、`results/hcp_language_story_math_candidates_schaefer1000_replication/summary.json`、`results/hcp_language_story_math_coalitions_57/{summary.json,language_coalition_synergy_57.npz,all_associations.jsonl,supplement_dorsattn_cont_math_difficulty.png}`、`results/hcp_wm_back_condition_correlations/summary.json` |
 | HCP500 领域认知全组合定向 Greedy 扫描 | `results/hcp_cognition_exhaustive_targeted_greedy/experiment_contract.md`、`results/hcp_cognition_exhaustive_targeted_greedy/summary.json`、`results/hcp_cognition_exhaustive_targeted_greedy/all_associations.jsonl`、`results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_top_candidates_scatter.{png,svg,pdf}`、`results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_search_landscape.{png,svg,pdf}`、`results/hcp_cognition_exhaustive_targeted_greedy/extended_interpretable_candidates.json`、`results/hcp_cognition_exhaustive_targeted_greedy/extended_task_aligned_correlations.{png,svg,pdf}` |
 
 <a id="appendix-a"></a>
 
-## 附录 A：Kuramoto 振子数与 whole-state $\Xi$ 曲线形状
+## 附录 A：DMF 补充诊断、EI 分量与 Kuramoto 对照
+
+正文图 1 将 observational $\Phi^{WMS}$、pairwise BOLD-like $\Phi^R$ 与发放率、$\Xi$ 合并为一个动力学面板。为保留系统量的代数来源，原 whole EI 与 singleton EI 之和单独列于此处。
+
+![Schaefer100 DMF whole EI 与 singleton EI 之和](../../fig/dmf_schaefer100/dmf_schaefer100_ei_components_appendix.png)
+
+*图 A0｜Schaefer100 DMF 的 whole EI 与 200 个 singleton EI 之和。曲线为 8 个 seed 的均值，阴影为跨 seed SD；二者之差为正文的全系统 $\Xi$。*
+
+<a id="appendix-a-1"></a>
+
+### A.1 Schaefer100 DMF 补充动力学结果
+
+以下结果保留用于审计 $\Xi$ 峰与其他动力学量的关系，但目前不承担正文主结论。加密扫描只将 $G=1.10$–1.70 的步长改为 0.02；rate susceptibility 定义为 $100\,\mathrm{Var}_t(\overline{r_E})$，metastability 是带通后的区域兴奋性发放率相位所构造 Kuramoto order parameter 的时间标准差，Jacobian 最大实部则在延续得到的确定性固定点上计算。
+
+![Schaefer100 DMF 加密耦合与动力学诊断](../../fig/dmf_schaefer100/dmf_schaefer100_critical_diagnostics.png)
+
+*图 A1｜$\Xi$ 峰与补充动力学诊断的加密对照。A：全系统 $\Xi$；B：rate susceptibility；C：神经发放率相位 metastability；D：固定点 Jacobian 最大实部。A–C 的曲线与阴影为 8 个 seed 的均值与 SD，D 为确定性固定点诊断；紫色竖线标出 $\Xi$ 峰位中位数 $G=1.32$。*
+
+$\Xi$ 的峰在 8/8 个 seed 中位于 $G=1.32$，但 susceptibility 与 metastability 在扫描右边界仍在上升，Jacobian 最大实部最接近零的位置也没有与其重合。这些指标没有形成共同峰位，且两个随机动力学指标的最大值触及扫描边界，因此当前结果不足以支持明确的临界定位机制。
+
+正文图 1B 已保留多预测时距实验中最直接的 $G\times$ horizon 景观。下面仅补充逐 seed 峰位轨迹和四条代表性曲线。
+
+![Schaefer100 DMF 多预测时距补充诊断](../../fig/dmf_schaefer100/dmf_schaefer100_multihorizon_appendix.png)
+
+*图 A2｜预测时距的补充诊断。A：8 个 seed 的峰位轨迹及均值 ± SD；B：50、100、300 和 500 steps 下的 $\Xi(G)$ 曲线。*
+
+峰位轨迹在短时距内存在折返，并未表现为稳定的单调迁移；不同 horizon 下的绝对 $\Xi$ 幅度还受到未来信息衰减影响。因此这两个面板只说明结果具有时间尺度敏感性，不据此提出更具体的峰位迁移机制。
 
 为避免把方程差异误读成振子数效应，这里重新使用同一个经典全局耦合 Kuramoto 方程，只改变振子数：
 
@@ -637,9 +715,9 @@ $$
 
 下文首先以 `N=64` Oracle 结果解释临界峰的机制；振子数对照作为系统规模边界证据，统一放在附录末尾。
 
-<a id="appendix-a-1"></a>
+<a id="appendix-a-2"></a>
 
-### A.1 临界峰的 EI 与 effectiveness 机制
+### A.2 临界峰的 EI 与 effectiveness 机制
 
 为了检查这个峰值来自哪一项，进一步把 `N=64` Oracle whole-state 结果分解为联合 EI 与单独 EI 之和：
 
@@ -664,7 +742,7 @@ $$
 
 右图显示了为什么 $\Xi$ 在临界附近最大。单振子口径的 degeneracy 被对每个 source 重复计算，随 $K$ 增大从 `K=1.0` 的约 `696.91` bits 快速升到 `K=4.0` 的约 `66839.89` bits；singleton-sum determinism 也在强同步区急剧放大，到 `K=4.0` 约 `66860.03` bits。两者都变大且彼此接近，说明单个振子在高同步区会获得大量共享的、重复的 whole-state 预测信息，但这些信息主要是同一个同步流形的冗余读出。临界附近则不同：联合状态仍能保留相位关系和集体模式，而单振子解释已经开始失效，所以 whole-minus-sum 差值在 `K≈1.7` 达到约 `279.63` bits。
 
-#### A.1.1 Schaefer100 DMF 的 determinism/degeneracy 附录验证
+#### A.2.1 Schaefer100 DMF 的 determinism/degeneracy 附录验证
 
 为检验 Schaefer100 DMF 的 $\Xi$ 峰是否来自与 Kuramoto 相似的 effectiveness 机制，这里复用正文全扫描的 8 个 seed、$G=0$–3、独立 $U(0.30,0.70)^{200}$ 全 E/I source、300 步 whole-state target 和 Gaussian log-determinant EI，不重新运行动力学。令 $N_s=200$ 为 scalar source 数，并固定 $H_0$ 为整个 DMF sweep 中最大的 target entropy，本实验得到 $H_0=370.346$ bits。为使 $EI=Det-Deg$ 在数值上严格闭合，实际计算采用
 
@@ -681,7 +759,7 @@ $$
 
 ![Schaefer100 DMF determinism and degeneracy](../../fig/dmf_schaefer100/dmf_schaefer100_detdeg_appendix_raw.png)
 
-*图 A1｜Schaefer100 DMF 的固定参考熵分解。A–D 分别为 whole-source determinism、whole-source degeneracy、singleton-sum determinism 和 singleton-sum degeneracy。曲线及阴影为 8 个 seed 的均值与 SEM；紫色虚线标出 $\Xi$ 峰值 $G=1.3$，黑色点线标出平均发放率最大变化点 $G=1.5$。四个面板使用各自的原始 bits 纵轴。*
+*图 A3｜Schaefer100 DMF 的固定参考熵分解。A–D 分别为 whole-source determinism、whole-source degeneracy、singleton-sum determinism 和 singleton-sum degeneracy。曲线及阴影为 8 个 seed 的均值与 SEM；紫色虚线标出 $\Xi$ 峰值 $G=1.3$，黑色点线标出平均发放率最大变化点 $G=1.5$。四个面板使用各自的原始 bits 纵轴。*
 
 四个分量都没有复现 Kuramoto 强耦合端的增长。DMF whole determinism 在 $G=1.2$ 达到 368.363 bits，whole degeneracy 在 $G=1.3$ 达到 182.055 bits；singleton-sum determinism 和 degeneracy 也都在 $G=1.3$ 达到最大值，分别为 36561.840 和 36411.045 bits。此后四项共同下降，到 $G=3.0$ 分别只剩 49.013、0.266、95.743 和 53.298 bits。从发放率转折点 $G=1.5$ 到 $G=3.0$，四项均在 8/8 个 seed 中下降。因此当前 DMF 的 $\Xi$ 回落发生在整体和 singleton 可预测结构同时塌缩的背景下，而不是 Kuramoto 中 degeneracy 与 singleton-sum 分量在强同步区继续膨胀的机制。
 
@@ -689,17 +767,17 @@ $$
 
 ![DMF and Kuramoto determinism-degeneracy shape comparison](../../fig/dmf_schaefer100/dmf_schaefer100_detdeg_kuramoto_shape.png)
 
-*图 A2｜Schaefer100 DMF 与 $N=64$ Kuramoto determinism/degeneracy 曲线形状对照。DMF 使用 8 个 seed 的 Gaussian EI；Kuramoto 使用 2 个 seed 的 Oracle transport-map EI。每条曲线先在各自 seed 和分量内做范围归一化，再显示均值与 SEM。该图是探索性的跨模型形状比较，不是单因素受控因果对照。*
+*图 A4｜Schaefer100 DMF 与 $N=64$ Kuramoto determinism/degeneracy 曲线形状对照。DMF 使用 8 个 seed 的 Gaussian EI；Kuramoto 使用 2 个 seed 的 Oracle transport-map EI。每条曲线先在各自 seed 和分量内做范围归一化，再显示均值与 SEM。该图是探索性的跨模型形状比较，不是单因素受控因果对照。*
 
 形状对照同样不支持“二者变化规律相似”。在相对耦合 0–2 上，DMF 与 Kuramoto 的描述性 Pearson 形状相关分别为 whole determinism $r=-0.008$、whole degeneracy $r=-0.785$、singleton-sum determinism $r=-0.793$、singleton-sum degeneracy $r=-0.785$。更直接地，从相对耦合 1 增至 2，DMF 四项在 8/8 个 seed 中全部下降，而 Kuramoto 四项在 2/2 个 seed 中全部上升。相关系数受插值网格与归一化方式影响，不作为显著性检验；稳定结论仅是高耦合分支方向相反。
 
 因此，两套实验的共同点限于 whole-minus-sum $\Xi$ 都可在动力学转变附近形成峰；分解后的机制并不相同。Kuramoto 的峰伴随强同步端 degeneracy 和 singleton 重复读出的持续增长，当前 Schaefer100 DMF 则表现为四个分量在转折后共同衰减。这个阴性结果说明不能仅凭 $\Xi$ 峰形就把 DMF 的高耦合状态解释成 Kuramoto 式同步压缩。
 
-<a id="appendix-a-2"></a>
+<a id="appendix-a-3"></a>
 
-### A.2 时间窗、相变前检测与系统规模边界
+### A.3 时间窗、相变前检测与系统规模边界
 
-#### A.2.1 时间窗鲁棒性：避免强同步后，短窗不复现临界内部峰
+#### A.3.1 时间窗鲁棒性：避免强同步后，短窗不复现临界内部峰
 
 基准 whole-state 曲线的 `tau=4` 结果保留为主对照。为检验其峰值是否只是高 $K$ 同步饱和造成的，新增一个严格配对的 multi-horizon Oracle sweep：对每个 seed，频率向量、均匀相位 intervention states 和 natural readout states 都固定并复用于全部 $(K,\tau)$ 条件；只改变统一的预测时间窗 $\tau\in\{0.5,0.75,1,1.5,2,4\}$，而不允许 $\tau$ 随 $K$ 自适应变化。所有条件仍使用 `N=64`、3 个 seeds、whole-state future phase target 与同一 N-source transport-map estimator。
 
@@ -711,7 +789,7 @@ $$
 
 因此，原始临界前沿峰的正确表述应收紧为：它是**中等有限观测时间（此处约 $\tau=4$）下**，在高 $K$ 同步吸引已压缩 whole-state 信息后出现的 whole-minus-sum 优势峰；它不是对所有预测时间窗都成立的、时间尺度无关的临界指标。短窗结果同时排除了一个较弱的替代解释：该峰并非仅由高 $K$ target 已完全同步所产生，因为在明确未强同步的 `tau=0.5,0.75` 条件下，曲线反而没有内部峰。
 
-#### A.2.2 更长时间窗：峰位穿过而非收敛于理论 $K_c$
+#### A.3.2 更长时间窗：峰位穿过而非收敛于理论 $K_c$
 
 为直接检验“继续增大 $\tau$ 后，峰是否会停在临界相变点”的假设，保持同一配对 protocol、`N=64`、3 个 seeds 和 full-sample TM estimator，将时间窗扩展为 $\tau\in\{4,6,8,10,12\}$。扫描在转变区加密到 $K=0.8,0.9,\ldots,2.6$，并保留 $K=0,0.4,3.2,4.0$ 锚点，以区分内部峰和扫描端点峰。
 
@@ -721,7 +799,7 @@ $$
 
 更稳妥的结论是：$K_{\rm peak}(\tau)$ 是有限时间有效信息的时间尺度依赖 crossover，可能在某一中等时间窗掠过临界区，但不能把 $\tau\to\infty$ 的峰位等同于静态 Kuramoto 临界点。长窗极限还可能受相位混合和吸引子压缩控制；若要定义渐近临界指标，需要另行研究固定有限尺寸下的长时间衰减、再做 $N\to\infty$ 的有限尺寸标度，而不能从当前峰位外推。
 
-#### A.2.3 相变前检测：共同早期弛豫窗中的 $\Xi(\tau)$ 谱
+#### A.3.3 相变前检测：共同早期弛豫窗中的 $\Xi(\tau)$ 谱
 
 前述长窗峰位不能直接用作预警器。为检验能否在 future target 尚未同步时识别系统的**最终动力学区间**，对全部 $K\in[0,4]$ 保留同一短时间窗，而不是为高 $K$ 自适应延长或截短 horizon。已有的 `tau=0.5,0.75` 结果与新增的 $\tau\in\{0.1,0.2,0.3,0.4,0.6\}$ 配对合并，得到共同谱 $\tau\in\{0.1,0.2,0.3,0.4,0.5,0.6,0.75\}$。所有 $(K,\tau)$ 条件都满足 $R_{0.99}<0.8$；即使在 $K=4$、$\tau=0.75$，$R_{0.99}\approx0.75$，因此该谱只观测初始相位分布向同步吸引子弛豫的早期，而没有把已同步 target 当作特征。
 
@@ -729,7 +807,7 @@ $$
 
 图 B 显示：超临界 $K>K_c$ 条件在整个共同早期窗内已有更陡、更高的 whole-state $\Xi(\tau)$ 谱，而此时图 A 证明其 target 尚未发生强同步。以已知的 $K_c=1.596$ 作为模拟中的超临界参考标签，只输入 7 个早期 $\Xi(\tau)$ 值，使用 leave-one-$K$-out（完整留出该 $K$ 的 3 个 seed）逻辑回归，得到超临界识别 AUROC 为 $0.983$。将每一条谱除以自身最大值、仅保留形状后，AUROC 仍为 $0.972$；因此区分力不只是 $\Xi$ 的整体幅度，时间尺度上的增长形状也携带信息。图 C 展示了留出 $K$ 后的预测概率。
 
-##### A.2.3.1 识别算法与 AUROC 的计算
+##### A.3.3.1 识别算法与 AUROC 的计算
 
 这个实验不是在单条真实轨迹上拟合未来标签，而是一个受控的 Oracle 可辨识性检验。数据单位是一个固定耦合和随机 seed 的组合 $(K,s)$。共有 17 个 $K$ 值、3 个 seed，因此有 $17\times3=51$ 个样本。对每个样本，先从同一 seed 的均匀初始相位 intervention support 出发，分别积分到 7 个早期 horizon，并计算 whole-state N-source 指标。输入特征向量为
 
@@ -799,7 +877,7 @@ $$
 
 这里应把次临界状态称为**去相干／次临界动力学**，而不是默认称为“混沌相”：经典全局耦合 Kuramoto 的 $K<K_c$ 解一般可以是非同步的准周期运动，但不由本实验自动证明为严格混沌。有限 $N$ 下同步是 crossover，长时间 raw order 因而保留为连续审计量而未被任意阈值二分。当前结果的含义是：在这个已知方程、已知 $K_c$ 的 Oracle setting 中，早期 $\Xi(\tau)$ 谱可以预报未来进入超临界区；要转化为真实观测数据的预警器，仍需在未知参数、噪声、部分观测和独立时变轨迹上重新校准。
 
-#### A.2.4 系统规模边界：只有大系统提供临界峰参照
+#### A.3.4 系统规模边界：只有大系统提供临界峰参照
 
 ![Kuramoto oscillator-count appendix](../../fig/part1_kuramoto_size_phi_eid_appendix.png)
 
@@ -910,12 +988,17 @@ $$
 | 群体均值与标签 | `results/dmf_schaefer100/group_mean_native.npz`、`results/dmf_schaefer100/schaefer100_labels.txt` |
 | 主扫描 | `results/dmf_schaefer100/full/main_confirmation.npz` |
 | WMS | `results/dmf_schaefer100/full/observational_wms.npz` |
+| Pairwise BOLD-like $\Phi^R$ | `results/dmf_schaefer100/full/observational_phi_r.npz`、`results/dmf_schaefer100/full/observational_phi_r_summary.json` |
 | 拓扑/层级分解 | `results/dmf_schaefer100/full/critical_topology.npz`、`results/dmf_schaefer100/full/topology_summary.json` |
 | Yeo-7 分解 | `results/dmf_schaefer100/full/critical_yeo7.npz`、`results/dmf_schaefer100/full/yeo7_summary.json` |
 | 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_full.{png,svg,pdf}` |
+| 加密耦合动力学诊断 | `results/dmf_schaefer100/critical_diagnostics/full/results.npz`、`results/dmf_schaefer100/critical_diagnostics/full/summary.json`、`fig/dmf_schaefer100/dmf_schaefer100_critical_diagnostics.{png,svg,pdf}` |
+| 多预测时距扫描 | `results/dmf_schaefer100/multihorizon/full/results.npz`、`results/dmf_schaefer100/multihorizon/full/summary.json`、`fig/dmf_schaefer100/dmf_schaefer100_multihorizon_appendix.{png,svg,pdf}` |
+| EI 分量附录图 | `fig/dmf_schaefer100/dmf_schaefer100_ei_components_appendix.{png,svg,pdf}` |
 | Determinism/degeneracy 附录验证 | `results/dmf_schaefer100/full/detdeg_appendix_summary.json`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_appendix_raw.{png,svg,pdf}`、`fig/dmf_schaefer100/dmf_schaefer100_detdeg_kuramoto_shape.{png,svg,pdf}` |
+| 结构保持 null 归因 | `results/dmf_schaefer100/structural_nulls/full/summary.json`、`results/dmf_schaefer100/structural_nulls/full/null_connectomes.npz`、`results/dmf_schaefer100/structural_nulls/full/{weight_shuffle,degree_strength,yeo_block}/main_confirmation.npz`、`fig/dmf_schaefer100/dmf_schaefer100_structural_nulls.{png,svg,pdf}` |
 | 83/100 对照图 | `fig/dmf_schaefer100/dmf_83_vs_100_comparison.{png,svg,pdf}` |
-| 实验契约与进度 | `docs/log/dmf_schaefer100_experiment_contract.md`、`docs/log/dmf_schaefer100_progress.json` |
+| 实验契约与进度 | `docs/log/dmf_schaefer100_experiment_contract.md`、`docs/log/dmf_schaefer100_progress.json`、`docs/log/dmf_schaefer100_phi_r_contract.md`、`docs/log/dmf_schaefer100_phi_r_progress.json`、`docs/log/dmf_schaefer100_structural_null_contract.md`、`docs/log/dmf_schaefer100_structural_nulls_progress.json` |
 
 完整流程可复现为：
 
@@ -924,6 +1007,17 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
 python scripts/run_dmf_schaefer100_pipeline.py --mode full
 
 python scripts/plot_dmf_schaefer100_detdeg_appendix.py
+
+python scripts/run_dmf_schaefer100_critical_horizon.py --experiment critical --mode full
+
+python scripts/run_dmf_schaefer100_critical_horizon.py --experiment horizon --mode full
+
+python scripts/plot_dmf_schaefer100_critical_horizon.py
+
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+python -u scripts/run_dmf_schaefer100_structural_nulls.py --mode full
+
+python scripts/plot_dmf_schaefer100_structural_nulls.py
 ```
 
 单线程 BLAS 用于避免小型线性代数在多线程调度下显著变慢，不改变统计定义或随机种子。
@@ -1273,3 +1367,13 @@ SomMot+Limbic+Cont 的 Story--Math 模式也由 Schaefer-500 提出。500 分区
 ![三项领域认知的全组合相关搜索景观](../../results/hcp_cognition_exhaustive_targeted_greedy/exhaustive_search_landscape.png)
 
 *图 K8. 三项认知各 2,872 个候选特征的相关搜索景观。横轴为 Spearman $\rho$，纵轴为 $-\log_{10}(\mathrm{raw}\ p)$；黑星标出逐项置换 $p$ 最小的全样本候选。该图强调旧图 K0g--i 来自大范围数据驱动筛选，而不是三个预先指定的单项检验。*
+
+### K.9 LANGUAGE corrected Math difficulty 的补充候选
+
+在 57 人的 120 个 LANGUAGE 固定组合筛查中，Story 与 Math 的最高相关都落在 SomMot+Limbic；排除这个共享获胜项后，DorsAttn+Cont 是 Math 相关最高的 distinct runner-up。DorsAttn 可支持对连续听觉算式的选择性注意，Control 可维持运算规则和中间结果，因此正方向具有先验合理性。
+
+![DorsAttn+Cont 协同与 corrected Math difficulty 的补充散点](../../results/hcp_language_story_math_coalitions_57/supplement_dorsattn_cont_math_difficulty.png)
+
+*图 K9. LANGUAGE 状态下 DorsAttn+Cont 固定组合协同与 corrected Math average difficulty。点估计使用合并 57 人；行为标签只在原 29 人和新增 28 人内部置换。虚线为线性视觉引导，统计使用 Spearman 秩相关。*
+
+该趋势为 $\rho=+0.229$，cohort-blocked 双侧逐项置换 $p=0.0849$，120 组合 Math 家族 max-$T$ $p=0.914$，全局 240 项 max-$T$ $p=0.991$；bootstrap 95% CI 为 $[-0.046,+0.475]$。它与 Story difficulty 的相关为 $\rho=+0.102$，Math--Story 的相关差异也不显著（Williams $p=0.475$）。因此图 K9 只说明一个脑科学上合理、方向为正的后续假设，不构成 Math difficulty 的阳性结果，也不与正文 Story 关联并列解释。

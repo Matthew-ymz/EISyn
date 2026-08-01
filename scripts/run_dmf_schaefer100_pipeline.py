@@ -35,7 +35,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-results", type=Path, default=SOURCE)
     parser.add_argument("--status", type=Path, default=STATUS)
     parser.add_argument("--log", type=Path, default=LOG)
-    parser.add_argument("--start-at", choices=("main", "wms", "topology", "yeo7", "plot"), default="main")
+    parser.add_argument(
+        "--start-at", choices=("main", "wms", "phi_r", "topology", "yeo7", "plot"), default="main"
+    )
     parser.add_argument(
         "--critical-g",
         type=parse_float_list,
@@ -183,10 +185,11 @@ def main() -> None:
     g_count = len(g_indices.split(","))
     main_cache = run_dir / "main_confirmation.npz"
     wms_cache = run_dir / "observational_wms.npz"
+    phi_r_cache = run_dir / "observational_phi_r.npz"
     topology_cache = run_dir / "critical_topology.npz"
     yeo_cache = run_dir / "critical_yeo7.npz"
     critical_arg = ",".join(f"{value:.1f}" for value in critical_g)
-    phases = ["main", "wms", "topology", "yeo7", "plot"]
+    phases = ["main", "wms", "phi_r", "topology", "yeo7", "plot"]
     start_index = phases.index(args.start_at)
     started = time.monotonic()
 
@@ -213,6 +216,16 @@ def main() -> None:
                 "--no-resume", *( ["--dense-g"] if args.mode == "full" else [] ),
             ],
             seed_count * (3 if args.mode == "smoke" else g_count),
+        ),
+        (
+            "phi_r",
+            [
+                str(PYTHON), "-u", "scripts/run_dmf_schaefer100_observational_phi_r.py",
+                "--mode", args.mode, "--source", str(source), "--output", str(phi_r_cache),
+                "--summary", str(run_dir / "observational_phi_r_summary.json"),
+                "--status", str(run_dir / "phi_r_progress.json"),
+            ],
+            seed_count * (1 if args.mode == "smoke" else g_count),
         ),
         (
             "topology",
@@ -243,6 +256,7 @@ def main() -> None:
             [
                 str(PYTHON), "-u", "scripts/plot_dmf_schaefer100_summary.py",
                 "--source", str(source), "--main", str(main_cache), "--wms", str(wms_cache),
+                "--phi-r", str(phi_r_cache),
                 "--topology", str(topology_cache), "--yeo7", str(yeo_cache),
                 "--prep", str(BASE / "group_mean_native.npz"),
                 "--output", str(figure_dir / f"dmf_schaefer100_summary_{suffix}"),
