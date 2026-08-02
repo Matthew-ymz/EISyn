@@ -42,9 +42,11 @@ tmp/
 exp/tmp/
 exp/**/tmp/
 exp/cache/
+exp/reweighted_ei/cache/
 results/
 /models/
 /fig/
+outputs/
 tests/
 !tests/
 tests/*
