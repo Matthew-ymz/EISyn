@@ -3,10 +3,10 @@
 ## 结论
 
 1. **Schaefer100 DMF 结果保持不变。** 群体平均结构连接上的 $\Xi$ 与 pairwise BOLD-like $\Phi^R$ 将耦合转变定位在相邻粗网格，但峰位依赖预测时距，因此不把单一峰解释为时间尺度无关的严格临界点。峰值邻近窗的 $\Xi$ 以跨 ROI、尤其跨网络分量为主；结构 null 说明经验边布局主要改变网络间份额，而非最大化总 $\Xi$。
-2. **57 人 Schaefer-1000 主结果复现原结论。** 在统一的任务诱发 PCA、三阶历史和 Ridge $\alpha=1$ 下，REST 的 system-level $\Xi$ 均值为 7.122 bits，高于七任务的 4.633--6.243 bits；七项配对 Wilcoxon 检验均经 BH 校正显著。相较原 29 人，八状态均值排序完全一致，网络份额矩阵相关为 0.989，greedy atom 矩阵相关为 0.878，说明幅度排序与内部组成均稳定。
+2. **57 人 Schaefer-1000 主结果同时连接群体状态差异与个体行为。** 在统一的任务诱发 PCA、三阶历史和 Ridge $\alpha=1$ 下，REST 的 system-level $\Xi$ 均值为 7.122 bits，高于七任务的 4.633--6.243 bits；七项配对 Wilcoxon 检验均经 BH 校正显著。在 LANGUAGE 状态中，Somatomotor–Limbic 协同分别与校正后的 Story 和 Math 难度呈正相关。SOCIAL 的 120 组合探索则显示，Visual–Limbic–Control 协同与区分心理互动和随机运动的 $d'$ 呈负相关，并通过两个行为端点共 240 项的 cohort-blocked max-$T$ 校正。MOTOR 没有任务内正确率，因而将年龄校正后的耐力、灵巧度和握力标准化后等权平均为广义运动指数；Visual–Somatomotor–Limbic–Control–Default 是绝对关联最大的组合（调整后 $\rho=-0.419$），但未通过 120 组合 max-$T$ 校正（$p=0.0848$）。相比之下，REST 下 120 个固定网络组合均未显示与一般认知因子可靠相关；最高候选的调整后 $\rho=0.245$，120 组合 max-$T$ $p=0.806$。EMOTION 筛查同样没有找到对模型参数稳定且通过全分析族校正的表现相关组合。
 3. **57 人方法学验证限定了结论边界。** REST circular-shift null 中 56/57 人高于 null 均值；缺 Limbic 的六网络核高于 matched-null 频率。25 点参数网格中只有 12 点保持 REST 群体均值最高、7 点七项对比全部显著，表明结论依赖合理正则化，而非对任意超参数成立。按留出误差选择的最优共享点为 $(p,\alpha)=(5,10)$，且仍保留七项显著 REST 优势。Schaefer-1000 TEVF 的七任务 parcel 图可在留一被试分类中达到 90.2%，说明任务空间模式具有稳定的个体外可辨识性。
 
-本文不再报告 Schaefer-500 HCP 实验，也移除了原 29/30 人的探索性认知关联；HCP 正文与验证统一使用同一批 57 名 Schaefer-1000 被试。
+本文不再报告 Schaefer-500 HCP 实验；原 29/30 人的探索性认知关联已由同一批 57 名 Schaefer-1000 被试上的重新检验替代。
 
 ## 目录
 
@@ -97,7 +97,7 @@ pairwise BOLD-like $\Phi^R$ 从 $G=0$ 的 $3.631\pm0.159$ bits 上升，在 $G=1
 
 ![Schaefer100 DMF 多尺度汇总](../../fig/dmf_schaefer100/dmf_schaefer100_summary_full.png)
 
-*图 1｜Schaefer100 DMF 多尺度汇总。A：上部为平均发放率与 full-state interventional $\Xi$，下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$；曲线为 8 个 seed 的均值，阴影为跨 seed SD。橙色点划线、紫色虚线和灰色点线依次标出粗网格 $\Phi^R$ 峰 $G=1.2$、$\Xi$ 峰 $G=1.3$ 与发放率最大变化点 $G=1.5$。三种信息量的 observable、维度与预测时距不同，双轴只用于比较峰形和峰位。B：$G\times$ target horizon 的跨 seed 平均 $\Xi$ 热图，白线为各时距的平均峰位；不同 horizon 改变 target 分布，颜色的绝对 bits 不宜直接作跨行强度比较。C–G 基于峰值邻近窗 $G\in\{1.2,1.3,1.4\}$，先在每个 seed–$G$ 条件中独立分解，再对 8 个 seed × 3 个 $G$ 的 24 个条件汇总。C：各 ROI 的局部 E/I（ROI 内）耦合与跨 ROI leverage；D：ROI 内/跨 ROI 比例，柱高为 8 个 seed 的均值，误差线为跨 seed SD；E：Yeo-7 网络内跨 ROI 分量；F：网络间 $\Xi$ 精确 Shapley 归因；E–F 标签斜杠后的数字为 ROI 数，并采用相同网络顺序和颜色；G：每个 ROI 的跨 ROI leverage 在 24 个条件上的均值，映射到双侧外侧面与内侧面。EI 分量及其余补充动力学图见附录 A。*
+*图 1｜Schaefer100 DMF 多尺度汇总。A：上部为平均发放率与 full-state interventional $\Xi$，下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$；曲线为 8 个 seed 的均值，阴影为跨 seed SD。粗网格上，$\Phi^R$、$\Xi$ 与发放率最大变化点分别位于 $G=1.2$、1.3 和 1.5。三种信息量的 observable、维度与预测时距不同，双轴只用于比较峰形和峰位。B：$G\times$ target horizon 的跨 seed 平均 $\Xi$ 热图，白线为各时距的平均峰位；不同 horizon 改变 target 分布，颜色的绝对 bits 不宜直接作跨行强度比较。C–G 基于峰值邻近窗 $G\in\{1.2,1.3,1.4\}$，先在每个 seed–$G$ 条件中独立分解，再对 8 个 seed × 3 个 $G$ 的 24 个条件汇总。C：各 ROI 的局部 E/I（ROI 内）耦合与跨 ROI leverage；D：ROI 内/跨 ROI 比例，柱高为 8 个 seed 的均值，误差线为跨 seed SD；E：Yeo-7 网络内跨 ROI 分量；F：网络间 $\Xi$ 精确 Shapley 归因；E–F 标签斜杠后的数字为 ROI 数，并采用相同网络顺序和颜色；G：每个 ROI 的跨 ROI leverage 在 24 个条件上的均值，映射到双侧外侧面与内侧面。EI 分量及其余补充动力学图见附录 A。*
 
 <a id="dmf-horizon"></a>
 
@@ -400,19 +400,23 @@ $$
 
 跨网络部分则通过七模块联盟价值的精确 Shapley 分配。最终守恒归因 $C_g$ 满足 $\sum_g C_g=\Xi$；图中网络份额先在每名被试内计算 $C_g/\Xi$，再作群体平均，所以每个状态列严格合计 100%。数值闭合误差不超过 $6.7\times10^{-16}$。
 
-### 2.2 57 人主结果：A–C
+### 2.2 57 人主结果：状态差异与个体行为
 
-![HCP Schaefer-1000 57 人任务态 Xi、层级分解与网络份额](../../results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_panels_a_c_57.png)
+![HCP Schaefer-1000 57 人任务态 Xi 与语言、情绪及运动表现关联](../../results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_behavior_main_57.png)
 
-*图 2｜57 人 Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；白色菱形为均值，显著性为相对 REST 的双侧配对 Wilcoxon，并在七项任务内作 BH 校正。b：57 人群体平均的主要 greedy hierarchy atom 绝对贡献。c：守恒网络归因占 system-level $\Xi$ 的平均份额，每列合计 100%。*
+*图 2｜57 人 Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；白色菱形为均值，显著性为相对 REST 的双侧配对 Wilcoxon，并在七项任务内作 BH 校正。b：57 人群体平均的主要 greedy hierarchy atom 绝对贡献。c：守恒网络归因占 system-level $\Xi$ 的平均份额，每列合计 100%。d：LANGUAGE 状态下 Visual–Somatomotor–Limbic–Control 协同与 Story 正确率的关系。e：Visual–Dorsal attention–Control 协同与 Math 正确率的关系。f、g：完整 EMOTION 状态下，Limbic–Control 及 Limbic–Control–Default 协同分别与 Shape 速度校正后的 Face 匹配速度的关系；横纵轴均为协变量校正后的秩残差，较高横轴值表示更快。d、e 的暖橙色表示正相关，f、g 的冷蓝色表示负相关。h：MOTOR 广义运动指数的绝对相关前十项中，保留点对点置换 $p<0.05$ 的九个负相关组合；点和误差线分别为年龄、性别及批次校正后的 $\rho$ 和按批次分层 bootstrap 95% CI，右侧标出未作全局校正的点对点 $p$。每个散点代表一名被试，实线用于辅助显示单调关联；d、e 报告点对点 Spearman 检验，f、g 报告控制 Shape 速度、年龄、性别和样本批次的点对点置换检验。d--h 均未作跨组合多重比较校正。*
 
 REST 的 system-level $\Xi$ 均值为 7.122 bits；EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 与 WM 依次为 4.633、4.785、5.150、5.568、5.357、6.243 与 5.323 bits。七项 REST–任务均值差均为正，范围为 0.879--2.489 bits；全部七项配对检验经 BH 校正后显著，其中最弱的 SOCIAL 对比仍有 $q=0.0304$。排除噪声协方差条件数最大的 `sub-800941` 后，七项方向和显著性均不变。因此，**REST 整体 $\Xi$ 高于全部任务态**在完整 57 人中成立，但它是群体结论，不是逐人定律：REST 高于对应任务的被试比例为 61.4%--86.0%。
 
-相较原 29 人，八状态均值排序的 Spearman 相关为 1.000；完整 greedy atom 矩阵相关为 0.878，原 top-12 与新 top-12 重合 11 项；七网络份额矩阵相关为 0.989，平均绝对变化仅 0.331 个百分点。任务态仍主要由缺 Limbic 的广泛六网络组合及相邻高阶组合承担，LANGUAGE 的 Control 份额为 19.2%，RELATIONAL 和 SOCIAL 的 DorsAttn 份额分别为 19.5% 与 20.5%。只比较七任务时，7/7 个网络均保留经 BH 校正的状态效应。由此可见，新样本没有改变“任务压低整体 $\Xi$，同时重分配剩余协同”的核心结论。
+LANGUAGE 状态下，包含 Control 的不同协同组合分别对应两类任务表现：Visual–Somatomotor–Limbic–Control 协同与 Story 正确率呈正相关（Spearman $\rho=0.258$，点对点 $p=0.044$），Visual–Dorsal attention–Control 协同与 Math 正确率呈正相关（$\rho=0.281$，点对点 $p=0.035$）。这表明 Control 并非以孤立网络的形式发挥作用，而是嵌入与任务内容相匹配的多网络协同结构：叙事理解更多联系感觉运动和边缘系统的联合整合，而算术表现更多联系视觉与背侧注意系统的协同募集。
+
+MOTOR 行为表没有任务内正确率或反应时，因此不构造虚假的 task accuracy。主行为终点改为年龄校正耐力、灵巧度和握力各自在 57 人内标准化后的等权平均，作为跨运动领域的描述性综合指数。控制年龄、性别和样本批次后，Visual–Somatomotor–Limbic–Control–Default 的固定组合 Syn 与该指数具有最大的绝对相关（$\rho=-0.419$，点对点置换 $p=0.00192$，分层 bootstrap 95% CI $[-0.597,-0.172]$），但 120 组合 BH $q=0.173$、max-$T$ $p=0.0848$，均未达到校正阈值。该候选在原 29 人和新增 28 人中的未调整相关分别为 $-0.443$ 和 $-0.496$，方向一致；不过三个行为分量的 Cronbach $\alpha=0.214$，所以它只能称为广义运动指数，不能解释为已验证的单一运动能力量表。完整定义和筛查见附录 E.2.5。
+
+REST 下的一般认知重新检验没有得到对应的正结果。对 120 个固定 Yeo7 网络组合逐一计算 Syn，并控制年龄、性别和原 29 人/新增 28 人批次后，没有组合达到点对点置换 $p<0.05$。绝对相关最高的 Salience/ventral attention–Limbic 组合为 $\rho=0.245$，点对点 $p=0.0737$、BH $q=0.975$、120 组合 max-$T$ $p=0.806$；其分层 bootstrap 95% CI 为 $[-0.063,0.519]$。原 29 人和新增 28 人的年龄、性别校正相关分别为 0.020 和 0.435，说明最高候选也缺少跨批次一致性。该结果不支持用当前 REST 固定组合 Syn 解释一般认知个体差异，完整筛查见附录 E.2.3。
 
 456 个“被试 $\times$ 状态”模型中，396 个留出预测优于持久性基线；held-out RMSE/持久性基线比的均值为 0.919。该诊断说明主结果并非普遍依赖失效的一步预测器，但不把预测误差最低等同于 $\Xi$ 估计最无偏。
 
-所有 $\Xi$/Phi 数值的非负容差预先设为 $10^{-10}$ bits：仅 $[-10^{-10},0)$ 可视为数值零，低于该阈值必须中止。主 system-level $\Xi$、跨网络 $\Xi$、REST observed/null、模块 atom 与鲁棒性网格共检查 17,271 个值，没有容差内负值或显著非负性违反；完整计数见 `nonnegativity_audit.json`。
+主验证套件的 $\Xi$/Phi 非负容差预先设为 $10^{-10}$ bits：仅 $[-10^{-10},0)$ 可视为数值零，低于该阈值必须中止。主 system-level $\Xi$、跨网络 $\Xi$、REST observed/null、模块 atom 与鲁棒性网格共检查 17,271 个值，没有容差内负值或显著非负性违反；完整计数见 `nonnegativity_audit.json`。REST 一般认知筛查按其固定组合计算契约另设 $10^{-9}$ bits 容差，6,840 个 Syn 值的最小值为 0.000979 bits，同样没有负值。
 
 ### 2.3 57 人验证总览
 
@@ -457,15 +461,19 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 
 ## 3. 讨论：解释边界与可复现性
 
-57 人结果确认了主配置下的三层证据链：REST 的 system-level $\Xi$ 整体更高；任务态对剩余 $\Xi$ 的网络份额和高阶组合进行重分配；任务 GLM 成分在 Schaefer-1000 parcel 空间形成可推广到留出被试的任务特异模式。三者分别描述整体联合可预测性、网络级守恒归因和经典任务空间分布，不能互相替代。
+57 人结果确认了主配置下的三层证据链：REST 的 system-level $\Xi$ 整体更高；任务态对剩余 $\Xi$ 的网络份额和高阶组合进行重分配；任务 GLM 成分在 Schaefer-1000 parcel 空间形成可推广到留出被试的任务特异模式。三者分别描述整体联合可预测性、网络级守恒归因和经典任务空间分布，不能互相替代。REST 整体 $\Xi$ 较高也不自动意味着其特定网络组合编码一般认知；57 人的 120 组合筛查没有提供这种关联证据。
 
-结论有四个边界。第一，主 $\Xi$ 结果仅覆盖 REST1_LR 与七项 LR 任务，未检验 RL run、家系结构、GSR、运动与生理混杂或皮层下结构。第二，25 点网格显示方向对模型自由度与正则化敏感；弱正则的高阶模型会反转，因而不声称参数无关。第三，20 次 null 的经验 $p$ 最小为 $1/21$，模块频率检验未作跨候选多重比较；greedy atom 只用于描述候选结构，不是唯一高阶分解。第四，TEVF 依赖 `taskRetained`/`taskRegressed` 的 GLM 配对，而共同方差图不是任务解释比例。
+结论有七个边界。第一，主 $\Xi$ 结果仅覆盖 REST1_LR 与七项 LR 任务，未检验 RL run、家系结构、GSR、运动与生理混杂或皮层下结构。第二，25 点网格显示方向对模型自由度与正则化敏感；弱正则的高阶模型会反转，因而不声称参数无关。第三，20 次 null 的经验 $p$ 最小为 $1/21$，模块频率检验未作跨候选多重比较；greedy atom 只用于描述候选结构，不是唯一高阶分解。第四，一般认知分析只检验冻结的 $(p,\alpha)=(3,1)$、REST1_LR 和 120 个固定组合；没有建模家系、头动或生理协变量，且新增 28 人按行为多样性选择。第五，EMOTION 表现分析没有 Face/Shape 条件 EV、家系编号或完整头动摘要，且主配置下的差值候选不能跨参数保持。第六，MOTOR 广义指数来自扫描外的耐力、灵巧度和握力，不是 run 内表现，三个分量的内部一致性也较弱；当前候选还没有通过 120 组合校正。第七，TEVF 依赖 `taskRetained`/`taskRegressed` 的 GLM 配对，而共同方差图不是任务解释比例。
 
 所有 57 人 HCP 结果由冻结契约 `results/hcp_schaefer1000_57_validation_suite/experiment_contract.json` 管理。长计算保留 PCA 缓存、逐被试或逐网格 checkpoint 与 `live_progress.json`；图形同时输出 PNG、SVG 和 PDF。主要产物如下：
 
 | 内容 | 产物 |
 |---|---|
-| 主图 A–C | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_panels_a_c_57.{png,svg,pdf}` |
+| 主图 A–G | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_behavior_main_57.{png,svg,pdf}` |
+| 层级原子与网络归因补充图 | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_attribution_supplement_57.{png,svg,pdf}` |
+| REST 固定组合与一般认知 | `results/hcp_rest_general_cognition_57/{summary.json,rest_general_cognition_coalition_correlations_57.png}` |
+| EMOTION 表现与 120 个固定组合 | `results/hcp_emotion_performance_coalitions_57/{summary.json,report.md,emotion_performance_coalition_screen_57.png}` |
+| MOTOR 广义运动指数与 120 个固定组合 | `results/hcp_motor_composite_scores_57/{summary.json,report.md,motor_composite_coalition_screen_57.png}` |
 | REST null | `results/hcp_schaefer1000_57_validation_suite/null/{summary.json,observed_minus_null.png}` |
 | 模块 matched-null | `results/hcp_schaefer1000_57_validation_suite/module/{summary.json,top_core_consistency.png}` |
 | 参数鲁棒性 | `results/hcp_schaefer1000_57_validation_suite/robustness/{summary.json,hyperparameter_robustness_overview.png,hyperparameter_task_margins.png}` |
@@ -836,7 +844,93 @@ python scripts/plot_dmf_schaefer100_structural_nulls.py
 
 ## 附录 E：HCP Schaefer-1000 的 57 人验证
 
-### E.1 主结果相对原 29 人的变化
+### E.1 层级原子与网络归因
+
+正文图 2b、c 给出完整的层级原子与网络归因。相较原 29 人，完整 greedy atom 矩阵相关为 0.878，原 top-12 与新 top-12 重合 11 项；七网络份额矩阵相关为 0.989，平均绝对变化仅 0.331 个百分点。任务态仍主要由缺 Limbic 的广泛六网络组合及相邻高阶组合承担，LANGUAGE 的 Control 份额为 19.2%，RELATIONAL 和 SOCIAL 的 DorsAttn 份额分别为 19.5% 与 20.5%。只比较七任务时，7/7 个网络均保留经 BH 校正的状态效应。因此，57 人样本保留了“任务压低整体 $\Xi$，同时重分配剩余协同”的内部组成证据。
+
+### E.2 LANGUAGE difficulty 关联的统计边界
+
+行为表中 Story 与 Math average difficulty 的原始字段名互换，本分析按任务内容校正端点名称后再作关联。补充分析使用同一个预先固定的 Somatomotor–Limbic 组合：Story difficulty 的 $\rho=0.429$，端点内 120 组合 max-T $p=0.043$，同时控制 Story 与 Math 两个端点的全局 max-T $p=0.094$；Math difficulty 的 $\rho=0.307$，点对点 $p=0.019$，但端点 max-T $p=0.490$。因此 Story 结果支持组合家族内的校正后关联，而 Math 结果是同方向的探索性个体差异证据，不作全家族确认性声明。两端点相关系数之差也不显著（Williams 检验经所选候选 Holm 校正 $p=0.455$）。协同非负容差设为 $10^{-9}$ bits；该组合 57 个估计的最小值为 0.00692 bits，没有容差内负值或显著非负性违反。
+
+### E.2.1 SOCIAL 综合辨别能力与 Visual–Limbic–Control 协同
+
+SOCIAL 行为被重新写成信号检测问题。令 $H$ 为 TOM 动画被判断为心理互动的命中率，$CR$ 为 Random 动画被正确判断为随机运动的正确拒绝率，则
+
+$$
+BA=\frac{H+CR}{2},
+\qquad
+d'=\Phi^{-1}(\widetilde H)-\Phi^{-1}(\widetilde{FA}),
+$$
+
+其中 $FA=1-CR$。为避免 0% 或 100% 产生无穷值，按每名被试行为百分比反推出的有效试次数 $n$ 使用 log-linear 校正 $\widetilde H=(h+0.5)/(n+1)$、$\widetilde{FA}=(fa+0.5)/(n+1)$。57 人中 48 人的 $n=5$、8 人为 10、1 人为 15；Balanced accuracy 有 11 个取值、范围 40--100%，校正 $d'$ 有 17 个取值、范围 $-0.518$--$2.766$。两端点高度相关（Spearman $\rho=0.954$），因此同时报告各端点的 120 组合校正和两端点共 240 项的联合校正。
+
+![SOCIAL 综合行为得分与 120 个网络组合](../../results/hcp_social_composite_scores_57/social_composite_coalition_screen_57.png)
+
+*图 E1｜SOCIAL 综合行为终点与协同组合筛查。a：Balanced accuracy 与有限试次校正的 $d'$；b：120 个固定 Yeo7 网络组合分别与两个端点的年龄、性别和批次校正相关；c、d：两个端点共同选出的 Visual+Limbic+Control 组合。原 29 人与新增 28 人用不同颜色显示；虚线仅为线性视觉引导。置换采用 Freedman--Lane 残差方案，并限制在原始/新增批次内部。*
+
+两个端点均选出 Visual+Limbic+Control。Balanced accuracy 的调整后相关为 $\rho=-0.421$，按批次分层 bootstrap 95% CI $[-0.624,-0.170]$；点对点 $p=0.00163$，但 120 组合 max-$T$ $p=0.0666$、240 项全局 max-$T$ $p=0.0920$，所以只作为方向一致的支持。$d'$ 的调整后相关为 $\rho=-0.453$，95% CI $[-0.646,-0.215]$，120 组合 max-$T$ $p=0.0319$，240 项全局 max-$T$ $p=0.0433$。原 29 人与新增 28 人的 $d'$ 相关分别为 $-0.422$ 和 $-0.451$，方向和幅度一致。依赖检验相关结构的 permutation max-$T$ 达到家族错误率阈值，但常规全 240 项 BH 仍为 $q=0.108$；因此该结果表述为**通过预定 permutation max-$T$ 的探索性关联**，而不是已完成独立样本确认。
+
+分量诊断显示，这条关系主要来自 Random 正确拒绝率（调整后 $\rho=-0.398$），TOM 命中率仅为 $-0.117$。控制 response criterion 后，$d'$ 相关仍为 $-0.438$；再控制有效试次数为 $-0.429$。把所有人统一按 $n=5$ 校正时为 $-0.440$，只保留标准 $n=5$ 的 48 人时为 $-0.507$。因此较高辨别能力并非主要来自更强的“报告心理互动”倾向，而更接近减少把随机运动误判为社会互动：表现较好者在完整 SOCIAL run 中呈现较低的 Visual–Limbic–Control 不可分解联合预测信息。一个与数据相容、但尚未由 block 特异时序证明的解释是，高效随机拒绝依赖视觉运动、情感/价值赋义和规则控制之间更选择性的分工，而不是持续的高阶绑定。当前脑指标仍由混合 TOM、Random 与 fixation 的完整 `SOCIAL_LR` run 估计；真正的条件机制检验需要用 `mental.txt` 与 `rnd.txt` 分别重建两套协同。
+
+### E.2.2 Visual–Limbic–Control 的两网络拆解
+
+为判断三网络结果是否由某一条两网络骨架主导，固定拆解为 Visual+Limbic、Visual+Control 和 Limbic+Control，并继续使用同一 57 人、同一 SOCIAL 表征、年龄/性别/批次校正及 cohort-blocked Freedman--Lane 置换。该分析发生在三网络组合被发现之后，因此同时给出针对三个 pair 与两个端点的局部 6 项 max-$T$，以及继承自完整 120 组合 $\times$ 两端点搜索的 240 项全局 max-$T$；后者才包含上游选择过程。
+
+![Visual–Limbic–Control 两网络组合与 SOCIAL 表现](../../results/hcp_social_vis_limbic_control_pairs_57/social_vis_limbic_control_pair_correlations_57.png)
+
+*图 E2｜三网络候选的两两协同拆解。a--c：三个 pair 与 Balanced accuracy；d--f：同一三个 pair 与有限试次校正 $d'$。图内同时标出局部 6 项和完整 240 项 max-$T$；颜色表示原 29 人与新增 28 人，虚线只作视觉引导。*
+
+Visual+Limbic 是唯一保留清楚负相关的 pair。其 Balanced accuracy 相关为 $\rho=-0.402$，分层 bootstrap 95% CI $[-0.596,-0.182]$，局部 6 项 max-$T$ $p=0.0118$，但完整 240 项 $p=0.139$；$d'$ 相关为 $\rho=-0.441$，95% CI $[-0.632,-0.218]$，局部 $p=0.00384$，完整 240 项 $p=0.0575$。后者在端点内 120 组合校正为 $p=0.0426$，但没有越过同时包含两个行为端点的全局 0.05 阈值。Visual+Control 对两个端点分别只有 $-0.232$ 和 $-0.241$，区间跨 0，且新增 28 人中的相关接近 0；Limbic+Control 更弱（$-0.112$、$-0.139$），原 29 人与新增 28 人还发生方向反转。
+
+因此，三网络发现的主要二元骨架是 **Visual–Limbic**，而不是任意包含 Control 的 pair。Visual–Limbic–Control 的 $d'$ 相关为 $-0.453$，只比 Visual–Limbic 的 $-0.441$ 略强；这提示 Control 可能只在三网络联合结构中提供附加约束，不能解释为某条 Control pair 单独驱动结果。不过，三网络协同与 pair 协同并非可加分量；若要正式量化 Control 的增量作用，应另外检验 $\Xi_{\mathrm{Vis,Lim,Cont}}-\Xi_{\mathrm{Vis,Lim}}$，而不能只比较两个相关系数。
+
+### E.2.3 REST 固定网络组合与一般认知
+
+一般认知使用完整 1,206 人单组 SEM 中冻结的 `g_score`，再按 57 名影像被试顺序匹配。脑指标沿用正文主配置 $(k,p,\alpha)=(1,3,1)$，但这里检验的是每个网络子集自身的固定组合 Syn，而不是只有进入个体 greedy path 才取正值的 hierarchy atom。七个 Yeo 网络的 2--7 网络组合共 120 项；每项都保持同一个七网络未来 target，只改变 source 组合。
+
+主统计为控制年龄、性别和样本批次的秩相关。置换采用 Freedman--Lane 残差方案，并限制在原 29 人和新增 28 人批次内部；点对点、120 项 BH 和 120 组合 max-$T$ 均基于 100,000 次置换。前十项区间由 20,000 次批次分层 bootstrap 给出。Syn 非负容差预先设为 $10^{-9}$ bits；共检查 6,840 个值，最小值为 0.000979 bits，没有容差内负值或显著违反。
+
+![REST 固定网络组合协同与一般认知](../../results/hcp_rest_general_cognition_57/rest_general_cognition_coalition_correlations_57.png)
+
+*图 E3｜57 人 REST 固定网络组合 Syn 与一般认知。a：120 个组合按网络数展示年龄、性别和批次校正后的秩相关；橙色点为绝对相关最高候选。b：绝对相关前十项及批次分层 bootstrap 95% CI。c：最高候选 Salience/ventral attention–Limbic 的残差秩散点；颜色区分原 29 人与新增 28 人，黑线只作视觉引导。*
+
+没有任何组合达到点对点置换 $p<0.05$。最高候选 Salience/ventral attention–Limbic 的调整后 $\rho=0.245$，未调整 Spearman $\rho=0.241$；点对点置换 $p=0.0737$、BH $q=0.975$、max-$T$ $p=0.806$，bootstrap 95% CI $[-0.063,0.519]$。其留一被试相关范围为 0.181--0.302，但原 29 人和新增 28 人分别为 $\rho=0.020$ 与 0.435，方向虽同为非负，幅度并不一致。因而稳定的结论是：在当前冻结配置和 REST1_LR 下，57 人数据没有支持某个固定皮层网络组合与一般认知相关。最高候选只适合用于后续独立、家系感知且包含运动控制的预注册复核。
+
+### E.2.4 EMOTION 面孔匹配表现与固定网络组合
+
+EMOTION 总正确率存在明显天花板：57 人均值为 97.03%，14 人达到 100%；Face 正确率均值为 98.30%，36 人达到 100%，且只有四个取值。因此主行为端点不用正确率，而以负对数 Face 中位反应时表示“越快越好”，并在秩空间控制 Shape 中位反应时、年龄、性别和原始/新增批次。脑指标沿用 Schaefer-1000、每网络 PC1、三阶历史和 Ridge $\alpha=1$，对完整 EMOTION run 计算全部 120 个固定 Yeo7 网络组合的 TM Syn。由于本地数据没有 Face/Shape 条件 EV，当前分析不能把两个条件分别重建为独立动力学模型。
+
+![EMOTION 表现与 120 个固定网络组合](../../results/hcp_emotion_performance_coalitions_57/emotion_performance_coalition_screen_57.png)
+
+*图 E4｜EMOTION 面孔匹配表现与固定组合 Syn。a：Face 与 Shape 中位反应时及两个招募批次。b：完整 EMOTION run 中绝对调整相关最高的十个组合，误差线为按批次分层 bootstrap 95% CI。c：同一 120 个组合在完整 EMOTION Syn 与 EMOTION−REST Syn 下的调整相关；颜色表示组合规模。d：主分析最高候选 Limbic–Control–Default 的协变量残差关系。置换采用 Freedman--Lane 残差方案并限制在原始 29 人和新增 28 人内部。*
+
+主分析最高候选为 Limbic–Control–Default，较高 Syn 对应较慢的 Shape 校正后 Face 表现（调整后 $\rho=-0.323$，分层 bootstrap 95% CI $[-0.572,-0.018]$），但原始 $p=0.0193$ 在 120 组合 max-$T$ 校正后为 $p=0.457$，五项分析共 600 个检验的全局 max-$T$ 为 $p=0.920$。六个事先指定的视觉、边缘、显著性、注意和控制组合也均未通过局部六项或完整 120 项校正。正确率、总体速度和 Face efficiency 三个次级端点同样没有组合通过 120 项校正。
+
+EMOTION−REST 差值中，Limbic–Control 的调整后相关为 $\rho=-0.441$，两个批次内分别为 $-0.413$ 和 $-0.471$；它通过该端点内 120 组合 max-$T$（$p=0.0484$），但没有通过 600 项全局校正（$p=0.188$）。更重要的是，在留出预测更优的 $(p,\alpha)=(5,10)$ 下，最高组合改为 Visual–Salience/ventral attention–Control（$\rho=0.338$，120 组合 max-$T$ $p=0.304$），原 Limbic–Control 下降为 $\rho=-0.285$、$p=0.589$。因此，当前证据支持的结论是：**没有找到对合理模型参数稳定、且在完整分析族中显著的 EMOTION 表现相关组合**；Limbic–Control 只保留为主配置下方向跨批次一致、但参数不稳定的探索候选。
+
+两个配置各审计 13,680 个 state-level Syn。$(p,\alpha)=(3,1)$ 和 $(5,10)$ 的最小值分别为 0.000979 和 0.000996 bits，均无容差内负值或显著非负性违反，非负容差为 $10^{-9}$ bits。剩余限制包括缺少家系编号、完整任务头动摘要、Face/Shape block EV，以及 Schaefer 皮层图谱不包含杏仁核；因此当前负结果只约束皮层 Yeo7 组合，不能排除杏仁核参与的皮层下—皮层协同。
+
+### E.2.5 MOTOR 广义运动评分与固定网络组合
+
+HCP MOTOR 行为表没有可用于 57 人的 run 内正确率或反应时。为避免把任务完成状态误作表现，本分析预先选用三个扫描外、方向一致且没有缺失的年龄校正运动表型：2 分钟步行耐力 $E_i$、9 孔插板灵巧度 $D_i$ 和握力 $S_i$。每个分量只在冻结的 57 人影像样本内标准化，主评分定义为
+
+$$
+M_i=\frac{1}{3}\left(\frac{E_i-\overline E}{s_E}+\frac{D_i-\overline D}{s_D}+\frac{S_i-\overline S}{s_S}\right).
+$$
+
+三项等权使评分不依赖分析后的脑关联来学习权重；$M_i$ 越高表示跨耐力、精细动作和力量的广义运动水平越高。57 人的 $M_i$ 范围为 $-1.424$ 至 $1.345$。它与耐力、灵巧度和握力的 Spearman 相关分别为 0.764、0.456 和 0.609，但三分量 Cronbach $\alpha=0.214$。因此 $M_i$ 是透明的构成性指数，不是由高内部一致性支持的反映性量表；三个分量仍应在候选解释中分别报告。
+
+脑指标沿用正文主配置：Schaefer-1000/Yeo7、每网络 PC1、三阶历史、Ridge $\alpha=1$ 和 affine Gaussian TM。对完整 `MOTOR_LR` run 的 2--7 网络共 120 个固定组合分别计算 Syn，只改变 source 联盟成员，未来七网络 target、估计器和样本均保持不变。统计在秩空间控制年龄、性别及原始/新增批次；100,000 次 Freedman--Lane 残差置换限制在批次内部，并同时给出点对点、120 项 BH 和 120 组合 max-$T$。Syn 非负容差为 $10^{-9}$ bits；6,840 个估计的最小值为 0.00258 bits，没有容差内负值或显著违反。57 个模型中 53 个的留出预测优于持久性基线，held-out RMSE 比均值为 0.900。
+
+![MOTOR 广义运动指数与 120 个固定网络组合](../../results/hcp_motor_composite_scores_57/motor_composite_coalition_screen_57.png)
+
+*图 E5｜MOTOR 广义运动指数与固定组合 Syn。a：三个评分分量及综合指数的 Spearman 相关；b：120 个固定 Yeo7 组合与综合指数的年龄、性别和批次校正相关；c：绝对相关最高十项中保留点对点置换 $p<0.05$ 的九个负相关组合及按批次分层 bootstrap 95% CI，右侧逐项标出调整后 $\rho$ 和未作全局校正的点对点 $p$；d：最高候选 Visual–Somatomotor–Limbic–Control–Default 的原始散点，颜色区分原 29 人与新增 28 人。虚线只作视觉引导；统计推断以协变量校正的秩相关为准。图例位于坐标轴外，不遮挡数据。*
+
+绝对关联最大的组合是 **Visual–Somatomotor–Limbic–Control–Default**。其调整后 $\rho=-0.419$，点对点置换 $p=0.00192$，分层 bootstrap 95% CI 为 $[-0.597,-0.172]$；留一被试相关范围为 $-0.463$ 至 $-0.387$。原 29 人和新增 28 人的未调整 Spearman 相关分别为 $-0.443$ 和 $-0.496$，方向与幅度相近。然而，120 项 BH $q=0.173$、120 组合 max-$T$ $p=0.0848$，因此它是当前样本中**绝对相关最大的探索候选**，不是经全家族校正确认的显著脑区协同。
+
+分量诊断显示，该候选与耐力、灵巧度和握力的调整后相关分别为 $-0.080$、$-0.360$ 和 $-0.295$。负相关因而主要对应精细动作与力量，而不是耐力。一个与数据相容但尚未验证的解释是，运动能力较高者在完整 MOTOR run 中以较低的五网络不可分解联合预测信息完成状态转移；这不能被写成“协同越低导致运动更好”。当前结果还不能定位到单个 parcel，也不覆盖小脑、基底节和丘脑；而这些结构对运动控制至关重要。独立样本复核应冻结五网络候选，并把指、趾和舌 block 分开建模，同时纳入 run 内头动、家系和皮层下—小脑信号。
+
+### E.3 主结果相对原 29 人的变化
 
 | 状态 | 29 人均值（bits） | 57 人均值（bits） | 57 人 REST−任务均值差 | BH $q$ |
 |---|---:|---:|---:|---:|
@@ -851,7 +945,7 @@ python scripts/plot_dmf_schaefer100_structural_nulls.py
 
 八状态均值排序完全不变。SOCIAL 的差距缩小且仍是最弱对比，但方向与校正后显著性保留。网络份额的最大绝对变化为 0.955 个百分点，说明主要网络重分配结论不依赖原 29 人样本。
 
-### E.2 REST circular-shift null
+### E.4 REST circular-shift null
 
 null 在每名被试的七条 PC1 上分别施加独立、非零 circular shift，保留各网络自身的边际分布和自相关，同时破坏网络间同步；每个 null 都重新拟合 PCA 后的动力学模型。固定 $(p,\alpha)=(5,1)$，每人 20 次 null。
 
@@ -862,7 +956,7 @@ null 在每名被试的七条 PC1 上分别施加独立、非零 circular shift�
 | observed 高于 null mean | 56/57 |
 | 未校正经验 $p<0.05$ | 56/57 |
 
-### E.3 模块核 matched-null
+### E.5 模块核 matched-null
 
 对 observed 和每个 null 都完整重跑 greedy top-3，随后在相同 replicate index 上跨 57 人汇总频率。这样检验的是“该模块核进入 top-3 的群体频率”，而不是对 observed 选出的 atom 值事后套用固定集合 null。
 
@@ -875,7 +969,7 @@ null 在每名被试的七条 PC1 上分别施加独立、非零 circular shift�
 
 全七网络核的高频主要由组合规模本身解释；缺 Limbic 及更具体的广泛组合才显示超过 matched-null 的频率。由于只有 20 个 null 且候选不止一项，本表不作确认性多重比较声明。
 
-### E.4 参数鲁棒性与预测误差
+### E.6 参数鲁棒性与预测误差
 
 | $p$ | 最低留出误差对应 $\alpha$ | delta-NRMSE |
 |---:|---:|---:|
@@ -887,7 +981,7 @@ null 在每名被试的七条 PC1 上分别施加独立、非零 circular shift�
 
 40 个“状态 $\times$ 阶数”单元中，$\alpha=10$ 在 28 个单元达到最低留出误差。网格层面，整体留出 NRMSE 与七项对比最小 Phi 边际的 Spearman 相关为 $-0.813$（$p=7.83\times10^{-7}$）：预测更差的网格通常也更不支持稳定的 REST 优势。该关系是模型诊断，不是预测误差对 Phi 偏差的因果证明。
 
-### E.5 TEVF 与共同方差的分类结果
+### E.7 TEVF 与共同方差的分类结果
 
 | 空间图 | 特征 | LOSO 准确率 | chance | 置换 $p$ |
 |---|---|---:|---:|---:|

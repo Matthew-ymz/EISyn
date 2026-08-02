@@ -96,8 +96,8 @@ def save(figure: plt.Figure, stem: Path) -> None:
     plt.close(figure)
 
 
-def panel_label(axis: plt.Axes, label: str) -> None:
-    axis.text(-0.10, 1.06, label, transform=axis.transAxes, fontsize=10, fontweight="bold")
+def panel_label(axis: plt.Axes, label: str, *, y: float = 1.06) -> None:
+    axis.text(-0.10, y, label, transform=axis.transAxes, fontsize=10, fontweight="bold")
 
 
 def critical_format(axis: plt.Axes, _critical_g: np.ndarray) -> None:
@@ -222,34 +222,47 @@ def plot_summary(args: argparse.Namespace) -> None:
     whole = direct_values(main, "whole_ei")
     singleton = direct_values(main, "singleton_ei_sum")
 
-    figure = plt.figure(figsize=(19.2, 7.2))
-    grid = GridSpec(2, 18, figure=figure, height_ratios=(1.0, 0.95))
-    top_grid = GridSpecFromSubplotSpec(
+    figure = plt.figure(figsize=(15.8, 7.2))
+    outer_grid = GridSpec(
         1,
-        7,
-        subplot_spec=grid[0, :],
-        width_ratios=(6.0, 1.10, 3.0, 1.25, 3.35, 1.10, 1.9),
-        wspace=0.0,
-    )
-    bottom_grid = GridSpecFromSubplotSpec(
-        1,
-        5,
-        subplot_spec=grid[1, :],
-        width_ratios=(3.65, 0.55, 3.65, 0.55, 8.0),
+        3,
+        figure=figure,
+        width_ratios=(5.0, 1.05, 9.65),
         wspace=0.0,
     )
     panel_a_grid = GridSpecFromSubplotSpec(
         2,
         1,
-        subplot_spec=top_grid[0, 0],
+        subplot_spec=outer_grid[0, 0],
         height_ratios=(3.1, 1.25),
         hspace=0.05,
     )
+    right_grid = GridSpecFromSubplotSpec(
+        2,
+        1,
+        subplot_spec=outer_grid[0, 2],
+        height_ratios=(1.0, 0.95),
+        hspace=0.32,
+    )
+    top_grid = GridSpecFromSubplotSpec(
+        1,
+        5,
+        subplot_spec=right_grid[0, 0],
+        width_ratios=(2.55, 0.80, 3.20, 0.55, 1.75),
+        wspace=0.0,
+    )
+    bottom_grid = GridSpecFromSubplotSpec(
+        1,
+        5,
+        subplot_spec=right_grid[1, 0],
+        width_ratios=(2.75, 0.45, 2.75, 0.45, 3.35),
+        wspace=0.0,
+    )
     ax_a = figure.add_subplot(panel_a_grid[0, 0])
     ax_a_wms = figure.add_subplot(panel_a_grid[1, 0], sharex=ax_a)
-    ax_b = figure.add_subplot(top_grid[0, 2])
-    ax_c = figure.add_subplot(top_grid[0, 4])
-    ax_d = figure.add_subplot(top_grid[0, 6])
+    ax_b = figure.add_subplot(top_grid[0, 0])
+    ax_c = figure.add_subplot(top_grid[0, 2])
+    ax_d = figure.add_subplot(top_grid[0, 4])
     ax_e = figure.add_subplot(bottom_grid[0, 0])
     ax_f = figure.add_subplot(bottom_grid[0, 2])
     panel_g = GridSpecFromSubplotSpec(
@@ -275,12 +288,6 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
     ax_a.set_xlabel("")
     ax_a.tick_params(axis="x", labelbottom=False)
-    for transition_g, line_color, line_style in (
-        (1.3, "#6A3D9A", "--"),
-        (1.5, "0.25", ":"),
-    ):
-        ax_a.axvline(transition_g, color=line_color, ls=line_style, lw=0.9, zorder=1)
-        ax_a_wms.axvline(transition_g, color=line_color, ls=line_style, lw=0.9, zorder=1)
     wms_values = np.asarray(wms["phi_wms"], dtype=float)
     wms_mean, wms_error = np.mean(wms_values, axis=0), sd(wms_values)
     ax_a_wms.plot(
@@ -308,7 +315,6 @@ def plot_summary(args: argparse.Namespace) -> None:
         phi_r_values = np.asarray(phi_r["phi_r_mean"], dtype=float)
         phi_r_mean, phi_r_error = np.mean(phi_r_values, axis=0), sd(phi_r_values)
         phi_r_g = np.asarray(phi_r["G"], dtype=float)
-        phi_r_peak_g = float(phi_r_g[int(np.argmax(phi_r_mean))])
         ax_a_phi_r = ax_a_wms.twinx()
         ax_a_phi_r.plot(
             phi_r_g,
@@ -331,9 +337,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
         ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
         ax_a_phi_r.spines["right"].set_visible(True)
-        for axis in (ax_a, ax_a_wms):
-            axis.axvline(phi_r_peak_g, color="#D55E00", ls="-.", lw=0.8, zorder=1)
-    panel_label(ax_a, "A")
+    panel_label(ax_a, "A", y=1.04)
 
     horizon_g = np.asarray(horizon["G"], dtype=float)
     horizons = np.asarray(horizon["horizons"], dtype=float)
@@ -460,12 +464,12 @@ def plot_summary(args: argparse.Namespace) -> None:
         cmap="viridis",
         colorbar_label="Cross-ROI leverage (bits)",
         colorbar_label_size=6.2,
-        zoom=1.25,
+        zoom=1.10,
     )
     for axis, label in zip(ax_g, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
         axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")
     ax_g[0].text2D(
-        -0.10, 1.05, "G", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
+        -0.10, 1.00, "G", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
     )
     figure.subplots_adjust(left=0.052, right=0.987, top=0.91, bottom=0.10, hspace=0.32)
     save(figure, args.output)
