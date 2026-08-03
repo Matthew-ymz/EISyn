@@ -23,6 +23,7 @@ from scripts.reproduce_hcp_schaefer1000_panels_a_c_57 import (
     compact_atom,
     significance_stars,
 )
+from scripts import screen_hcp_social_composite_scores_57 as social_screen
 
 
 MODEL_ROOT = ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/full/k1_p3_a1"
@@ -34,6 +35,9 @@ EMOTION_CACHE = EMOTION_ROOT / "emotion_rest_coalition_synergy_57.npz"
 EMOTION_STATS = EMOTION_ROOT / "emotion_performance_coalition_source_data.tsv"
 MOTOR_ROOT = ROOT / "results/hcp_motor_composite_scores_57"
 MOTOR_SUMMARY = MOTOR_ROOT / "summary.json"
+SOCIAL_ROOT = ROOT / "results/hcp_social_composite_scores_57"
+SOCIAL_CACHE = SOCIAL_ROOT / "social_coalition_synergy_57.npz"
+ALL_TASK_SUMMARY = ROOT / "results/hcp_all_task_behavior_coalitions_57/summary.json"
 OUTPUT = ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/final"
 MAIN_STEM = "hcp_schaefer1000_behavior_main_57"
 EMOTION_PREVIEW_STEM = "hcp_schaefer1000_behavior_main_57_emotion_preview"
@@ -58,6 +62,8 @@ SCATTER_SPECS = (
     },
 )
 PERMUTATIONS = 100_000
+BEHAVIOR_Y_LIM = (-36.0, 36.0)
+BEHAVIOR_Y_TICKS = (-30, -15, 0, 15, 30)
 EMOTION_SCATTER_SPECS = (
     {
         "coalition": "Limbic+Cont",
@@ -70,6 +76,11 @@ EMOTION_SCATTER_SPECS = (
         "color": "#4C78A8",
     },
 )
+SOCIAL_SCATTER_SPEC = {
+    "coalition": "Vis+Limbic+Cont",
+    "title": "SOCIAL · Vis + Lim + Cont",
+    "color": "#3D8978",
+}
 
 
 def configure_style() -> None:
@@ -126,6 +137,15 @@ def load_inputs() -> tuple[dict, dict[str, np.ndarray], pd.DataFrame]:
         behavior[f"synergy_bits__{coalition}"] = coalition_archive[
             "synergy_bits"
         ][:, index]
+        endpoint = str(spec["endpoint"])
+        endpoint_rank = rankdata(behavior[endpoint].to_numpy(dtype=float))
+        synergy_rank = rankdata(
+            behavior[f"synergy_bits__{coalition}"].to_numpy(dtype=float)
+        )
+        behavior[f"rank_residual__{endpoint}"] = endpoint_rank - endpoint_rank.mean()
+        behavior[f"synergy_rank_residual__{coalition}"] = (
+            synergy_rank - synergy_rank.mean()
+        )
     if len(behavior) != 57 or arrays["system_xi"].shape != (8, 57):
         raise ValueError("Expected the frozen 57-subject inputs")
     tolerance = 1.0e-9
@@ -142,7 +162,12 @@ def load_inputs() -> tuple[dict, dict[str, np.ndarray], pd.DataFrame]:
     source_columns = ["subject", "cohort"]
     for spec in SCATTER_SPECS:
         source_columns.extend(
-            [str(spec["endpoint"]), f"synergy_bits__{spec['coalition']}"]
+            [
+                str(spec["endpoint"]),
+                f"rank_residual__{spec['endpoint']}",
+                f"synergy_bits__{spec['coalition']}",
+                f"synergy_rank_residual__{spec['coalition']}",
+            ]
         )
     OUTPUT.mkdir(parents=True, exist_ok=True)
     behavior[source_columns].to_csv(
@@ -218,6 +243,71 @@ def load_emotion_behavior(arrays: dict[str, np.ndarray]) -> pd.DataFrame:
         )
     frame[source_columns].to_csv(
         OUTPUT / f"{EMOTION_PREVIEW_STEM}_source_data.tsv", sep="\t", index=False
+    )
+    return frame
+
+
+def load_social_behavior(arrays: dict[str, np.ndarray]) -> pd.DataFrame:
+    with np.load(SOCIAL_CACHE, allow_pickle=False) as archive:
+        subjects = archive["subjects"].astype(str)
+        coalitions = archive["coalitions"].astype(str).tolist()
+        synergy = archive["synergy_bits"].astype(float)
+    frozen_subjects = arrays["subjects"].astype(str)
+    if not np.array_equal(subjects, frozen_subjects):
+        if set(subjects.tolist()) != set(frozen_subjects.tolist()):
+            raise ValueError("SOCIAL coalition cache and main figure use different subjects")
+        subject_index = {subject: index for index, subject in enumerate(subjects)}
+        reorder = np.asarray([subject_index[subject] for subject in frozen_subjects])
+        subjects = subjects[reorder]
+        synergy = synergy[reorder]
+
+    scores = social_screen.load_scores(subjects)
+    coalition = str(SOCIAL_SCATTER_SPEC["coalition"])
+    coalition_index = coalitions.index(coalition)
+    raw_synergy = synergy[:, coalition_index]
+    violations = raw_synergy < -1.0e-9
+    if np.any(violations):
+        raise ValueError(
+            "PEID Syn nonnegativity violation for SOCIAL panel: "
+            f"minimum={raw_synergy.min():.6g}, tolerance=1e-9, "
+            f"count={int(violations.sum())}"
+        )
+
+    design = np.column_stack(
+        [np.ones(len(subjects)), rankdata(scores["age"]), scores["sex"]]
+    )
+    score_residual = residualize(rankdata(scores["dprime"]), design)
+    synergy_residual = residualize(rankdata(raw_synergy), design)
+    observed_rho = float(
+        score_residual @ synergy_residual
+        / (np.linalg.norm(score_residual) * np.linalg.norm(synergy_residual))
+    )
+
+    all_task = json.loads(ALL_TASK_SUMMARY.read_text(encoding="utf-8"))
+    winner = all_task["tasks"]["SOCIAL"]["winner"]
+    if winner["coalition"] != coalition or not np.isclose(
+        observed_rho, float(winner["rho"]), atol=1.0e-12
+    ):
+        raise ValueError("SOCIAL panel does not match the frozen pooled-57 winner")
+
+    frame = pd.DataFrame(
+        {
+            "subject": subjects,
+            "corrected_dprime": scores["dprime"],
+            "social_score_residual_rank": score_residual,
+            f"synergy_bits__{coalition}": raw_synergy,
+            f"synergy_residual_rank__{coalition}": synergy_residual,
+        }
+    )
+    frame.attrs["rho"] = float(winner["rho"])
+    frame.attrs["p_raw"] = float(winner["p_raw"])
+    frame.attrs["p_max_t_120"] = float(winner["p_max_t_120"])
+    frame.attrs["bootstrap_95_ci"] = winner["bootstrap_95_ci"]
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(
+        OUTPUT / f"{MAIN_STEM}_social_panel_source_data.tsv",
+        sep="\t",
+        index=False,
     )
     return frame
 
@@ -380,10 +470,12 @@ def plot_behavior_scatter(
     color: str,
     seed: int,
 ) -> None:
-    x = behavior[endpoint].to_numpy(dtype=float)
-    y = behavior[f"synergy_bits__{coalition}"].to_numpy(dtype=float)
+    raw_x = behavior[endpoint].to_numpy(dtype=float)
+    raw_y = behavior[f"synergy_bits__{coalition}"].to_numpy(dtype=float)
+    x = behavior[f"rank_residual__{endpoint}"].to_numpy(dtype=float)
+    y = behavior[f"synergy_rank_residual__{coalition}"].to_numpy(dtype=float)
     jitter_rng = np.random.default_rng(2026080101 if "story" in endpoint else 2026080102)
-    jitter = jitter_rng.uniform(-0.015, 0.015, size=len(x)) * max(np.ptp(x), 1.0)
+    jitter = jitter_rng.uniform(-0.35, 0.35, size=len(x))
     axis.scatter(
         x + jitter,
         y,
@@ -399,16 +491,16 @@ def plot_behavior_scatter(
     slope, intercept = np.polyfit(x, y, deg=1)
     axis.plot(guide_x, slope * guide_x + intercept, color=color, linewidth=1.1, zorder=2)
     x_pad = 0.05 * max(float(np.ptp(x)), 1.0)
-    y_pad = 0.08 * max(float(np.ptp(y)), 0.1)
     axis.set(
-        xlabel=xlabel,
+        xlabel=f"{xlabel.removesuffix(' (%)')}\n(rank residual)",
         xlim=(float(x.min()) - x_pad, float(x.max()) + x_pad),
-        ylim=(float(y.min()) - y_pad, float(y.max()) + y_pad),
+        ylim=BEHAVIOR_Y_LIM,
+        yticks=BEHAVIOR_Y_TICKS,
     )
     axis.grid(color="#E7EAED", linewidth=0.55, zorder=0)
     cohort_codes = pd.Categorical(behavior["cohort"]).codes
     rho, p_value = blocked_pointwise_spearman(
-        x, y, cohort_codes, seed=seed
+        raw_x, raw_y, cohort_codes, seed=seed
     )
     axis.set_title(
         title,
@@ -454,12 +546,12 @@ def plot_emotion_scatter(
     slope, intercept = np.polyfit(x, y, deg=1)
     axis.plot(guide_x, slope * guide_x + intercept, color=color, linewidth=1.1, zorder=2)
     x_pad = 0.06 * max(float(np.ptp(x)), 1.0)
-    y_pad = 0.08 * max(float(np.ptp(y)), 1.0)
     axis.set(
         xlabel="Face-specific speed\n(higher = faster)",
-        ylabel="Coalition synergy (residualized rank)",
+        ylabel="Coalition Syn\n(rank residual)",
         xlim=(float(x.min()) - x_pad, float(x.max()) + x_pad),
-        ylim=(float(y.min()) - y_pad, float(y.max()) + y_pad),
+        ylim=BEHAVIOR_Y_LIM,
+        yticks=BEHAVIOR_Y_TICKS,
     )
     axis.grid(color="#E7EAED", linewidth=0.55, zorder=0)
     rho = float(behavior.attrs[f"rho__{coalition}"])
@@ -473,6 +565,54 @@ def plot_emotion_scatter(
         ha="left",
         va="bottom",
         fontsize=6.6,
+        color="#3F4852",
+        clip_on=False,
+    )
+
+
+def plot_social_scatter(
+    axis: mpl.axes.Axes,
+    behavior: pd.DataFrame,
+    *,
+    coalition: str,
+    title: str,
+    color: str,
+) -> None:
+    x = behavior["social_score_residual_rank"].to_numpy(dtype=float)
+    y = behavior[f"synergy_residual_rank__{coalition}"].to_numpy(dtype=float)
+    axis.scatter(
+        x,
+        y,
+        s=19,
+        color=color,
+        edgecolor="white",
+        linewidth=0.45,
+        alpha=0.86,
+        zorder=3,
+    )
+    guide_x = np.linspace(float(x.min()), float(x.max()), 200)
+    slope, intercept = np.polyfit(x, y, deg=1)
+    axis.plot(guide_x, slope * guide_x + intercept, color=color, linewidth=1.1, zorder=2)
+    x_pad = 0.06 * max(float(np.ptp(x)), 1.0)
+    axis.set(
+        xlabel="Corrected social sensitivity $d'$\n(adjusted rank residual)",
+        ylabel="Coalition Syn\n(rank residual)",
+        xlim=(float(x.min()) - x_pad, float(x.max()) + x_pad),
+        ylim=BEHAVIOR_Y_LIM,
+        yticks=BEHAVIOR_Y_TICKS,
+    )
+    axis.grid(color="#E7EAED", linewidth=0.55, zorder=0)
+    rho = float(behavior.attrs["rho"])
+    p_value = float(behavior.attrs["p_max_t_120"])
+    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=13)
+    axis.text(
+        0.0,
+        1.015,
+        rf"adjusted $\rho$={rho:+.3f}  ·  max-$T$ $p$={p_value:.3f}",
+        transform=axis.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=6.3,
         color="#3F4852",
         clip_on=False,
     )
@@ -548,6 +688,7 @@ def plot_main(
     arrays: dict[str, np.ndarray],
     behavior: pd.DataFrame,
     *,
+    social_behavior: pd.DataFrame | None = None,
     emotion_behavior: pd.DataFrame | None = None,
     motor_associations: list[dict[str, float | int | str | list[float]]] | None = None,
     stem: str = MAIN_STEM,
@@ -558,9 +699,10 @@ def plot_main(
     network_panel = arrays["network_share"].mean(axis=1).T * 100.0
 
     include_emotion = emotion_behavior is not None
+    include_social = social_behavior is not None
     include_motor = motor_associations is not None
-    if include_motor and not include_emotion:
-        raise ValueError("The main layout expects EMOTION panels when MOTOR is included.")
+    if include_motor and (not include_emotion or not include_social):
+        raise ValueError("The main layout expects SOCIAL and EMOTION panels when MOTOR is included.")
     figure = plt.figure(
         figsize=(7.6, 11.4 if include_motor else (9.35 if include_emotion else 7.6)),
         constrained_layout=True,
@@ -692,7 +834,7 @@ def plot_main(
 
     plot_behavior_scatter(axis_d, behavior, **SCATTER_SPECS[0])
     plot_behavior_scatter(axis_e, behavior, **SCATTER_SPECS[1])
-    axis_d.set_ylabel("Syn (bits)")
+    axis_d.set_ylabel("Coalition Syn\n(rank residual)")
     axis_e.set_ylabel("")
     panel_labels: list[tuple[str, mpl.axes.Axes, float, float]] = [
         ("a", axis_a, -0.06, 1.04),
@@ -702,10 +844,14 @@ def plot_main(
         ("e", axis_e, -0.14 if include_motor else -0.08, 1.14),
     ]
     if include_emotion:
-        assert emotion_behavior is not None and axis_f is not None and axis_g is not None
-        plot_emotion_scatter(axis_f, emotion_behavior, **EMOTION_SCATTER_SPECS[0])
+        assert (
+            social_behavior is not None
+            and emotion_behavior is not None
+            and axis_f is not None
+            and axis_g is not None
+        )
+        plot_social_scatter(axis_f, social_behavior, **SOCIAL_SCATTER_SPEC)
         plot_emotion_scatter(axis_g, emotion_behavior, **EMOTION_SCATTER_SPECS[1])
-        axis_f.set_ylabel("Syn (residualized rank)")
         axis_g.set_ylabel("")
         panel_labels.extend(
             [
@@ -800,14 +946,16 @@ def plot_supplement(arrays: dict[str, np.ndarray]) -> None:
 def main() -> int:
     configure_style()
     summary, arrays, behavior = load_inputs()
+    social_behavior = load_social_behavior(arrays)
     emotion_behavior = load_emotion_behavior(arrays)
     motor_associations = load_motor_associations()
     # The formal Figure 2 contains state/attribution evidence (a-c), compact
-    # LANGUAGE and EMOTION scatter panels (d-g), and MOTOR associations (h).
+    # LANGUAGE, SOCIAL, and EMOTION scatter panels (d-g), and MOTOR associations (h).
     plot_main(
         summary,
         arrays,
         behavior,
+        social_behavior=social_behavior,
         emotion_behavior=emotion_behavior,
         motor_associations=motor_associations,
         stem=MAIN_STEM,
@@ -816,6 +964,7 @@ def main() -> int:
         summary,
         arrays,
         behavior,
+        social_behavior=social_behavior,
         emotion_behavior=emotion_behavior,
         motor_associations=motor_associations,
         stem=EMOTION_PREVIEW_STEM,
@@ -836,6 +985,12 @@ def main() -> int:
                     }
                     for spec in SCATTER_SPECS
                 ],
+                "social_panel": {
+                    "coalition": SOCIAL_SCATTER_SPEC["coalition"],
+                    "rho_adjusted": social_behavior.attrs["rho"],
+                    "pointwise_p": social_behavior.attrs["p_raw"],
+                    "max_t_p_120": social_behavior.attrs["p_max_t_120"],
+                },
                 "syn_nonnegativity_tolerance_bits": 1.0e-9,
                 "emotion_panels": [
                     {

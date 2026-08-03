@@ -109,6 +109,7 @@ def compute_matrix(
     subjects: np.ndarray,
     combinations: Sequence[tuple[str, ...]],
     recompute: bool,
+    state: str = "MOTOR",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     names = coalition_names(combinations)
     if CACHE.is_file() and not recompute:
@@ -143,9 +144,9 @@ def compute_matrix(
     for index in np.flatnonzero(~np.isfinite(matrix).all(axis=1)):
         subject = str(subjects[index])
         projections, variance, development_end = prepare_projection(
-            TASK_ROOT / subject / "MOTOR_LR.mat",
+            TASK_ROOT / subject / f"{state}_LR.mat",
             groups,
-            state="MOTOR",
+            state=state,
             max_components=1,
             task_retained_key="Schaefer1000_taskRetained",
             task_regressed_key="Schaefer1000_taskRegressed",
