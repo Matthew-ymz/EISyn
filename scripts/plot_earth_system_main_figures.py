@@ -97,6 +97,7 @@ BLUE = "#3F6F9F"
 TEAL = "#2A9D8F"
 ORANGE = "#D9822B"
 VIOLET = "#8064A2"
+ARCTIC_RED = "#B85C6F"
 INK = "#172033"
 MID_GREY = "#8D96A5"
 LIGHT_GREY = "#E9EDF2"
@@ -450,6 +451,30 @@ def plot_runge_figure(
         focal_pair=focal_pair,
     )
     trends = pd.read_csv(trend_csv)
+    arctic_edge = (0, 3, 37)
+    arctic_label = "+".join(str(value) for value in arctic_edge[:2]) + f"->{arctic_edge[2]}"
+    if arctic_label not in set(trends["edge_label_paper"].astype(str)):
+        arctic_rows: list[dict[str, float | int | str]] = []
+        for horizon in HORIZONS:
+            ranking = rankings[horizon]
+            match = ranking[
+                (ranking["source_a"].astype(int) == arctic_edge[0])
+                & (ranking["source_b"].astype(int) == arctic_edge[1])
+                & (ranking["target"].astype(int) == arctic_edge[2])
+            ]
+            if len(match) != 1:
+                raise RuntimeError(
+                    f"Expected exactly one Arctic edge {arctic_label} at H={horizon}, "
+                    f"received {len(match)}."
+                )
+            arctic_rows.append(
+                {
+                    "horizon": horizon,
+                    "edge_label_paper": arctic_label,
+                    "delta2_tm": float(match.iloc[0]["delta2_tm"]),
+                }
+            )
+        trends = pd.concat([trends, pd.DataFrame(arctic_rows)], ignore_index=True)
     land = extract_polygons(load_geojson(LAND_URL))
     coastlines = extract_lines(load_geojson(COASTLINE_URL))
     positions = np.arange(len(HORIZONS), dtype=float)
@@ -629,6 +654,7 @@ def plot_runge_figure(
         "0+1->28": ORANGE,
         "0+1->50": TEAL,
         "0+1->46": VIOLET,
+        arctic_label: ARCTIC_RED,
     }
     for edge, frame in trends.groupby("edge_label_paper", sort=False):
         frame = frame.sort_values("horizon")
@@ -645,7 +671,7 @@ def plot_runge_figure(
         ax_g.text(
             float(last["horizon"]) + 1.2,
             float(last["delta2_tm"]),
-            str(edge).replace("->", "→"),
+            str(edge).replace("->", "→") + (" (Arctic)" if str(edge) == arctic_label else ""),
             color=color,
             fontsize=5.5,
             va="center",
@@ -660,7 +686,7 @@ def plot_runge_figure(
         useMathText=True,
     )
     ax_g.set_xlabel("Forecast horizon, $H$")
-    ax_g.set_ylabel(r"Synergistic increment, $\Delta_{2,\mathrm{TM}}$ (bits)")
+    ax_g.set_ylabel(r"TM estimate of $Syn^{\mathrm{EID}}$ (bits)")
     ax_g.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     add_panel_label(ax_g, "g", x=-0.085, y=1.02)
 
@@ -684,6 +710,20 @@ def plot_runge_figure(
             "global top-200 at each horizon."
         ),
         "pair_0_1_target_coverage": coverage_records,
+        "arctic_representative_edge": {
+            "edge": arctic_label,
+            "arctic_component": 3,
+            "selection_rule": "Global top-ranked Arctic-related edge at H=1.",
+            "curve": [
+                {
+                    "horizon": int(row.horizon),
+                    "syn_eid_tm_bits": float(row.delta2_tm),
+                }
+                for row in trends[trends["edge_label_paper"] == arctic_label]
+                .sort_values("horizon")
+                .itertuples(index=False)
+            ],
+        },
         "outputs": [str(path) for path in outputs],
     }
     output_base.with_name(f"{output_base.name}_summary.json").write_text(
