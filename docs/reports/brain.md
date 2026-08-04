@@ -3,7 +3,7 @@
 ## 结论
 
 1. **Schaefer100 DMF 结果保持不变。** 群体平均结构连接上的 $\Xi$ 与 pairwise BOLD-like $\Phi^R$ 将耦合转变定位在相邻粗网格，但峰位依赖预测时距，因此不把单一峰解释为时间尺度无关的严格临界点。峰值邻近窗的 $\Xi$ 以跨 ROI、尤其跨网络分量为主；结构 null 说明经验边布局主要改变网络间份额，而非最大化总 $\Xi$。
-2. **57 人 Schaefer-1000 主结果同时连接群体状态差异与个体行为。** 在统一的任务诱发 PCA、三阶历史和 Ridge $\alpha=1$ 下，REST 的 system-level $\Xi$ 均值为 7.122 bits，高于七任务的 4.633--6.243 bits；七项配对 Wilcoxon 检验均经 BH 校正显著。七任务行为比较进一步把 57 人作为一个完整样本，不加入招募批次协变量、不分层置换，也不报告 29/28 人子组；每个任务只冻结一个主端点并检验同样的 120 个网络组合。证据排序为 SOCIAL、LANGUAGE、MOTOR、RELATIONAL、EMOTION、WM、GAMBLING。Visual–Limbic–Control 与 SOCIAL 校正 $d'$ 的负相关是唯一通过任务内 max-$T<0.05$ 的结果（调整后 $\rho=-0.464$，$p=0.0208$）；该关系与 Random 正确拒绝率的关联强于与 TOM 命中率的关联，并在控制反应偏置后基本不变，因此更接近**减少把随机运动误判为社会互动**，而不是一般性的心理互动报告倾向。LANGUAGE 的 Somatomotor–Limbic 正相关和 MOTOR 的五网络负相关接近但未跨过该阈值。RELATIONAL 与 EMOTION 仅有未校正候选，WM 与 GAMBLING 的区间跨 0。因而最稳妥的故事不是“七任务各有一个显著脑区”，而是**任务态整体协同稳定改变，但只有 SOCIAL 的特定个体差异关联经受住当前组合选择校正，LANGUAGE/MOTOR 提供次一级候选，其余任务界定特异性与可检出性的边界**。
+2. **57 人 Schaefer-1000 主结果同时连接群体状态差异与个体行为。** 在统一的任务诱发 PCA、三阶历史和 Ridge $\alpha=1$ 下，REST 的 system-level $\Xi$ 均值为 7.122 bits，高于七任务的 4.633--6.243 bits；七项配对 Wilcoxon 检验均经 BH 校正显著。逐任务直接关联 system-level $\Xi$ 与冻结行为端点时，没有显著正相关或负相关通过七任务 BH 或 max-$T$ 校正；MOTOR 的方向虽为负（$\rho=-0.179$），但双侧 $p=0.188$、BH $q=0.407$，预先指定方向的单侧 $p=0.0955$。七任务行为比较进一步把 57 人作为一个完整样本，不加入招募批次协变量、不分层置换，也不报告 29/28 人子组；每个任务只冻结一个主端点并检验同样的 120 个网络组合。证据排序为 SOCIAL、LANGUAGE、MOTOR、RELATIONAL、EMOTION、WM、GAMBLING。Visual–Limbic–Control 与 SOCIAL 校正 $d'$ 的负相关是唯一通过任务内 max-$T<0.05$ 的结果（调整后 $\rho=-0.464$，$p=0.0208$）；该关系与 Random 正确拒绝率的关联强于与 TOM 命中率的关联，并在控制反应偏置后基本不变，因此更接近**减少把随机运动误判为社会互动**，而不是一般性的心理互动报告倾向。LANGUAGE 的 Somatomotor–Limbic 正相关和 MOTOR 的五网络负相关接近但未跨过该阈值。MOTOR 最强十项中有九项包含 Default mode network（DMN），但把全部 63 个含 DMN 组合逐被试平均后只有 $\rho=-0.205$、负向单侧 $p=0.0658$；七种网络锚定平均全部为负，DMN 也不是最强锚点，因而没有 DMN 特异的校正证据。RELATIONAL 与 EMOTION 仅有未校正候选，WM 与 GAMBLING 的区间跨 0。因而最稳妥的故事不是“七任务各有一个显著脑区”，而是**任务态整体协同稳定改变，但全系统量没有显示经校正的行为关联；只有 SOCIAL 的特定网络组合个体差异经受住当前组合选择校正，LANGUAGE/MOTOR 提供次一级候选，其余任务界定特异性与可检出性的边界**。
 3. **57 人方法学验证限定了结论边界。** REST circular-shift null 中 56/57 人高于 null 均值；缺 Limbic 的六网络核高于 matched-null 频率。25 点参数网格中只有 12 点保持 REST 群体均值最高、7 点七项对比全部显著，表明结论依赖合理正则化，而非对任意超参数成立。按留出误差选择的最优共享点为 $(p,\alpha)=(5,10)$，且仍保留七项显著 REST 优势。Schaefer-1000 TEVF 的七任务 parcel 图可在留一被试分类中达到 90.2%，说明任务空间模式具有稳定的个体外可辨识性。
 
 本文不再报告 Schaefer-500 HCP 实验；原 29/30 人的探索性认知关联已由同一批 57 名 Schaefer-1000 被试上的重新检验替代。
@@ -13,7 +13,7 @@
 1. [**Schaefer100 DMF：跨连接组耦合转变**](#dmf-main)
 2. [**HCP Schaefer-1000：57 人任务态 $\Xi$ 与脑区分布**](#hcp-main)
 3. [**讨论：解释边界与可复现性**](#discussion)
-4. [**附录 A：DMF 补充诊断、EI 分量与 Kuramoto 对照**](#appendix-a)
+4. [**附录 A：DMF 补充诊断、EI 分量、结构 null 与 Kuramoto 对照**](#appendix-a)
 5. [**附录 B：Schaefer100 DMF 动力学方程**](#appendix-b)
 6. [**附录 C：83 ROI 与 100 ROI 受控比较**](#appendix-c)
 7. [**附录 D：Schaefer100 可复现文件**](#appendix-d)
@@ -281,25 +281,11 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 
 更值得注意的是，图 1G 同时突出视觉和躯体运动等单模态区域，以及楔前叶/后扣带、显著性和控制相关区域，并不沿“单模态到跨模态”的主梯度单调升高（Margulies et al., 2016）。这对“高协同只位于高阶联合皮层”的简单解释构成修正，却与 Varley et al.（2023）的结果相容：高阶协同子系统遍布皮层，其较稳定的参与热点包括枕极、楔前叶和扣带区域，而且高协同组合往往跨越经典功能网络。结合图 1E–F，可得到一个新的层级区分：视觉和 SomMot parcel 可以因结构嵌入而具有较高的跨 ROI leverage，但这不等于其所属网络承担最多的跨网络归因；后者仍以 Default、Salience/ventral attention、Dorsal attention 和 Frontoparietal control 更突出。因此，图 1G 定位的是“移除某个 ROI 会使跨区条件总相关下降多少”，而不是认知层级、网络间 Shapley 份额或局部协同的直接脑图。
 
-<a id="dmf-structural-nulls"></a>
-
-### 1.8 结构保持 null：经验 SC 的增量
-
-结构强度与 leverage 的相关不能回答经验连接布局是否具有超出低阶结构约束的作用。为此，本实验对经验 SC 和三类单一 null 实现分别重新校准 JFIC，并在完全相同的 $G=0.0$--$3.0$ 网格、8 个配对 seed、干预分布、300-step horizon 和 Gaussian 估计器下完成全扫描。权重置乱 null 保留全局权重多重集；degree/strength null 精确保留每个节点的二值 degree 和加权 strength，同时改变 79.9% 的缺失边位置；Yeo-block null 则在每个无序网络块对内独立置乱，精确保留全部块对的权重多重集与总权重。所有构造均保持对称、非负、零对角线及总体密度。正式扫描没有状态越界或低于 $-10^{-8}$ bits 的 Syn 非负性违反，层级分解闭合误差不超过 $2.1\times10^{-13}$ bits。
-
-![经验 SC 与结构保持 null 的 DMF 对照](../../fig/dmf_schaefer100/dmf_schaefer100_structural_nulls.png)
-
-*图 S1｜经验 SC 与三类结构 null。a：全耦合扫描的 $\Xi$ 均值曲线，阴影为跨 8 个配对 seed 的 SD；b：逐 seed 峰值 $\Xi$ 与峰位 $G$ 的均值和 SD；c：以各矩阵自身平均峰位为中心的三点窗口中，跨 ROI 与网络间分量占总 $\Xi$ 的比例；d：各 null 精确保留的结构约束。误差条只描述模拟 seed 波动；每类 null 仅生成一张图，因此不构成跨图实现的 null 分布或显著性检验。*
-
-结果首先否定了较强的结构最优性假设。经验 SC 的峰值 $\Xi$ 为 26.131 bits，而权重置乱、degree/strength 和 Yeo-block null 分别为 32.688、32.278 和 31.826 bits。经验减 null 的配对差依次为 $-6.558\pm0.170$、$-6.147\pm0.098$ 和 $-5.695\pm0.072$ bits，三组均为 0/8 个 seed 中经验值更高。跨 ROI 份额也从经验 SC 的 88.00% 上升至 92.00%、90.77% 和 90.87%。因此，经验解剖结构并不最大化整体联合干预优势或跨 ROI 协同；更随机的边布局反而产生更高且更广泛的 $\Xi$。
-
-网络间份额给出一个更窄的正归因。经验 SC 为 66.27%，低于权重置乱的 79.55% 和 degree/strength null 的 75.76%，却高于 Yeo-block null 的 64.46%。在精确保留每个 Yeo 块对的权重分布和总量后，经验具体边布局仍提高 1.81 个百分点，并在 8/8 个配对 seed 中同向。这表明经验网络块之间“有多少连接权重”并不能完全解释网络间归因，块内具体边位置还贡献了稳定但较小的增量。不过该结论只比较了一张经验图与每类一张 null 图，8 个 seed 不是 8 张独立结构图，因此目前只能称为探索性结构归因，不能报告拓扑 null 的显著性。
-
-原始峰位变化较小：经验 SC 的逐 seed 平均峰位为 $G=1.300$，三类 null 分别为 1.350、1.263 和 1.313。由于谱半径同时从经验值 0.701 降至 0.517--0.560，有效峰耦合 $G\rho(\mathbf{C})$ 的经验值 0.911 反而高于三类 null 的 0.698、0.678 和 0.735。谱半径是置乱后的下游拓扑性质，因此原始 $G$ 与有效耦合必须并列解释：峰在原始扫描轴上近似保留，不等于网络的有效耦合尺度不变。
+结构保持 null 的实验设置、完整结果与图见附录 A.4；正文只在下一节综合其对结构归因结论的影响。
 
 <a id="dmf-insights"></a>
 
-### 1.9 综合结论与文献对照
+### 1.8 综合结论与文献对照
 
 **第一，$\Xi$ 峰反映的是“联合干预优势”最大，而不是系统信息总量最大。**在 $G=1.3$，whole EI 已由 $G=0$ 的 219.636 bits 降至 176.926 bits，单变量 EI 之和则由 211.184 bits 更快降至 150.795 bits；两者差值因而达到峰值。这说明耦合首先削弱单个变量独立解释未来全系统状态的能力，同时暂时保留联合状态中的关系信息。该解释与 causal emergence 将有效信息写成 determinism 与 degeneracy 权衡的思路一致，也与“信息转换”框架中局部信息转化为高阶协同的概念相容（Hoel et al., 2013；Varley & Hoel, 2022）。本实验新增的是：在具有结构连接约束的 DMF 中，这种联合优势沿耦合参数形成可重复的非单调峰。
 
@@ -323,7 +309,7 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 
 <a id="dmf-limits"></a>
 
-### 1.10 解释边界
+### 1.9 解释边界
 
 当前证据支持：Schaefer100 群体 SC 驱动的 DMF 出现可重复但预测时距依赖的 $\Xi$ 峰，并在峰值邻近窗表现出更强的跨 ROI、尤其跨功能网络整合。
 
@@ -333,7 +319,7 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 
 <a id="dmf-references"></a>
 
-### 1.11 全文参考文献
+### 1.10 全文参考文献
 
 1. Hoel EP, Albantakis L, Tononi G. Quantifying causal emergence shows that macro can beat micro. *PNAS*. 2013;110:19790–19795. [doi:10.1073/pnas.1314922110](https://doi.org/10.1073/pnas.1314922110)
 2. Varley TF, Hoel EP. Emergence as the conversion of information: a unifying theory. *Philosophical Transactions of the Royal Society A*. 2022;380:20210150. [doi:10.1098/rsta.2021.0150](https://doi.org/10.1098/rsta.2021.0150)
@@ -360,6 +346,9 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 23. Ciaramidaro A, Bölte S, Schlitt S, et al. Schizophrenia and autism as contrasting minds: neural evidence for the hypo-hyper-intentionality hypothesis. *Schizophrenia Bulletin*. 2015;41:171–179. [doi:10.1093/schbul/sbu124](https://doi.org/10.1093/schbul/sbu124)
 24. Arioli M, Perani D, Cappa SF, et al. Affective and cooperative social interactions modulate effective connectivity within and between the mirror and mentalizing systems. *Human Brain Mapping*. 2018;39:1412–1427. [doi:10.1002/hbm.23930](https://doi.org/10.1002/hbm.23930)
 25. Cole MW, Reynolds JR, Power JD, et al. Multi-task connectivity reveals flexible hubs for adaptive task control. *Nature Neuroscience*. 2013;16:1348–1355. [doi:10.1038/nn.3470](https://doi.org/10.1038/nn.3470)
+26. Wang R, Liu M, Cheng X, et al. Segregation, integration, and balance of large-scale resting brain networks configure different cognitive abilities. *PNAS*. 2021;118:e2022288118. [doi:10.1073/pnas.2022288118](https://doi.org/10.1073/pnas.2022288118)
+27. Santoro A, Battiston F, Lucas M, Petri G, Amico E. Higher-order connectomics of human brain function reveals local topological signatures of task decoding, individual identification, and behavior. *Nature Communications*. 2024;15:10244. [doi:10.1038/s41467-024-54472-y](https://doi.org/10.1038/s41467-024-54472-y)
+28. Luppi AI, Mediano PAM, Rosas FE, et al. A synergistic workspace for human consciousness revealed by Integrated Information Decomposition. *eLife*. 2024;13:RP88173. [doi:10.7554/eLife.88173](https://doi.org/10.7554/eLife.88173)
 
 
 <a id="hcp-wm"></a>
@@ -416,6 +405,24 @@ $$
 
 REST 的 system-level $\Xi$ 均值为 7.122 bits；EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 与 WM 依次为 4.633、4.785、5.150、5.568、5.357、6.243 与 5.323 bits。七项 REST–任务均值差均为正，范围为 0.879--2.489 bits；全部七项配对检验经 BH 校正后显著，其中最弱的 SOCIAL 对比仍有 $q=0.0304$。排除噪声协方差条件数最大的 `sub-800941` 后，七项方向和显著性均不变。因此，**REST 整体 $\Xi$ 高于全部任务态**在完整 57 人中成立，但它是群体结论，不是逐人定律：REST 高于对应任务的被试比例为 61.4%--86.0%。
 
+进一步直接检验每个任务态的 system-level $\Xi$ 是否随该任务的行为表现变化。七项检验沿用后文冻结的单一主端点，全部控制年龄秩和性别；EMOTION 还控制 Shape 速度。主统计量为偏 Spearman 相关，双侧 $p$ 来自 100,000 次 pooled Freedman--Lane 置换，并同时在七项任务间作 BH 与 max-$T$ 校正；区间来自 20,000 次被试 bootstrap。
+
+| 任务 | 行为端点 | 偏 Spearman $\rho$ | 95% CI | 双侧 $p$ | BH $q$ | max-$T$ $p$ |
+|---|---|---:|---:|---:|---:|---:|
+| EMOTION | 控制 Shape 速度后的 Face 速度 | -0.164 | [-0.434, 0.136] | 0.2324 | 0.4067 | 0.8332 |
+| GAMBLING | 延迟奖励价值指数 | 0.018 | [-0.255, 0.283] | 0.8952 | 0.8952 | 1.0000 |
+| LANGUAGE | 校正 Story difficulty | 0.319 | [0.093, 0.521] | 0.0181 | 0.1270 | 0.1170 |
+| MOTOR | 广义运动指数 | -0.179 | [-0.422, 0.105] | 0.1884 | 0.4067 | 0.7639 |
+| RELATIONAL | 总体正确率 | 0.062 | [-0.198, 0.320] | 0.6548 | 0.7640 | 0.9993 |
+| SOCIAL | 有限试次校正 $d'$ | -0.116 | [-0.378, 0.156] | 0.3974 | 0.5564 | 0.9694 |
+| WM | 总体正确率 | -0.185 | [-0.442, 0.092] | 0.1743 | 0.4067 | 0.7333 |
+
+![七任务 system-level Xi 与对应行为表现](../../results/hcp_system_xi_task_behavior_57/hcp_system_xi_task_behavior_57.png)
+
+*图 3｜七任务 system-level $\Xi$ 与对应行为表现。a：偏 Spearman 相关及被试 bootstrap 95% CI；b--h：协变量校正后的行为秩残差与 $\Xi$ 秩残差。LANGUAGE 的正相关是唯一未校正 $p<0.05$ 的候选，但没有通过七任务 BH 或 max-$T$ 校正。MOTOR 的效应方向符合负相关猜想，但双侧检验、BH、max-$T$ 以及用户预先指定方向的单侧检验（$p=0.0955$）均未达到 0.05。Pearson 敏感性分析的方向除 GAMBLING 外与 Spearman 一致，不改变结论。*
+
+因此，当前数据不支持“任务表现普遍随全系统整合有效信息单调升高或降低”。MOTOR 只能描述为弱负向趋势，不能写成显著负相关。LANGUAGE 的正相关值得在独立样本复核，但其 bootstrap 区间未包含 0 只反映单项估计不确定性，不能替代七任务多重比较校正。
+
 为避免不同任务因行为端点数、协变量和搜索空间不同而不能比较，七任务另执行统一的 **pooled-57 主端点筛查**。全部 57 人作为一个样本，只控制年龄秩和性别；每个任务只保留一个预先冻结的主评分、恰好检验 120 个 Yeo7 网络组合，并使用 100,000 次不分层 Freedman--Lane 置换和 20,000 次 pooled bootstrap。LANGUAGE 使用字段别名校正后的 Story difficulty，SOCIAL 使用有限试次校正 $d'$，EMOTION 使用控制 Shape 速度后的 Face 速度，MOTOR 与 GAMBLING 分别使用扫描外广义运动指数和延迟奖励价值指数，RELATIONAL 与 WM 使用任务总体正确率。该统一比较不加入原 29 人/新增 28 人批次变量，也不作批次内置换、分层 bootstrap 或分组展示。
 
 排序结果为：**SOCIAL > LANGUAGE > MOTOR > RELATIONAL > EMOTION > WM > GAMBLING**。SOCIAL 的 Visual–Limbic–Control 与 $d'$ 呈负相关（调整后 $\rho=-0.464$，95% CI $[-0.645,-0.220]$，max-$T$ $p=0.0208$），是唯一进入 A 层的任务。LANGUAGE 的 Somatomotor–Limbic 与校正 Story difficulty 呈正相关（$\rho=0.433$，95% CI $[0.192,0.631]$，max-$T$ $p=0.0508$）；MOTOR 的 Visual–Somatomotor–Limbic–Control–Default 与广义运动指数呈负相关（$\rho=-0.421$，95% CI $[-0.598,-0.167]$，max-$T$ $p=0.0731$），二者进入 B 层，但都不能写成 $p<0.05$ 的选择校正结果。RELATIONAL 和 EMOTION 分别为 C 层；WM 与 GAMBLING 的区间跨 0，为 D 层。所有七任务各检查 6,840 个 Syn，最小值为 0.000507--0.002935 bits；在 $10^{-9}$ bits 容差下没有负值或显著非负性违反。
@@ -434,9 +441,28 @@ REST 的 system-level $\Xi$ 均值为 7.122 bits；EMOTION、GAMBLING、LANGUAGE
 
 完整七任务排序、搜索空间和阴性结果审计移至附录图 E9。正文图 2 只保留状态差异、网络归因及少量代表性行为面板，其中 f 直接呈现证据最强的 **SOCIAL Visual–Limbic–Control × $d'$**；RELATIONAL、WM、GAMBLING 等完整筛查均在附录报告，避免为每个任务各展示一张“最佳相关”散点而制造七个平行阳性故事。
 
-LANGUAGE 状态下，包含 Control 的不同协同组合分别对应两类任务表现：Visual–Somatomotor–Limbic–Control 协同与 Story 正确率呈正相关（Spearman $\rho=0.258$，点对点 $p=0.044$），Visual–Dorsal attention–Control 协同与 Math 正确率呈正相关（$\rho=0.281$，点对点 $p=0.035$）。这表明 Control 并非以孤立网络的形式发挥作用，而是嵌入与任务内容相匹配的多网络协同结构：叙事理解更多联系感觉运动和边缘系统的联合整合，而算术表现更多联系视觉与背侧注意系统的协同募集。
+**Control 的跨任务归因与 LANGUAGE 内的内容特异协同。** 图 2c 首先给出群体层面的组成证据：Control 对 system-level $\Xi$ 的守恒归因份额从 REST 的 12.2% 上升到七个任务态的 14.1%--19.2%，并在 LANGUAGE 达到 19.2%，不仅是该网络自身的任务态最高值，也是 LANGUAGE 七网络中的最高份额。这个结果不是 Control 的激活量或普通功能连接，而是把多网络 system-level $\Xi$ 按效率性质守恒分配到各网络后的相对份额；它因此更窄地说明，LANGUAGE 状态下的剩余整合有效信息在组成上更突出地归因于 Control。
+
+这一模式与 Cole et al.（2013）的 **flexible hub** 结果形成机制上的呼应。该研究发现，额顶控制网络（frontoparietal network, FPN）的全脑功能连接模式比其他网络更随任务状态改变，而且这些连接模式能够区分当前任务并从熟练任务迁移到新任务；作者据此提出，控制网络通过按任务规则灵活重构与多个专门网络的信息通路来协调任务执行。图 2c 把这一一般机制投射到当前指标上：Control 在全部任务态的 $\Xi$ 归因均高于 REST，并在 LANGUAGE 最突出。图 2d、e 又把群体层面的组成差异推进到 LANGUAGE 内的个体差异：Visual–Somatomotor–Limbic–Control 协同与 Story 正确率呈正相关（Spearman $\rho=0.258$，点对点 $p=0.044$），Visual–Dorsal attention–Control 协同与 Math 正确率呈正相关（$\rho=0.281$，点对点 $p=0.035$）。两个端点对应的组合并不相同，因而更符合“Control 嵌入内容匹配的多网络组合进行灵活路由”，而不是“Control 单独越强，语言表现越好”：叙事理解对应包含感觉运动与 Limbic 的联合整合，算术表现则对应 Visual–Dorsal attention–Control 的协同募集。
+
+但这三部分证据不能合并成已经确认的 Control 特异行为效应。Cole et al. 的 FPN 分区不与当前 Yeo-7 Control 标签完全等同，其测量的是任务态功能连接，而这里测量的是 $\Xi$ 守恒归因和 coalition Syn；图 2c 还是群体均值的组成描述，图 2d、e 才是跨被试脑--行为相关。并且 d、e 的 $p$ 值均为未校正组合选择的点对点探索性结果；统一 pooled-57 LANGUAGE 搜索的优胜组合是未包含 Control 的 Somatomotor–Limbic（$\rho=0.433$，max-$T$ $p=0.0508$）。因此，当前最稳妥的结论是：**Control 在 LANGUAGE 的 system-level $\Xi$ 组成中占据突出位置，两个内容不同的语言端点又分别出现了包含 Control 的正向协同组合；这与控制网络作为跨任务灵活枢纽、按任务内容协调专门网络的理论一致，但尚不是对 Control 特异脑--行为机制的选择校正确证。**
 
 MOTOR 行为表没有任务内正确率或反应时，因此不构造虚假的 task accuracy。主行为终点改为年龄校正耐力、灵巧度和握力各自在 57 人内标准化后的等权平均，作为跨运动领域的描述性综合指数。在 pooled-57 分析中控制年龄与性别后，Visual–Somatomotor–Limbic–Control–Default 的固定组合 Syn 与该指数具有最大的绝对相关（$\rho=-0.421$，点对点置换 $p=0.00134$，pooled bootstrap 95% CI $[-0.598,-0.167]$），但 120 组合 BH $q=0.119$、max-$T$ $p=0.0731$，均未达到 0.05 校正阈值。三个行为分量的 Cronbach $\alpha=0.214$，所以它只能称为广义运动指数，不能解释为已验证的单一运动能力量表。完整定义和原任务筛查见附录 E.2.5，统一 pooled-57 比较见附录 E.2.9。
+
+**MOTOR 中包含 DMN 组合的事后聚合检验。** MOTOR 绝对相关最强的十个组合中有九个包含 DMN。为检验这种富集能否汇总为稳定的个体差异信号，对每名被试先计算全部 63 个含 DMN 组合 Syn 的算术平均：
+
+$$
+\overline{\operatorname{Syn}}^{\mathrm{DMN}}_s
+=\frac{1}{63}\sum_{C:\,\mathrm{DMN}\in C}\operatorname{Syn}_s(C).
+$$
+
+随后把 $\overline{\operatorname{Syn}}^{\mathrm{DMN}}_s$ 与同一广义运动指数作控制年龄秩和性别的偏 Spearman 相关。由于该聚合定义来自已经观察到的组合榜单，负向单侧检验属于事后分析。平均量的相关为 $\rho=-0.205$（bootstrap 95% CI $[-0.440,0.070]$），双侧置换 $p=0.1294$、负向单侧 $p=0.0658$，均未达到 0.05；把七个网络分别作为锚点构造相同的 63 组合平均后，DMN 的 BH $q=0.2110$、max-$T$ $p=0.2178$。
+
+![MOTOR 中含 DMN 组合的平均 Syn 与运动表现](../../results/hcp_motor_dmn_coalition_composite_57/hcp_motor_dmn_coalition_composite_57.png)
+
+*图 4｜MOTOR 的 DMN 组合聚合检验。a：63 个含 DMN 组合的逐被试平均 Syn 与广义运动指数，横纵轴均为年龄和性别校正后的秩残差。b：对七个 Yeo 网络分别采用相同的“包含该网络的 63 个组合”平均；点和误差线为偏 Spearman $\rho$ 与 bootstrap 95% CI。七个锚点全部为负，范围为 $-0.218$ 至 $-0.118$，DMN 不是最强锚点。c：原始 DMN 平均、按组合大小等权的 DMN 平均、同大小支持的 no-DMN 平均，以及对 57 个基础组合逐一加入 DMN 后的 Syn 增量平均；右侧 $p$ 为事后负向单侧置换值，均未达到 0.05。*
+
+组合大小等权后，DMN 平均仍为 $\rho=-0.215$、负向单侧 $p=0.0567$。在相同的 2--6 网络大小支持上，不含 DMN 的平均只有 $\rho=-0.115$。对每个不含 DMN 的基础组合 $C$ 计算 $\operatorname{Syn}(C\cup\{\mathrm{DMN}\})-\operatorname{Syn}(C)$，再平均 57 个配对增量，得到 $\rho=-0.220$、负向单侧 $p=0.0529$。这些方向一致的敏感性结果说明 DMN 可能增强负向趋势，但都处于 0.05 阈值之外，并且没有对多种事后聚合定义作选择校正。更关键的是，七个网络锚定平均全部为负，Limbic（$\rho=-0.218$）和 Somatomotor（$\rho=-0.210$）与 DMN（$\rho=-0.205$）同量级。因此，当前证据支持“广泛多网络 Syn 与运动表现存在弱负向趋势”，不支持“这一趋势由 DMN 特异驱动”。
 
 GAMBLING 同样不能构造任务正确率。该任务要求被试猜测卡片数字大于或小于 5，但奖赏、惩罚和中性结果由程序预定，larger/smaller 选择比例不具有“答对越多表现越好”的含义（Barch et al., 2013）。因此主行为终点改为两个扫描外延迟折扣 AUC 的标准化等权平均；指数越高表示时间折扣越弱、对延迟奖励的主观价值越高。该评分的 Cronbach $\alpha=0.804$，但 pooled-57 分析中完整 GAMBLING run 的 120 个固定组合没有一项达到点对点 $p<0.05$。绝对相关最高的 Limbic–Default 仅为调整后 $\rho=-0.241$、点对点 $p=0.0757$、BH $q=0.991$、max-$T$ $p=0.871$，pooled bootstrap 95% CI 为 $[-0.482,0.032]$。当前结果不支持用某个稳定的皮层 Yeo7 协同组合解释跨期奖励价值个体差异，完整定义和原任务筛查见附录 E.2.6，统一 pooled-57 比较见附录 E.2.9。
 
@@ -477,7 +503,7 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 
 ## 3. 讨论：解释边界与可复现性
 
-57 人结果确认了主配置下的三层证据链：REST 的 system-level $\Xi$ 整体更高；任务态对剩余 $\Xi$ 的网络份额和高阶组合进行重分配；任务 GLM 成分在 Schaefer-1000 parcel 空间形成可推广到留出被试的任务特异模式。三者分别描述整体联合可预测性、网络级守恒归因和经典任务空间分布，不能互相替代。REST 整体 $\Xi$ 较高也不自动意味着其特定网络组合编码一般认知；57 人的 120 组合筛查没有提供这种关联证据。
+57 人结果确认了主配置下的三层证据链：REST 的 system-level $\Xi$ 整体更高；任务态对剩余 $\Xi$ 的网络份额和高阶组合进行重分配；任务 GLM 成分在 Schaefer-1000 parcel 空间形成可推广到留出被试的任务特异模式。三者分别描述整体联合可预测性、网络级守恒归因和经典任务空间分布，不能互相替代。REST 整体 $\Xi$ 较高也不自动意味着其特定网络组合编码一般认知；逐任务 system-level $\Xi$ 与对应行为没有一项通过七任务校正，REST 的 120 组合筛查也没有提供一般认知关联证据。
 
 结论有十个边界。第一，主 $\Xi$ 结果仅覆盖 REST1_LR 与七项 LR 任务，未检验 RL run、家系结构、GSR、运动与生理混杂或皮层下结构。第二，25 点网格显示方向对模型自由度与正则化敏感；弱正则的高阶模型会反转，因而不声称参数无关。第三，20 次 null 的经验 $p$ 最小为 $1/21$，模块频率检验未作跨候选多重比较；greedy atom 只用于描述候选结构，不是唯一高阶分解。第四，一般认知分析只检验冻结的 $(p,\alpha)=(3,1)$、REST1_LR 和 120 个固定组合；没有建模家系、头动或生理协变量，且新增 28 人按行为多样性选择。第五，EMOTION 表现分析没有 Face/Shape 条件 EV、家系编号或完整头动摘要，且主配置下的差值候选不能跨参数保持。第六，MOTOR 广义指数来自扫描外的耐力、灵巧度和握力，不是 run 内表现，三个分量的内部一致性也较弱；当前候选还没有通过 120 组合校正。第七，GAMBLING 奖惩结果由程序预定，主评分来自扫描外延迟折扣而不是 run 内正确率；当前皮层图谱又不含纹状体等奖赏相关皮层下结构，因此负结果只约束当前皮层组合。第八，RELATIONAL 最高候选在控制 Match 表现后明显减弱，不能解释为关系推理特异机制。第九，WM 最高候选在控制 0-back 后几乎消失，不能解释为工作记忆负荷特异机制。第十，TEVF 依赖 `taskRetained`/`taskRegressed` 的 GLM 配对，而共同方差图不是任务解释比例。
 
@@ -494,6 +520,8 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 | RELATIONAL 表现与 120 个固定组合（pooled 57） | `results/hcp_relational_performance_coalitions_57/{summary.json,report.md,relational_performance_coalition_screen_57.{png,svg,pdf}}` |
 | WM 表现与 120 个固定组合（pooled 57） | `results/hcp_wm_performance_coalitions_57/{summary.json,report.md,wm_performance_coalition_screen_57.{png,svg,pdf}}` |
 | 七任务主端点证据排序（pooled 57） | `results/hcp_all_task_behavior_coalitions_57/{summary.json,report.md,hcp_all_task_behavior_evidence_ranking_57.{png,svg,pdf}}` |
+| 七任务 system-level $\Xi$ 与对应行为 | `results/hcp_system_xi_task_behavior_57/{summary.json,report.md,hcp_system_xi_task_behavior_57.{png,svg,pdf}}` |
+| MOTOR 含 DMN 组合的聚合与网络锚定对照 | `results/hcp_motor_dmn_coalition_composite_57/{summary.json,report.md,hcp_motor_dmn_coalition_composite_57.{png,svg,pdf}}` |
 | REST null | `results/hcp_schaefer1000_57_validation_suite/null/{summary.json,observed_minus_null.png}` |
 | 模块 matched-null | `results/hcp_schaefer1000_57_validation_suite/module/{summary.json,top_core_consistency.png}` |
 | 参数鲁棒性 | `results/hcp_schaefer1000_57_validation_suite/robustness/{summary.json,hyperparameter_robustness_overview.png,hyperparameter_task_margins.png}` |
@@ -504,7 +532,7 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 
 <a id="appendix-a"></a>
 
-## 附录 A：DMF 补充诊断、EI 分量与 Kuramoto 对照
+## 附录 A：DMF 补充诊断、EI 分量、结构 null 与 Kuramoto 对照
 
 正文图 1 将 observational $\Phi^{WMS}$、pairwise BOLD-like $\Phi^R$ 与发放率、$\Xi$ 合并为一个动力学面板。为保留系统量的代数来源，原 whole EI 与 singleton EI 之和单独列于此处。
 
@@ -726,6 +754,22 @@ $$
 这个边界对照说明，在方程形式、source/target 和 EI 分解公式都固定后，是否出现临界内部峰主要取决于系统规模。`N=2` 没有经典 Kuramoto 的热力学同步相变，所以不能期待它给出与大系统相同的 $\Xi$ 峰；`N=64` 才提供清晰的 order-parameter 转变参照。
 
 因此，Kuramoto 临界相变实验的核心证据链是三步：order parameter 给出同步转变区，whole-state $\Xi$ 在转变前沿形成峰值，determinism/degeneracy 分解说明该峰来自“联合相位构型仍可区分、单振子读出快速冗余化”的差异，而不是来自总 EI、determinism 或 degeneracy 任一单项的简单最大化。
+
+<a id="dmf-structural-nulls"></a>
+
+### A.4 结构保持 null：经验 SC 的增量
+
+结构强度与 leverage 的相关不能回答经验连接布局是否具有超出低阶结构约束的作用。为此，本实验对经验 SC 和三类单一 null 实现分别重新校准 JFIC，并在完全相同的 $G=0.0$--$3.0$ 网格、8 个配对 seed、干预分布、300-step horizon 和 Gaussian 估计器下完成全扫描。权重置乱 null 保留全局权重多重集；degree/strength null 精确保留每个节点的二值 degree 和加权 strength，同时改变 79.9% 的缺失边位置；Yeo-block null 则在每个无序网络块对内独立置乱，精确保留全部块对的权重多重集与总权重。所有构造均保持对称、非负、零对角线及总体密度。正式扫描没有状态越界或低于 $-10^{-8}$ bits 的 Syn 非负性违反，层级分解闭合误差不超过 $2.1\times10^{-13}$ bits。
+
+![经验 SC 与结构保持 null 的 DMF 对照](../../fig/dmf_schaefer100/dmf_schaefer100_structural_nulls.png)
+
+*图 S1｜经验 SC 与三类结构 null。a：全耦合扫描的 $\Xi$ 均值曲线，阴影为跨 8 个配对 seed 的 SD；b：逐 seed 峰值 $\Xi$ 与峰位 $G$ 的均值和 SD；c：以各矩阵自身平均峰位为中心的三点窗口中，跨 ROI 与网络间分量占总 $\Xi$ 的比例；d：各 null 精确保留的结构约束。误差条只描述模拟 seed 波动；每类 null 仅生成一张图，因此不构成跨图实现的 null 分布或显著性检验。*
+
+结果首先否定了较强的结构最优性假设。经验 SC 的峰值 $\Xi$ 为 26.131 bits，而权重置乱、degree/strength 和 Yeo-block null 分别为 32.688、32.278 和 31.826 bits。经验减 null 的配对差依次为 $-6.558\pm0.170$、$-6.147\pm0.098$ 和 $-5.695\pm0.072$ bits，三组均为 0/8 个 seed 中经验值更高。跨 ROI 份额也从经验 SC 的 88.00% 上升至 92.00%、90.77% 和 90.87%。因此，经验解剖结构并不最大化整体联合干预优势或跨 ROI 协同；更随机的边布局反而产生更高且更广泛的 $\Xi$。
+
+网络间份额给出一个更窄的正归因。经验 SC 为 66.27%，低于权重置乱的 79.55% 和 degree/strength null 的 75.76%，却高于 Yeo-block null 的 64.46%。在精确保留每个 Yeo 块对的权重分布和总量后，经验具体边布局仍提高 1.81 个百分点，并在 8/8 个配对 seed 中同向。这表明经验网络块之间“有多少连接权重”并不能完全解释网络间归因，块内具体边位置还贡献了稳定但较小的增量。不过该结论只比较了一张经验图与每类一张 null 图，8 个 seed 不是 8 张独立结构图，因此目前只能称为探索性结构归因，不能报告拓扑 null 的显著性。
+
+原始峰位变化较小：经验 SC 的逐 seed 平均峰位为 $G=1.300$，三类 null 分别为 1.350、1.263 和 1.313。由于谱半径同时从经验值 0.701 降至 0.517--0.560，有效峰耦合 $G\rho(\mathbf{C})$ 的经验值 0.911 反而高于三类 null 的 0.698、0.678 和 0.735。谱半径是置乱后的下游拓扑性质，因此原始 $G$ 与有效耦合必须并列解释：峰在原始扫描轴上近似保留，不等于网络的有效耦合尺度不变。
 
 <a id="appendix-b"></a>
 
@@ -949,6 +993,29 @@ $$
 绝对关联最大的组合是 **Visual–Somatomotor–Limbic–Control–Default**。其调整后 $\rho=-0.419$，点对点置换 $p=0.00192$，分层 bootstrap 95% CI 为 $[-0.597,-0.172]$；留一被试相关范围为 $-0.463$ 至 $-0.387$。原 29 人和新增 28 人的未调整 Spearman 相关分别为 $-0.443$ 和 $-0.496$，方向与幅度相近。然而，120 项 BH $q=0.173$、120 组合 max-$T$ $p=0.0848$，因此它是当前样本中**绝对相关最大的探索候选**，不是经全家族校正确认的显著脑区协同。
 
 分量诊断显示，该候选与耐力、灵巧度和握力的调整后相关分别为 $-0.080$、$-0.360$ 和 $-0.295$。负相关因而主要对应精细动作与力量，而不是耐力。一个与数据相容但尚未验证的解释是，运动能力较高者在完整 MOTOR run 中以较低的五网络不可分解联合预测信息完成状态转移；这不能被写成“协同越低导致运动更好”。当前结果还不能定位到单个 parcel，也不覆盖小脑、基底节和丘脑；而这些结构对运动控制至关重要。独立样本复核应冻结五网络候选，并把指、趾和舌 block 分开建模，同时纳入 run 内头动、家系和皮层下—小脑信号。
+
+### E.2.5.1 MOTOR 五网络子系统的 system-level $\Xi$
+
+前述 Visual–Somatomotor–Limbic–Control–Default 结果检验的是五网络作为 source coalition、以未来七网络为 target 的固定组合 Syn。为回答“这五个网络自身构成一个动力系统时，其整体整合有效信息是否与运动表现相关”，进一步把 Visual、Somatomotor、Limbic、Control 和 Default 限定为一个五网络子系统，并重新拟合其 MOTOR 动力学。网络内 PC1、任务诱发 PCA、前 75% 开发段、三阶历史、Ridge $\alpha=1$ 和 affine Gaussian TM 均与正文主配置相同；唯一改变的是系统范围。令 $\mathbf{h}^{(5)}_{i,t}$ 为被试 $i$ 的 15 维五网络历史向量，$\mathbf{x}^{(5)}_{i,t+1}$ 为五维未来状态，则
+
+$$
+\Xi_i^{(5)}
+=
+EI\!\left(\mathbf{h}^{(5)}_{i,t};\mathbf{x}^{(5)}_{i,t+1}\right)
+-
+\sum_{j=1}^{15}
+EI\!\left(h^{(5)}_{i,t,j};\mathbf{x}^{(5)}_{i,t+1}\right).
+$$
+
+这一定义同时把 source 和 target 限定在五网络内，因而是五网络 system-level $\Xi$，不是从原 coalition Syn 换算得到的数值。57 人的 $\Xi^{(5)}$ 均值为 3.272 bits，范围为 1.275--5.653 bits；在 $10^{-10}$ bits 容差下没有负值或显著非负性违反。55/57 个五网络模型的留出预测优于持久性基线，held-out RMSE 比均值为 0.888。
+
+在 pooled-57 口径下控制年龄秩和性别，$\Xi^{(5)}$ 与同一广义运动指数呈负相关：偏 Spearman $\rho=-0.304$，被试 bootstrap 95% CI 为 $[-0.525,-0.035]$，100,000 次 Freedman--Lane 双侧置换 $p=0.0234$；事后负向单侧 $p=0.0118$。Pearson 敏感性相关为 $-0.296$，57 次留一被试估计均为负，范围为 $-0.350$ 至 $-0.267$。作为配对参照，完整七网络 system-level $\Xi$ 与该运动指数只有 $\rho=-0.179$，95% CI $[-0.421,0.102]$，双侧置换 $p=0.1884$。五网络与七网络 $\Xi$ 在被试间高度相关（Spearman $\rho=0.941$），但五网络相关减去七网络相关的配对 bootstrap 95% CI 为 $[-0.218,-0.044]$，说明限制到候选五网络后，当前样本中的负向脑—行为关系更集中。由于两个系统的 source 和 target 维数不同，不能把二者的绝对 bits 直接作大小比较。
+
+从功能解释看，该方向与“运动表现依赖选择性分离而非最大化广泛整合”的网络神经科学结果相容。Wang et al.（2021）指出，不同任务对整合和分离的需求不同，简单运动执行及较快加工更常与较高网络分离或模块化对应。Luppi et al.（2022）的信息分解进一步显示，感觉运动系统以模块化、结构耦合和冗余信息通道为主，而较强协同更多跨越 DMN、额顶控制和 Limbic 等联合网络并服务复杂、跨模态认知。当前负相关因而可以提出一个**选择性整合或神经效率假设**：运动能力较高者可能主要依靠稳定、较专门化的感觉—运动通道完成状态转换，而较低表现者在完整 MOTOR run 中表现出更广泛的视觉、感觉运动、情感/价值、控制和默认模式网络联合预测。这里的较高 $\Xi^{(5)}$ 可能反映与简单运动要求不完全匹配的弥散整合、补偿性募集，或较弱的任务相关网络分离，而不是“计算能力更强”。Santoro et al.（2024）在同样包含 HCP 七任务的高阶连接组研究中发现，局部高阶结构比全脑汇总量更能区分任务并解释行为；这也为五网络子系统关系强于完整七网络关系提供了方法层面的旁证，但其高阶拓扑指标与当前干预式 $\Xi$ 并不相同。
+
+DMN 的出现不能被解释成“DMN 越活跃，运动越差”。Luppi et al.（2024）将 DMN 描述为把多个专门模块的信息送入协同工作空间的 gateway，将额顶控制网络描述为向外协调信息的 broadcaster；Cole et al.（2013）也表明控制网络会按任务要求灵活改变与感觉及运动网络的连接。由此看，当前结果更可能涉及五网络整体的任务匹配程度：对于相对直接的运动执行，持续调用跨模态 gateway 和控制枢纽未必带来行为优势。然而，$\Xi^{(5)}$ 是五网络整体不可分解量，不能归因到 DMN、Control 或任一单独网络；此前七种网络锚定平均又全部呈负向，DMN 也不是最强锚点。因此当前证据支持“广泛多网络整合与较低运动表现相关”的探索性解释，不支持 DMN 特异机制。
+
+最后，这个五网络定义来自已经观察到的 coalition Syn 排名，双侧 $p=0.0234$ 没有校正这一事后选择，也不能沿用原 120 个 source coalition 的 max-$T$ 作为五网络 system-level $\Xi$ 的选择校正。运动终点来自扫描外耐力、灵巧度和握力，三分量内部一致性较低；分析也没有覆盖小脑、基底节和丘脑，尚未控制 run 内头动或家系结构。因而最窄的结论是：**当前 57 人样本提供了五网络 MOTOR system-level $\Xi$ 与广义运动表现负相关的探索性证据，该结果符合简单运动偏向网络分离和选择性整合的文献，但尚不能证明降低五网络 $\Xi$ 会改善运动表现。**最直接的确认应在独立样本中预先冻结这五个网络、同一估计器和负向假设，并用 run 内运动表现及皮层下—小脑信号复核。
 
 ### E.2.6 GAMBLING 跨期奖励价值评分与固定网络组合
 

@@ -62,7 +62,7 @@ SCATTER_SPECS = (
     },
 )
 PERMUTATIONS = 100_000
-BEHAVIOR_Y_LIM = (-36.0, 36.0)
+BEHAVIOR_Y_LIM = (-36.0, 44.0)
 BEHAVIOR_Y_TICKS = (-30, -15, 0, 15, 30)
 EMOTION_SCATTER_SPECS = (
     {
@@ -502,23 +502,17 @@ def plot_behavior_scatter(
     rho, p_value = blocked_pointwise_spearman(
         raw_x, raw_y, cohort_codes, seed=seed
     )
-    axis.set_title(
-        title,
-        loc="left",
-        fontsize=7.2,
-        fontweight="bold",
-        pad=13,
-    )
+    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=7)
     axis.text(
-        0.0,
-        1.015,
+        0.03,
+        0.965,
         rf"$\rho$={rho:+.3f}  ·  $p$={p_value:.3f}",
         transform=axis.transAxes,
         ha="left",
-        va="bottom",
+        va="top",
         fontsize=6.6,
         color="#3F4852",
-        clip_on=False,
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.86, "pad": 1.2},
     )
 
 
@@ -556,17 +550,17 @@ def plot_emotion_scatter(
     axis.grid(color="#E7EAED", linewidth=0.55, zorder=0)
     rho = float(behavior.attrs[f"rho__{coalition}"])
     p_value = float(behavior.attrs[f"p_raw__{coalition}"])
-    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=13)
+    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=7)
     axis.text(
-        0.0,
-        1.015,
+        0.03,
+        0.965,
         rf"$\rho$={rho:+.3f}  ·  $p$={p_value:.3f}",
         transform=axis.transAxes,
         ha="left",
-        va="bottom",
+        va="top",
         fontsize=6.6,
         color="#3F4852",
-        clip_on=False,
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.86, "pad": 1.2},
     )
 
 
@@ -604,17 +598,17 @@ def plot_social_scatter(
     axis.grid(color="#E7EAED", linewidth=0.55, zorder=0)
     rho = float(behavior.attrs["rho"])
     p_value = float(behavior.attrs["p_max_t_120"])
-    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=13)
+    axis.set_title(title, loc="left", fontsize=7.2, fontweight="bold", pad=7)
     axis.text(
-        0.0,
-        1.015,
+        0.03,
+        0.965,
         rf"adjusted $\rho$={rho:+.3f}  ·  max-$T$ $p$={p_value:.3f}",
         transform=axis.transAxes,
         ha="left",
-        va="bottom",
+        va="top",
         fontsize=6.3,
         color="#3F4852",
-        clip_on=False,
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.86, "pad": 1.2},
     )
 
 
@@ -704,12 +698,12 @@ def plot_main(
     if include_motor and (not include_emotion or not include_social):
         raise ValueError("The main layout expects SOCIAL and EMOTION panels when MOTOR is included.")
     figure = plt.figure(
-        figsize=(7.6, 11.4 if include_motor else (9.35 if include_emotion else 7.6)),
-        constrained_layout=True,
+        figsize=(8.4, 12.4 if include_motor else (9.35 if include_emotion else 7.6)),
+        constrained_layout=False,
     )
     row_count = 3 if include_motor else (4 if include_emotion else 3)
     height_ratios = (
-        (0.62, 1.05, 2.05)
+        (0.62, 1.08, 2.20)
         if include_motor
         else ((0.72, 1.05, 0.90, 0.90) if include_emotion else (0.72, 1.05, 0.90))
     )
@@ -717,7 +711,7 @@ def plot_main(
         row_count,
         1,
         height_ratios=height_ratios,
-        hspace=0.34 if include_motor else 0.16,
+        hspace=0.30 if include_motor else 0.16,
     )
     middle_grid = outer_grid[1, 0].subgridspec(
         1, 2, width_ratios=(1.34, 1.0), wspace=0.28
@@ -729,10 +723,10 @@ def plot_main(
         behavior_grid = outer_grid[2, 0].subgridspec(
             2,
             3,
-            width_ratios=(1.0, 1.0, 1.28),
+            width_ratios=(1.0, 1.0, 1.46),
             height_ratios=(1.0, 1.0),
-            wspace=0.58,
-            hspace=0.42,
+            wspace=0.82,
+            hspace=0.68,
         )
         axis_d = figure.add_subplot(behavior_grid[0, 0])
         axis_e = figure.add_subplot(behavior_grid[0, 1])
@@ -840,8 +834,8 @@ def plot_main(
         ("a", axis_a, -0.06, 1.04),
         ("b", axis_b, -0.11, 1.03),
         ("c", axis_c, -0.12, 1.03),
-        ("d", axis_d, -0.18 if include_motor else -0.11, 1.14),
-        ("e", axis_e, -0.14 if include_motor else -0.08, 1.14),
+        ("d", axis_d, -0.17 if include_motor else -0.11, 1.075),
+        ("e", axis_e, -0.14 if include_motor else -0.08, 1.075),
     ]
     if include_emotion:
         assert (
@@ -855,14 +849,14 @@ def plot_main(
         axis_g.set_ylabel("")
         panel_labels.extend(
             [
-                ("f", axis_f, -0.18 if include_motor else -0.11, 1.14),
-                ("g", axis_g, -0.14 if include_motor else -0.08, 1.14),
+                ("f", axis_f, -0.17 if include_motor else -0.11, 1.075),
+                ("g", axis_g, -0.14 if include_motor else -0.08, 1.075),
             ]
         )
     if include_motor:
         assert motor_associations is not None and axis_h is not None
         plot_motor_associations(axis_h, motor_associations)
-        panel_labels.append(("h", axis_h, -0.06, 1.045))
+        panel_labels.append(("h", axis_h, -0.10, 1.025))
     for label, axis, x_position, y_position in panel_labels:
         axis.text(
             x_position,
