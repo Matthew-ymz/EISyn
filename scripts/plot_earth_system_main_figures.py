@@ -59,6 +59,9 @@ UNICM_TARGET_XI_LEADS = (
     / "unicm_target_resolved_xi_tm_degree1_signed_n8192"
     / "target_resolved_xi_lead_summary.csv"
 )
+UNICM_SHAPLEY_SUMMARY = (
+    ROOT / "results" / "unicm_11mode_shapley_affine" / "summary.json"
+)
 UNICM_CALIBRATION_SUMMARY = (
     ROOT
     / "results"
@@ -91,6 +94,19 @@ TARGET_MODE_ORDER = (
     "IOD",
     "SIOD",
     "TNA",
+)
+SOURCE_SHARE_MODE_ORDER = (
+    "nino",
+    "nino12",
+    "nino3",
+    "nino4",
+    "NPMM",
+    "SPMM",
+    "IOB",
+    "IOD",
+    "SIOD",
+    "TNA",
+    "WWV",
 )
 
 BLUE = "#3F6F9F"
@@ -671,7 +687,7 @@ def plot_runge_figure(
         ax_g.text(
             float(last["horizon"]) + 1.2,
             float(last["delta2_tm"]),
-            str(edge).replace("->", "→") + (" (Arctic)" if str(edge) == arctic_label else ""),
+            str(edge).replace("->", "→"),
             color=color,
             fontsize=5.5,
             va="center",
@@ -744,6 +760,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     totals = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_greedy_total_summary.csv")
     atoms = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_lead8_top_atoms.csv").head(8)
     target_xi = pd.read_csv(UNICM_TARGET_XI_LEADS)
+    shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
     calibration = json.loads(UNICM_CALIBRATION_SUMMARY.read_text(encoding="utf-8"))
     fig = plt.figure(figsize=(7.2, 8.15), layout="constrained")
     grid = fig.add_gridspec(
@@ -911,7 +928,8 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         fontweight="bold",
     )
 
-    ax_d = fig.add_subplot(grid[2, :])
+    heatmap_grid = grid[2, :].subgridspec(1, 2, wspace=0.22)
+    ax_d = fig.add_subplot(heatmap_grid[0, 0])
     target_heat = (
         target_xi.pivot(index="target", columns="lead", values="xi_mean")
         .reindex(TARGET_MODE_ORDER)
@@ -929,9 +947,10 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         np.arange(len(TARGET_MODE_ORDER)),
         ["ENSO" if mode == "nino" else mode for mode in TARGET_MODE_ORDER],
     )
+    heatmap_tick_indices = np.asarray((0, 3, 7, 11, 15, 19, 23))
     ax_d.set_xticks(
-        np.arange(0, len(target_heat.columns), 2),
-        [str(int(value)) for value in target_heat.columns[::2]],
+        heatmap_tick_indices,
+        [str(int(target_heat.columns[index])) for index in heatmap_tick_indices],
     )
     ax_d.set_xlabel("Prediction lead (months)")
     ax_d.set_ylabel("Predicted target mode")
@@ -949,9 +968,50 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     for boundary in (4.5, 6.5, 9.5):
         ax_d.axhline(boundary, color="white", linewidth=0.75)
-    colorbar = fig.colorbar(image, ax=ax_d, fraction=0.018, pad=0.015)
+    colorbar = fig.colorbar(image, ax=ax_d, fraction=0.045, pad=0.025)
     colorbar.set_label(r"Target-resolved $\Xi_j$ (bits)")
-    add_panel_label(ax_d, "d", x=-0.055, y=1.02)
+    add_panel_label(ax_d, "d", x=-0.17, y=1.02)
+
+    ax_e = fig.add_subplot(heatmap_grid[0, 1])
+    shapley_leads = np.asarray(
+        [int(record["lead"]) for record in shapley["lead_summary"]]
+    )
+    source_share_values = np.asarray(
+        [
+            [
+                float(record["shapley_percent_mean"][mode])
+                for record in shapley["lead_summary"]
+            ]
+            for mode in SOURCE_SHARE_MODE_ORDER
+        ]
+    )
+    source_image = ax_e.imshow(
+        source_share_values,
+        aspect="auto",
+        interpolation="nearest",
+        cmap="YlGnBu",
+        extent=(0.5, 24.5, len(SOURCE_SHARE_MODE_ORDER) - 0.5, -0.5),
+    )
+    source_leaders = np.argmax(source_share_values, axis=0)
+    ax_e.scatter(
+        shapley_leads,
+        source_leaders,
+        marker="o",
+        s=7,
+        facecolor="white",
+        edgecolor=INK,
+        linewidth=0.35,
+    )
+    ax_e.set_xticks((1, 4, 8, 12, 16, 20, 24))
+    ax_e.set_yticks(
+        np.arange(len(SOURCE_SHARE_MODE_ORDER)),
+        ["ENSO" if mode == "nino" else mode for mode in SOURCE_SHARE_MODE_ORDER],
+    )
+    ax_e.set_xlabel("Prediction lead (months)")
+    ax_e.set_ylabel("Source mode")
+    source_colorbar = fig.colorbar(source_image, ax=ax_e, fraction=0.045, pad=0.025)
+    source_colorbar.set_label("Mean Shapley share (%)")
+    add_panel_label(ax_e, "e", x=-0.17, y=1.02)
 
     metrics = calibration["test_metrics"]
     method_keys = ("frozen", "univariate", "uniform", "syn_regularized")
@@ -961,9 +1021,9 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     method_colors = (MID_GREY, "#91A7CF", BLUE, ORANGE)
 
-    ax_e = fig.add_subplot(grid[3, 0:2])
+    ax_f = fig.add_subplot(grid[3, 0:2])
     method_y = np.arange(len(method_keys))[::-1]
-    ax_e.scatter(
+    ax_f.scatter(
         method_values,
         method_y,
         s=31,
@@ -973,7 +1033,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         zorder=3,
     )
     for value, y_value in zip(method_values, method_y):
-        ax_e.text(
+        ax_f.text(
             value + 0.0021,
             y_value,
             f"{value:.3f}",
@@ -982,31 +1042,31 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
             fontsize=5.4,
             color=INK,
         )
-    ax_e.set_yticks(method_y, method_labels)
-    ax_e.set_xlabel("Test normalized RMSE (lower is better)")
-    ax_e.set_xlim(0.91, 1.012)
-    ax_e.set_xticks((0.92, 0.96, 1.00))
-    ax_e.set_ylim(-0.55, 3.55)
-    ax_e.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
+    ax_f.set_yticks(method_y, method_labels)
+    ax_f.set_xlabel("Test normalized RMSE (lower is better)")
+    ax_f.set_xlim(0.91, 1.012)
+    ax_f.set_xticks((0.92, 0.96, 1.00))
+    ax_f.set_ylim(-0.55, 3.55)
+    ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     total_gain = float(metrics["frozen"]["mean_cell_nrmse"]) - float(
         metrics["syn_regularized"]["mean_cell_nrmse"]
     )
     syn_gain = float(metrics["uniform"]["mean_cell_nrmse"]) - float(
         metrics["syn_regularized"]["mean_cell_nrmse"]
     )
-    ax_e.text(
+    ax_f.text(
         0.01,
         1.04,
         f"total gain {total_gain:.3f}; Syn-specific gain {syn_gain:.3f}",
-        transform=ax_e.transAxes,
+        transform=ax_f.transAxes,
         ha="left",
         va="bottom",
         fontsize=5.3,
         color=INK,
     )
-    add_panel_label(ax_e, "e", x=-0.18, y=1.04)
+    add_panel_label(ax_f, "f", x=-0.18, y=1.04)
 
-    ax_f = fig.add_subplot(grid[3, 2:5])
+    ax_g = fig.add_subplot(grid[3, 2:5])
     uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
     random_scores = np.asarray(
         calibration["shuffled_syn_control"]["scores"],
@@ -1019,8 +1079,8 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     null_gains = uniform_score - random_scores
     rng = np.random.default_rng(20260728)
     jitter = rng.uniform(-0.15, 0.15, size=len(null_gains))
-    ax_f.axvline(0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
-    ax_f.scatter(
+    ax_g.axvline(0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
+    ax_g.scatter(
         null_gains,
         jitter,
         s=15,
@@ -1030,7 +1090,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         alpha=0.62,
         zorder=2,
     )
-    ax_f.scatter(
+    ax_g.scatter(
         [syn_gain],
         [0],
         marker="D",
@@ -1040,36 +1100,36 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         linewidth=0.5,
         zorder=4,
     )
-    ax_f.text(
+    ax_g.text(
         0.02,
         0.92,
         f"{random_repeats} shuffled Syn priors",
-        transform=ax_f.transAxes,
+        transform=ax_g.transAxes,
         ha="left",
         va="top",
         fontsize=5.5,
         color="#657080",
     )
-    ax_f.text(
+    ax_g.text(
         0.98,
         0.92,
         rf"$P={random_p:.3f}$",
-        transform=ax_f.transAxes,
+        transform=ax_g.transAxes,
         ha="right",
         va="top",
         fontsize=5.6,
         color=INK,
     )
-    ax_f.set_xlabel("Normalized RMSE gain over uniform ridge")
-    ax_f.set_yticks([])
-    ax_f.set_xlim(
+    ax_g.set_xlabel("Normalized RMSE gain over uniform ridge")
+    ax_g.set_yticks([])
+    ax_g.set_xlim(
         min(-0.017, float(null_gains.min()) - 0.002),
         max(0.024, syn_gain + 0.003),
     )
-    ax_f.set_ylim(-0.38, 0.38)
-    ax_f.spines["left"].set_visible(False)
-    ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_f, "f", x=-0.08, y=1.04)
+    ax_g.set_ylim(-0.38, 0.38)
+    ax_g.spines["left"].set_visible(False)
+    ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
+    add_panel_label(ax_g, "g", x=-0.08, y=1.04)
     return save_figure(fig, output_base)
 
 

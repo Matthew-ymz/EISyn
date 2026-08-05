@@ -33,6 +33,9 @@ from scripts.unicm_peid_syn_analysis import (  # noqa: E402
 
 
 MODE_LABELS = tuple(MODE_NAMES)
+HEATMAP_MODE_LABELS = tuple(label for label in MODE_LABELS if label.startswith("nino")) + tuple(
+    label for label in MODE_LABELS if not label.startswith("nino")
+)
 CORE_LABELS = ("nino", "IOD", "nino12", "nino3", "nino4")
 LEADS = tuple(range(1, 25))
 SEEDS = (1, 2, 3)
@@ -474,18 +477,20 @@ def plot_figure(
     format_lead_axis(ax_a)
     add_panel_label(ax_a, "a")
 
+    heatmap_indices = [MODE_LABELS.index(label) for label in HEATMAP_MODE_LABELS]
+    heatmap_values = percent_mean[:, heatmap_indices].T
     image = ax_b.imshow(
-        percent_mean.T,
+        heatmap_values,
         aspect="auto",
         origin="upper",
         interpolation="nearest",
         cmap="YlGnBu",
-        extent=(0.5, 24.5, len(MODE_LABELS) - 0.5, -0.5),
+        extent=(0.5, 24.5, len(HEATMAP_MODE_LABELS) - 0.5, -0.5),
     )
-    leaders = np.argmax(percent_mean, axis=1)
+    leaders = np.argmax(heatmap_values, axis=0)
     ax_b.scatter(leads, leaders, marker="o", s=7, facecolor="white", edgecolor=INK, linewidth=0.35)
     ax_b.set_xticks((1, 4, 8, 12, 16, 20, 24))
-    ax_b.set_yticks(np.arange(len(MODE_LABELS)), MODE_LABELS)
+    ax_b.set_yticks(np.arange(len(HEATMAP_MODE_LABELS)), HEATMAP_MODE_LABELS)
     ax_b.set_xlabel("Forecast lead (months)")
     ax_b.set_ylabel("Source mode")
     colorbar = figure.colorbar(image, ax=ax_b, fraction=0.045, pad=0.025)
