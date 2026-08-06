@@ -943,6 +943,16 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         cmap="YlOrRd",
         norm=mpl.colors.Normalize(vmin=0.0, vmax=float(np.nanmax(target_values))),
     )
+    target_leaders = np.nanargmax(target_values, axis=0)
+    ax_d.scatter(
+        np.arange(target_values.shape[1]),
+        target_leaders,
+        marker="o",
+        s=7,
+        facecolor="white",
+        edgecolor=INK,
+        linewidth=0.35,
+    )
     ax_d.set_yticks(
         np.arange(len(TARGET_MODE_ORDER)),
         ["ENSO" if mode == "nino" else mode for mode in TARGET_MODE_ORDER],
