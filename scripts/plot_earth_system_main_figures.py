@@ -530,36 +530,35 @@ def plot_runge_figure(
     for top_k, frame in effective.groupby("top_k", sort=True):
         frame = frame.sort_values("horizon")
         primary = int(top_k) == 200
+        line_color = cutoff_colors[int(top_k)]
         ax_d.plot(
             positions,
             frame["valid_pair_count"],
-            color=cutoff_colors[int(top_k)],
+            color=line_color,
             linewidth=1.45 if primary else 0.9,
-            marker="o" if primary else None,
-            markersize=2.2,
+            marker="o",
+            markersize=2.2 if primary else 1.7,
+            markeredgewidth=0,
             label=f"top-{int(top_k)}",
             zorder=3 if primary else 2,
         )
-    primary_effective = effective[effective["top_k"] == 200].sort_values("horizon")
-    ax_d.text(
-        0.02,
-        0.48,
-        f"{primary_effective.iloc[0].valid_pair_count:.0f}",
-        transform=ax_d.transAxes,
-        color=BLUE,
-        fontsize=5.5,
-        fontweight="bold",
-    )
-    ax_d.text(
-        0.98,
-        0.04,
-        f"{primary_effective.iloc[-1].valid_pair_count:.0f}",
-        transform=ax_d.transAxes,
-        ha="right",
-        color=BLUE,
-        fontsize=5.5,
-        fontweight="bold",
-    )
+        for x, row, ha in (
+            (positions[0], frame.iloc[0], "left"),
+            (positions[-1], frame.iloc[-1], "right"),
+        ):
+            place_below = int(top_k) == 500 and ha == "left"
+            ax_d.annotate(
+                f"{row.valid_pair_count:.0f}",
+                (x, float(row.valid_pair_count)),
+                xytext=(3 if ha == "left" else -3, -5 if place_below else 3),
+                textcoords="offset points",
+                ha=ha,
+                va="top" if place_below else "bottom",
+                color=line_color,
+                fontsize=5.5 if primary else 4.8,
+                fontweight="bold" if primary else "normal",
+                zorder=4,
+            )
     ax_d.set_xticks(sparse_tick_positions, sparse_tick_horizons)
     ax_d.set_xlabel("Evaluated horizon, $H$")
     ax_d.set_ylabel("Source pairs retained in top-$K$")
@@ -642,16 +641,17 @@ def plot_runge_figure(
     target_line = ax_f_right.plot(
         positions,
         primary_coverage["target_count"],
-        color=INK,
+        color=VIOLET,
         linewidth=1.05,
         marker="s",
         markersize=2.0,
         label="distinct targets",
     )[0]
-    ax_f_right.set_ylabel("Distinct targets", color=INK)
-    ax_f_right.tick_params(axis="y", colors=INK)
+    ax_f_right.set_ylabel("Distinct targets", color=VIOLET)
+    ax_f_right.tick_params(axis="y", colors=VIOLET)
     ax_f_right.spines["top"].set_visible(False)
     ax_f_right.spines["right"].set_linewidth(0.65)
+    ax_f_right.spines["right"].set_color(VIOLET)
     ax_f.legend(
         [span_line, target_line],
         ["maximum span", "distinct targets"],
