@@ -203,6 +203,7 @@ python scripts/export_research_framework_pdf.py
 - [docs/研究框架.md](docs/研究框架.md)：PEID 论文正文草稿。
 - [docs/研究框架_附录.md](docs/研究框架_附录.md)：证明、连续情形推导与复杂度估算。
 - [docs/runge_experiments.md](docs/runge_experiments.md)：Runge 线性复现、非线性 EI 与 PEID 超图实验报告。
+- [docs/谱间隙与协同源凝聚.md](docs/谱间隙与协同源凝聚.md)：谱间隙驱动多步低秩化与协同源凝聚的理论、反例和解析 toy examples。
 - [docs/granger_peid_mlp_comparison.md](docs/granger_peid_mlp_comparison.md)：Granger / PEID / MLP 对照结果。
 - [docs/iid_fig6_phi_eid_comparison.md](docs/iid_fig6_phi_eid_comparison.md)：IIT / `Phi^EID` 对照说明。
 - [docs/高阶PEID协同定义.md](docs/高阶PEID协同定义.md)：高阶协同定义草稿。
