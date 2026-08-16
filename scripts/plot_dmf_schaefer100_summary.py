@@ -248,7 +248,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         1,
         5,
         subplot_spec=right_grid[0, 0],
-        width_ratios=(2.55, 0.80, 3.20, 0.55, 1.75),
+        width_ratios=(2.55, 0.80, 3.20, 0.95, 1.75),
         wspace=0.0,
     )
     bottom_grid = GridSpecFromSubplotSpec(
