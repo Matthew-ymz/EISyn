@@ -122,7 +122,7 @@ def download_one(
 
 
 def validate(target: Path, start_year: int, end_year: int) -> None:
-    from netCDF4 import Dataset
+    import xarray as xr
 
     expected_count = (end_year - start_year + 1) * 12
     for variable in VARIABLES:
@@ -137,7 +137,7 @@ def validate(target: Path, start_year: int, end_year: int) -> None:
                 f"{variable}: expected {expected_count} monthly files, found {len(selected)}"
             )
         for sample in (selected[0], selected[-1]):
-            with Dataset(sample) as dataset:
+            with xr.open_dataset(sample, engine="scipy") as dataset:
                 if variable not in dataset.variables:
                     raise RuntimeError(f"{sample}: variable {variable!r} not found")
 

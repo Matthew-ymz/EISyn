@@ -11,7 +11,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import numpy as np
-from netCDF4 import Dataset
+from scipy.io import netcdf_file
 
 
 MODE_NAMES = (
@@ -63,13 +63,15 @@ def load_monthly_field(root: Path, variable: str, start_year: int, end_year: int
     for path in files:
         stamp = path.name.split("_1m_")[1][:6]
         dates.append(f"{stamp[:4]}-{stamp[4:]}")
-        with Dataset(path) as dataset:
+        with netcdf_file(path, "r", mmap=False) as dataset:
             if lat is None:
                 lat = np.asarray(dataset.variables["lat"][:], dtype=np.float32)
                 lon = np.asarray(dataset.variables["lon"][:], dtype=np.float32)
-            field = dataset.variables[variable][0]
-            if np.ma.isMaskedArray(field):
-                field = field.filled(0.0)
+            source = dataset.variables[variable]
+            field = np.asarray(source[0], dtype=np.float32)
+            fill_value = getattr(source, "_FillValue", None)
+            if fill_value is not None:
+                field = np.where(field == np.float32(fill_value), np.nan, field)
             values.append(np.nan_to_num(np.asarray(field, dtype=np.float32)))
 
     return np.stack(values), lat, lon, np.asarray(dates)
@@ -84,6 +86,27 @@ def code_style_anomalies(field: np.ndarray):
     scaler = float(np.nanstd(np.where(valid[None], anomalies, np.nan)))
     if not np.isfinite(scaler) or scaler <= 0:
         raise RuntimeError(f"Invalid anomaly scaler: {scaler}")
+    return anomalies, anomalies / scaler, climatology, scaler
+
+
+def reference_style_anomalies(
+    field: np.ndarray,
+    climatology: np.ndarray,
+    scaler: float,
+):
+    """Apply a previously fitted calendar-month normalization."""
+
+    if field.shape[0] % 12:
+        raise RuntimeError("The monthly series must contain complete calendar years")
+    if climatology.shape != (12, *field.shape[1:]):
+        raise RuntimeError(
+            "Reference climatology shape does not match the requested field: "
+            f"{climatology.shape} versus {(12, *field.shape[1:])}"
+        )
+    scaler = float(scaler)
+    if not np.isfinite(scaler) or scaler <= 0:
+        raise RuntimeError(f"Invalid reference anomaly scaler: {scaler}")
+    anomalies = field - climatology[np.arange(field.shape[0]) % 12]
     return anomalies, anomalies / scaler, climatology, scaler
 
 
@@ -139,8 +162,17 @@ def verify_checkpoints(
 
     source = checkpoint_root / "src"
     sys.path.insert(0, str(source))
-    # pynvml is imported by the training module but is not needed for inference.
+    # These training-only dependencies are imported transitively by the released
+    # model code but are not used for frozen-checkpoint inference.
     sys.modules.setdefault("pynvml", ModuleType("pynvml"))
+    if "sklearn.metrics" not in sys.modules:
+        sklearn_stub = ModuleType("sklearn")
+        metrics_stub = ModuleType("sklearn.metrics")
+        metrics_stub.mean_squared_error = None
+        metrics_stub.mean_absolute_error = None
+        sklearn_stub.metrics = metrics_stub
+        sys.modules.setdefault("sklearn", sklearn_stub)
+        sys.modules.setdefault("sklearn.metrics", metrics_stub)
     from models import UniCM
 
     parameters = SimpleNamespace(
@@ -225,6 +257,14 @@ def main() -> None:
     )
     parser.add_argument("--start-year", type=int, default=1980)
     parser.add_argument("--end-year", type=int, default=2014)
+    parser.add_argument(
+        "--normalization-reference",
+        type=Path,
+        help=(
+            "Existing model_inputs.npz whose calendar-month climatologies and "
+            "field-wide anomaly scales are reused instead of refitting them."
+        ),
+    )
     args = parser.parse_args()
 
     sst, lat, lon, dates = load_monthly_field(
@@ -240,8 +280,24 @@ def main() -> None:
     ):
         raise RuntimeError("SST and 20 C depth coordinates are not aligned")
 
-    sst_anom, sst_norm, sst_clim, sst_std = code_style_anomalies(sst)
-    depth_anom, depth_norm, depth_clim, depth_std = code_style_anomalies(depth20)
+    normalization_reference = None
+    if args.normalization_reference is None:
+        sst_anom, sst_norm, sst_clim, sst_std = code_style_anomalies(sst)
+        depth_anom, depth_norm, depth_clim, depth_std = code_style_anomalies(depth20)
+    else:
+        with np.load(args.normalization_reference, allow_pickle=False) as reference:
+            reference_metadata = json.loads(str(reference["metadata"]))
+            sst_clim = reference["sst_monthly_climatology"].astype(np.float32)
+            depth_clim = reference["so20chgt_monthly_climatology"].astype(np.float32)
+        sst_std = float(reference_metadata["sst_std"])
+        depth_std = float(reference_metadata["so20chgt_std"])
+        sst_anom, sst_norm, sst_clim, sst_std = reference_style_anomalies(
+            sst, sst_clim, sst_std
+        )
+        depth_anom, depth_norm, depth_clim, depth_std = reference_style_anomalies(
+            depth20, depth_clim, depth_std
+        )
+        normalization_reference = str(args.normalization_reference.resolve())
     modes_normalized = extract_modes(sst_norm, depth_norm, lat, lon)
     modes_physical = extract_modes(sst_anom, depth_anom, lat, lon)
     month_ids = np.asarray([int(date[-2:]) - 1 for date in dates], dtype=np.int64)
@@ -265,6 +321,7 @@ def main() -> None:
         "nino4_note": "Uses 200E-210E to match the released checkpoint code.",
         "sst_std": sst_std,
         "so20chgt_std": depth_std,
+        "normalization_reference": normalization_reference,
     }
     np.savez_compressed(
         args.output,

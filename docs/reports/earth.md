@@ -29,7 +29,7 @@
 
 本文用两个彼此独立的实验检验同一科学问题：气候系统的可预测信息是否依赖多个空间模态的联合状态，以及这种高阶依赖如何随预测尺度变化。第一个实验直接分析 1948—2026 年全球海平面气压（SLP）分量，在 Runge 等人提出的因果网络基准上识别二源协同超边；第二个实验不再从观测场重新拟合动力模型，而是把已经训练完成的 UniCM Transformer 视为冻结的气候转移机制，对其进行最大熵干预和有效信息分解。
 
-两组证据分别回答“观测场中出现了什么尺度依赖结构”和“神经气候模型依靠什么联合信息进行预测”。SLP 实验发现，短期强超边较分散，而中长期结果逐渐集中到以 `No.0/No.1` 为核心的少数源组合；该源对先快速建立近全球目标通道，随后通过招募更多目标区域继续扩展并趋于饱和。不同超边同时呈现早期峰值、中期峰值、长期平台和长期增强四类演化。北极特例进一步显示，北极分量 `No.3` 在短期主要作为联合源参与向外读出，中期经历组合重排，长期头部质量收缩并转为主要作为联合预测目标。前五主成分的精确 Shapley 分解给出一致的整体视角：`No.3` 的协同份额由 $H=1$ 的 `31.9%` 降至 $H=60$ 的 `9.4%`，而 `No.0 + No.1` 的合计份额升至 `69.3%`。UniCM 实验发现，系统级整合有效信息增量 $\Xi$ 在 lead 7—10 形成中期增强，主要涉及 ENSO 空间型态与 IOD 背景。十一模态精确 Shapley 分解进一步表明，`ENSO + IOD + nino12 + nino3 + nino4` 五模态核心的协同份额由 lead 1 的 `46.8%` 升至 lead 8 的 `74.1%`，随后在 lead 24 回落至 `53.9%`。进一步把 target-specific Syn 用作输出校准的正则化先验后，测试 nRMSE 从冻结模型的 `1.000` 降至 `0.918`；其中相对容量匹配的均匀 ridge，Syn 结构本身贡献 `0.021` 的额外改善。
+两组证据分别回答“观测场中出现了什么尺度依赖结构”和“神经气候模型依靠什么联合信息进行预测”。SLP 实验发现，短期强超边较分散，而中长期结果逐渐集中到以 `No.0/No.1` 为核心的少数源组合；该源对先快速建立近全球目标通道，随后通过招募更多目标区域继续扩展并趋于饱和。不同超边同时呈现早期峰值、中期峰值、长期平台和长期增强四类演化。北极特例进一步显示，北极分量 `No.3` 在短期主要作为联合源参与向外读出，中期经历组合重排，长期头部质量收缩并转为主要作为联合预测目标。前五主成分的精确 Shapley 分解给出一致的整体视角：`No.3` 的协同份额由 $H=1$ 的 `31.9%` 降至 $H=60$ 的 `9.4%`，而 `No.0 + No.1` 的合计份额升至 `69.3%`。UniCM 实验发现，系统级整合有效信息增量 $\Xi$ 在 lead 7—10 形成中期增强，主要涉及 ENSO 空间型态与 IOD 背景。十一模态精确 Shapley 分解进一步表明，`ENSO + IOD + nino12 + nino3 + nino4` 五模态核心的协同份额由 lead 1 的 `46.8%` 升至 lead 8 的 `74.1%`，随后在 lead 24 回落至 `53.9%`。进一步把 target-specific Syn 用作输出校准的正则化先验后，在 2009—2016 年 96 个留出起报月份上，测试 nRMSE 由冻结模型的 `1.087` 降至 `0.981`；相对容量匹配的均匀 ridge，Syn 结构本身贡献 `0.0262` 的额外改善（相对改善 `2.61%`）。
 
 这两项实验使用不同数据对象和不同机制载体，不能相互替代，也不构成同一动力方程下的闭环验证。它们共同支持的窄结论是：气候可预测信息不仅存在于单模态记忆或成对联系中，还存在于依赖预测窗口的联合状态中。
 
@@ -402,17 +402,17 @@ $$
 - **Uniform ridge**：使用全部 44 个特征，但所有源模态采用相同正则化强度。
 - **Syn prior**：与 uniform ridge 使用相同的 44 个特征、相同参数量和相同训练样本，唯一变化是正则化强度按 Syn 分配。
 
-Frozen 的 nRMSE 为 `1.000`，univariate 降至 `0.931`。这说明原始预测中存在可以由简单线性映射修正的均值或振幅偏差；这种降幅主要是数值校准，不等于模型学到了新的气候动力。相应地，univariate 的平均 ACC 与 Frozen 完全相同，均为 `0.195`，说明这一步主要修正数值尺度，没有增加新的时间型态信息。
+Frozen 的 nRMSE 为 `1.087`，univariate 降至 `0.998`。这说明原始预测中存在可以由简单线性映射修正的均值或振幅偏差；这种降幅主要是数值校准，不等于模型学到了新的气候动力。
 
-Syn prior 的 nRMSE 最低，为 `0.918`。从 Frozen 到 Syn prior 的总降幅为 `0.083`，但这个数同时包含普通校准和 Syn 结构两部分，不能全部归因于 Syn。公平的 Syn 对照是 uniform ridge：两者只有正则化权重不同。Uniform ridge 的 nRMSE 为 `0.938`，因此 Syn-specific 改善为 `0.0206`，相对改善 `2.20%`；12 个月循环 block-bootstrap 的 95% 区间为 `[0.0037, 0.0353]`，2,000 次重采样中 `99%` 保持正值。三个独立 checkpoint 上的改善也都为正，分别为 `0.0155`、`0.0137` 和 `0.0132`。
+Syn prior 的 nRMSE 最低，为 `0.981`。从 Frozen 到 Syn prior 的总降幅为 `0.106`，但这个数同时包含普通校准和 Syn 结构两部分，不能全部归因于 Syn。公平的 Syn 对照是 uniform ridge：两者只有正则化权重不同。Uniform ridge 的 nRMSE 为 `1.007`，因此 Syn-specific 改善为 `0.0262`，相对改善 `2.61%`；12 个月 block-bootstrap 的 95% 区间为 `[0.0005, 0.0514]`。三个独立 checkpoint 上的改善均为正。
 
-与 univariate 相比，Syn prior 的点估计也低 `0.0127`，但其 bootstrap 区间跨过零。因此，当前最强证据不是“Syn 一定优于所有简单校准”，而是：**在相同的多模态特征和模型容量下，按 Syn 分配正则化比均匀分配更有效。**
+与 univariate 相比，Syn prior 的绝对改善为 `0.0167`，95% 区间为 `[0.0061, 0.0303]`。因此，当前最强证据是：**在相同的多模态特征和模型容量下，按 Syn 分配正则化比均匀分配更有效，且在总体平均上也优于单变量校准。**
 
 #### 图 4f 为什么需要随机对照
 
 Syn prior 与 uniform ridge 的比较只能说明 Syn 加权的非均匀正则化优于均匀正则化，不能判断正确的模态对应关系是否优于任意一种非均匀分配。图 4f 因而在每个 target—lead 单元内保留 11 个 Syn 重要性数值，只随机打乱它们对应的源模态标签。这样既保留了权重分布，又破坏了“哪个模态应当少收缩”的结构。随机对照数量在完整运行前固定为 200；每个对照都使用与真实 Syn 相同的特征、参数量、数据划分和超参数搜索预算，并在验证段重新选择 $\alpha$ 与 $\gamma$。
 
-真实 Syn 相对 uniform ridge 的 nRMSE 改善为 `0.0206`；200 个随机分配中，最佳改善为 `0.0111`，没有一个达到真实 Syn。有限随机检验因此为
+真实 Syn 相对 uniform ridge 的 nRMSE 改善为 `0.0262`；200 个独立打乱并重新调参的随机先验中，没有一个达到真实 Syn。有限随机检验因此为
 
 $$
 P=\frac{0+1}{200+1}=0.00498.
@@ -435,7 +435,7 @@ $$
 - 图 1g 的四条超边是事后选取的代表型态，用于说明时间响应的异质性，不代表全部候选的总体分布。
 - 图 2 的北极定义依据分量载荷主中心，只在 $60^\circ\mathrm{N}$ 与北极圈两个中心纬度阈值下得到同一 `No.3`；它没有检验载荷面积阈值、季节依赖或独立分量基底，不能把角色翻转直接解释为真实北极因果方向反转。
 - UniCM 的机制分析针对 frozen checkpoint，不做单个历史事件归因。
-- Syn 正则化实验表明最大熵机制读数可以作为有限样本校准的结构先验，但当前证据只来自一个 ORAS5 时间切分、固定 `start_month=0` 和 affine degree-1 TM；在完成滚动起报、12 个起报月份和独立再分析资料复核前，不应把 `2.20%` 的相对 nRMSE 改善外推为稳定业务收益。
+- Syn 正则化实验表明最大熵机制读数可以作为有限样本校准的结构先验。主结果已覆盖 2009—2016 年的 96 个月度起报日期，但仍只来自一套再分析产品和 affine degree-1 TM，且扩展时段跨越了数据流变化。在独立资料与更高阶估计上复核前，不应把 `2.61%` 的相对 nRMSE 改善外推为稳定业务收益。
 - UniCM 的高维 EI、$\Xi$ 和二源 Syn 使用 affine/Gaussian degree-1 TM 等价的 log-det 估计；它适合机制筛查，但不等同于高阶 transport-map PEID 的最终非线性分解。
 - 贪婪 $\Xi$ 分解依赖层级路径和数值容差；原子集合不是唯一的高阶 PID 表示。
 - 图 3 的 Shapley 百分比依赖 affine TM、独立高斯干预先验和当前 Varimax 基底；它衡量冻结 rollout 的统计归因，不具有旋转不变性，也不能直接解释为某个地理区的物理贡献。完整 60 维 target 的二、三阶 TM 当前受样本—基函数比例限制。
@@ -452,8 +452,8 @@ $$
 - 图 2 PNG/SVG/PDF 与摘要：`fig/earth_slp_arctic_hyperedge_horizon.{png,svg,pdf}`、`fig/earth_slp_arctic_hyperedge_horizon_summary.json`
 - 图 3 的分析脚本：`scripts/analyze_runge_slp_pc05_shapley.py`
 - 图 3 PNG/SVG/PDF 与摘要：`fig/earth_slp_pc05_shapley.{png,svg,pdf}`、`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/slp_pc05_shapley_affine/summary.json`
-- 图 4 PNG/SVG/PDF：`fig/earth_unicm_hierarchical_ei.{png,svg,pdf}`；e—f 的预测校准数据来自 `results/unicm_synergy_regularized_forecast/summary.json`
-- 图 4e—f 的 target-specific Syn、校准脚本与报告：`results/unicm_target_pair_syn_tm_degree1_signed_n8192/target_pair_syn_summary.csv`、`scripts/run_unicm_synergy_regularized_calibration.py`、`results/unicm_synergy_regularized_forecast/report.md`
+- 图 4 PNG/SVG/PDF：`fig/earth_unicm_hierarchical_ei.{png,svg,pdf}`；f—g 的预测校准数据来自 `results/unicm_synergy_regularized_forecast_extended_1980_2018/summary.json`
+- 图 4f—g 的 target-specific Syn、校准脚本与报告：`results/unicm_target_pair_syn_tm_degree1_signed_n8192/target_pair_syn_summary.csv`、`scripts/run_unicm_synergy_regularized_calibration.py`、`results/unicm_synergy_regularized_forecast_extended_1980_2018/comparison_report.md`
 - Runge 周尺度分量输入：`results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv`
 - Runge 全候选三阶 TM 结果：`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/multistep_conditioned_ei_tm_exhaustive`
 - Runge 代表超边强制 TM 趋势：`fig/runge_slp_daily_1948_2026_20260628/multistep_conditioned_ei_tm_targeted/forced_tm_edge_trends_H001_H060.csv`

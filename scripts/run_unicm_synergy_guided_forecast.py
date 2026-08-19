@@ -49,16 +49,24 @@ def issue_months(target_dates: np.ndarray) -> np.ndarray:
     return first - np.timedelta64(1, "M")
 
 
-def chronological_split(target_dates: np.ndarray) -> Split:
+def chronological_split(
+    target_dates: np.ndarray,
+    *,
+    fit_end: str = "2001-12",
+    validation_start: str = "2004-01",
+    validation_end: str = "2006-12",
+    test_start: str = "2009-01",
+    test_end: str = "2012-12",
+) -> Split:
     issue = issue_months(target_dates)
-    fit = np.flatnonzero(issue <= np.datetime64("2001-12"))
+    fit = np.flatnonzero(issue <= np.datetime64(fit_end))
     validation = np.flatnonzero(
-        (issue >= np.datetime64("2004-01"))
-        & (issue <= np.datetime64("2006-12"))
+        (issue >= np.datetime64(validation_start))
+        & (issue <= np.datetime64(validation_end))
     )
     test = np.flatnonzero(
-        (issue >= np.datetime64("2009-01"))
-        & (issue <= np.datetime64("2012-12"))
+        (issue >= np.datetime64(test_start))
+        & (issue <= np.datetime64(test_end))
     )
     if min(len(fit), len(validation), len(test)) == 0:
         raise ValueError("Chronological split produced an empty partition.")

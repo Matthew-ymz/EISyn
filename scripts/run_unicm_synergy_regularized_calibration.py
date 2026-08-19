@@ -48,6 +48,8 @@ class CellDesign:
     x_test: np.ndarray
     y_fit: np.ndarray
     y_mean: float
+    gram: np.ndarray
+    rhs: np.ndarray
 
 
 def normalize_name(name: object) -> str:
@@ -129,6 +131,8 @@ def prepare_designs(
                 x_test=x_test,
                 y_fit=y_fit - y_fit.mean(),
                 y_mean=float(y_fit.mean()),
+                gram=x_fit.T @ x_fit,
+                rhs=x_fit.T @ (y_fit - y_fit.mean()),
             )
     return designs
 
@@ -166,24 +170,34 @@ def predict_generalized_ridge(
     n_test = next(iter(designs.values())).x_test.shape[0]
     validation = np.empty((n_validation, n_targets, 24), dtype=np.float64)
     test = np.empty((n_test, n_targets, 24), dtype=np.float64)
-    for target_index in range(n_targets):
-        for lead in range(24):
-            design = designs[(target_index, lead)]
-            penalty = feature_penalty(
-                centrality[target_index, lead],
-                gamma,
-                floor_fraction=floor_fraction,
-            )
-            gram = design.x_fit.T @ design.x_fit
-            gram.flat[:: gram.shape[0] + 1] += float(alpha) * penalty
-            coefficient = np.linalg.solve(
-                gram,
-                design.x_fit.T @ design.y_fit,
-            )
+    for lead in range(24):
+        lead_designs = [
+            designs[(target_index, lead)] for target_index in range(n_targets)
+        ]
+        gram = np.stack([design.gram for design in lead_designs]).copy()
+        penalty = np.stack(
+            [
+                feature_penalty(
+                    centrality[target_index, lead],
+                    gamma,
+                    floor_fraction=floor_fraction,
+                )
+                for target_index in range(n_targets)
+            ]
+        )
+        diagonal = np.arange(gram.shape[-1])
+        gram[:, diagonal, diagonal] += float(alpha) * penalty
+        coefficient = np.linalg.solve(
+            gram,
+            np.stack([design.rhs for design in lead_designs]),
+        )
+        for target_index, design in enumerate(lead_designs):
             validation[:, target_index, lead] = (
-                design.x_validation @ coefficient + design.y_mean
+                design.x_validation @ coefficient[target_index] + design.y_mean
             )
-            test[:, target_index, lead] = design.x_test @ coefficient + design.y_mean
+            test[:, target_index, lead] = (
+                design.x_test @ coefficient[target_index] + design.y_mean
+            )
     return validation, test
 
 
@@ -369,7 +383,14 @@ def run(args: argparse.Namespace) -> int:
         ensemble = data["ensemble_prediction"].astype(np.float64)
         target_dates = data["target_dates"].astype(str)
 
-    split = chronological_split(target_dates)
+    split = chronological_split(
+        target_dates,
+        fit_end=args.fit_end,
+        validation_start=args.validation_start,
+        validation_end=args.validation_end,
+        test_start=args.test_start,
+        test_end=args.test_end,
+    )
     _, target_scale = target_scaling(target, split.fit)
     target_scale = target_scale.reshape(1, len(mode_names), 1)
     additive_history, _ = history_summaries(history)
@@ -443,7 +464,14 @@ def run(args: argparse.Namespace) -> int:
     rng = np.random.default_rng(args.seed)
     random_scores = []
     random_hyperparameters = []
-    for repeat in range(args.random_repeats):
+    from tqdm.auto import tqdm
+
+    for repeat in tqdm(
+        range(args.random_repeats),
+        desc="shuffled-Syn null",
+        unit="repeat",
+        mininterval=1.0,
+    ):
         null_centrality = shuffled_centrality(centrality, rng)
         null_alpha, null_gamma, _, _, null_test = tune_prior(
             designs,
@@ -459,12 +487,6 @@ def run(args: argparse.Namespace) -> int:
         )
         random_hyperparameters.append(
             {"repeat": repeat, "alpha": null_alpha, "gamma": null_gamma}
-        )
-        print(
-            f"null {repeat + 1}/{args.random_repeats}: "
-            f"alpha={null_alpha:g}, gamma={null_gamma:g}, "
-            f"test_nRMSE={random_scores[-1]:.6f}",
-            flush=True,
         )
     random_scores_array = np.asarray(random_scores)
 
@@ -543,6 +565,13 @@ def run(args: argparse.Namespace) -> int:
             "fit": len(split.fit),
             "validation": len(split.validation),
             "test": len(split.test),
+        },
+        "chronological_split": {
+            "fit_end": args.fit_end,
+            "validation_start": args.validation_start,
+            "validation_end": args.validation_end,
+            "test_start": args.test_start,
+            "test_end": args.test_end,
         },
         "selected_hyperparameters": {
             "alpha": alpha,
@@ -669,6 +698,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--random-repeats", type=int, default=200)
+    parser.add_argument("--fit-end", default="2001-12")
+    parser.add_argument("--validation-start", default="2004-01")
+    parser.add_argument("--validation-end", default="2006-12")
+    parser.add_argument("--test-start", default="2009-01")
+    parser.add_argument("--test-end", default="2012-12")
     parser.add_argument("--bootstrap", type=int, default=2000)
     parser.add_argument("--bootstrap-block", type=int, default=12)
     parser.add_argument("--seed", type=int, default=20260728)

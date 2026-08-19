@@ -65,7 +65,7 @@ UNICM_SHAPLEY_SUMMARY = (
 UNICM_CALIBRATION_SUMMARY = (
     ROOT
     / "results"
-    / "unicm_synergy_regularized_forecast"
+    / "unicm_synergy_regularized_forecast_extended_1980_2018"
     / "summary.json"
 )
 HORIZONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60)
@@ -1053,31 +1053,23 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
             color=INK,
         )
     ax_f.set_yticks(method_y, method_labels)
-    ax_f.set_xlabel("Test normalized RMSE (lower is better)")
-    ax_f.set_xlim(0.91, 1.012)
-    ax_f.set_xticks((0.92, 0.96, 1.00))
+    ax_f.set_xlabel("Test normalized RMSE")
+    score_span = float(method_values.max() - method_values.min())
+    score_pad = max(0.012, 0.15 * score_span)
+    ax_f.set_xlim(
+        float(method_values.min()) - score_pad,
+        float(method_values.max()) + score_pad,
+    )
+    ax_f.xaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
     ax_f.set_ylim(-0.55, 3.55)
     ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    total_gain = float(metrics["frozen"]["mean_cell_nrmse"]) - float(
-        metrics["syn_regularized"]["mean_cell_nrmse"]
-    )
-    syn_gain = float(metrics["uniform"]["mean_cell_nrmse"]) - float(
-        metrics["syn_regularized"]["mean_cell_nrmse"]
-    )
-    ax_f.text(
-        0.01,
-        1.04,
-        f"total gain {total_gain:.3f}; Syn-specific gain {syn_gain:.3f}",
-        transform=ax_f.transAxes,
-        ha="left",
-        va="bottom",
-        fontsize=5.3,
-        color=INK,
-    )
     add_panel_label(ax_f, "f", x=-0.18, y=1.04)
 
     ax_g = fig.add_subplot(grid[3, 2:5])
     uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
+    syn_gain = uniform_score - float(
+        metrics["syn_regularized"]["mean_cell_nrmse"]
+    )
     random_scores = np.asarray(
         calibration["shuffled_syn_control"]["scores"],
         dtype=float,
