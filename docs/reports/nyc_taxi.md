@@ -2,7 +2,9 @@
 
 ## 结论
 
-最新完成的 MGSTN 复现首先说明：**在论文兼容的 66 区、小时级 inflow/outflow 任务上，完整 MGSTN 的四项三随机种子均值全部落入原论文 ±5% 范围。** 在这个已经验收的非线性模型上进一步做局部 TM–PEID 分解后发现：**模型确实整合跨区域信息，但更强的联合增益来自同一区域内近期、日周期和周周期三种时间尺度的融合；其中约 89.4% 是“最近数小时”与“日/周宏观节律”的 micro–macro 联合读取。**
+最新完成的 MGSTN 复现首先说明：**在论文兼容的 66 区、小时级 inflow/outflow 任务上，完整 MGSTN 的四项三随机种子均值全部落入原论文 ±5% 范围。** 在这个已经验收的非线性模型上，我们进一步对全部 66 区统一实施有限幅二阶 transport map（TM）干预，不再依赖无穷小 Jacobian。正式的 hurdle TM 将“是否有车流”和“正车流有多大”分开建模；结果显示，**近期数小时与日/周宏观节律的联合信息占目标级总 synergy 的 77.8%–83.9%，并在三个交通状态、三个模型种子中保持稳定。**
+
+这个结论不是稀疏区域制造的假象。预先标记的 6 个稀疏区占全部区域数的 9.1%，但只贡献 **0.20%–0.30%** 的时间协同。普通二阶 TM 在 Randalls Island 出现 2 次显著非负性违规；hurdle TM 的 1,188 个 Syn 估计全部通过预设审计，因此 hurdle 版本被选为正式主估计，普通版本降为失败对照。
 
 原有 30 分钟 pickup-only 实验说明的事情也保持不变：
 
@@ -10,13 +12,14 @@
 2. **在原有任务和候选集中，更复杂的模型没有明显胜出。** Interaction Ridge 的误差最低，但只比 Global Ridge 低 0.021%；Extra Trees 和 MLP 也没有超过 Ridge。
 3. **额外信息主要来自区域之间。** 在更正后的统一 EI 口径下，系统 $\Xi=8.1347$ bits，其中 91.0% 是跨区域联合信息，只有 9.0% 来自单一区域内部的多滞后联合读取。
 
-因此，当前最稳妥的判断是：**曼哈顿出租车需求既有跨区域联合结构，也有更强的跨时间尺度结构；MGSTN 的预测优势主要应理解为同时利用了这两层信息，而不是只靠空间图传播。** 原有 Ridge 与 MGSTN 的任务口径不同，不能直接用误差数值或 $\Xi$ 数值判定谁更好。
+因此，当前最稳妥的判断是：**曼哈顿出租车需求既有跨区域联合结构，也有更强、更稳健的跨时间尺度结构；下一小时的局部变化必须放进日/周生活节律中联合解释。** 原有 Ridge 与 MGSTN 的任务口径不同，不能直接用误差数值或 $\Xi$ 数值判定谁更好。
 
 ---
 
 ## 目录
 
 - [0. MGSTN 论文精度复现](#0-mgstn-论文精度复现)
+- [附录 G：旧局部 affine-TM 结果](#附录-g旧局部-affine-tm-结果)
 - [1. 问题与数据](#1-问题与数据)
 - [2. 主结果](#2-主结果)
 - [3. 如何理解这些结果](#3-如何理解这些结果)
@@ -63,7 +66,7 @@
 
 ![MGSTN 模型与信息分解框架](../../fig/nyc_taxi_mgstn_architecture.svg)
 
-**框架图 1｜复现的完整 MGSTN 与事后信息读出。** 上部是预测模型：近期、日周期和周周期分别进入独立 STN 分支，每个分支同时抽取空间、时间和环境属性表示，再进行多粒度融合，输出 66 区下一小时 inflow/outflow。下部是训练完成后的分析读出，不参与模型训练：固定检查点，在指定交通状态求局部 Jacobian，并结合验证残差协方差计算 EI 与 $\Xi$。
+**框架图 1｜复现的完整 MGSTN 与事后信息读出。** 上部是预测模型：近期、日周期和周周期分别进入独立 STN 分支，每个分支同时抽取空间、时间和环境属性表示，再进行多粒度融合，输出 66 区下一小时 inflow/outflow。下部是训练完成后的有限幅信息读出，不参与模型训练：固定检查点，对历史车流实施经验分布干预，以二阶 hurdle TM 估计目标级时间与空间 Syn。
 
 MGSTN 可以直观地理解为“三条时间支路、每条支路同时看空间和时间、最后再合流”：
 
@@ -76,7 +79,77 @@ MGSTN 可以直观地理解为“三条时间支路、每条支路同时看空�
 
 三个随机种子的最佳 epoch 分别为 33、29、22；M1 Max 上正式三种子训练合计约 49.9 分钟。论文 RTX 4090D 报告约 5.87 分钟/seed，因此本机慢约 2.8 倍，但计算成本仍然较低。
 
-### 0.4 MGSTN 上如何计算 EI 与 $\Xi$
+### 0.4 正式方法：全区域有限幅二阶 hurdle TM
+
+正式分析对 66 个区域使用完全相同的计算流程。对区域 $i$，近期块 $\mathbf{R}_i$ 包含最近 7 小时，宏观块 $\mathbf{M}_i=(\mathbf{D}_i,\mathbf{W}_i)$ 合并前 5 日同小时和前 7 周同小时；目标 $\mathbf{Y}_i$ 是该区域下一小时的 inflow/outflow。时间协同定义为
+
+$$
+\operatorname{Syn}^{\mathrm{time}}_i
+=I(\mathbf{R}_i;\mathbf{M}_i\mid\mathbf{Y}_i),
+\tag{0.1}
+$$
+
+空间对照则把本区完整历史 $\mathbf{H}_i$ 与其余 65 区历史 $\mathbf{H}_{-i}$ 配对：
+
+$$
+\operatorname{Syn}^{\mathrm{space}}_i
+=I(\mathbf{H}_i;\mathbf{H}_{-i}\mid\mathbf{Y}_i).
+\tag{0.2}
+$$
+
+两组源都从训练期经验窗口独立 bootstrap，分别经训练期 PCA 压缩为 2 维；固定 MGSTN 产生目标，并加入同一检查点的验证残差噪声。随后在 70% 干预样本上拟合二阶自回归 triangular TM，在留出的 30% 上估计条件互信息。每个区域、状态和模型种子使用 4,096 次有限幅干预。这里直接积分经验尺度上的非线性响应，**不计算 Jacobian，也不把某个区域换成不同阶数或不同样本量。**
+
+hurdle 表示把每个计数拆为 $\mathbb{1}(x>0)$ 与 $\log(1+x)$ 两部分，再统一执行同一 PCA 与二阶 TM。它保留“零/非零状态切换”和“正流量幅度变化”两类机制，避免稀有的正样本在标准差归一化后被异常放大。
+
+汇总量为
+
+$$
+q_{\mathrm{time}}
+=\frac{\sum_i\operatorname{Syn}^{\mathrm{time}}_i}
+{\sum_i\operatorname{Syn}^{\mathrm{time}}_i+
+ \sum_i\operatorname{Syn}^{\mathrm{space}}_i}.
+\tag{0.3}
+$$
+
+它是两个**目标级、二分块、有限幅**问题的相对量，不再声称是旧 66 块全输出 affine 分解的逐项替代。这里的 Syn 是冻结 MGSTN 所表达的预测机制，不是仅凭观测数据识别出的物理因果效应。
+
+### 0.5 正式主结果
+
+![NYC Taxi 社会系统多时间尺度耦合主图](../../fig/nyc_taxi_social_multiscale_main.svg)
+
+**主图 1｜预测精度复现、区域分布与跨时间尺度协同地图。** a，复现模型的四项测试误差与三随机种子验证轨迹。b，正式 hurdle 二阶 TM 中，时间 Syn 占时间与空间目标级 Syn 之和的比例；柱为三种子均值，空心点为单种子。c，全部 66 区的 recent–macro Syn 分布；每点为区域的三种子均值，黑线表示四分位范围与中位数。d，三个交通状态下的全 66 区 Syn 地图，共用同一线性色标。方法名称、估计器阶数与零膨胀处理等技术信息只在图注中说明，不写入图面。
+
+三个状态的正式结果为：
+
+| 交通状态 | 时间 Syn 占比 | 三种子 SD | 稀疏 6 区贡献 |
+|---|---:|---:|---:|
+| 工作日高峰 | **83.9%** | 1.1 个百分点 | **0.30%** |
+| 周末中午 | **82.3%** | 1.4 个百分点 | **0.20%** |
+| 雨天高需求 | **77.8%** | 1.9 个百分点 | **0.20%** |
+
+最简单的解释是：**MGSTN 要预测下一小时，不能只看最近几小时，也不能只查日/周周期；它必须判断“当前短时变化处在什么宏观生活节律中”。** 工作日、周末和雨天的绝对权重会变化，但三种状态下时间协同都占约八成，说明这不是某个单一时段的偶然模式。
+
+### 0.6 hurdle 是否带来明显改进
+
+答案是**有，但改进体现在估计有效性，而不是把 Syn 数值做大。** 普通标准化二阶 TM 在 seed 1 的 Randalls Island 上出现 2 个显著非负性违规，分别位于周末中午与雨天高需求状态；最小值为 −0.0729 bit，低于预先声明的 −0.05 bit 容差。按照 PEID 的非负定义，这两个普通 TM 结果被明确判为失败，没有裁剪为零，也没有进入汇总。
+
+hurdle 二阶 TM 在同样的 66 区、3 状态、3 种子与 4,096 干预样本下，1,188 个 Syn 估计全部通过审计。其最小原始值为 −0.0147 bit；110 个位于 $[-0.05,0)$ 的估计按预声明的数值零记录，低于容差者为 0 个。由此，hurdle 不是可有可无的装饰，而是让零膨胀交通计数进入同一有限幅 TM 框架的必要稳健化步骤。
+
+### 0.7 空间分布与证据边界
+
+![NYC Taxi 跨时间尺度耦合地图](../../fig/nyc_taxi_temporal_coupling_map.svg)
+
+**扩展图 M2｜全 66 区有限幅 recent–macro 协同地图。** 这是主图 1d 的独立放大版本：a–c 分别为工作日高峰、周末中午和雨天高需求；颜色是区域级 hurdle 二阶 TM Syn 的三种子均值，三图共享线性色标。它表示冻结模型中“近期变化与日/周节律必须联合读取”的信息量，不是客流量、预测误差或因果效应。
+
+与旧 Jacobian 地图不同，新地图不再由 Highbridge Park、Randalls Island 等低活动区主导。高值主要分布于 Murray Hill、Union Sq、Lenox Hill East、East Chelsea 和 Midtown 等真实高活动区域，北部公园及边缘区接近零；三种状态的区域排名 Spearman 相关为 **0.992–0.996**，而雨天的全城强度下降。这与稀疏 6 区仅贡献 0.20%–0.30% 的汇总结果一致，直接排除了“前三个稀疏区抬高全局时间协同”的解释。
+
+当前证据仍有限制：PCA 每块只保留 2 个主成分，二阶 TM 只表达至二次曲率，4,096 次干预对应有限的尾部支持。因此，正式结论是“在可审计的有限幅二阶近似下，MGSTN 的目标级联合信息以 recent–macro 时间耦合为主”，而不是模型全部高阶信息容量的封闭形式证明。
+
+## 附录 G：旧局部 affine-TM 结果
+
+以下结果保留用于方法敏感性对照，不再作为论文主结论。它们依赖状态点附近的无穷小 Jacobian，并曾在低活动区域产生异常高值；这正是本轮改用有限幅 hurdle 二阶 TM 的原因。
+
+### G.1 旧 MGSTN EI 与 $\Xi$ 计算
 
 #### 0.4.1 局部 TM 转移
 
@@ -87,7 +160,7 @@ $$
 +\mathbf{J}^{*}(\mathbf{x}_{t}-\mathbf{x}^{*})+\boldsymbol{\varepsilon},
 \qquad
 \boldsymbol{\varepsilon}\sim\mathcal{N}(\mathbf{0},\boldsymbol{\Sigma}_{e}),
-\tag{0.1}
+\tag{G.1}
 $$
 
 其中 $\mathbf{J}^{*}$ 是 $132\times2{,}508$ Jacobian，$\boldsymbol{\Sigma}_{e}$ 由同一检查点的 1,516 个验证残差通过 Ledoit–Wolf 收缩估计。天气和日期属性在每个分析中心固定，只干预相互独立的标准化流量历史 $\Delta\mathbf{x}\sim\mathcal{N}(\mathbf{0},\mathbf{I})$。这是 affine triangular transport map 的闭式读出，与 Brain/Earth 实验的仿射 log-determinant 口径一致。
@@ -99,10 +172,10 @@ $$
 =\frac{1}{2}\log_{2}
 \frac{\det\boldsymbol{\Sigma}_{y}}
 {\det\!\left(\boldsymbol{\Sigma}_{y}-\mathbf{J}^{*}_{S}\mathbf{J}^{*\mathsf T}_{S}\right)}.
-\tag{0.2}
+\tag{G.2}
 $$
 
-式 (0.2) 的分母仍保留其余源的变化，因此联合 EI 与各部分 EI 可在同一干预下相减，避免早先“每次单独重定义实验分布”造成的不可比问题。
+式 (G.2) 的分母仍保留其余源的变化，因此联合 EI 与各部分 EI 可在同一干预下相减，避免早先“每次单独重定义实验分布”造成的不可比问题。
 
 #### 0.4.2 两层分解
 
@@ -112,7 +185,7 @@ $$
 \Xi_{\mathrm{region}}
 =\operatorname{EI}(\mathrm{all}\to\mathbf{y})
 -\sum_{i=1}^{66}\operatorname{EI}(i\to\mathbf{y}).
-\tag{0.3}
+\tag{G.3}
 $$
 
 再把每个区域拆为 recent、daily、weekly 三组，定义区域 $i$ 内部的多时间尺度联合信息
@@ -121,7 +194,7 @@ $$
 \Xi_{\mathrm{time},i}
 =\operatorname{EI}(i\to\mathbf{y})
 -\sum_{g\in\{r,d,w\}}\operatorname{EI}((i,g)\to\mathbf{y}).
-\tag{0.4}
+\tag{G.4}
 $$
 
 于是最细分辨率的总联合信息满足
@@ -131,7 +204,7 @@ $$
 =\operatorname{EI}(\mathrm{all}\to\mathbf{y})
 -\sum_{i=1}^{66}\sum_{g\in\{r,d,w\}}\operatorname{EI}((i,g)\to\mathbf{y})
 =\Xi_{\mathrm{region}}+\sum_{i=1}^{66}\Xi_{\mathrm{time},i}.
-\tag{0.5}
+\tag{G.5}
 $$
 
 为回答“宏观节律本身”和“微观变化放进宏观背景”各占多少，进一步固定一个有领域含义的层级：先将 daily 与 weekly 合成宏观节律块 $M=(D,W)$，再把 recent 与 $M$ 合成完整时间历史。于是区域 $i$ 的时间尺度 $\Xi$ 可严格写成两个非负二分块 Syn：
@@ -141,7 +214,7 @@ $$
 =\operatorname{EI}((D_i,W_i)\to\mathbf{y})
 -\operatorname{EI}(D_i\to\mathbf{y})
 -\operatorname{EI}(W_i\to\mathbf{y}),
-\tag{0.6}
+\tag{G.6}
 $$
 
 $$
@@ -149,7 +222,7 @@ $$
 =\operatorname{EI}((R_i,D_i,W_i)\to\mathbf{y})
 -\operatorname{EI}(R_i\to\mathbf{y})
 -\operatorname{EI}((D_i,W_i)\to\mathbf{y}),
-\tag{0.7}
+\tag{G.7}
 $$
 
 并满足
@@ -157,16 +230,16 @@ $$
 $$
 \Xi_{\mathrm{time},i}
 =\Xi_{\mathrm{macro},i}+\Xi_{\mathrm{micro\text{-}macro},i}.
-\tag{0.8}
+\tag{G.8}
 $$
 
 这里的 $\Xi$ 是**已训练 MGSTN 所表达的局部预测机制**，不是仅凭观察数据就能识别出的物理因果效应。
 
-### 0.5 分解结果：主要联合增益来自多时间尺度
+### G.2 旧分解结果：局部多时间尺度耦合
 
-![NYC Taxi 社会系统多时间尺度耦合主图](../../fig/nyc_taxi_social_multiscale_main.svg)
+![旧局部 affine-TM 分解](../../fig/nyc_taxi_mgstn_ei_decomposition.svg)
 
-**主图 1｜预测精度复现与多时间尺度耦合。** a，左：复现模型在测试集上的 inflow/outflow MAE 与 RMSE，实心点和误差线为三随机种子均值 ± 标准差、空心点为单个种子，单位是每区域每小时的行程数，越低越好；右：三个种子的验证误差轨迹及 early-stopping 最佳点。b，三个真实交通状态中，区域内跨时间尺度 $\Xi$ 占 fine $\Xi$ 的比例；灰色仅作为跨区域余量，不展开空间排名或绝对 EI。c，按式 (0.6)–(0.8) 做严格层级分解：先融合 daily 与 weekly 为宏观节律，再计算 recent 与宏观节律的 micro–macro Syn；圆点表示三个种子。d，三种两两时间尺度 Syn 在各状态中的相对指纹；它们用于比较耦合偏好，不作为可相加还原总 $\Xi$ 的 PEID 原子。主图不展示绝对 EI，集中回答“模型是否可信”和“时间尺度怎样联合”。
+**旧附图 G1｜局部 affine-TM 分解。** 该图及下列百分比仅用于与有限幅结果比较。层级公式对应式 (G.6)–(G.8)，不再作为论文主结论。
 
 这张图把 Taxi 作为社会系统代表所需要的两层证据放到了一起：
 
@@ -177,21 +250,19 @@ $$
 
 因此，最简洁的领域解释不是“模型记住了几个周期”，而是：**模型先利用日与周信息识别城市所处的宏观生活节律，再用最近数小时判断当前状态相对该节律的位置与偏离，二者必须联合才能预测下一小时。** 这使 Taxi 部分与 Brain、Earth 两类系统形成互补：它展示的是社会活动、制度时间表与短时扰动之间的跨尺度耦合。
 
-#### 0.5.1 非负性和数值审计
+#### G.2.1 旧闭式分解的非负性和数值审计
 
-所有 12 个 seed–state 单元同时审计了系统跨区域 $\Xi$、66 个区域内跨尺度 $\Xi$、66 个目标区跨区域 $\Xi$，以及每个目标的 2,145 个区域对 synergy。预先声明容差为 **$10^{-8}$ bit**，没有使用 `max(0, Syn)` 或其他裁剪。最小估计为 $-5.16\times10^{-12}$ bit；93,013 个负值均位于 $[-10^{-8},0)$，按数值零记录；低于容差的显著负值为 **0 个**。式 (0.5) 的最大绝对恒等误差为 $4.55\times10^{-13}$ bit。
+所有 12 个 seed–state 单元同时审计了系统跨区域 $\Xi$、66 个区域内跨尺度 $\Xi$、66 个目标区跨区域 $\Xi$，以及每个目标的 2,145 个区域对 synergy。预先声明容差为 **$10^{-8}$ bit**，没有使用 `max(0, Syn)` 或其他裁剪。最小估计为 $-5.16\times10^{-12}$ bit；93,013 个负值均位于 $[-10^{-8},0)$，按数值零记录；低于容差的显著负值为 **0 个**。式 (G.5) 的最大绝对恒等误差为 $4.55\times10^{-13}$ bit。
 
-新增时间层级分解沿用同一容差与干预。$\Xi_{\mathrm{macro}}$、$\Xi_{\mathrm{micro\text{-}macro}}$ 及三组两两 Syn 的显著负值均为 **0 个**；式 (0.8) 的最大绝对恒等误差为 $3.55\times10^{-15}$ bit。没有用裁剪制造图中的百分比。
+新增时间层级分解沿用同一容差与干预。$\Xi_{\mathrm{macro}}$、$\Xi_{\mathrm{micro\text{-}macro}}$ 及三组两两 Syn 的显著负值均为 **0 个**；式 (G.8) 的最大绝对恒等误差为 $3.55\times10^{-15}$ bit。没有用裁剪制造图中的百分比。
 
-### 0.6 跨时间尺度耦合的空间分布
+### G.3 旧跨时间尺度耦合空间分布
 
-![NYC Taxi 跨时间尺度耦合地图](../../fig/nyc_taxi_temporal_coupling_map.svg)
-
-**主图 2｜区域级 recent–macro 时间耦合的空间分布。** a–c 分别对应工作日高峰、周末中午和雨天高需求状态。每个 Taxi Zone 的颜色表示式 (0.7) 中 $\Xi_{\mathrm{micro\text{-}macro},i}$ 的三随机种子均值，单位为 bits；三幅地图共享同一对数色标，因此颜色可以跨状态直接比较。浅灰区域是未进入 66 区预测任务的周边 Taxi Zones，仅提供地理背景。这里展示的是已训练 MGSTN 中“最近数小时必须与日/周宏观节律联合读取”的绝对信息量，不是该区域的客流量、预测误差或准确率。
+旧地图使用式 (G.7) 的 Jacobian 读出和对数色标。它已经被 0.7 节的有限幅 hurdle 地图替代，不再单独展示，以免与正式主图混淆。
 
 空间分布并不均匀，而且具有明显的跨状态稳定性：三种状态的区域排名 Spearman 相关为 **0.81–0.96**。Highbridge Park、Marble Hill 和 Inwood Hill Park 在三个状态中持续处于最高一组；工作日高峰还出现 Roosevelt Island 的高值。大多数中城和下城区域集中在约 $10^{-1}$ bits 的数量级。这个结果说明，micro–macro 联合读取不是全城均匀增加的模型能力，而是集中在一部分区域；但高值区域中包含公园和边缘小区，因此现阶段应把它解释为**模型机制敏感性的空间热点**，而不能直接解释成这些地区具有更强的客流、经济活动或物理因果作用。后续应把耦合强度与区域流量、残差方差和样本支持度做控制比较，以区分真实的跨尺度社会节律与低活动区域的标准化效应。
 
-### 0.7 证据边界
+### G.4 旧方法的证据边界
 
 这是**功能与精度复现**，不是逐行代码复现。论文未公开官方实现和完整架构参数；原 Foursquare check-in 入口也不可稳定取得。因此：
 
@@ -203,7 +274,7 @@ $$
 
 局部 affine TM 是当前 2,508 维源空间中计算可行、且能严格审计非负性的完整版本；它没有积分远离中心的强非线性曲率，也可能漏掉 XOR 类纯高阶效应。因此，当前结论是“MGSTN 在这些交通状态附近怎样整合信息”，不是网络的全局信息容量。下一步若要增强因果解释，应增加更密集的真实状态中心，并对天气、事件和区域流量实施显式反事实干预。
 
-### 0.8 与原有 Ridge 实验的关系
+### G.5 与原有 Ridge 实验的关系
 
 MGSTN 和后文 Ridge 实验不是同一个受控比较：MGSTN 使用 66 区、小时级、内部跨区 inflow/outflow；Ridge 使用 69 区、30 分钟、pickup-only。因此，`13.157` 不能与 Ridge 的标准化对数 RMSE `0.538` 直接比较。后续若比较二者或计算 MGSTN 的联合信息，必须先统一数据、目标、切分和评价尺度。
 
@@ -547,15 +618,17 @@ $$
 
 - [MGSTN 数据构造](../../scripts/prepare_nyc_taxi_mgstn.py)
 - [MGSTN 训练与评价](../../scripts/train_nyc_taxi_mgstn.py)
-- [MGSTN 局部 TM–PEID 分解](../../scripts/compute_nyc_taxi_mgstn_ei.py)
-- [MGSTN 时间尺度层级耦合](../../scripts/compute_nyc_taxi_mgstn_temporal_coupling.py)
+- [MGSTN 全区域有限幅二阶 hurdle TM](../../scripts/compute_nyc_taxi_mgstn_quadratic_tm_full.py)
+- [正式 TM 汇总与逐区域结果](../../results/nyc_taxi_mgstn_ei/finite_quadratic_tm/quadratic_tm_full_summary.json)
+- [旧 MGSTN 局部 affine TM–PEID 分解](../../scripts/compute_nyc_taxi_mgstn_ei.py)
+- [旧 MGSTN 时间尺度层级耦合](../../scripts/compute_nyc_taxi_mgstn_temporal_coupling.py)
 - [MGSTN 框架图脚本](../../scripts/plot_nyc_taxi_mgstn_architecture.py)
 - [MGSTN 信息分解图脚本](../../scripts/plot_nyc_taxi_mgstn_ei.py)
 - [MGSTN 时间尺度耦合地图脚本](../../scripts/plot_nyc_taxi_temporal_coupling_map.py)
 - [MGSTN 三随机种子预测结果](../../results/nyc_taxi_mgstn/summary.json)
-- [MGSTN 信息分解摘要](../../results/nyc_taxi_mgstn_ei/full_summary.json)
-- [MGSTN 完整分解数组](../../results/nyc_taxi_mgstn_ei/full_decomposition.npz)
-- [MGSTN 时间尺度耦合摘要](../../results/nyc_taxi_mgstn_ei/temporal_coupling_summary.json)
+- [旧 MGSTN 信息分解摘要](../../results/nyc_taxi_mgstn_ei/full_summary.json)
+- [旧 MGSTN 完整分解数组](../../results/nyc_taxi_mgstn_ei/full_decomposition.npz)
+- [旧 MGSTN 时间尺度耦合摘要](../../results/nyc_taxi_mgstn_ei/temporal_coupling_summary.json)
 - [MGSTN 框架图 SVG](../../fig/nyc_taxi_mgstn_architecture.svg)（另有 PNG、PDF）
 - [Taxi 社会系统多时间尺度主图 SVG](../../fig/nyc_taxi_social_multiscale_main.svg)（另有 PNG、PDF）
 - [Taxi 时间尺度耦合地图 SVG](../../fig/nyc_taxi_temporal_coupling_map.svg)（另有 PNG、PDF）
@@ -574,4 +647,4 @@ $$
 
 ### F.3 定义与文献说明
 
-PEID 定义与非负性依据仓库中的 [Method](Method.md)，并与 Brain affine-TM 和 Earth 完整干预 EI 的实现口径对齐。本轮同时全文核对了本地 Zotero 条目 *Partial Effective Information Decomposition for Synergistic Causality*（item key `MYATYWAJ`，附件全文 26/26 页）：联合与部分 EI 均在同一个独立最大熵干预下定义，$\operatorname{Syn}_{P}=\operatorname{EI}(\mathrm{all}\to Y)-\sum_i\operatorname{EI}(i\to Y)$，并满足层级可加分解。连续高维 MGSTN 使用局部 affine TM，因此本文把结论限定为模型在所选状态附近的预测机制。
+PEID 定义与非负性依据仓库中的 [Method](Method.md)，并与 Brain affine-TM 和 Earth 完整干预 EI 的实现口径对齐。本轮同时全文核对了本地 Zotero 条目 *Partial Effective Information Decomposition for Synergistic Causality*（item key `MYATYWAJ`，附件全文 26/26 页）：联合与部分 EI 均在同一个独立最大熵干预下定义，$\operatorname{Syn}_{P}=\operatorname{EI}(\mathrm{all}\to Y)-\sum_i\operatorname{EI}(i\to Y)$，并满足层级可加分解。正式 NYC Taxi 结果改用经验 bootstrap 干预与有限幅二阶 hurdle TM，因此结论限定为冻结 MGSTN 在所选状态、所选干预支持和二阶近似下的目标级预测机制。
