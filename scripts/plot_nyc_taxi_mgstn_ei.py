@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Create the NYC Taxi main figure from the finite quadratic-TM audit."""
+"""Create the NYC Taxi data, reproduction, and multiscale-coupling main figure."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib as mpl
@@ -11,11 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
+from scipy.stats import spearmanr
 
 from plot_nyc_taxi_temporal_coupling_map import load_geojson, outer_rings, zone_id
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data/nyc_taxi_mgstn_2023/nyc_taxi_mgstn_hourly.npz"
 REPRODUCTION = ROOT / "results/nyc_taxi_mgstn/summary.json"
 FINITE = ROOT / "results/nyc_taxi_mgstn_ei/finite_quadratic_tm/quadratic_tm_full_summary.json"
 OUTPUT = ROOT / "fig/nyc_taxi_social_multiscale_main"
@@ -60,6 +63,70 @@ def mean_zone_values(payload: dict) -> tuple[np.ndarray, dict[str, np.ndarray]]:
 
 def panel_label(ax, label: str, x: float = -0.12, y: float = 1.08) -> None:
     ax.text(x, y, label, transform=ax.transAxes, fontsize=13, fontweight="bold", va="top")
+
+
+def add_time_series_panel(ax, flow: np.ndarray) -> None:
+    """Show a readable four-week slice of the hourly citywide pickup series."""
+    start_date = datetime(2023, 10, 2)
+    origin = datetime(2023, 1, 1)
+    start = int((start_date - origin).total_seconds() // 3600)
+    days = 28
+    stop = start + 24 * days
+    hours = np.arange(24 * days, dtype=float) / 24.0
+    citywide_pickups = flow[start:stop, :, 1].sum(axis=1) / 1000.0
+
+    for day in range(days):
+        if (start_date.weekday() + day) % 7 >= 5:
+            ax.axvspan(day, day + 1, color="#E6D7B8", alpha=0.42, linewidth=0, zorder=0)
+    ax.fill_between(hours, citywide_pickups, color="#A9C6D2", alpha=0.28, linewidth=0, zorder=1)
+    ax.plot(hours, citywide_pickups, color="#3F7189", lw=0.85, zorder=2)
+    ax.text(6.0, 8.55, "Weekend", color="#8B7140", fontsize=7.2, ha="center", va="top")
+    ax.set_xlim(0, days)
+    ax.set_ylim(0, 9.0)
+    ax.set_xticks([0, 7, 14, 21, 28], ["Oct 2", "Oct 9", "Oct 16", "Oct 23", "Oct 30"])
+    ax.set_yticks([0, 3, 6, 9])
+    ax.set_ylabel("Citywide trips per hour (×10³)")
+    panel_label(ax, "a", -0.16)
+
+
+def add_synergy_inflow_panel(
+    ax,
+    finite: dict,
+    flow: np.ndarray,
+    data_zone_ids: np.ndarray,
+) -> None:
+    """Relate absolute temporal coupling to observed regional activity."""
+    selected_ids, state_values = mean_zone_values(finite)
+    temporal_synergy = np.mean(np.vstack([state_values[state] for state in STATES]), axis=0)
+    mean_inflow_by_id = {
+        int(location_id): float(flow[:, index, 0].mean())
+        for index, location_id in enumerate(data_zone_ids)
+    }
+    mean_inflow = np.asarray([mean_inflow_by_id[int(location_id)] for location_id in selected_ids])
+    rho, _ = spearmanr(mean_inflow, temporal_synergy)
+
+    coefficients = np.polyfit(np.log1p(mean_inflow), temporal_synergy, deg=1)
+    fitted = np.polyval(coefficients, np.log1p(mean_inflow))
+    residual = temporal_synergy - fitted
+    eligible = np.flatnonzero(mean_inflow >= 20.0)
+    highlighted = eligible[np.argsort(residual[eligible])[-3:]]
+
+    x_line = np.linspace(0, float(mean_inflow.max()) * 1.03, 240)
+    y_line = np.polyval(coefficients, np.log1p(x_line))
+    ax.plot(x_line, y_line, color="#7D898D", lw=1.1, ls=(0, (3, 2)), zorder=1)
+    ax.scatter(mean_inflow, temporal_synergy, s=24, color="#5E9B95",
+               edgecolor="white", linewidth=0.55, alpha=0.88, zorder=2)
+    ax.scatter(mean_inflow[highlighted], temporal_synergy[highlighted], s=33,
+               color="#D2A35D", edgecolor="white", linewidth=0.65, zorder=3)
+    ax.text(0.95, 0.07, rf"Spearman $\rho$ = {rho:.2f}", transform=ax.transAxes,
+            fontsize=7.5, color=DARK_GRAY, ha="right", va="bottom")
+    ax.set_xlim(-5, float(mean_inflow.max()) * 1.08)
+    ax.set_ylim(-0.015, 0.48)
+    ax.set_xticks([0, 50, 100, 150])
+    ax.set_yticks([0.0, 0.2, 0.4])
+    ax.set_xlabel("Mean inflow (rides per hour)")
+    ax.set_ylabel("Time-scale synergy (bits)")
+    panel_label(ax, "c", -0.20)
 
 
 def add_map_panels(fig, spec, finite: dict) -> None:
@@ -117,7 +184,7 @@ def add_map_panels(fig, spec, finite: dict) -> None:
         ax.text(0.5, -0.005, state_label, transform=ax.transAxes,
                 ha="center", va="top", fontsize=9.5)
         if index == 0:
-            panel_label(ax, "d", -0.04, 1.02)
+            panel_label(ax, "e", -0.04, 1.02)
 
     colorbar = fig.colorbar(
         mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes,
@@ -128,8 +195,13 @@ def add_map_panels(fig, spec, finite: dict) -> None:
 
 
 def main() -> None:
+    saved = np.load(DATA, allow_pickle=False)
+    flow = saved["flow"]
+    data_zone_ids = saved["zone_ids"]
     reproduction = json.loads(REPRODUCTION.read_text(encoding="utf-8"))
     finite = json.loads(FINITE.read_text(encoding="utf-8"))
+    if flow.shape != (8760, 66, 2):
+        raise RuntimeError(f"unexpected hourly flow shape: {flow.shape}")
     if finite["nonnegative_audit"]["hurdle"]["violation_count"]:
         raise RuntimeError("formal estimator failed its declared nonnegative audit")
     if len(finite["units"]) != 66 * 3 * 3:
@@ -151,10 +223,13 @@ def main() -> None:
     })
     fig = plt.figure(figsize=(13.2, 9.4), constrained_layout=True)
     outer = fig.add_gridspec(2, 1, height_ratios=[0.72, 1.55], hspace=0.045)
-    top = outer[0].subgridspec(1, 3, width_ratios=[1.72, 0.82, 1.05], wspace=0.16)
+    top = outer[0].subgridspec(1, 3, width_ratios=[1.35, 1.72, 0.82], wspace=0.15)
 
-    # a: reproduced forecasting accuracy and training stability.
-    validation = top[0, 0].subgridspec(1, 2, width_ratios=[1.0, 1.0], wspace=0.23)
+    # a: a representative slice establishes the hourly, daily, and weekly data structure.
+    add_time_series_panel(fig.add_subplot(top[0, 0]), flow)
+
+    # b: reproduced forecasting accuracy and training stability.
+    validation = top[0, 1].subgridspec(1, 2, width_ratios=[1.0, 1.0], wspace=0.23)
     ax_error = fig.add_subplot(validation[0, 0])
     keys = ["inflow_mae", "inflow_rmse", "outflow_mae", "outflow_rmse"]
     labels = ["Inflow\nMAE", "Inflow\nRMSE", "Outflow\nMAE", "Outflow\nRMSE"]
@@ -172,26 +247,18 @@ def main() -> None:
     ax_error.set_xticks(x_metric, labels)
     ax_error.set_ylim(0, 18.2)
     ax_error.set_ylabel("Error (rides per zone-hour)")
-    panel_label(ax_error, "a", -0.20)
+    panel_label(ax_error, "b", -0.20)
 
-    ax_curve = fig.add_subplot(validation[0, 1])
-    seed_colors = ["#2B7BBB", "#7667A8", "#D45B52"]
-    for color, run in zip(seed_colors, reproduction["runs"]):
-        epochs = np.asarray([row["epoch"] for row in run["history"]])
-        losses = np.asarray([row["normalized_mse"] for row in run["history"]])
-        ax_curve.plot(epochs, losses, color=color, lw=1.25)
-        ax_curve.scatter(int(run["best_epoch"]), float(run["best_validation_normalized_mse"]),
-                         s=24, color=color, edgecolor="white", linewidth=0.5, zorder=3)
-    ax_curve.set_xlabel("Epoch")
-    ax_curve.set_ylabel("Validation error")
-    ax_curve.set_ylim(0.235, 0.42)
+    add_synergy_inflow_panel(
+        fig.add_subplot(validation[0, 1]), finite, flow, data_zone_ids
+    )
 
     summaries = {row["state"]: row for row in finite["summary"] if row["method"] == "hurdle"}
     x_state = np.arange(3)
     rng = np.random.default_rng(19)
 
-    # b: temporal share without method terminology on the figure.
-    ax_share = fig.add_subplot(top[0, 1])
+    # d: temporal share without method terminology on the figure.
+    ax_share = fig.add_subplot(top[0, 2])
     mean_shares = 100 * np.asarray([summaries[state]["temporal_share_mean"] for state in STATES])
     ax_share.bar(x_state, mean_shares, width=0.52, color=TEAL)
     for index, state in enumerate(STATES):
@@ -204,26 +271,9 @@ def main() -> None:
     ax_share.set_xticks(x_state, ["Weekday", "Weekend", "Rainy"])
     ax_share.set_ylim(65, 88)
     ax_share.set_ylabel("Share of synergy across time scales (%)")
-    panel_label(ax_share, "b", -0.22)
+    panel_label(ax_share, "d", -0.22)
 
-    # c: region-level distribution, elevated to a main evidence panel.
-    ax_regions = fig.add_subplot(top[0, 2])
-    _, values_by_state = mean_zone_values(finite)
-    for state_index, (state, color) in enumerate(zip(STATES, STATE_COLORS)):
-        values = values_by_state[state]
-        ax_regions.scatter(np.full(len(values), state_index) + rng.uniform(-0.14, 0.14, len(values)),
-                           values, s=16, color=color, alpha=0.72,
-                           edgecolor="white", linewidth=0.3)
-        q1, median, q3 = np.quantile(values, [0.25, 0.5, 0.75])
-        ax_regions.vlines(state_index, q1, q3, color="#20282C", lw=4.5, zorder=4)
-        ax_regions.scatter(state_index, median, marker="_", s=105,
-                           color="white", linewidth=1.2, zorder=5)
-    ax_regions.set_xticks(x_state, ["Weekday", "Weekend", "Rainy"])
-    ax_regions.set_ylabel("Time-scale synergy (bits)")
-    ax_regions.set_ylim(bottom=-0.02)
-    panel_label(ax_regions, "c", -0.16)
-
-    # d: three state maps occupy the hero region.
+    # e: three state maps occupy the hero region.
     add_map_panels(fig, outer[1], finite)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

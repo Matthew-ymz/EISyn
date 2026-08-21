@@ -6,19 +6,22 @@
 
 这个结论不是稀疏区域制造的假象。预先标记的 6 个稀疏区占全部区域数的 9.1%，但只贡献 **0.20%–0.30%** 的时间协同。普通二阶 TM 在 Randalls Island 出现 2 次显著非负性违规；hurdle TM 的 1,188 个 Syn 估计全部通过预设审计，因此 hurdle 版本被选为正式主估计，普通版本降为失败对照。
 
+进一步的空间超边实验穷举 2,145 个源区对，为每个目标冻结前三名候选，再用独立的 4,096 次干预、3 个交通状态和 3 个 MGSTN 检查点做正式二阶 TM 确认。**198 条候选中没有一条达到预注册的 0.05 bit 最小效应；最高观测减置乱效应仅 0.00340 bit。** 因此当前没有证据把某个具体“两个源区 outflow $\to$ 第三个区域 inflow”的组合解释为空间预测超边。
+
 原有 30 分钟 pickup-only 实验说明的事情也保持不变：
 
 1. **看全城，比只看本区更准。** Global Ridge 相对 Local Ridge 的测试 RMSE 降低 3.29%，并改善 59 个活跃区域中的 57 个。
 2. **在原有任务和候选集中，更复杂的模型没有明显胜出。** Interaction Ridge 的误差最低，但只比 Global Ridge 低 0.021%；Extra Trees 和 MLP 也没有超过 Ridge。
 3. **额外信息主要来自区域之间。** 在更正后的统一 EI 口径下，系统 $\Xi=8.1347$ bits，其中 91.0% 是跨区域联合信息，只有 9.0% 来自单一区域内部的多滞后联合读取。
 
-因此，当前最稳妥的判断是：**曼哈顿出租车需求既有跨区域联合结构，也有更强、更稳健的跨时间尺度结构；下一小时的局部变化必须放进日/周生活节律中联合解释。** 原有 Ridge 与 MGSTN 的任务口径不同，不能直接用误差数值或 $\Xi$ 数值判定谁更好。
+因此，当前最稳妥的判断是：**曼哈顿出租车需求有跨区域依赖，但最稳健、可定位的非加性结构来自跨时间尺度耦合；下一小时的局部变化必须放进日/周生活节律中联合解释。** 空间影响更像分散的、多区域背景依赖，尚不能收缩成稳定的二源超边。原有 Ridge 与 MGSTN 的任务口径不同，不能直接用误差数值或 $\Xi$ 数值判定谁更好。
 
 ---
 
 ## 目录
 
 - [0. MGSTN 论文精度复现](#0-mgstn-论文精度复现)
+- [0.8 空间超边确认](#08-空间超边确认)
 - [附录 G：旧局部 affine-TM 结果](#附录-g旧局部-affine-tm-结果)
 - [1. 问题与数据](#1-问题与数据)
 - [2. 主结果](#2-主结果)
@@ -117,7 +120,7 @@ $$
 
 ![NYC Taxi 社会系统多时间尺度耦合主图](../../fig/nyc_taxi_social_multiscale_main.svg)
 
-**主图 1｜预测精度复现、区域分布与跨时间尺度协同地图。** a，复现模型的四项测试误差与三随机种子验证轨迹。b，正式 hurdle 二阶 TM 中，时间 Syn 占时间与空间目标级 Syn 之和的比例；柱为三种子均值，空心点为单种子。c，全部 66 区的 recent–macro Syn 分布；每点为区域的三种子均值，黑线表示四分位范围与中位数。d，三个交通状态下的全 66 区 Syn 地图，共用同一线性色标。方法名称、估计器阶数与零膨胀处理等技术信息只在图注中说明，不写入图面。
+**主图 1｜NYC Taxi 数据、预测复现与跨时间尺度主效应。** a，2023 年 10 月连续四周的全城小时级跨区行程数；浅色背景标出周末。每个时间点原本是 66 个区域的 inflow/outflow 向量，这里求和后展示其直观时间形态。b，复现模型的四项测试误差；空心点为三个模型种子，实心点和误差线为均值 $\pm$ SD。c，每个区域 2023 年平均 inflow 与三状态、三模型种子平均时间 Syn 的关系；虚线为对 $\log(1+\mathrm{inflow})$ 的描述性拟合，暖色点为 Battery Park City、Lenox Hill East 和 Murray Hill，即 inflow 不低于 20 rides h$^{-1}$ 且 Syn 最超出该趋势的三个区域。Spearman $\rho=0.86$，说明绝对时间耦合主要出现在真实高活动区，而不是稀疏区；该相关不代表客流量对 Syn 的因果作用。d，正式 hurdle 二阶 TM 中，时间 Syn 占时间与空间目标级 Syn 之和的比例；柱为三种子均值，空心点为单种子。e，三个交通状态下的全 66 区 recent–macro Syn 地图，共用同一线性色标。方法名称、估计器阶数与零膨胀处理等技术信息只在图注中说明，不写入图面。空间超边零结果保留在扩展图 M3，不再占用主图位置。
 
 三个状态的正式结果为：
 
@@ -139,11 +142,31 @@ hurdle 二阶 TM 在同样的 66 区、3 状态、3 种子与 4,096 干预样本
 
 ![NYC Taxi 跨时间尺度耦合地图](../../fig/nyc_taxi_temporal_coupling_map.svg)
 
-**扩展图 M2｜全 66 区有限幅 recent–macro 协同地图。** 这是主图 1d 的独立放大版本：a–c 分别为工作日高峰、周末中午和雨天高需求；颜色是区域级 hurdle 二阶 TM Syn 的三种子均值，三图共享线性色标。它表示冻结模型中“近期变化与日/周节律必须联合读取”的信息量，不是客流量、预测误差或因果效应。
+**扩展图 M2｜全 66 区有限幅 recent–macro 协同地图。** 这是主图 1e 的独立放大版本：a–c 分别为工作日高峰、周末中午和雨天高需求；颜色是区域级 hurdle 二阶 TM Syn 的三种子均值，三图共享线性色标。它表示冻结模型中“近期变化与日/周节律必须联合读取”的信息量，不是客流量、预测误差或因果效应。
 
 与旧 Jacobian 地图不同，新地图不再由 Highbridge Park、Randalls Island 等低活动区主导。高值主要分布于 Murray Hill、Union Sq、Lenox Hill East、East Chelsea 和 Midtown 等真实高活动区域，北部公园及边缘区接近零；三种状态的区域排名 Spearman 相关为 **0.992–0.996**，而雨天的全城强度下降。这与稀疏 6 区仅贡献 0.20%–0.30% 的汇总结果一致，直接排除了“前三个稀疏区抬高全局时间协同”的解释。
 
 当前证据仍有限制：PCA 每块只保留 2 个主成分，二阶 TM 只表达至二次曲率，4,096 次干预对应有限的尾部支持。因此，正式结论是“在可审计的有限幅二阶近似下，MGSTN 的目标级联合信息以 recent–macro 时间耦合为主”，而不是模型全部高阶信息容量的封闭形式证明。
+
+### 0.8 空间超边确认
+
+空间二分块结果只说明“本区历史与其余 65 区整体历史需要被联合读取”，不能直接定位是哪两个外部区域共同作用。为回答更具体的问题，我们定义有向候选超边 $\{A_{\mathrm{out}},B_{\mathrm{out}}\}\to C_{\mathrm{in}}$：两个不同源区的 outflow 历史分别从训练期经验分布独立抽样，其他输入固定在代表性城市状态，目标是第三个区域下一小时 inflow。在独立源干预下，二源 PEID Syn 等于
+
+$$
+\operatorname{Syn}_{A,B\to C}=I(A;B\mid C)\geq 0.
+$$
+
+实验严格分为发现和确认两阶段：先用 model seed 0、工作日高峰中心和 256 组有限幅四角干预遍历全部 $\binom{66}{2}=2{,}145$ 个源对，同时读取 66 个目标的二阶交互；每个目标冻结前三名，共 198 条候选。随后改用新的 4,096 组独立干预，在 3 个状态和 3 个模型种子上用对称二阶 hurdle TM 估计 Syn；同一 TM 样本内置乱目标作为配对零模型。预注册确认条件为观测减置乱均值至少 0.05 bit，且至少 2/3 模型种子方向为正。
+
+![NYC Taxi 空间超边确认](../../fig/nyc_taxi_spatial_hyperedge_panels.svg)
+
+**扩展图 M3｜粗筛出的空间交互没有在独立正式 TM 中形成确认超边。** a，正式效应最高的 6 条候选；空心点为 9 个状态–种子单元，实心点和横线为均值 $\pm$ SD。全部 198 条中确认数为 0。b，发现阶段的有限差分交互与正式观测减置乱 Syn；灰点为全部候选，绿色为 a 中 6 条。两者没有单调对应关系，因此发现分数不能代替正式信息量。
+
+正式结果的候选均值范围为 **−0.00409 到 0.00340 bit**；最高候选 Central Harlem North + Washington Heights South $\to$ Hamilton Heights 也只有 **0.00340 bit**，相当于预注册最小效应的 6.8%。全部 1,782 个正式单元的最小原始 Syn 为 −0.0187 bit；1,690 个轻微负值均位于 $[-0.05,0)$，按预声明的数值零登记，低于容差的显著非负性违例为 **0 个**。没有使用裁剪。
+
+这个零结果也不是稀疏区把估计搞乱后造成的。发现分数与正式效应的 Spearman 相关为 $r=0.014$（$p=0.85$）；两个源区中较低的平均 outflow 与正式效应相关为 $r=0.052$（$p=0.47$）；较高的零比例与效应相关为 $r=-0.062$（$p=0.39$）。也就是说，既没有“稀疏源区产生虚假高超边”，也没有“粗筛越高、正式信息越强”的证据。
+
+这与前面的空间二分块占比不矛盾。二分块问题把**一个目标区的完整历史**与**其余 65 区的整体历史**作为两个大块，目标还是该区的 inflow/outflow；超边问题则只干预**两个外部区域的 outflow**并预测第三个区域的 inflow。前者可以包含分散于许多区域的弱依赖、冗余信息和更高阶背景状态，未必能压缩成某个稳定的二源组合。当前最简洁的结论是：**MGSTN 确实利用空间背景，但可重复的非加性核心是时间尺度耦合，不是少数地理超边。** 这不排除更高阶（3 个以上源区）、事件条件化或超出二阶 TM 分辨率的空间结构。
 
 ## 附录 G：旧局部 affine-TM 结果
 
@@ -620,11 +643,16 @@ $$
 - [MGSTN 训练与评价](../../scripts/train_nyc_taxi_mgstn.py)
 - [MGSTN 全区域有限幅二阶 hurdle TM](../../scripts/compute_nyc_taxi_mgstn_quadratic_tm_full.py)
 - [正式 TM 汇总与逐区域结果](../../results/nyc_taxi_mgstn_ei/finite_quadratic_tm/quadratic_tm_full_summary.json)
+- [空间超边完整实验](../../scripts/run_nyc_taxi_spatial_hyperedges.py)
+- [空间超边网络与稀疏性诊断](../../scripts/analyze_nyc_taxi_spatial_hyperedges.py)
+- [空间超边正式汇总](../../results/nyc_taxi_mgstn_ei/spatial_hyperedges/spatial_hyperedge_full_summary.json)
+- [空间超边诊断汇总](../../results/nyc_taxi_mgstn_ei/spatial_hyperedges/spatial_hyperedge_network_analysis.json)
 - [旧 MGSTN 局部 affine TM–PEID 分解](../../scripts/compute_nyc_taxi_mgstn_ei.py)
 - [旧 MGSTN 时间尺度层级耦合](../../scripts/compute_nyc_taxi_mgstn_temporal_coupling.py)
 - [MGSTN 框架图脚本](../../scripts/plot_nyc_taxi_mgstn_architecture.py)
 - [MGSTN 信息分解图脚本](../../scripts/plot_nyc_taxi_mgstn_ei.py)
 - [MGSTN 时间尺度耦合地图脚本](../../scripts/plot_nyc_taxi_temporal_coupling_map.py)
+- [空间超边子图脚本](../../scripts/plot_nyc_taxi_spatial_hyperedges.py)
 - [MGSTN 三随机种子预测结果](../../results/nyc_taxi_mgstn/summary.json)
 - [旧 MGSTN 信息分解摘要](../../results/nyc_taxi_mgstn_ei/full_summary.json)
 - [旧 MGSTN 完整分解数组](../../results/nyc_taxi_mgstn_ei/full_decomposition.npz)
@@ -632,6 +660,7 @@ $$
 - [MGSTN 框架图 SVG](../../fig/nyc_taxi_mgstn_architecture.svg)（另有 PNG、PDF）
 - [Taxi 社会系统多时间尺度主图 SVG](../../fig/nyc_taxi_social_multiscale_main.svg)（另有 PNG、PDF）
 - [Taxi 时间尺度耦合地图 SVG](../../fig/nyc_taxi_temporal_coupling_map.svg)（另有 PNG、PDF）
+- [Taxi 空间超边确认 SVG](../../fig/nyc_taxi_spatial_hyperedge_panels.svg)（另有 PNG、PDF）
 - [数据聚合与模型筛选](../../scripts/nyc_taxi_synergy_model_screen.py)
 - [更正后的 EI/$\Xi$ 计算](../../scripts/compute_nyc_taxi_ridge_xi.py)
 - [主图脚本](../../scripts/plot_nyc_taxi_main_figure.py)
