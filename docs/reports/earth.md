@@ -503,13 +503,42 @@ $$
 
 ## 附录 A. Runge 节点级指标对照
 
-节点级 ACE/ACS 与 Ridge+PEID 结果仅作为不同估计口径的补充诊断。它们把与节点相连的一阶边和显著二阶项压缩成静态分数，只能回答哪个 component 更接近 source 或 target hub，不能表达“源组合—目标—预测窗口”的尺度结构，因此不承担正文结论。
+这一历史对照沿用 Runge 等人 [R1] 的节点级提问：哪些 SLP 分量更接近向外传播扰动的 source hub，哪些分量更容易接收其他区域的影响。对 Runge 的 PC-stable 复现，先对每一对节点取四周内最大绝对因果效应 $C_{i\rightarrow j}^{\max}$，再定义
 
-![Runge 节点级 ACE/ACS 与 Ridge+PEID 对照](../../fig/runge_ridge_peid_order1_vs_order2_ace_acs_1948_2026.png)
+$$
+ACE_i=\frac{1}{N-1}\sum_{j\ne i}C_{i\rightarrow j}^{\max},
+\qquad
+ACS_j=\frac{1}{N-1}\sum_{i\ne j}C_{i\rightarrow j}^{\max}.
+$$
 
-*图 A1. 节点级指标对照。a 为修正后的 Runge 2015 PC-stable ACE/ACS；b 为 Ridge+PEID 一阶 EI；c 为一阶 EI 加显著二阶协同。不同面板的估计对象和尺度并不等价，不宜比较绝对数值或把节点排名作为正文的主要证据。*
+Ridge+PEID 对照把同一节点的一阶 EI 与显著二阶交互压缩为一个静态合成分数。记 $e_{i\rightarrow k}$ 为一阶 EI，$\Delta^{(2)}_{ij\rightarrow k}$ 为历史流程输出的二阶 Möbius 交互，$\mathcal H_i^{\mathrm{out}}$ 和 $\mathcal H_k^{\mathrm{in}}$ 分别为通过 $|z|\ge2$ 门控、且包含源 $i$ 或指向目标 $k$ 的二阶候选集合，则
 
-修正后的 Runge 方法中，ACE top-3 为 `No.1/0/16`，ACS top-3 为 `No.0/1/26`；Ridge+PEID 中，ACE top-5 为 `No.0/1/3/9/4`，ACS top-5 为 `No.10/3/26/0/1`。父节点口径修正后，`No.3` 在扩展样本中的排名由 ACE 第 5、ACS 第 3 降至 ACE 第 12、ACS 第 13，说明静态排名对因果图构建口径敏感。
+$$
+\begin{aligned}
+HACE_i
+&=\frac{1}{N-1}\sum_{k\ne i}|e_{i\rightarrow k}|
++\frac{1}{|\mathcal H_i^{\mathrm{out}}|}
+\sum_{(i,j)\rightarrow k\in\mathcal H_i^{\mathrm{out}}}
+\frac{|\Delta^{(2)}_{ij\rightarrow k}|}{2},\\
+HACS_k
+&=\frac{1}{N-1}\sum_{i\ne k}|e_{i\rightarrow k}|
++\frac{1}{|\mathcal H_k^{\mathrm{in}}|}
+\sum_{(i,j)\rightarrow k\in\mathcal H_k^{\mathrm{in}}}
+|\Delta^{(2)}_{ij\rightarrow k}|.
+\end{aligned}
+$$
+
+若相应二阶集合为空，第二项记为零。除以 2 是把一条二源交互等分给两个源节点；按每个节点实际通过门控的二阶项数取均值，避免候选数量本身直接决定节点分数。该历史实验使用 1948—2026 年周尺度 SLP、60 个 Varimax 分量、4 周输入滞后、一步预测、4,096 个最大熵干预样本和固定随机种子。二阶候选由前 14 个源与每个源的前 10 个目标构造，共得到 `1,638` 项；26 周 block null、20 次重复下有 `287` 项满足 $|z|\ge2$。
+
+![Runge 节点级 ACE/ACS 与 Ridge+PEID 对照](../../fig/runge_node_ace_acs_comparison_1948_2026.png)
+
+*图 A1. Runge 节点级指标与一、二阶合成指标的空间对照。a，修正父节点选择后的 Runge 2015 PC-stable ACE/ACS；b，Ridge+PEID 的一阶 EI 与显著二阶交互合成结果。外圈表示 source-side ACE/HACE，内圆表示 target-side ACS/HACS。两个面板估计对象和数值尺度不同，分别使用色标；b 中最大 HACE 超过稳健色标上限，以色标右端箭头标记。该图只比较节点排序和空间分布，不比较绝对数值。*
+
+修正后的 Runge 复现中，ACE top-5 为 `No.1/0/16/8/26`，ACS top-5 为 `No.0/1/26/4/11`。一、二阶合成结果中，HACE top-5 为 `No.0/1/3/9/4`，HACS top-5 为 `No.10/3/26/0/1`。两种口径的源侧排序仍有较强整体一致性：60 个节点的 ACE–HACE Spearman 相关为 `0.772`，top-5 共同包含 `No.0/1`；目标侧一致性明显较弱，ACS–HACS Spearman 相关为 `0.389`，top-5 共同包含 `No.0/1/26`。因此，高阶合成并未整体推翻 Runge 的主要源节点结构，但显著改变了接收端 hub 的优先级。
+
+`No.3` 最能说明两种问题设定的差异。在修正后的 Runge 图中，它的 ACE/ACS 只排第 `12/13`；在合成图中则升至 HACE/HACS 第 `3/2`。这不是“Runge 结论被否定”，而是说明一个节点可以在成对路径平均效应中并不突出，却频繁参与强二源联合读出。反过来，Runge 的 ACE/ACS 沿多步线性因果路径聚合，而合成分数只汇总直接的一阶读出和二阶源组合，两者不能互换为同一个因果中心性定义。
+
+还需保留一个历史口径限制：二阶缓存把 $\Delta^{(2)}$ 保存为有符号 Möbius 交互，门控后的 287 项中有 13 项为负，最小值为 `-6.65\times10^{-4}` bits，且其 $|z|$ 超过 2。当前项目把 PEID Syn 定义为非负，因此这些负值不能解释为“负 Syn”，也不能通过静默截断修正。本附录仅按当时明确记录的绝对交互合成规则复现节点排序，并把它定位为历史诊断；正文的非负 Syn 结论不依赖该结果。若未来要把节点合成分数升级为正式 PEID 指标，需要使用满足非负约束的估计与容差审计重新计算。
 
 ## 附录 B. 补充数值结果
 

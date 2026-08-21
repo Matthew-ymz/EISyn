@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot first-order-only vs second-order-aware Runge ACE/ACS maps."""
+"""Plot Runge ACE/ACS against the first- and second-order Ridge+PEID composite."""
 
 from __future__ import annotations
 
@@ -43,9 +43,9 @@ ORIGINAL_MEDIATOR = ORIGINAL_CORRECTED_BASE / "mediator_scores.csv"
 NEW_BASE = ROOT / "results" / "runge_slp_daily_1948_2026_oldstyle_ace_acs" / "mlp_tm_ei_lag04"
 NEW_GATEWAY = NEW_BASE / "results" / "runge" / "peid_hypergraph" / "hyper_gateway_scores.csv"
 NEW_HYPEREDGES = NEW_BASE / "results" / "runge" / "peid_hypergraph" / "peid_hyperedges.csv"
-DEFAULT_OUTPUT = ROOT / "docs" / "reports" / "assets" / "runge_mlp_peid_order1_vs_order2_ace_acs_1948_2026.png"
-DEFAULT_MANIFEST = NEW_BASE / "results" / "runge" / "ace_acs_alignment" / "order1_vs_order2_manifest.json"
-DEFAULT_SUMMARY = NEW_BASE / "results" / "runge" / "ace_acs_alignment" / "order1_vs_order2_summary.csv"
+DEFAULT_OUTPUT = ROOT / "fig" / "runge_node_ace_acs_comparison_1948_2026.png"
+DEFAULT_MANIFEST = NEW_BASE / "results" / "runge" / "ace_acs_alignment" / "node_comparison_manifest.json"
+DEFAULT_SUMMARY = NEW_BASE / "results" / "runge" / "ace_acs_alignment" / "node_comparison_summary.csv"
 
 
 def parse_subset(value: object) -> tuple[int, ...]:
@@ -215,7 +215,6 @@ def main() -> None:
     )
 
     original_nodes = build_runge_nodes(args.component_maps, args.original_gateway, args.original_mediator)
-    order1_nodes = build_nodes(args.component_maps, args.gateway, args.hyperedges, significance_z=args.significance_z, include_order2=False)
     total_nodes = build_nodes(args.component_maps, args.gateway, args.hyperedges, significance_z=args.significance_z, include_order2=True)
     original_vmax = float(original_nodes[["ace", "acs"]].to_numpy().max())
     ridge_cap = robust_vmax_excluding_largest_ace(total_nodes)
@@ -228,26 +227,24 @@ def main() -> None:
     coastlines = extract_lines(load_geojson(COASTLINE_URL))
     labels = select_label_nodes(original_nodes)
 
-    fig = plt.figure(figsize=(17.4, 4.95), constrained_layout=True)
-    grid = fig.add_gridspec(1, 3, width_ratios=[1, 1, 1], wspace=0.045)
-    axes = [fig.add_subplot(grid[0, idx], projection="mollweide") for idx in range(3)]
+    fig = plt.figure(figsize=(11.8, 4.95), constrained_layout=True)
+    grid = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.06)
+    axes = [fig.add_subplot(grid[0, idx], projection="mollweide") for idx in range(2)]
     draw_ace_acs_panel(axes[0], original_nodes, labels, original_norm, cmap, land, coastlines)
-    draw_ace_acs_panel(axes[1], order1_nodes, labels, ridge_norm, cmap, land, coastlines)
-    draw_ace_acs_panel(axes[2], total_nodes, labels, ridge_norm, cmap, land, coastlines)
+    draw_ace_acs_panel(axes[1], total_nodes, labels, ridge_norm, cmap, land, coastlines)
     axes[0].set_title("Runge 2015 method (PC-stable)", fontsize=9, fontweight="bold", pad=8)
-    axes[1].set_title("Ridge+PEID: first-order only", fontsize=9, fontweight="bold", pad=8)
-    axes[2].set_title("Ridge+PEID: first + significant second-order", fontsize=9, fontweight="bold", pad=8)
+    axes[1].set_title("Ridge+PEID: first- and second-order composite", fontsize=9, fontweight="bold", pad=8)
     if args.suptitle:
         fig.suptitle(args.suptitle, fontsize=10, fontweight="bold")
-    for letter, ax in zip(["a", "b", "c"], axes):
+    for letter, ax in zip(["a", "b"], axes):
         ax.text(-0.06, 1.03, letter, transform=ax.transAxes, fontsize=16, fontweight="bold")
     add_panel_colorbar(fig, axes[0], original_norm, cmap, label="ACS (inner node) and ACE (outer ring)")
     add_panel_colorbar(
         fig,
-        axes[1:],
+        axes[1],
         ridge_norm,
         cmap,
-        label="Hyper-ACS (inner node) and Hyper-ACE (outer ring), common clipped scale",
+        label="Hyper-ACS (inner node) and Hyper-ACE (outer ring), clipped scale",
         extend="max",
     )
 
@@ -259,7 +256,6 @@ def main() -> None:
 
     summary = pd.DataFrame(
         summarize_nodes("runge_2015_pcstable", original_nodes)
-        + summarize_nodes("ridge_order1_only", order1_nodes)
         + summarize_nodes("ridge_order1_plus_order2", total_nodes)
     )
     args.summary.parent.mkdir(parents=True, exist_ok=True)
@@ -278,11 +274,10 @@ def main() -> None:
                 "original_mediator_scores": relpath_for_manifest(args.original_mediator),
                 "hyperedges": relpath_for_manifest(args.hyperedges),
                 "panel_a": "Runge 2015 PC-stable reproduction ACE/ACS on 1948-2026 data",
-                "panel_b": "Ridge+PEID hyper_ace_order1 and hyper_acs_order1 only",
-                "panel_c": "Ridge+PEID order1 averaged by n-1 plus significant order2 averaged by per-node significant hyperedge count",
+                "panel_b": "Ridge+PEID order1 averaged by n-1 plus significant order2 averaged by per-node significant hyperedge count",
                 "definition": "order1 terms are divided by n-1; order2 ACE is mean |Syn|/|K| over significant outgoing hyperedges involving the source; order2 ACS is mean |Syn| over significant incoming hyperedges for the target; empty order2 sets contribute 0",
                 "significance_z": float(args.significance_z),
-                "colorbar_mode": "panel a uses Runge ACE/ACS scale; panels b-c share the Ridge+PEID robust clipped scale",
+                "colorbar_mode": "panel a uses the Runge ACE/ACS scale; panel b uses the Ridge+PEID robust clipped scale",
                 "runge_vmax": original_vmax,
                 "ridge_raw_vmax": raw_vmax,
                 "ridge_color_cap": ridge_cap,
