@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot the Schaefer100 DMF A--G summary and the 83-vs-100 comparison."""
+"""Plot the Schaefer100 DMF a--g summary and the 83-vs-100 comparison."""
 
 from __future__ import annotations
 
@@ -337,7 +337,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
         ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
         ax_a_phi_r.spines["right"].set_visible(True)
-    panel_label(ax_a, "A", y=1.04)
+    panel_label(ax_a, "a", y=1.04)
 
     horizon_g = np.asarray(horizon["G"], dtype=float)
     horizons = np.asarray(horizon["horizons"], dtype=float)
@@ -366,7 +366,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_b.set_yticks(horizons)
     colorbar = figure.colorbar(image, ax=ax_b, fraction=0.055, pad=0.035)
     colorbar.set_label(r"Mean $\Xi$ (bits)")
-    panel_label(ax_b, "B")
+    panel_label(ax_b, "b")
 
     strength = np.asarray(topology["strength"], dtype=float)
     local = np.asarray(topology["within_roi"], dtype=float).mean(axis=(0, 1))
@@ -384,7 +384,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     handles = ax_c.get_legend_handles_labels()[0] + ax_c2.get_legend_handles_labels()[0]
     labels = ax_c.get_legend_handles_labels()[1] + ax_c2.get_legend_handles_labels()[1]
     ax_c.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 1.08), ncol=2, fontsize=6.0)
-    panel_label(ax_c, "C")
+    panel_label(ax_c, "c")
 
     fine = np.asarray(topology["fine_phi"], dtype=float)
     within_total = np.asarray(topology["within_roi_total"], dtype=float)
@@ -399,7 +399,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_d.grid(True, axis="y", color="0.90", lw=0.5)
     for index, value in enumerate(means):
         ax_d.text(index, value + max(1.0, 0.03 * means.max()), f"{value:.1f}%", ha="center", va="bottom")
-    panel_label(ax_d, "D")
+    panel_label(ax_d, "d")
 
     within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
     within_network_by_seed = within_network.mean(axis=1)
@@ -429,7 +429,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_e.tick_params(axis="y", pad=1)
     ax_e.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
     ax_e.grid(True, axis="x", color="0.90", lw=0.5)
-    panel_label(ax_e, "E")
+    panel_label(ax_e, "e")
 
     between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
     between_shapley_by_seed = between_shapley.mean(axis=1)
@@ -447,7 +447,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_f.tick_params(axis="y", pad=1)
     ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
     ax_f.grid(True, axis="x", color="0.90", lw=0.5)
-    panel_label(ax_f, "F")
+    panel_label(ax_f, "f")
 
     left_mesh, right_mesh, left_values, right_values = load_schaefer100_surface_map(
         args.surface_asset,
@@ -469,7 +469,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     for axis, label in zip(ax_g, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
         axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")
     ax_g[0].text2D(
-        -0.10, 1.00, "G", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
+        -0.10, 1.00, "g", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
     )
     figure.subplots_adjust(left=0.052, right=0.987, top=0.91, bottom=0.10, hspace=0.32)
     save(figure, args.output)
