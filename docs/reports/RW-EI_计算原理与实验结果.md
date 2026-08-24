@@ -521,3 +521,124 @@ RW-EI 的核心价值在于：**把“学习动力学”转化为“修正样本
 - **大样本：两者都稳定在真值附近，但 RW-EI 更快；**
 - **强相关：RW-EI 更早失效，优先 MLP EI；极端相关下两者都要谨慎；**
 - **是否适合 RW-EI：先看 ESS。**
+
+## 8. 真实高维应用：SEEG 9/27 主成分敏感性检验
+
+为检验“不拟合动力学是否会改善 Attend–Visible 的前后脑协同排序”，在一组 SEEG 注意与可见性实验中冻结前脑 9 个主成分、后脑 27 个主成分、0.25--0.55 s 时间窗、两步历史、条件划分和 block 配对，仅将拟合式 EI 替换为直接 RW-EI。目标输入分布设为前脑历史边缘与后脑历史边缘的乘积；联合、前脑部分和后脑部分 EI 由加权仿射 Gaussian/TM 互信息读取。
+
+结果没有支持 Attend–Visible 的 synergy 显著最高。Evoked-residual 表示下，Attend–Visible 的直接条件协同均值表面排名第一，但相对 Attend–Invisible 只在 3/6 个留出 block 中更高，Holm 校正后 $p=0.25$；raw 表示下则由 Attend–Invisible 排名第一。联合 RW-EI 在两种表示下都由 Attend–Visible 表面排名第一，但相对三个竞争条件的配对比较没有全部通过校正。
+
+该结果的决定性信息来自权重诊断，而不是表面排序。每个估计原有 1,120 个时序对，但 288 个估计的平均 $\operatorname{ESS}/N$ 仅为 0.00589，最低为 0.000893；最极端单个样本占总权重 99.982%。重加权后前脑与后脑历史仍保留平均 22.259 bits 的依赖，说明目标乘积干预没有实现。
+
+因此，这次真实数据尝试进一步限定了第 6 节的建议：RW-EI 的速度优势不能抵消高维支持不重叠。对于 72 维历史输入，即使原始样本数超过一千，实际有效样本也可能只剩个位数。此时不能把表面较高的条件互信息解释为可靠的 PEID synergy；应降低到由独立预测或解剖规则预先确定的宏变量维度，并重新要求 ESS、最大单点权重与加权后残余源依赖同时通过诊断。
+
+## 9. SURD 与 PEID 为什么没有给出同一排序
+
+### 9.1 公平比较的设置
+
+为了判断差异是否来自实现细节，PEID 复核固定了与 SURD 相同的前脑 9 / 后脑 27 主成分、0.25--0.55 s 时间窗、VAR(2) 历史和 Present--Absent 差值。Animal、object 和 face 没有分别拟合模型：每个 attention × visibility × stimulus-presence 单元只拟合一个转移模型，三类刺激合并后共有 60 个训练 trial 和 12 个留出 trial。类别标签只用于训练折内减去类别平均诱发波形；raw 表示不使用这一步。
+
+这次比较只改变 PEID 的干预支持，其余数据、模型和统计单位保持不变：
+
+| PEID 干预支持 | Attend--Visible 的 Present--Absent synergy（bit） | 四条件排名 | 最高条件 |
+| --- | ---: | ---: | --- |
+| 各 PC × lag 独立、单位协方差 | 0.01036 | 3 | Unattend--Visible |
+| 前后脑块独立、块内保留相关矩阵 | 0.01004 | 3 | Unattend--Visible |
+| 前后脑块独立、块内保留协方差矩阵 | 0.00819 | 3 | Unattend--Visible |
+
+三种支持下，Attend--Visible 都只在 4/6 个 block 中为正，单侧精确检验均未达到 0.05；改变独立性的粒度没有恢复 SURD 的条件排序。块协方差的最大条件数约为 11.5，也没有出现明显数值病态。因此，当前差异不能主要归因于“单位高斯干预过度打散了前脑或后脑内部结构”。
+
+### 9.2 高斯不是 PEID 的定义
+
+PEID 的必要结构是源侧最大熵干预及源变量独立，而不是高斯分布本身。对前脑历史向量 $\mathbf{F}$、后脑历史向量 $\mathbf{P}$ 和未来状态 $\mathbf{Y}$，干预联合分布写为
+
+$$
+q(\mathbf{f},\mathbf{p},\mathbf{y})
+=q_F(\mathbf{f})q_P(\mathbf{p})
+p(\mathbf{y}\mid\mathbf{f},\mathbf{p}).
+$$
+
+离散变量通常在有限状态空间上采用均匀分布；连续 PEID 也可以在预先规定的有界支持上采用独立均匀分布。PEID 论文的连续实验正是这样采样。不过，该论文随后使用仿射高斯 transport map 读取互信息。对于当前线性转移模型，这种读取器只依赖二阶协方差。因此，具有相同协方差的独立均匀干预与高斯干预会得到同一个仿射闭式结果。高斯闭式是当前估计器的性质，不是 PEID 的定义。
+
+若要真正比较均匀与高斯的分布形状，必须同时换成能够识别非高斯密度的读取器。这里不能只把高斯随机数换成均匀随机数，却继续使用协方差 log-det 公式，然后把相同结果解释为“均匀干预也失败”。此外，连续均匀干预必须先规定边界；不同单元分别使用样本最小值和最大值，会让干预支持随条件和 Present/Absent 改变，从而把机制差异与支持差异混在一起。
+
+### 9.3 两种方法估计的不是同一个量
+
+SURD 使用观测联合分布 $p(\mathbf{F},\mathbf{P},\mathbf{Y})$。当前实现先计算逐目标事件的特异信息，然后定义
+
+$$
+R_{\mathrm{SURD}}
+=\mathbb{E}\!\left[\min\{i_F(\mathbf{Y}),i_P(\mathbf{Y})\}\right],
+$$
+
+$$
+S_{\mathrm{SURD}}
+=\mathbb{E}\!\left[i_{FP}(\mathbf{Y})-
+\max\{i_F(\mathbf{Y}),i_P(\mathbf{Y})\}\right].
+$$
+
+它保留了真实数据中前后脑状态的出现频率、相关性和共同驱动。PEID 则先把源侧分布替换为 $q_Fq_P$，再通过拟合的条件机制产生未来状态。对任意满足 $\mathbf{F}\perp\mathbf{P}$ 的干预分布，PEID 的两源 synergy 为
+
+$$
+\begin{aligned}
+S_{\mathrm{PEID}}
+&=I_q(\mathbf{F},\mathbf{P};\mathbf{Y})
+-I_q(\mathbf{F};\mathbf{Y})
+-I_q(\mathbf{P};\mathbf{Y})\\
+&=I_q(\mathbf{F};\mathbf{P}\mid\mathbf{Y})\geq 0.
+\end{aligned}
+$$
+
+这两个量只有在使用同一个联合分布、且源侧冗余为零等额外条件下才可能一致。因此，“SURD 得到预期排序”并不推出“PEID 必须得到同一排序”。前者回答观测条件下信息怎样被分解，后者回答在指定独立干预下拟合机制产生多少不可加的因果信息。
+
+真实结果直接显示了这一区别。在 Attend--Visible 条件下，evoked-residual 的 SURD synergy 从 Absent 到 Present 增加 0.06987 bit，但 SURD redundancy 同时增加 0.27839 bit。因此
+
+$$
+\Delta\mathrm{WMS}
+=\Delta S_{\mathrm{SURD}}-\Delta R_{\mathrm{SURD}}
+=-0.20858\ \text{bit}.
+$$
+
+raw 表示得到同一模式：synergy 增加 0.08420 bit，redundancy 增加 0.25504 bit，而 WMS 降低 0.17089 bit。换言之，Attend--Visible 的观测 SURD 阳性结果伴随着更强、而不是更弱的冗余增长。SURD 的 Attend--Visible 平均值确实为四条件最高，并在对三个竞争条件的配对比较中通过 Holm 校正；但它不是“去除冗余后的净交互”。PEID 和 WMS 没有复现该结果，正是因为它们对冗余和观测源分布的处理不同。
+
+### 9.4 更适合本问题的冻结参数
+
+后续若继续检验 PEID，建议预先冻结以下设置：
+
+1. Animal、object 和 face 始终合并拟合；不报告类别特异模型作为主结果。
+2. 主效应始终是每个条件内的 Present--Absent synergy，而不是四个条件的绝对 synergy 大小。
+3. 源分区固定为两个多维宏变量：前脑历史 $\mathbf{F}$ 与后脑历史 $\mathbf{P}$；不要在看到结果后改变 PC 分组。
+4. 干预分布采用所有训练条件共同的支持，且留出 block 不参与边界或尺度估计。对已经标准化的 PC，一个无需按结果调节的候选是每个 PC × lag 独立服从 $\operatorname{Uniform}[-\sqrt{3},\sqrt{3}]$，使每维方差固定为 1。
+5. 将高斯与均匀作为预注册的 estimator sensitivity，而不是选择 Attend--Visible 排名更高者。均匀干预必须使用真正的非高斯密度读取器；仿射高斯读取只能作为协方差基线。
+6. Ridge 强度、lag 和噪声收缩继续只按留出预测与似然选择，不按 synergy 排名选择。现有 alpha 300、lag 2、noise shrinkage 0.1 都有独立预测筛选依据，暂时没有证据说明它们是 SURD--PEID 差异的主因。
+
+当前证据支持的最窄结论是：统一类别合并、Present--Absent 对比和前后脑分区后，PEID 仍未复现 SURD 的 Attend--Visible 排序；进一步保留块内协方差也没有改变结论。下一项有意义的检验不是继续搜索 Ridge 或 PCA 参数，而是在固定的 $\operatorname{Uniform}[-\sqrt{3},\sqrt{3}]$ 干预下，使用能识别非高斯输出密度且通过模拟校准的连续互信息估计器。考虑到源历史有 72 维，这一步必须同时报告有限样本偏差与重复稳定性，否则仍可能只是把 RW-EI 的高维不稳定换成另一种密度估计不稳定。
+
+### 9.5 能否用前后脑相关直接替代冗余
+
+普通前后脑相关不能复现 SURD 的 Attend--Visible 最高。为避免不同 PC 的正负相关相互抵消，使用所有前脑--后脑 Pearson 相关平方的均方根作为块相关强度。该指标不拟合转移模型，也不使用未来目标。Evoked-residual 表示下，历史块相关的 Present--Absent 增量为：
+
+| 条件 | 历史 RMS 相关增量 | 排名 |
+| --- | ---: | ---: |
+| Attend--Invisible | 0.001940 | 3 |
+| Attend--Visible | 0.003708 | 2 |
+| Unattend--Invisible | 0.001938 | 4 |
+| Unattend--Visible | 0.005045 | 1 |
+
+不含 lag 的同时刻相关得到同一排序：Attend--Visible 增加 0.003627，而 Unattend--Visible 增加 0.005490。Raw 表示也完全一致。Attend--Visible 虽然在 6/6 个 block 中均为正，却显著低于 Unattend--Visible，因此不能称为四条件显著最高。
+
+多变量 Gaussian source MI 也支持这一结论。Evoked-residual 下，前后脑源 MI 的 Present--Absent 增量在 Unattend--Visible 和 Attend--Visible 中分别为 0.5830 与 0.2967 bit；raw 下分别为 0.5660 与 0.2083 bit。因此，SURD 冗余的 Attend--Visible 特异性不是简单的源间相关或同步增强。
+
+一个更简单且概念上正确的替代量是 MMI redundancy：
+
+$$
+R_{\mathrm{MMI}}
+=\min\left\{
+I(\mathbf{F};\mathbf{Y}),
+I(\mathbf{P};\mathbf{Y})
+\right\}.
+$$
+
+它仍然依赖未来目标 $\mathbf{Y}$，但不需要 SURD 的逐事件特异信息分解。该指标的 Attend--Visible Present--Absent 增量在 evoked-residual 和 raw 下分别为 0.27851 和 0.25523 bit，都是四条件最高。相对另外三个条件的单侧配对检验在 Holm 校正后均为 $p=0.046875$。它与当前 SURD redundancy 的 192 个单元估计相关系数为 0.9984，平均绝对差仅 0.00669 bit。
+
+因此，若研究问题只是“图片呈现是否让前后脑对未来状态具有更多重叠信息”，$R_{\mathrm{MMI}}$ 是当前最简单、最贴近结果的主指标。Pearson 相关或前后脑 source MI 回答的是“两个源彼此是否更相关”，没有目标变量，不能等同于信息冗余。
