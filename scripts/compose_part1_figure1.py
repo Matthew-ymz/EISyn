@@ -150,10 +150,11 @@ def prepare_large_text_sources() -> None:
         figure_path=SYSTEM_BENCHMARK_LARGE_TEXT,
         font_size=18.0,
         title_font_size=19.0,
-        figure_size=(11.8, 7.0),
+        figure_size=(12.8, 7.0),
         include_panel_letters=False,
         legend_font_size=15.5,
         compact_xlabels=True,
+        legend_position="top",
     )
     payload = json.loads(CONFOUNDER_RESULT.read_text(encoding="utf-8"))
     _plot_sine_beta_combined_readout_sweep(
@@ -591,7 +592,7 @@ def build_figure() -> plt.Figure:
         y=0.638,
         letter="c",
     )
-    image_panel(fig, (0.025, 0.275, 0.545, 0.340), systems)
+    image_panel(fig, (0.020, 0.270, 0.555, 0.355), systems)
 
     # The generative diagram and the beta-sweep readouts are one experiment.
     # Align them as a single stacked panel b without a second outer heading.

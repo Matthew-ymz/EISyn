@@ -5723,6 +5723,7 @@ def run_part1_combined_synergy_figure(
     include_panel_letters: bool = True,
     legend_font_size: float | None = None,
     compact_xlabels: bool = False,
+    legend_position: str = "right",
 ) -> dict[str, object]:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
@@ -5881,14 +5882,35 @@ def run_part1_combined_synergy_figure(
         annotation_fontsize=0.88 * font_size,
     )
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(
-        handles,
-        labels,
-        loc="center left",
-        bbox_to_anchor=(1.005, 0.5),
-        frameon=False,
-        fontsize=legend_font_size,
-    )
+    if legend_position == "top":
+        layout_engine = fig.get_layout_engine()
+        if layout_engine is not None:
+            layout_engine.set(rect=(0.0, 0.0, 1.0, 0.89))
+        fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.995),
+            ncol=len(labels),
+            columnspacing=1.25,
+            handlelength=1.45,
+            handletextpad=0.45,
+            frameon=False,
+            fontsize=legend_font_size,
+        )
+    elif legend_position == "right":
+        fig.legend(
+            handles,
+            labels,
+            loc="center left",
+            bbox_to_anchor=(1.005, 0.5),
+            frameon=False,
+            fontsize=legend_font_size,
+        )
+    else:
+        raise ValueError(
+            f"legend_position must be 'right' or 'top', got {legend_position!r}."
+        )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
