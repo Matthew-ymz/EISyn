@@ -1240,8 +1240,9 @@ def test_sine_frequency_sweep_reports_mlp_and_oracle_peid() -> None:
         seeds=(0,),
         n_samples=180,
         mlp_epochs=1,
-        intervention_samples=64,
+        intervention_samples=512,
         noise=0.05,
+        tm_max_harmonic=6,
     )
 
     assert result["config"]["alpha_values"] == [0.5, 1.0]
@@ -1257,35 +1258,42 @@ def test_sine_frequency_sweep_reports_mlp_and_oracle_peid() -> None:
     }
     for row in result["summary"]:
         assert "mlp_peid_xy_synergy_mean" in row
-        assert "oracle_peid_xy_synergy_mean" in row
-        assert "z_train_r2_mean" in row
+        assert "known_dynamics_peid_xy_synergy_mean" in row
+        assert "z_intervention_r2_mean" in row
     assert {row["alpha"] for row in result["summary_by_alpha"]} == {0.5, 1.0}
     assert {row["k"] for row in result["summary_by_k"]} == {1.0, 6.0}
     assert {row["k"] for row in result["trend"]["alpha_slope_by_k"]} == {1.0, 6.0}
     assert {row["alpha"] for row in result["trend"]["k_slope_by_alpha"]} == {0.5, 1.0}
 
 
-def test_sine_frequency_oracle_defaults_to_original_sine_at_k_one() -> None:
-    from scripts.run_sine_frequency_mlp_peid import _fixed_oracle_xy_z
+def test_sine_frequency_known_dynamics_recovers_selected_harmonic() -> None:
+    from scripts.run_sine_frequency_mlp_peid import (
+        _known_dynamics_xy_z,
+        _paired_intervention_sources,
+    )
 
-    original = _fixed_oracle_xy_z(
-        alpha=1.0,
-        sine_frequency=1.0,
-        samples=128,
+    intervention = _paired_intervention_sources(
+        samples=512,
         seed=17021,
         support={"x": (-1.8, 1.8), "y": (-1.8, 1.8), "z": (-1.25, 1.25)},
     )
-    higher_frequency = _fixed_oracle_xy_z(
+    original = _known_dynamics_xy_z(
+        alpha=1.0,
+        sine_frequency=1.0,
+        intervention=intervention,
+        max_harmonic=6,
+    )
+    higher_frequency = _known_dynamics_xy_z(
         alpha=1.0,
         sine_frequency=6.0,
-        samples=128,
-        seed=17021,
-        support={"x": (-1.8, 1.8), "y": (-1.8, 1.8), "z": (-1.25, 1.25)},
+        intervention=intervention,
+        max_harmonic=6,
     )
 
     assert original["sine_frequency"] == 1.0
     assert higher_frequency["sine_frequency"] == 6.0
-    assert not np.isclose(original["syn"], higher_frequency["syn"])
+    assert original["selected_harmonic"] == 1.0
+    assert higher_frequency["selected_harmonic"] == 6.0
 
 
 def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypatch) -> None:
@@ -1303,12 +1311,19 @@ def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypat
     monkeypatch.setattr(matplotlib.axes.Axes, "legend", capture_legend)
     path = plot_sine_frequency_sweep(
         {
+            "config": {"tm_max_harmonic": 6},
+            "runs": [
+                {"alpha": 0.5, "k": 1.0, "seed": 0, "mlp_peid_xy_synergy": 0.6, "known_dynamics_peid_xy_synergy": 0.7, "mlp_selected_harmonic": 1.0},
+                {"alpha": 0.5, "k": 6.0, "seed": 0, "mlp_peid_xy_synergy": 0.34, "known_dynamics_peid_xy_synergy": 0.42, "mlp_selected_harmonic": 6.0},
+                {"alpha": 1.0, "k": 1.0, "seed": 0, "mlp_peid_xy_synergy": 0.7, "known_dynamics_peid_xy_synergy": 0.75, "mlp_selected_harmonic": 1.0},
+                {"alpha": 1.0, "k": 6.0, "seed": 0, "mlp_peid_xy_synergy": 0.39, "known_dynamics_peid_xy_synergy": 0.45, "mlp_selected_harmonic": 6.0},
+            ],
             "summary": [
                 {
                     "alpha": 0.5,
                     "k": 1.0,
-                    "z_train_r2_mean": 0.9,
-                    "z_train_r2_std": 0.0,
+                    "z_intervention_r2_mean": 0.9,
+                    "z_intervention_r2_std": 0.0,
                     "mlp_peid_unique_x_mean": 0.1,
                     "mlp_peid_unique_x_std": 0.0,
                     "mlp_peid_unique_y_mean": 0.1,
@@ -1317,14 +1332,14 @@ def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypat
                     "mlp_peid_xy_joint_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.6,
                     "mlp_peid_xy_synergy_std": 0.0,
-                    "oracle_peid_xy_synergy_mean": 0.7,
-                    "oracle_peid_xy_synergy_std": 0.0,
+                    "known_dynamics_peid_xy_synergy_mean": 0.7,
+                    "known_dynamics_peid_xy_synergy_std": 0.0,
                 },
                 {
                     "alpha": 0.5,
                     "k": 6.0,
-                    "z_train_r2_mean": 0.7,
-                    "z_train_r2_std": 0.0,
+                    "z_intervention_r2_mean": 0.7,
+                    "z_intervention_r2_std": 0.0,
                     "mlp_peid_unique_x_mean": 0.08,
                     "mlp_peid_unique_x_std": 0.0,
                     "mlp_peid_unique_y_mean": 0.08,
@@ -1333,14 +1348,14 @@ def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypat
                     "mlp_peid_xy_joint_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.34,
                     "mlp_peid_xy_synergy_std": 0.0,
-                    "oracle_peid_xy_synergy_mean": 0.42,
-                    "oracle_peid_xy_synergy_std": 0.0,
+                    "known_dynamics_peid_xy_synergy_mean": 0.42,
+                    "known_dynamics_peid_xy_synergy_std": 0.0,
                 },
                 {
                     "alpha": 1.0,
                     "k": 1.0,
-                    "z_train_r2_mean": 0.95,
-                    "z_train_r2_std": 0.0,
+                    "z_intervention_r2_mean": 0.95,
+                    "z_intervention_r2_std": 0.0,
                     "mlp_peid_unique_x_mean": 0.1,
                     "mlp_peid_unique_x_std": 0.0,
                     "mlp_peid_unique_y_mean": 0.1,
@@ -1349,14 +1364,14 @@ def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypat
                     "mlp_peid_xy_joint_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.7,
                     "mlp_peid_xy_synergy_std": 0.0,
-                    "oracle_peid_xy_synergy_mean": 0.75,
-                    "oracle_peid_xy_synergy_std": 0.0,
+                    "known_dynamics_peid_xy_synergy_mean": 0.75,
+                    "known_dynamics_peid_xy_synergy_std": 0.0,
                 },
                 {
                     "alpha": 1.0,
                     "k": 6.0,
-                    "z_train_r2_mean": 0.8,
-                    "z_train_r2_std": 0.0,
+                    "z_intervention_r2_mean": 0.8,
+                    "z_intervention_r2_std": 0.0,
                     "mlp_peid_unique_x_mean": 0.08,
                     "mlp_peid_unique_x_std": 0.0,
                     "mlp_peid_unique_y_mean": 0.08,
@@ -1365,8 +1380,8 @@ def test_sine_frequency_plot_uses_outside_right_legend(tmp_path: Path, monkeypat
                     "mlp_peid_xy_joint_std": 0.0,
                     "mlp_peid_xy_synergy_mean": 0.39,
                     "mlp_peid_xy_synergy_std": 0.0,
-                    "oracle_peid_xy_synergy_mean": 0.45,
-                    "oracle_peid_xy_synergy_std": 0.0,
+                    "known_dynamics_peid_xy_synergy_mean": 0.45,
+                    "known_dynamics_peid_xy_synergy_std": 0.0,
                 },
             ]
         },
