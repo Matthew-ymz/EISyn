@@ -831,7 +831,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     ax_b.axvline(8, color=ORANGE, linewidth=0.85, linestyle="--")
     ax_b.set_xlabel("Prediction lead (months)")
-    ax_b.set_ylabel(r"Hierarchical $\xi_C$ mass (bits)")
+    ax_b.set_ylabel(r"Hierarchical $\mathrm{Syn}^{\mathrm{EID}}$ mass (bits)")
     ax_b.set_xlim(1, 24)
     ax_b.set_ylim(0, 0.195)
     ax_b.legend(
@@ -861,7 +861,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     ax_bar.set_yticks(y, atoms["atom"])
     ax_bar.invert_yaxis()
-    ax_bar.set_xlabel(r"Lead-8 $\xi_C$ (bits)")
+    ax_bar.set_xlabel(r"Lead-8 $\mathrm{Syn}^{\mathrm{EID}}$ atom (bits)")
     ax_bar.set_ylabel("Hierarchical atom")
     ax_bar.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     ax_bar.set_xlim(0, max(0.055, float((atoms["mean"] + atoms["std"]).max()) * 1.08))

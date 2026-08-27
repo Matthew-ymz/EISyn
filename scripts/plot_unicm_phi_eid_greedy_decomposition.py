@@ -186,7 +186,7 @@ def plot_decomposition(
     total = total_summary.sort_values("lead")
     ax_order.plot(total["lead"], total["phi_atom_sum_mean"], color="#111111", linewidth=1.3, label="atom sum")
     ax_order.set_xlabel("Lead (months)")
-    ax_order.set_ylabel(r"Greedy $\xi_C$ atoms (bits)")
+    ax_order.set_ylabel(r"Greedy $\mathrm{Syn}^{\mathrm{EID}}$ atoms (bits)")
     ax_order.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     top_modules = module.head(int(top_k))["sources"].astype(str).tolist()

@@ -81,7 +81,7 @@ def draw_module_bars(ax: plt.Axes, lead_modules: pd.DataFrame, total_phi: float,
     ax.set_yticks(y)
     ax.set_yticklabels(lead_modules["atom"])
     ax.invert_yaxis()
-    ax.set_xlabel(r"Greedy $\xi_C$ atom (bits)")
+    ax.set_xlabel(r"Greedy $\mathrm{Syn}^{\mathrm{EID}}$ atom (bits)")
     ax.set_ylabel("Lead-8 atom")
     ax.grid(axis="x", color="#e5e7eb", linewidth=0.7)
     ax.set_xlim(0.0, x_max)
@@ -98,7 +98,7 @@ def draw_module_bars(ax: plt.Axes, lead_modules: pd.DataFrame, total_phi: float,
             color="#111111",
             bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 0.4},
         )
-    ax.text(0.0, 1.04, r"a  Largest hierarchical $\xi_C$ atoms", transform=ax.transAxes, fontsize=8.5, fontweight="bold")
+    ax.text(0.0, 1.04, r"a  Largest hierarchical $\mathrm{Syn}^{\mathrm{EID}}$ atoms", transform=ax.transAxes, fontsize=8.5, fontweight="bold")
 
 
 def draw_membership_matrix(ax: plt.Axes, lead_modules: pd.DataFrame, mode_order: Sequence[str]) -> None:
