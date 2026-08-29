@@ -30,6 +30,23 @@ class PhiAtom:
     depth: int
 
 
+@dataclass(frozen=True)
+class PhiTreeNode:
+    """One coalition in the explicit greedy Phi hierarchy."""
+
+    sources: tuple[str, ...]
+    phi_value: float
+    residual: float
+    action: str
+    atom_kind: str | None
+    depth: int
+    children: tuple["PhiTreeNode", ...] = ()
+
+    @property
+    def order(self) -> int:
+        return len(self.sources)
+
+
 def all_nonempty_subsets(names: Sequence[str]) -> list[tuple[str, ...]]:
     """Return non-empty subsets in deterministic increasing-cardinality order."""
     ordered = tuple(str(name) for name in names)
@@ -68,7 +85,7 @@ def nontrivial_bipartitions(subset: Sequence[str]) -> list[tuple[tuple[str, ...]
     return splits
 
 
-def greedy_phi_atoms(
+def greedy_phi_tree(
     subset: Sequence[str],
     ei_table: Mapping[tuple[str, ...], float],
     *,
@@ -77,13 +94,17 @@ def greedy_phi_atoms(
     split_tolerance: float = 1.0e-4,
     depth: int = 0,
     singleton_ei: Mapping[str, float] | None = None,
-) -> list[PhiAtom]:
-    """Decompose raw Phi by greedy bipartition.
+) -> PhiTreeNode:
+    """Return the full greedy bipartition tree, including zero-atom branches.
 
     ``nonnegative_tolerant`` reproduces the Earth/Brain rule: reject a split
-    with residual below ``-split_tolerance`` and retain positive atoms only.
-    ``signed`` reproduces the platform rule: retain signed residuals and use
-    absolute residual magnitude as the split tie-breaker.
+    with residual below ``-split_tolerance``. ``signed`` reproduces the
+    platform rule and uses absolute residual magnitude as the split tie-breaker.
+
+    ``phi_value`` is the complete synergy budget for a coalition. ``residual``
+    is the local hierarchy atom left at the selected split. The raw residual is
+    retained even when it falls inside the declared numerical tolerance; no
+    clipping or projection is applied.
     """
     if policy not in (NONNEGATIVE_TOLERANT, SIGNED):
         raise ValueError(f"Unsupported hierarchy policy: {policy!r}")
@@ -93,7 +114,7 @@ def greedy_phi_atoms(
         singleton_ei = {name: float(ei_table[(name,)]) for name in ordered}
     block_phi = subset_phi_raw(ordered, ei_table, singleton_ei)
     if len(ordered) <= 1 or (policy == NONNEGATIVE_TOLERANT and block_phi <= float(eps)):
-        return []
+        return PhiTreeNode(ordered, block_phi, 0.0, "leaf", None, int(depth))
 
     candidates: list[tuple[float, float, tuple[str, ...], tuple[str, ...]]] = []
     for left, right in nontrivial_bipartitions(ordered):
@@ -107,13 +128,13 @@ def greedy_phi_atoms(
 
     if policy == SIGNED:
         if not candidates:
-            return [PhiAtom(ordered, block_phi, "terminal", int(depth))]
+            return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
         captured, residual, left, right = max(candidates, key=lambda item: (item[0], -abs(item[1])))
         if captured <= float(eps):
-            return [PhiAtom(ordered, block_phi, "terminal", int(depth))]
+            return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
     else:
         if not candidates:
-            return [PhiAtom(ordered, block_phi, "terminal", int(depth))]
+            return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
         captured, residual, left, right = candidates[0]
         for candidate in candidates[1:]:
             candidate_captured, candidate_residual, candidate_left, candidate_right = candidate
@@ -122,13 +143,15 @@ def greedy_phi_atoms(
             ):
                 captured, residual, left, right = candidate_captured, candidate_residual, candidate_left, candidate_right
         if captured <= float(eps):
-            return [PhiAtom(ordered, block_phi, "terminal", int(depth))]
+            return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
 
-    atoms: list[PhiAtom] = []
-    if (policy == SIGNED and abs(residual) > float(eps)) or (policy == NONNEGATIVE_TOLERANT and residual > float(eps)):
-        atoms.append(PhiAtom(ordered, float(residual), "split_residual", int(depth)))
-    atoms.extend(
-        greedy_phi_atoms(
+    atom_kind = None
+    if (policy == SIGNED and abs(residual) > float(eps)) or (
+        policy == NONNEGATIVE_TOLERANT and residual > float(eps)
+    ):
+        atom_kind = "split_residual"
+    children = (
+        greedy_phi_tree(
             left,
             ei_table,
             policy=policy,
@@ -136,10 +159,8 @@ def greedy_phi_atoms(
             split_tolerance=split_tolerance,
             depth=depth + 1,
             singleton_ei=singleton_ei,
-        )
-    )
-    atoms.extend(
-        greedy_phi_atoms(
+        ),
+        greedy_phi_tree(
             right,
             ei_table,
             policy=policy,
@@ -147,6 +168,48 @@ def greedy_phi_atoms(
             split_tolerance=split_tolerance,
             depth=depth + 1,
             singleton_ei=singleton_ei,
+        ),
+    )
+    return PhiTreeNode(
+        ordered,
+        block_phi,
+        float(residual),
+        "split",
+        atom_kind,
+        int(depth),
+        children,
+    )
+
+
+def flatten_phi_tree(tree: PhiTreeNode) -> list[PhiAtom]:
+    """Return hierarchy atoms in the historical root-left-right order."""
+    atoms: list[PhiAtom] = []
+    if tree.atom_kind is not None:
+        atoms.append(PhiAtom(tree.sources, float(tree.residual), tree.atom_kind, int(tree.depth)))
+    for child in tree.children:
+        atoms.extend(flatten_phi_tree(child))
+    return atoms
+
+
+def greedy_phi_atoms(
+    subset: Sequence[str],
+    ei_table: Mapping[tuple[str, ...], float],
+    *,
+    policy: HierarchyPolicy = NONNEGATIVE_TOLERANT,
+    eps: float = 1.0e-5,
+    split_tolerance: float = 1.0e-4,
+    depth: int = 0,
+    singleton_ei: Mapping[str, float] | None = None,
+) -> list[PhiAtom]:
+    """Decompose raw Phi into the historical flat atom representation."""
+    return flatten_phi_tree(
+        greedy_phi_tree(
+            subset,
+            ei_table,
+            policy=policy,
+            eps=eps,
+            split_tolerance=split_tolerance,
+            depth=depth,
+            singleton_ei=singleton_ei,
         )
     )
-    return atoms
