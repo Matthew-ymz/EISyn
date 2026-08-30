@@ -244,6 +244,16 @@ $$
 
 *图 6. UniCM 十一模态对全模态未来状态整合增量的精确 Shapley 分解。a，三 checkpoint 平均的百分比构成。b，同一百分比的模态—lead 热图；白点标出每个 lead 的均值首位，首位不代表跨 checkpoint 排名一致。c，各模态的平均绝对 Shapley 贡献。d，grand-coalition interaction；灰线为三个 checkpoint，黑线为均值，阴影为标准差。全部条件共享 `8192` 个独立最大熵干预、冻结预测缓存、11 维联合 target 和 affine degree-1 TM，唯一变化是 forecast lead。百分比在 checkpoint 内归一化后再平均。*
 
+### 3.6.1 十一模态的显式分解树
+
+图 E2 把 lead 8 的三个冻结 checkpoint 分别画成树，而不是先平均拓扑。11 个模态足以穷举每个节点的全部无序二分，因此这里没有 SLP 60-PC 大树的候选搜索近似。节点标出该联盟的局部 Syn，三个面板共享颜色尺度。
+
+![Earth UniCM 11-mode Xi hierarchy at lead 8](../../fig/earth_unicm_11mode_xi_hierarchy_lead08.png)
+
+*层级树补充图 E2｜UniCM lead 8 的精确十一模态 $\Xi$ 分解树。三个 checkpoint 的系统 $\Xi$ 分别为 `0.210`、`0.207` 和 `0.135` bits。每棵树都有 9 个内部划分、主干比例 `100%`、归一化 Colless 不平衡度 `1.00`；三棵树均在五模态层收敛到 `{nino, IOD, nino12, nino3, nino4}`，但最深二模态核心分别为 `nino + IOD`、`nino + nino3` 和 `nino12 + nino3`。*
+
+UniCM 与 SLP 的共同点不是“没有模块”，而是都缺少平衡、互不重叠的大分支，并由逐层剥离形成单一主干。不同点在于，UniCM 的五模态印太核心跨三个 checkpoint 完全一致，说明中层核心比最深二元核心更稳定；最深配对仍随 checkpoint 改变。由于这里逐节点穷举全部二分，链形不能归因于候选划分不足。它支持的是**一个稳定中层核心外加不稳定内部排序**，而不是 11 个模态毫无组织或存在若干彼此独立的固定模块。三个 checkpoint 的原子闭合误差均为 0，$10^{-4}$ bits 的既有数值容差下没有负原子或容差内归零值。
+
 ### 3.7 从机制读数到预测改进：Syn 引导的输出校准
 
 图 4e—f 回答的是一个比“哪些模态具有高 Syn”更实际的问题：**冻结 Modeformer 已经给出预测后，Syn 能否帮助一个小型输出校准器更可靠地修正预测值？** 校准发生在 Transformer 之后，不改变 Modeformer 的参数，也不重新训练其动力过程。它只使用 ORAS5 的一段历史资料，学习如何把冻结预测映射到更合适的均值和振幅。
