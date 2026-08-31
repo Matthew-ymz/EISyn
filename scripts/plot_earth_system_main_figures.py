@@ -37,6 +37,10 @@ from scripts.plot_runge_source_pair_condensation import (
     build_metrics as build_source_pair_metrics,
     load_rankings,
 )
+from scripts.analyze_unicm_11mode_xi_hierarchy_tree import (
+    _tree_from_record,
+    render_trees,
+)
 FIG_DIR = ROOT / "fig"
 RUNGE_TREND_CSV = (
     FIG_DIR
@@ -756,17 +760,15 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         .agg(["mean", "std"])
         .reset_index()
     )
-    order = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_greedy_order_summary.csv")
-    totals = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_greedy_total_summary.csv")
-    atoms = pd.read_csv(UNICM_GREEDY_DIR / "unicm_phi_eid_lead8_top_atoms.csv").head(8)
+    hierarchy = json.loads((ROOT / "results/unicm_xi_hierarchy_tree/summary.json").read_text())
     target_xi = pd.read_csv(UNICM_TARGET_XI_LEADS)
     shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
     calibration = json.loads(UNICM_CALIBRATION_SUMMARY.read_text(encoding="utf-8"))
-    fig = plt.figure(figsize=(7.2, 8.15), layout="constrained")
+    fig = plt.figure(figsize=(10.0, 12.4), layout="constrained")
     grid = fig.add_gridspec(
-        4,
+        3,
         5,
-        height_ratios=[0.78, 1.02, 1.02, 0.90],
+        height_ratios=[1.25, 6.15, 1.75],
         hspace=0.08,
     )
 
@@ -808,127 +810,26 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_a.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     add_panel_label(ax_a, "a", x=-0.04, y=1.02)
 
-    ax_b = fig.add_subplot(grid[1, 0:2])
-    pivot = order.pivot(index="lead", columns="order", values="mean").fillna(0.0)
-    grouped = pd.DataFrame(index=pivot.index)
-    for degree in (2, 3, 4, 5):
-        grouped[f"order {degree}"] = pivot.get(degree, 0.0)
-    grouped["orders 6–11"] = pivot[[col for col in pivot.columns if int(col) >= 6]].sum(axis=1)
-    stack_colors = ["#38598C", "#547AA5", "#7393B3", "#95AEC4", "#C7CDD4"]
-    ax_b.stackplot(
-        grouped.index,
-        [grouped[col].to_numpy() for col in grouped.columns],
-        labels=list(grouped.columns),
-        colors=stack_colors,
-        linewidth=0,
-    )
-    ax_b.plot(
-        totals["lead"],
-        totals["phi_atom_sum_mean"],
-        color="#111111",
-        linewidth=1.0,
-        label="atom sum",
-    )
-    ax_b.axvline(8, color=ORANGE, linewidth=0.85, linestyle="--")
-    ax_b.set_xlabel("Prediction lead (months)")
-    ax_b.set_ylabel(r"Hierarchical $\mathrm{Syn}^{\mathrm{EID}}$ mass (bits)")
-    ax_b.set_xlim(1, 24)
-    ax_b.set_ylim(0, 0.195)
-    ax_b.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
-        ncol=3,
-        fontsize=5.1,
-        handlelength=1.3,
-        columnspacing=0.9,
-    )
-    add_panel_label(ax_b, "b", x=-0.16, y=1.02)
-
-    sub = grid[1, 2:5].subgridspec(1, 2, width_ratios=[0.74, 1.15], wspace=0.04)
-    ax_bar = fig.add_subplot(sub[0, 0])
-    ax_matrix = fig.add_subplot(sub[0, 1])
-    y = np.arange(len(atoms))
-    order_color = {2: "#38598C", 3: "#547AA5", 4: "#7393B3", 5: "#95AEC4"}
-    colors = [order_color.get(int(value), "#B7C0C9") for value in atoms["order"]]
-    ax_bar.barh(
-        y,
-        atoms["mean"],
-        xerr=atoms["std"],
-        color=colors,
-        edgecolor="#26323F",
-        linewidth=0.3,
-        error_kw={"ecolor": "#56616F", "elinewidth": 0.65, "capsize": 1.5},
-    )
-    ax_bar.set_yticks(y, atoms["atom"])
-    ax_bar.invert_yaxis()
-    ax_bar.set_xlabel(r"Lead-8 $\mathrm{Syn}^{\mathrm{EID}}$ atom (bits)")
-    ax_bar.set_ylabel("Hierarchical atom")
-    ax_bar.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    ax_bar.set_xlim(0, max(0.055, float((atoms["mean"] + atoms["std"]).max()) * 1.08))
-    ax_bar.ticklabel_format(
-        axis="x",
-        style="sci",
-        scilimits=(0, 0),
-        useMathText=True,
-    )
-    ax_bar.xaxis.get_offset_text().set_fontsize(4.8)
-    for idx, row in atoms.iterrows():
-        ax_bar.text(
-            min(float(row["mean"]) + 0.001, ax_bar.get_xlim()[1] * 0.78),
-            idx,
-            f"{100 * float(row['fraction']):.1f}%",
-            va="center",
-            fontsize=4.8,
-            color=INK,
+    tree_canvas = fig.add_subfigure(grid[1, 0:3])
+    with mpl.rc_context():
+        render_trees(
+            [_tree_from_record(hierarchy["checkpoints"][0]["tree"])],
+            [hierarchy["checkpoints"][0]["seed"]],
+            output_base.with_suffix(".png"),
+            lead=int(hierarchy["lead"]),
+            split_objective=hierarchy.get("split_objective", "raw_residual"),
+            dpi=600,
+            syn_tolerance=float(hierarchy["split_tolerance_bits"]),
+            canvas=tree_canvas,
+            show_colorbar=False,
+            compact_core_annotation=True,
         )
-    add_panel_label(ax_bar, "c", x=-0.30, y=1.02)
-
-    x = np.arange(len(MODE_ORDER))
-    for yi, row in enumerate(atoms.itertuples(index=False)):
-        members = set(str(row.sources).split("|"))
-        selected = [idx for idx, mode in enumerate(MODE_ORDER) if mode in members]
-        if selected:
-            ax_matrix.plot(
-                selected,
-                [yi] * len(selected),
-                color="#A6AFBA",
-                linewidth=0.8,
-                zorder=1,
-            )
-        ax_matrix.scatter(x, np.full_like(x, yi), s=7, color="#E3E7EB", zorder=2)
-        ax_matrix.scatter(
-            selected,
-            [yi] * len(selected),
-            s=20,
-            color=INK,
-            edgecolor="white",
-            linewidth=0.3,
-            zorder=3,
-        )
-    ax_matrix.set_xlim(-0.5, len(MODE_ORDER) - 0.5)
-    ax_matrix.set_ylim(len(atoms) - 0.5, -0.5)
-    ax_matrix.set_xticks(
-        x,
-        ["ENSO" if value == "nino" else value for value in MODE_ORDER],
-        rotation=55,
-        ha="right",
-    )
-    ax_matrix.set_yticks(y, atoms["atom"])
-    ax_matrix.tick_params(length=0, labelsize=4.8)
-    for spine in ax_matrix.spines.values():
-        spine.set_visible(False)
-    ax_matrix.text(
-        0.0,
-        1.02,
-        "source-mode membership",
-        transform=ax_matrix.transAxes,
-        ha="left",
-        va="bottom",
-        fontsize=5.8,
-        fontweight="bold",
+    tree_canvas.suptitle(
+        "b    Lead 8: representative hierarchy (checkpoint 1)",
+        x=0.015, ha="left", fontsize=8.2, fontweight="bold", color=INK,
     )
 
-    heatmap_grid = grid[2, :].subgridspec(1, 2, wspace=0.22)
+    heatmap_grid = grid[1, 3:5].subgridspec(2, 1, hspace=0.01)
     ax_d = fig.add_subplot(heatmap_grid[0, 0])
     target_heat = (
         target_xi.pivot(index="target", columns="lead", values="xi_mean")
@@ -980,9 +881,9 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         ax_d.axhline(boundary, color="white", linewidth=0.75)
     colorbar = fig.colorbar(image, ax=ax_d, fraction=0.045, pad=0.025)
     colorbar.set_label(r"Target-resolved $\Xi_j$ (bits)")
-    add_panel_label(ax_d, "d", x=-0.17, y=1.02)
+    add_panel_label(ax_d, "c", x=-0.17, y=1.02)
 
-    ax_e = fig.add_subplot(heatmap_grid[0, 1])
+    ax_e = fig.add_subplot(heatmap_grid[1, 0])
     shapley_leads = np.asarray(
         [int(record["lead"]) for record in shapley["lead_summary"]]
     )
@@ -1021,7 +922,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_e.set_ylabel("Source mode")
     source_colorbar = fig.colorbar(source_image, ax=ax_e, fraction=0.045, pad=0.025)
     source_colorbar.set_label("Mean Shapley share (%)")
-    add_panel_label(ax_e, "e", x=-0.17, y=1.02)
+    add_panel_label(ax_e, "d", x=-0.17, y=1.02)
 
     metrics = calibration["test_metrics"]
     method_keys = ("frozen", "univariate", "uniform", "syn_regularized")
@@ -1031,7 +932,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     method_colors = (MID_GREY, "#91A7CF", BLUE, ORANGE)
 
-    ax_f = fig.add_subplot(grid[3, 0:2])
+    ax_f = fig.add_subplot(grid[2, 0:2])
     method_y = np.arange(len(method_keys))[::-1]
     ax_f.scatter(
         method_values,
@@ -1063,9 +964,9 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_f.xaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
     ax_f.set_ylim(-0.55, 3.55)
     ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_f, "f", x=-0.18, y=1.04)
+    add_panel_label(ax_f, "e", x=-0.18, y=1.04)
 
-    ax_g = fig.add_subplot(grid[3, 2:5])
+    ax_g = fig.add_subplot(grid[2, 2:5])
     uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
     syn_gain = uniform_score - float(
         metrics["syn_regularized"]["mean_cell_nrmse"]
@@ -1131,8 +1032,12 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_g.set_ylim(-0.38, 0.38)
     ax_g.spines["left"].set_visible(False)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_g, "g", x=-0.08, y=1.04)
-    return save_figure(fig, output_base)
+    add_panel_label(ax_g, "f", x=-0.08, y=1.04)
+    output = output_base.with_suffix(".png")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=600, bbox_inches="tight")
+    plt.close(fig)
+    return [output]
 
 
 def main() -> int:
@@ -1148,12 +1053,13 @@ def main() -> int:
     parser.add_argument("--runge-trend-csv", type=Path, default=RUNGE_TREND_CSV)
     parser.add_argument("--runge-focal-pair", default="0,1")
     parser.add_argument("--skip-unicm", action="store_true")
+    parser.add_argument("--skip-runge", action="store_true")
     args = parser.parse_args()
     configure_matplotlib()
     focal_pair = tuple(int(value) for value in str(args.runge_focal_pair).split(","))
     if len(focal_pair) != 2:
         raise ValueError("--runge-focal-pair must contain two comma-separated indices.")
-    runge_outputs = plot_runge_figure(
+    runge_outputs = [] if args.skip_runge else plot_runge_figure(
         Path(args.output_dir) / "earth_slp_hyperedge_dynamics",
         result_dir=args.runge_result_dir,
         component_maps=args.runge_component_maps,

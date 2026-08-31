@@ -28,6 +28,11 @@ from scripts.analyze_runge_slp_pc05_shapley import (
     fit_affine_intervention_model,
     standardize,
 )
+from scripts.phi_hierarchy import (
+    ALL_ORDER_CROSS_DENSITY,
+    RAW_RESIDUAL,
+    split_objective_value,
+)
 
 
 RESULT_ROOT = (
@@ -196,6 +201,7 @@ def build_scalable_hierarchy(
     *,
     exact_max_size: int,
     tolerance: float,
+    split_objective: str = RAW_RESIDUAL,
     depth: int = 0,
     audit: dict[str, int] | None = None,
 ) -> ScalableHierarchyNode:
@@ -212,7 +218,9 @@ def build_scalable_hierarchy(
         search_kind = "spectral-candidate"
     audit["candidate_count"] += len(candidates)
 
-    best: tuple[float, float, tuple[int, ...], tuple[int, ...]] | None = None
+    if split_objective not in (RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY):
+        raise ValueError(f"Unsupported split objective: {split_objective!r}")
+    best: tuple[float, float, float, tuple[int, ...], tuple[int, ...]] | None = None
     for left, right in sorted(candidates):
         captured = oracle.xi(left) + oracle.xi(right)
         residual = float(block_xi - captured)
@@ -222,15 +230,25 @@ def build_scalable_hierarchy(
             tolerance=tolerance,
         ):
             audit["tolerance_zero_count"] += 1
-        candidate = (captured, residual, left, right)
-        if best is None or candidate[0] > best[0] or (
-            np.isclose(candidate[0], best[0]) and candidate[1] < best[1]
+        objective_value = split_objective_value(
+            residual, len(left), len(right), objective=split_objective
+        )
+        candidate = (objective_value, captured, residual, left, right)
+        if best is None:
+            best = candidate
+        elif split_objective == ALL_ORDER_CROSS_DENSITY:
+            if (candidate[0], candidate[2], candidate[3], candidate[4]) < (
+                best[0], best[2], best[3], best[4]
+            ):
+                best = candidate
+        elif candidate[1] > best[1] or (
+            np.isclose(candidate[1], best[1]) and candidate[2] < best[2]
         ):
             best = candidate
     if best is None:
         raise RuntimeError(f"No candidate split was generated for coalition {indices}.")
 
-    _, residual, left, right = best
+    _, _, residual, left, right = best
     children = (
         build_scalable_hierarchy(
             left,
@@ -238,6 +256,7 @@ def build_scalable_hierarchy(
             affinity,
             exact_max_size=exact_max_size,
             tolerance=tolerance,
+            split_objective=split_objective,
             depth=depth + 1,
             audit=audit,
         ),
@@ -247,6 +266,7 @@ def build_scalable_hierarchy(
             affinity,
             exact_max_size=exact_max_size,
             tolerance=tolerance,
+            split_objective=split_objective,
             depth=depth + 1,
             audit=audit,
         ),
@@ -273,6 +293,33 @@ def _leaf_order(root: ScalableHierarchyNode) -> list[int]:
     return [index for child in root.children for index in _leaf_order(child)]
 
 
+def _compact_positions(
+    root: ScalableHierarchyNode,
+) -> tuple[dict[tuple[int, ...], tuple[float, float]], list[int]]:
+    """Place every leaf on the baseline and spread a chain into a triangle."""
+    leaf_order = _leaf_order(root)
+    leaf_x = {index: float(position) for position, index in enumerate(leaf_order)}
+    positions: dict[tuple[int, ...], tuple[float, float]] = {}
+
+    def position(node: ScalableHierarchyNode) -> tuple[float, float]:
+        if node.indices in positions:
+            return positions[node.indices]
+        if not node.children:
+            point = (leaf_x[node.indices[0]], 0.0)
+        else:
+            children = [position(child) for child in node.children]
+            x_value = sum(
+                point[0] * child.size
+                for point, child in zip(children, node.children, strict=True)
+            ) / node.size
+            point = (x_value, math.log2(node.size) / math.log2(root.size))
+        positions[node.indices] = point
+        return point
+
+    position(root)
+    return positions, leaf_order
+
+
 def render_compact_tree(
     root: ScalableHierarchyNode,
     output_path: Path,
@@ -294,25 +341,8 @@ def render_compact_tree(
     )
     all_nodes = flatten_nodes(root)
     internal = [node for node in all_nodes if node.children]
-    leaf_order = _leaf_order(root)
+    positions, leaf_order = _compact_positions(root)
     leaf_x = {index: float(position) for position, index in enumerate(leaf_order)}
-    positions: dict[tuple[int, ...], tuple[float, float]] = {}
-
-    def position(node: ScalableHierarchyNode) -> tuple[float, float]:
-        if node.indices in positions:
-            return positions[node.indices]
-        if not node.children:
-            point = (leaf_x[node.indices[0]], 0.0)
-        else:
-            children = [position(child) for child in node.children]
-            total = sum(child.size for child in node.children)
-            x_value = sum(point[0] * child.size for point, child in zip(children, node.children, strict=True)) / total
-            y_value = math.log2(node.size) / math.log2(root.size)
-            point = (x_value, y_value)
-        positions[node.indices] = point
-        return point
-
-    position(root)
     max_syn = (
         max(float(node.syn_bits) for node in internal)
         if syn_scale_max is None
@@ -321,7 +351,7 @@ def render_compact_tree(
     if max_syn <= 0.0:
         max_syn = 1.0
 
-    figure, axis = plt.subplots(figsize=(14.2, 7.2), constrained_layout=True)
+    figure, axis = plt.subplots(figsize=(15.2, 8.2), constrained_layout=True)
     figure.patch.set_facecolor("white")
     axis.set_facecolor("white")
 
@@ -332,7 +362,7 @@ def render_compact_tree(
             [child_points[0][0], child_points[1][0]],
             [parent_y, parent_y],
             color=EDGE_COLOR,
-            linewidth=0.9,
+            linewidth=0.75,
             solid_capstyle="round",
             zorder=1,
         )
@@ -341,26 +371,28 @@ def render_compact_tree(
                 [child_x, child_x],
                 [child_y, parent_y],
                 color=EDGE_COLOR,
-                linewidth=0.9,
+                linewidth=0.75,
                 solid_capstyle="round",
                 zorder=1,
             )
 
-    importance = sorted(
-        internal,
-        key=lambda node: (
-            float(node.syn_bits) / max_syn * math.log1p(node.size),
-            node.size,
-        ),
+    ranked = sorted(
+        (node for node in internal if node is not root and node.size >= 4),
+        key=lambda node: (node.depth <= 2, node.syn_bits),
         reverse=True,
     )
-    labeled: set[tuple[int, ...]] = {root.indices}
-    labeled.update(node.indices for node in internal if node.depth <= 2 and node.size >= 5)
-    for node in importance:
-        if len(labeled) >= 15:
-            break
-        if node.size >= 4:
+    labeled: set[tuple[int, ...]] = set()
+    label_points: list[tuple[float, float]] = []
+    for node in ranked:
+        x_value, y_value = positions[node.indices]
+        if all(
+            abs(x_value - old_x) >= 2.4 or abs(y_value - old_y) >= 0.075
+            for old_x, old_y in label_points
+        ):
             labeled.add(node.indices)
+            label_points.append((x_value, y_value))
+        if len(labeled) >= 12:
+            break
 
     tolerance_zero_count = 0
     for node in internal:
@@ -385,14 +417,14 @@ def render_compact_tree(
                 f"n={node.size}\nSyn {display_syn:.2f}",
                 ha="center",
                 va="center",
-                fontsize=6.1,
+                fontsize=5.5,
                 color=INK,
                 linespacing=1.18,
                 bbox={
-                    "boxstyle": "round,pad=0.34",
+                    "boxstyle": "round,pad=0.27",
                     "facecolor": face,
                     "edgecolor": edge,
-                    "linewidth": 1.0 + 2.0 * relative,
+                    "linewidth": 0.8 + 1.7 * relative,
                 },
                 zorder=4,
             )
@@ -400,16 +432,19 @@ def render_compact_tree(
             axis.scatter(
                 [x_value],
                 [y_value],
-                s=8.0 + 24.0 * relative,
+                s=7.0 + 23.0 * relative,
                 facecolor=face,
                 edgecolor=edge,
-                linewidth=0.7 + 1.2 * relative,
+                linewidth=0.6 + relative,
                 zorder=3,
             )
 
     for index in leaf_order:
         x_value = leaf_x[index]
-        axis.plot([x_value, x_value], [-0.014, 0.0], color="#7B8794", linewidth=0.65, zorder=2)
+        axis.scatter(
+            [x_value], [0.0], s=9.0, facecolor="#F4F6F8",
+            edgecolor="#7B8794", linewidth=0.65, zorder=4, clip_on=False,
+        )
         axis.text(
             x_value,
             -0.031,
@@ -424,7 +459,7 @@ def render_compact_tree(
     root_x, _ = positions[root.indices]
     axis.text(
         root_x,
-        1.105,
+        1.115,
         rf"$\Xi$ = {root.xi_bits:.2f} bits",
         ha="center",
         va="center",
@@ -433,7 +468,7 @@ def render_compact_tree(
         zorder=5,
     )
     axis.set_xlim(-1.0, root.size)
-    axis.set_ylim(-0.11, 1.16)
+    axis.set_ylim(-0.12, 1.16)
     axis.axis("off")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output_path, dpi=int(dpi), bbox_inches="tight", facecolor="white")
@@ -671,6 +706,7 @@ def run_analysis(
     horizon: int,
     exact_max_size: int,
     covariance_ridge: float,
+    split_objective: str,
     dpi: int,
 ) -> dict[str, object]:
     source = np.load(source_path)
@@ -699,6 +735,7 @@ def run_analysis(
         affinity,
         exact_max_size=int(exact_max_size),
         tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
+        split_objective=split_objective,
         audit=audit,
     )
     internal = [node for node in flatten_nodes(tree) if node.children]
@@ -707,23 +744,13 @@ def run_analysis(
         raise RuntimeError(f"Hierarchy closure failed: error={closure_error:.12g} bits")
 
     spine, _ = _dominant_spine(tree)
-    internal_count = len(internal)
-    if len(spine) - 1 >= 0.65 * internal_count:
-        layout = "coalition-backbone"
-        render_backbone_tree(
-            tree,
-            figure_path,
-            tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
-            dpi=dpi,
-        )
-    else:
-        layout = "compact-dendrogram"
-        render_compact_tree(
-            tree,
-            figure_path,
-            tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
-            dpi=dpi,
-        )
+    layout = "triangular-dendrogram"
+    render_compact_tree(
+        tree,
+        figure_path,
+        tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
+        dpi=dpi,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
         "experiment": "Runge SLP 60-PC scalable Xi hierarchy",
@@ -740,6 +767,11 @@ def run_analysis(
         "candidate_split_count": int(audit["candidate_count"]),
         "coalition_evaluation_count": int(oracle.evaluations),
         "exact_search_max_coalition_size": int(exact_max_size),
+        "split_objective": str(split_objective),
+        "split_objective_denominator": (
+            "(2^|A| - 1)(2^|B| - 1)" if split_objective == ALL_ORDER_CROSS_DENSITY else "1"
+        ),
+        "reported_node_value": "raw unnormalized Syn residual in bits",
         "xi_bits": float(tree.xi_bits),
         "atom_count": len(internal),
         "closure_error_bits": closure_error,
@@ -764,6 +796,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--horizon", type=int, default=1)
     parser.add_argument("--exact-max-size", type=int, default=10)
     parser.add_argument("--covariance-ridge", type=float, default=1.0e-6)
+    parser.add_argument(
+        "--split-objective",
+        choices=(RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY),
+        default=RAW_RESIDUAL,
+    )
     parser.add_argument("--dpi", type=int, default=600)
     return parser.parse_args()
 
@@ -778,6 +815,7 @@ def main() -> None:
         horizon=args.horizon,
         exact_max_size=args.exact_max_size,
         covariance_ridge=args.covariance_ridge,
+        split_objective=args.split_objective,
         dpi=args.dpi,
     )
     print(

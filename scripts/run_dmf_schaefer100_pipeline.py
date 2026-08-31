@@ -260,6 +260,7 @@ def main() -> None:
                 "--topology", str(topology_cache), "--yeo7", str(yeo_cache),
                 "--prep", str(BASE / "group_mean_native.npz"),
                 "--output", str(figure_dir / f"dmf_schaefer100_summary_{suffix}"),
+                *( ["--legacy-layout"] if args.mode == "smoke" else [] ),
                 *( ["--comparison-output", str(figure_dir / "dmf_83_vs_100_comparison")] if args.mode == "full" else [] ),
             ],
             1,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot the Schaefer100 DMF a--g summary and the 83-vs-100 comparison."""
+"""Plot the five-panel Schaefer100 DMF summary and the 83-vs-100 comparison."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from matplotlib.patches import Patch
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,9 @@ from scripts.brain_surface_plot import (
     draw_brain_map_four_views,
     parcel_values_to_vertices,
 )
+from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import render_tree
+from scripts.compare_runge_slp_pc60_xi_horizons import _node_from_record
+from scripts.dmf_yeo_prior_tree import build_yeo_prior_tree, render_yeo_prior_tree
 
 
 OLD_SOURCE = ROOT / "exp" / "brain" / "result_lausanne_fig6" / "count_00_fig6b_mean_rate.npz"
@@ -48,6 +52,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--surface-asset", type=Path, default=DEFAULT_SURFACE_ASSET)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--comparison-output", type=Path)
+    parser.add_argument("--tree-summary", type=Path, default=ROOT / "results/dmf_schaefer100/xi_hierarchy_tree/summary.json")
+    parser.add_argument("--legacy-layout", action="store_true", help="Render the original a–g summary instead of the five-panel composition.")
+    parser.add_argument("--yeo-prior", action="store_true", help="Constrain the root to Yeo-7 and search within each network; use a separate output stem.")
+    parser.add_argument("--roi-shapley", type=Path, help="Validated ROI Shapley cache to use instead of leave-one-out leverage in panel e.")
     return parser.parse_args()
 
 
@@ -212,7 +220,7 @@ def load_schaefer100_surface_map(
     return meshes[0], meshes[1], vertex_values[0], vertex_values[1]
 
 
-def plot_summary(args: argparse.Namespace) -> None:
+def plot_legacy_summary(args: argparse.Namespace) -> None:
     source, main, wms = load(args.source), load(args.main), load(args.wms)
     phi_r = load(args.phi_r) if args.phi_r is not None else None
     topology, yeo = load(args.topology), load(args.yeo7)
@@ -497,6 +505,257 @@ def plot_summary(args: argparse.Namespace) -> None:
     )
 
 
+
+def plot_summary(args: argparse.Namespace) -> None:
+    """Compose dynamics, network contributions, hierarchy, and cortical mapping."""
+    source, main, wms = load(args.source), load(args.main), load(args.wms)
+    phi_r = load(args.phi_r) if args.phi_r is not None else None
+    topology, yeo = load(args.topology), load(args.yeo7)
+    critical_g = np.asarray(topology["G"], dtype=float)
+    phi = direct_values(main, "phi_eid")
+    hierarchy = json.loads(args.tree_summary.read_text(encoding="utf-8"))
+    tree = _node_from_record(hierarchy["tree"])
+    # The tree is one frozen seed/G condition; bars and surface average the window.
+    gi = int(np.flatnonzero(np.isclose(yeo["G"], hierarchy["coupling_g"]))[0])
+    si = int(np.flatnonzero(yeo["seeds"] == hierarchy["seed"])[0])
+    if not np.isclose(yeo["cross_roi"][si, gi], tree.xi_bits, atol=1e-8, rtol=0):
+        raise ValueError("Tree cache does not match the supplied seed/G data")
+    if not np.array_equal(topology["region_labels"], yeo["region_labels"]):
+        raise ValueError("Surface and hierarchy ROI labels must use the same order")
+    yeo_prior = getattr(args, "yeo_prior", False)
+    roi_shapley_path = getattr(args, "roi_shapley", None)
+    roi_shapley = None
+    if roi_shapley_path is not None:
+        from scripts.compute_dmf_roi_shapley import source_digest
+        attribution = load(roi_shapley_path)
+        metadata = json.loads(str(attribution["summary_json"]))
+        if not metadata["converged"] or metadata["source_sha256"] != source_digest(args.yeo7):
+            raise ValueError("ROI Shapley cache is unconverged or uses different input data")
+        for key in ("region_labels", "seeds", "G", "network_membership"):
+            if not np.array_equal(attribution[key], yeo[key]):
+                raise ValueError(f"ROI Shapley cache does not match {key}")
+        roi_shapley = np.asarray(attribution["roi_shapley_bits"], dtype=float)
+        if roi_shapley.shape != (*yeo["cross_roi"].shape, len(yeo["region_labels"])):
+            raise ValueError("Invalid ROI Shapley shape")
+        if not np.isfinite(roi_shapley).all() or np.any(roi_shapley < -1e-8):
+            raise ValueError("Invalid ROI Shapley values or significant nonnegativity violation")
+        np.testing.assert_allclose(roi_shapley.sum(axis=-1), yeo["cross_roi"], atol=1e-8, rtol=0)
+    if yeo_prior:
+        tree, audit = build_yeo_prior_tree(
+            yeo["conditional_covariance"][si, gi], yeo["network_membership"],
+            exact_max_size=int(hierarchy["exact_search_max_coalition_size"]),
+        )
+        np.testing.assert_allclose(
+            audit["within_network_xi_bits"], yeo["within_group_by_network"][si, gi], atol=1e-8, rtol=0,
+        )
+        np.testing.assert_allclose(tree.syn_bits, yeo["between_group_shapley"][si, gi].sum(), atol=1e-8, rtol=0)
+        np.testing.assert_allclose(tree.xi_bits, yeo["cross_roi"][si, gi], atol=1e-8, rtol=0)
+        print(json.dumps({"seed": int(hierarchy["seed"]), "G": float(hierarchy["coupling_g"]), **audit}), flush=True)
+
+    figure = plt.figure(figsize=(16.0, 11.4))
+    outer = GridSpec(
+        2, 1, figure=figure, height_ratios=(5.3, 3.7),
+        hspace=0.35, left=0.065, right=0.985, top=0.89, bottom=0.07,
+    )
+    top = GridSpecFromSubplotSpec(
+        1, 3, subplot_spec=outer[0], width_ratios=(4.4, 1.35, 9.25),
+        wspace=0,
+    )
+    panel_a_grid = GridSpecFromSubplotSpec(
+        2, 1, subplot_spec=top[0], height_ratios=(2.25, 1.15), hspace=0.08,
+    )
+    ax_a = figure.add_subplot(panel_a_grid[0])
+    ax_a_wms = figure.add_subplot(panel_a_grid[1], sharex=ax_a)
+    ax_tree = figure.add_subplot(top[2])
+    bottom = GridSpecFromSubplotSpec(
+        1, 5, subplot_spec=outer[1], width_ratios=(4.4, 1.1, 4.4, 0.8, 4.3),
+        wspace=0,
+    )
+    ax_e = figure.add_subplot(bottom[0])
+    ax_f = figure.add_subplot(bottom[2])
+    panel_g = GridSpecFromSubplotSpec(
+        3, 2, subplot_spec=bottom[4], height_ratios=(1, 1, 0.10),
+        hspace=-0.38, wspace=-0.32,
+    )
+    ax_g = [
+        figure.add_subplot(panel_g[row, column], projection="3d")
+        for row in range(2) for column in range(2)
+    ]
+    ax_g_cb = figure.add_subplot(panel_g[2, :])
+
+    ax_a_info = add_rate_information_panel(
+        ax_a, source=source, g=np.asarray(main["G"], dtype=float), values=phi,
+        critical_g=critical_g, color="#6A3D9A", label=r"Full-system $\Xi$",
+        ylabel=r"$\Xi$ (bits)",
+    )
+    ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
+    ax_a.set_xlabel("")
+    ax_a.tick_params(axis="x", labelbottom=False)
+    wms_values = np.asarray(wms["phi_wms"], dtype=float)
+    wms_mean, wms_error = np.mean(wms_values, axis=0), sd(wms_values)
+    ax_a_wms.plot(
+        np.asarray(wms["G"], dtype=float),
+        wms_mean,
+        color="#1B9E77",
+        lw=1.35,
+        marker="o",
+        ms=2.0,
+        zorder=3,
+    )
+    ax_a_wms.fill_between(
+        np.asarray(wms["G"], dtype=float),
+        wms_mean - wms_error,
+        wms_mean + wms_error,
+        color="#1B9E77",
+        alpha=0.22,
+        lw=0,
+    )
+    ax_a_wms.grid(True, color="0.90", lw=0.5, zorder=0)
+    ax_a_wms.set_xlabel("Global coupling $G$")
+    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$", color="#1B9E77")
+    ax_a_wms.tick_params(axis="y", colors="#1B9E77")
+    if phi_r is not None:
+        phi_r_values = np.asarray(phi_r["phi_r_mean"], dtype=float)
+        phi_r_mean, phi_r_error = np.mean(phi_r_values, axis=0), sd(phi_r_values)
+        phi_r_g = np.asarray(phi_r["G"], dtype=float)
+        ax_a_phi_r = ax_a_wms.twinx()
+        ax_a_phi_r.plot(
+            phi_r_g,
+            phi_r_mean,
+            color="#D55E00",
+            lw=1.35,
+            marker="s",
+            ms=1.9,
+            zorder=4,
+        )
+        ax_a_phi_r.fill_between(
+            phi_r_g,
+            phi_r_mean - phi_r_error,
+            phi_r_mean + phi_r_error,
+            color="#D55E00",
+            alpha=0.18,
+            lw=0,
+            zorder=2,
+        )
+        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
+        ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
+        ax_a_phi_r.spines["right"].set_visible(True)
+    panel_label(ax_a, "a", y=1.04)
+
+
+    within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
+    within_network_by_seed = within_network.mean(axis=1)
+    network_values = within_network_by_seed.mean(axis=0)
+    network_errors = sd(within_network_by_seed, axis=0)
+    network_names = [str(value) for value in yeo["network_names"]]
+    network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
+    order = np.argsort(network_values)
+    ypos = np.arange(len(order))
+    ax_e.barh(
+        ypos, network_values[order], xerr=network_errors[order],
+        color=[network_color(network_names[index]) for index in order], capsize=2,
+    )
+    short_network = {
+        "Visual": "Vis",
+        "Somatomotor": "SomMot",
+        "Dorsal attention": "DorsAttn",
+        "Salience / ventral attention": "Sal/Vent",
+        "Frontoparietal control": "Control",
+        "Default mode": "Default",
+    }
+    ax_e.set_yticks(
+        ypos,
+        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
+        fontsize=6.7,
+    )
+    ax_e.tick_params(axis="y", pad=1)
+    ax_e.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
+    ax_e.grid(True, axis="x", color="0.90", lw=0.5)
+    panel_label(ax_e, "c")
+
+    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
+    between_shapley_by_seed = between_shapley.mean(axis=1)
+    shapley_values = between_shapley_by_seed.mean(axis=0)
+    shapley_errors = sd(between_shapley_by_seed, axis=0)
+    ax_f.barh(
+        ypos, shapley_values[order], xerr=shapley_errors[order],
+        color=[network_color(network_names[index]) for index in order], capsize=2,
+    )
+    ax_f.set_yticks(
+        ypos,
+        [f"{short_network.get(network_names[index], network_names[index])}/{network_sizes[index]}" for index in order],
+        fontsize=6.7,
+    )
+    ax_f.tick_params(axis="y", pad=1)
+    ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
+    ax_f.grid(True, axis="x", color="0.90", lw=0.5)
+    panel_label(ax_f, "d")
+
+
+    cross = np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
+    if roi_shapley is not None:
+        cross = roi_shapley.mean(axis=(0, 1))
+    left_mesh, right_mesh, left_values, right_values = load_schaefer100_surface_map(
+        args.surface_asset,
+        np.asarray(topology["region_labels"]),
+        cross,
+    )
+    draw_brain_map_four_views(
+        ax_g,
+        ax_g_cb,
+        left_mesh,
+        right_mesh,
+        left_values,
+        right_values,
+        cmap="viridis",
+        colorbar_label="ROI Shapley contribution (bits)" if roi_shapley is not None else "Cross-ROI leverage (bits)",
+        colorbar_label_size=6.2,
+        zoom=1.10,
+    )
+    for axis, label in zip(ax_g, ("LH lateral", "RH lateral", "LH medial", "RH medial")):
+        axis.text2D(0.03, 0.90, label, transform=axis.transAxes, fontsize=5.4, color="0.25")
+    ax_g[0].text2D(
+        -0.10, 1.00, "e", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
+    )
+
+    if yeo_prior:
+        render_yeo_prior_tree(
+            tree, axis=ax_tree, labels=[str(label) for label in yeo["region_labels"]],
+            membership=yeo["network_membership"], network_names=network_names,
+            network_colors=[network_color(name) for name in network_names],
+            network_order=order[::-1].tolist(), seed=int(hierarchy["seed"]),
+            coupling_g=float(hierarchy["coupling_g"]),
+        )
+        ax_e.text(0.5, 1.035, "8 seeds × 3 G values; mean ± seed SD", transform=ax_e.transAxes,
+                  ha="center", va="bottom", fontsize=5.7, color="0.35")
+        ax_f.text(0.5, 1.035, "8 seeds × 3 G values; mean ± seed SD", transform=ax_f.transAxes,
+                  ha="center", va="bottom", fontsize=5.7, color="0.35")
+    else:
+        render_tree(
+            tree, None,
+            labels=[str(label) for label in yeo["region_labels"]],
+            network_membership=np.asarray(yeo["network_membership"], dtype=int),
+            network_names=network_names,
+            full_xi=float(hierarchy["full_xi_bits"]),
+            within_roi_xi=float(hierarchy["within_roi_xi_bits"]),
+            seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
+            dpi=450, axis=ax_tree,
+            network_colors=[network_color(name) for name in network_names],
+        )
+    ax_tree.text(
+        -0.015, 1.015, "b", transform=ax_tree.transAxes,
+        fontsize=10, fontweight="bold", va="bottom",
+    )
+    ax_tree.legend(
+        handles=[Patch(facecolor=network_color(name), label=name) for name in network_names],
+        loc="lower center", bbox_to_anchor=(0.5, 1.075), ncol=4,
+        fontsize=6.3, handlelength=1, labelspacing=0.65, columnspacing=1.1,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(args.output.with_suffix(".png"), dpi=450, bbox_inches="tight", facecolor="white")
+    plt.close(figure)
+
+
 def spectral_radius(matrix: np.ndarray) -> float:
     symmetric = 0.5 * (matrix + matrix.T)
     return float(np.max(np.abs(np.linalg.eigvalsh(symmetric))))
@@ -583,7 +842,10 @@ def plot_comparison(args: argparse.Namespace) -> None:
 def main() -> None:
     args = parse_args()
     configure()
-    plot_summary(args)
+    if args.legacy_layout:
+        plot_legacy_summary(args)
+    else:
+        plot_summary(args)
     plot_comparison(args)
 
 

@@ -26,12 +26,13 @@ from scripts.analyze_runge_slp_pc60_xi_hierarchy import (
     INK,
     SPLIT_COLOR,
     _blend_with_white,
+    _compact_positions,
     _dominant_spine,
     flatten_nodes,
-    render_backbone_tree,
     render_compact_tree,
     run_analysis,
 )
+from scripts.phi_hierarchy import ALL_ORDER_CROSS_DENSITY, RAW_RESIDUAL
 
 
 DEFAULT_OUTPUT_ROOT = ROOT / "results/runge/slp_pc60_xi_hierarchy"
@@ -53,12 +54,13 @@ def _node_from_record(record: dict[str, object]) -> ScalableHierarchyNode:
     )
 
 
-def _figure_path(figure_root: Path, horizon: int) -> Path:
-    return figure_root / f"earth_slp_pc60_xi_hierarchy_H{int(horizon):03d}.png"
+def _figure_path(figure_root: Path, horizon: int, suffix: str = "") -> Path:
+    return figure_root / f"earth_slp_pc60_xi_hierarchy_H{int(horizon):03d}{suffix}.png"
 
 
 def _summary_row(tree: ScalableHierarchyNode, payload: dict[str, object]) -> dict[str, object]:
     internal = [node for node in flatten_nodes(tree) if node.children]
+    leaves = [node for node in flatten_nodes(tree) if not node.children]
     spine, side = _dominant_spine(tree)
     multi_node_side = [branch for branch in side if branch is not None and branch.size > 1]
     peeled = [
@@ -67,6 +69,8 @@ def _summary_row(tree: ScalableHierarchyNode, payload: dict[str, object]) -> dic
         if branch is not None and branch.size == 1
     ]
     top = max(internal, key=lambda node: float(node.syn_bits))
+    colless = sum(abs(node.children[0].size - node.children[1].size) for node in internal)
+    maximum_colless = (tree.size - 1) * (tree.size - 2) / 2.0
     return {
         "horizon": int(payload["horizon"]),
         "xi_bits": float(tree.xi_bits),
@@ -75,6 +79,9 @@ def _summary_row(tree: ScalableHierarchyNode, payload: dict[str, object]) -> dic
         "maximum_syn_coalition_size": int(top.size),
         "maximum_syn_indices": list(top.indices),
         "dominant_spine_split_count": len(spine) - 1,
+        "dominant_spine_fraction": float((len(spine) - 1) / len(internal)),
+        "maximum_depth": max(node.depth for node in leaves),
+        "normalized_colless_imbalance": float(colless / maximum_colless),
         "first_ten_peeled_indices": peeled[:10],
         "terminal_pair": list(spine[-2].indices) if len(spine) >= 2 else list(spine[-1].indices),
         "multi_node_side_branches": [
@@ -196,96 +203,73 @@ def draw_vertical_point_tree(
     syn_scale_max: float,
     tolerance: float,
 ) -> None:
-    """Draw a dense hierarchy as a vertical, label-free point tree."""
-    spine, side_branches = _dominant_spine(root)
-    top, bottom = 0.965, 0.035
-    level_gap = (top - bottom) / max(1, len(spine) - 1)
-    y_values = [top - position * level_gap for position in range(len(spine))]
-    center_x = 0.50
+    """Draw a dense hierarchy as a Brain-style triangular point tree."""
+    positions, leaf_order = _compact_positions(root)
+    internal = [node for node in flatten_nodes(root) if node.children]
+    leaves = [node for node in flatten_nodes(root) if not node.children]
 
-    if len(spine) > 1:
+    for node in internal:
+        _, parent_y = positions[node.indices]
+        child_points = [positions[child.indices] for child in node.children]
         axis.plot(
-            [center_x, center_x],
-            [y_values[-1], y_values[0]],
+            [child_points[0][0], child_points[1][0]],
+            [parent_y, parent_y],
             color=EDGE_COLOR,
-            linewidth=0.70,
+            linewidth=0.60,
             solid_capstyle="round",
             zorder=1,
         )
-
-    for position, (node, side) in enumerate(zip(spine, side_branches, strict=True)):
-        y_value = y_values[position]
-        if node.children:
-            area, face, edge, edge_width = _syn_style(
-                float(node.syn_bits),
-                scale_max=syn_scale_max,
-                tolerance=tolerance,
-            )
-            axis.scatter(
-                [center_x],
-                [y_value],
-                s=area,
-                facecolor=face,
-                edgecolor=edge,
-                linewidth=edge_width,
-                zorder=4,
-            )
-        else:
-            axis.scatter(
-                [center_x],
-                [y_value],
-                s=8.0,
-                facecolor=LEAF_FACE,
-                edgecolor=LEAF_EDGE,
-                linewidth=0.55,
-                zorder=4,
+        for child_x, child_y in child_points:
+            axis.plot(
+                [child_x, child_x], [child_y, parent_y],
+                color=EDGE_COLOR, linewidth=0.60,
+                solid_capstyle="round", zorder=1,
             )
 
-        if side is None or position + 1 >= len(y_values):
-            continue
-        branch_y = y_values[position + 1]
-        direction = -1.0 if position % 2 == 0 else 1.0
-        branch_x = center_x + direction * (0.27 if side.size == 1 else 0.30)
-        axis.plot(
-            [center_x, branch_x],
-            [branch_y, branch_y],
-            color=EDGE_COLOR,
-            linewidth=0.62,
-            solid_capstyle="round",
-            zorder=1,
-        )
-        _draw_side_subtree(
-            axis,
-            side,
-            x_value=branch_x,
-            y_value=branch_y,
-            direction=direction,
-            level_gap=level_gap,
-            syn_scale_max=syn_scale_max,
+    for node in internal:
+        x_value, y_value = positions[node.indices]
+        area, face, edge, edge_width = _syn_style(
+            float(node.syn_bits),
+            scale_max=syn_scale_max,
             tolerance=tolerance,
+        )
+        axis.scatter(
+            [x_value], [y_value], s=0.72 * area,
+            facecolor=face, edgecolor=edge,
+            linewidth=0.85 * edge_width, zorder=4,
+        )
+
+    for node in leaves:
+        x_value, y_value = positions[node.indices]
+        axis.scatter(
+            [x_value], [y_value], s=7.0,
+            facecolor=LEAF_FACE, edgecolor=LEAF_EDGE,
+            linewidth=0.50, zorder=4,
         )
 
     axis.text(
-        0.50,
-        1.075,
+        0.01,
+        1.04,
         rf"$H={int(horizon)}$",
-        ha="center",
+        transform=axis.transAxes,
+        ha="left",
         va="center",
         color=INK,
         fontsize=8.8,
         fontweight="semibold",
     )
     axis.text(
-        0.50,
-        1.025,
+        0.10,
+        1.04,
         rf"$\Xi={root.xi_bits:.2f}$ bits",
-        ha="center",
+        transform=axis.transAxes,
+        ha="left",
         va="center",
         color="#596570",
         fontsize=7.2,
     )
-    axis.set_xlim(0.05, 0.95)
-    axis.set_ylim(0.0, 1.11)
+    axis.set_xlim(-1.0, len(leaf_order))
+    axis.set_ylim(-0.035, 1.15)
     axis.axis("off")
 
 
@@ -298,7 +282,7 @@ def render_vertical_point_comparison(
     syn_scale_max: float,
     dpi: int = 600,
 ) -> Path:
-    """Render aligned text-free trees with one shared Syn visual scale."""
+    """Render aligned triangular trees with one shared Syn visual scale."""
     if len(trees) != len(horizons):
         raise ValueError("trees and horizons must have the same length")
     mpl.rcParams.update(
@@ -312,14 +296,14 @@ def render_vertical_point_comparison(
         }
     )
     figure, axes = plt.subplots(
-        1,
         len(trees),
-        figsize=(7.2, 8.8),
+        1,
+        figsize=(13.8, 9.4),
         constrained_layout=True,
         squeeze=False,
     )
     figure.patch.set_facecolor("white")
-    for axis, tree, horizon in zip(axes[0], trees, horizons, strict=True):
+    for axis, tree, horizon in zip(axes[:, 0], trees, horizons, strict=True):
         axis.set_facecolor("white")
         draw_vertical_point_tree(
             axis,
@@ -343,13 +327,15 @@ def run_comparison(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     exact_max_size: int = 10,
     covariance_ridge: float = 1.0e-6,
+    split_objective: str = RAW_RESIDUAL,
+    figure_suffix: str = "",
     dpi: int = 600,
 ) -> dict[str, object]:
     payloads: list[dict[str, object]] = []
     trees: list[ScalableHierarchyNode] = []
     for horizon in horizons:
         output_dir = output_root / f"H{int(horizon):03d}"
-        figure_path = _figure_path(figure_root, horizon)
+        figure_path = _figure_path(figure_root, horizon, figure_suffix)
         payload = run_analysis(
             source_path,
             rollout_path,
@@ -358,6 +344,7 @@ def run_comparison(
             horizon=int(horizon),
             exact_max_size=int(exact_max_size),
             covariance_ridge=float(covariance_ridge),
+            split_objective=split_objective,
             dpi=int(dpi),
         )
         payloads.append(payload)
@@ -371,26 +358,15 @@ def run_comparison(
     )
     for tree, payload in zip(trees, payloads, strict=True):
         figure_path = Path(str(payload["figure"]))
-        spine, _ = _dominant_spine(tree)
-        internal_count = sum(bool(node.children) for node in flatten_nodes(tree))
-        if len(spine) - 1 >= 0.65 * internal_count:
-            render_backbone_tree(
-                tree,
-                figure_path,
-                tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
-                syn_scale_max=shared_syn_scale,
-                dpi=dpi,
-            )
-        else:
-            render_compact_tree(
-                tree,
-                figure_path,
-                tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
-                syn_scale_max=shared_syn_scale,
-                dpi=dpi,
-            )
+        render_compact_tree(
+            tree,
+            figure_path,
+            tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
+            syn_scale_max=shared_syn_scale,
+            dpi=dpi,
+        )
 
-    comparison_figure = figure_root / DEFAULT_COMPARISON_FIGURE.name
+    comparison_figure = figure_root / f"{DEFAULT_COMPARISON_FIGURE.stem}{figure_suffix}.png"
     render_vertical_point_comparison(
         trees,
         horizons,
@@ -411,6 +387,13 @@ def run_comparison(
         "fixed_estimator": "affine degree-1 TM / linear-Gaussian log-det equivalent",
         "fixed_covariance_ridge": float(covariance_ridge),
         "fixed_exact_search_max_coalition_size": int(exact_max_size),
+        "split_objective": str(split_objective),
+        "split_objective_denominator": (
+            "(2^|A| - 1)(2^|B| - 1)"
+            if split_objective == ALL_ORDER_CROSS_DENSITY
+            else "1"
+        ),
+        "reported_node_value": "raw unnormalized Syn residual in bits",
         "syn_nonnegative_tolerance_bits": SYN_NONNEGATIVE_TOLERANCE_BITS,
         "shared_syn_visual_scale_max_bits": float(shared_syn_scale),
         "comparison_figure": str(comparison_figure),
@@ -433,6 +416,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--horizons", default="1,10,60")
     parser.add_argument("--exact-max-size", type=int, default=10)
     parser.add_argument("--covariance-ridge", type=float, default=1.0e-6)
+    parser.add_argument(
+        "--split-objective",
+        choices=(RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY),
+        default=RAW_RESIDUAL,
+    )
+    parser.add_argument("--figure-suffix", default="")
     parser.add_argument("--dpi", type=int, default=600)
     return parser.parse_args()
 
@@ -448,6 +437,8 @@ def main() -> None:
         horizons=horizons,
         exact_max_size=args.exact_max_size,
         covariance_ridge=args.covariance_ridge,
+        split_objective=args.split_objective,
+        figure_suffix=str(args.figure_suffix),
         dpi=args.dpi,
     )
     values = ", ".join(

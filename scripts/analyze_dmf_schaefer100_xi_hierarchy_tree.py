@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import to_hex, to_rgb
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
+from matplotlib.transforms import blended_transform_factory
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,7 +124,7 @@ def _tree_metrics(root: ScalableHierarchyNode) -> dict[str, float | int]:
 
 def render_tree(
     root: ScalableHierarchyNode,
-    output: Path,
+    output: Path | None,
     *,
     labels: Sequence[str],
     network_membership: np.ndarray,
@@ -132,7 +134,10 @@ def render_tree(
     seed: int,
     coupling_g: float,
     dpi: int,
+    axis: plt.Axes | None = None,
+    network_colors: Sequence[str] = NETWORK_COLORS,
 ) -> None:
+    standalone = axis is None
     mpl.rcParams.update(
         {
             "font.family": "sans-serif",
@@ -164,7 +169,12 @@ def render_tree(
 
     position(root)
     max_syn = max(float(node.syn_bits) for node in internal)
-    figure, axis = plt.subplots(figsize=(15.2, 8.2), constrained_layout=True)
+    if standalone:
+        if output is None:
+            raise ValueError("A standalone tree requires an output path")
+        figure, axis = plt.subplots(figsize=(15.2, 8.2), constrained_layout=True)
+    else:
+        figure = axis.figure
     figure.patch.set_facecolor("white")
     axis.set_facecolor("white")
 
@@ -211,16 +221,46 @@ def render_tree(
                 facecolor=face, edgecolor=edge, linewidth=0.6 + relative, zorder=3,
             )
 
+    strip_y = -0.033
+    strip_height = 0.017
     for index in order:
         x_value = leaf_x[index]
-        color = NETWORK_COLORS[int(network_membership[index]) % len(NETWORK_COLORS)]
-        axis.scatter([x_value], [-0.008], s=9, color=color, zorder=4, clip_on=False)
+        color = network_colors[int(network_membership[index])]
+        axis.scatter(
+            [x_value], [0.0], s=15, facecolor="white", edgecolor=color,
+            linewidth=1.15, zorder=4, clip_on=False,
+        )
+        axis.add_patch(
+            Rectangle(
+                (x_value - 0.48, strip_y), 0.96, strip_height,
+                facecolor=color, edgecolor="white", linewidth=0.28,
+                zorder=4, clip_on=False,
+            )
+        )
         axis.text(
-            x_value, -0.027, _short_roi_label(labels[index]), rotation=90,
+            x_value, -0.042, _short_roi_label(labels[index]), rotation=90,
             ha="right", va="top", fontsize=3.7, color="#55616D", clip_on=False,
         )
 
+    strip_label_transform = blended_transform_factory(axis.transAxes, axis.transData)
+    axis.text(
+        -0.006 if standalone else 0.0,
+        strip_y + strip_height / 2.0 if standalone else -0.21, "Yeo-7 network",
+        transform=strip_label_transform, ha="right" if standalone else "left", va="center",
+        fontsize=5.8, color=INK, clip_on=False,
+    )
+
     metrics = _tree_metrics(root)
+    if not standalone:
+        axis.text(
+            0.5, 1.015,
+            rf"$G={coupling_g:g}$, seed {seed}  |  Cross-ROI $\Xi={root.xi_bits:.2f}$ bits",
+            transform=axis.transAxes, ha="center", va="bottom", fontsize=7, color=INK,
+        )
+        axis.set_xlim(-1.0, root.size)
+        axis.set_ylim(-0.26, 1.06)
+        axis.axis("off")
+        return
     root_x, _ = positions[root.indices]
     axis.text(
         root_x, 1.115,
@@ -239,7 +279,7 @@ def render_tree(
     )
     handles = [
         Line2D([0], [0], marker="o", linestyle="none", markersize=5,
-               markerfacecolor=NETWORK_COLORS[i], markeredgecolor="none", label=str(name))
+               markerfacecolor=network_colors[i], markeredgecolor="none", label=str(name))
         for i, name in enumerate(network_names)
     ]
     axis.legend(
