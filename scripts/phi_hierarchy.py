@@ -17,7 +17,10 @@ import numpy as np
 
 NONNEGATIVE_TOLERANT = "nonnegative_tolerant"
 SIGNED = "signed"
+RAW_RESIDUAL = "raw_residual"
+ALL_ORDER_CROSS_DENSITY = "all_order_cross_density"
 HierarchyPolicy = Literal["nonnegative_tolerant", "signed"]
+SplitObjective = Literal["raw_residual", "all_order_cross_density"]
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,30 @@ def nontrivial_bipartitions(subset: Sequence[str]) -> list[tuple[tuple[str, ...]
     return splits
 
 
+def cross_coalition_count(left_size: int, right_size: int) -> int:
+    """Count nonempty coalitions that draw at least one node from each side."""
+    left = int(left_size)
+    right = int(right_size)
+    if left <= 0 or right <= 0:
+        raise ValueError("Both split sides must be nonempty.")
+    return ((1 << left) - 1) * ((1 << right) - 1)
+
+
+def split_objective_value(
+    residual: float,
+    left_size: int,
+    right_size: int,
+    *,
+    objective: SplitObjective,
+) -> float:
+    """Return the search-only split score; raw residual remains the reported atom."""
+    if objective == RAW_RESIDUAL:
+        return float(residual)
+    if objective == ALL_ORDER_CROSS_DENSITY:
+        return float(residual) / float(cross_coalition_count(left_size, right_size))
+    raise ValueError(f"Unsupported split objective: {objective!r}")
+
+
 def greedy_phi_tree(
     subset: Sequence[str],
     ei_table: Mapping[tuple[str, ...], float],
@@ -94,6 +121,7 @@ def greedy_phi_tree(
     split_tolerance: float = 1.0e-4,
     depth: int = 0,
     singleton_ei: Mapping[str, float] | None = None,
+    split_objective: SplitObjective = RAW_RESIDUAL,
 ) -> PhiTreeNode:
     """Return the full greedy bipartition tree, including zero-atom branches.
 
@@ -108,6 +136,10 @@ def greedy_phi_tree(
     """
     if policy not in (NONNEGATIVE_TOLERANT, SIGNED):
         raise ValueError(f"Unsupported hierarchy policy: {policy!r}")
+    if split_objective not in (RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY):
+        raise ValueError(f"Unsupported split objective: {split_objective!r}")
+    if policy == SIGNED and split_objective != RAW_RESIDUAL:
+        raise ValueError("All-order residual normalization is defined only for the nonnegative policy.")
 
     ordered = tuple(str(name) for name in subset)
     if singleton_ei is None:
@@ -116,7 +148,7 @@ def greedy_phi_tree(
     if len(ordered) <= 1 or (policy == NONNEGATIVE_TOLERANT and block_phi <= float(eps)):
         return PhiTreeNode(ordered, block_phi, 0.0, "leaf", None, int(depth))
 
-    candidates: list[tuple[float, float, tuple[str, ...], tuple[str, ...]]] = []
+    candidates: list[tuple[float, float, float, tuple[str, ...], tuple[str, ...]]] = []
     for left, right in nontrivial_bipartitions(ordered):
         left_phi = subset_phi_raw(left, ei_table, singleton_ei)
         right_phi = subset_phi_raw(right, ei_table, singleton_ei)
@@ -124,24 +156,35 @@ def greedy_phi_tree(
         if policy == NONNEGATIVE_TOLERANT and residual < -float(split_tolerance):
             continue
         captured = left_phi + right_phi
-        candidates.append((captured, residual, left, right))
+        objective_value = split_objective_value(
+            residual, len(left), len(right), objective=split_objective
+        )
+        candidates.append((objective_value, captured, residual, left, right))
 
     if policy == SIGNED:
         if not candidates:
             return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
-        captured, residual, left, right = max(candidates, key=lambda item: (item[0], -abs(item[1])))
+        _, captured, residual, left, right = max(
+            candidates, key=lambda item: (item[1], -abs(item[2]))
+        )
         if captured <= float(eps):
             return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
     else:
         if not candidates:
             return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
-        captured, residual, left, right = candidates[0]
-        for candidate in candidates[1:]:
-            candidate_captured, candidate_residual, candidate_left, candidate_right = candidate
-            if candidate_captured > captured or (
-                np.isclose(candidate_captured, captured) and candidate_residual < residual
-            ):
-                captured, residual, left, right = candidate_captured, candidate_residual, candidate_left, candidate_right
+        if split_objective == ALL_ORDER_CROSS_DENSITY:
+            _, captured, residual, left, right = min(
+                candidates,
+                key=lambda item: (item[0], item[2], item[3], item[4]),
+            )
+        else:
+            _, captured, residual, left, right = candidates[0]
+            for candidate in candidates[1:]:
+                _, candidate_captured, candidate_residual, candidate_left, candidate_right = candidate
+                if candidate_captured > captured or (
+                    np.isclose(candidate_captured, captured) and candidate_residual < residual
+                ):
+                    captured, residual, left, right = candidate_captured, candidate_residual, candidate_left, candidate_right
         if captured <= float(eps):
             return PhiTreeNode(ordered, block_phi, block_phi, "terminal", "terminal", int(depth))
 
@@ -159,6 +202,7 @@ def greedy_phi_tree(
             split_tolerance=split_tolerance,
             depth=depth + 1,
             singleton_ei=singleton_ei,
+            split_objective=split_objective,
         ),
         greedy_phi_tree(
             right,
@@ -168,6 +212,7 @@ def greedy_phi_tree(
             split_tolerance=split_tolerance,
             depth=depth + 1,
             singleton_ei=singleton_ei,
+            split_objective=split_objective,
         ),
     )
     return PhiTreeNode(
@@ -200,6 +245,7 @@ def greedy_phi_atoms(
     split_tolerance: float = 1.0e-4,
     depth: int = 0,
     singleton_ei: Mapping[str, float] | None = None,
+    split_objective: SplitObjective = RAW_RESIDUAL,
 ) -> list[PhiAtom]:
     """Decompose raw Phi into the historical flat atom representation."""
     return flatten_phi_tree(
@@ -211,5 +257,6 @@ def greedy_phi_atoms(
             split_tolerance=split_tolerance,
             depth=depth,
             singleton_ei=singleton_ei,
+            split_objective=split_objective,
         )
     )

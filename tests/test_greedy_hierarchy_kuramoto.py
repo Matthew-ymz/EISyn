@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import itertools
 import sys
 from pathlib import Path
 
@@ -17,7 +18,13 @@ from scripts.validate_greedy_hierarchy_kuramoto import (
     is_planted_split,
     kuramoto_derivative,
 )
-from scripts.phi_hierarchy import flatten_phi_tree, greedy_phi_atoms, greedy_phi_tree
+from scripts.phi_hierarchy import (
+    ALL_ORDER_CROSS_DENSITY,
+    cross_coalition_count,
+    flatten_phi_tree,
+    greedy_phi_atoms,
+    greedy_phi_tree,
+)
 from scripts.plot_kuramoto_xi_hierarchy_trees import _ei_table, render_all
 from scripts.plot_kuramoto_hierarchy_report_assets import render_network
 from scripts.synergy_hierarchy_tree_plot import plot_synergy_hierarchy_tree
@@ -76,6 +83,26 @@ def test_explicit_tree_preserves_atoms_and_kuramoto_root_split() -> None:
     assert np.isclose(tree.residual, row["root_residual_bits"])
     assert flatten_phi_tree(tree) == greedy_phi_atoms(tree.sources, _ei_table(row))
     assert np.isclose(sum(atom.value for atom in flatten_phi_tree(tree)), tree.phi_value)
+
+
+def test_all_order_cross_count_and_search_only_normalization() -> None:
+    assert cross_coalition_count(1, 3) == 7
+    assert cross_coalition_count(2, 2) == 9
+
+    names = ("a", "b", "c", "d")
+    table = {subset: 0.0 for size in range(1, 5) for subset in itertools.combinations(names, size)}
+    table[("a", "b")] = 4.4
+    table[("c", "d")] = 4.4
+    table[("b", "c", "d")] = 9.0
+    table[names] = 10.0
+
+    raw = greedy_phi_tree(names, table)
+    normalized = greedy_phi_tree(names, table, split_objective=ALL_ORDER_CROSS_DENSITY)
+
+    assert {child.sources for child in raw.children} == {("a",), ("b", "c", "d")}
+    assert {child.sources for child in normalized.children} == {("a", "b"), ("c", "d")}
+    assert np.isclose(raw.residual, 1.0)
+    assert np.isclose(normalized.residual, 1.2)
 
 
 def test_minimal_tree_renderer_writes_one_png(tmp_path: Path) -> None:
