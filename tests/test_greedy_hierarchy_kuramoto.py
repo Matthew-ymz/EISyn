@@ -25,9 +25,13 @@ from scripts.phi_hierarchy import (
     greedy_phi_atoms,
     greedy_phi_tree,
 )
-from scripts.plot_kuramoto_xi_hierarchy_trees import _ei_table, render_all
+from scripts.plot_kuramoto_xi_hierarchy_trees import (
+    _ei_table,
+    render_all,
+)
 from scripts.plot_kuramoto_hierarchy_report_assets import render_network
 from scripts.synergy_hierarchy_tree_plot import plot_synergy_hierarchy_tree
+from scripts.synergy_hierarchy_tree_plot import _node_label
 
 
 def representative_tree():
@@ -83,6 +87,18 @@ def test_explicit_tree_preserves_atoms_and_kuramoto_root_split() -> None:
     assert np.isclose(tree.residual, row["root_residual_bits"])
     assert flatten_phi_tree(tree) == greedy_phi_atoms(tree.sources, _ei_table(row))
     assert np.isclose(sum(atom.value for atom in flatten_phi_tree(tree)), tree.phi_value)
+
+
+def test_complete_tree_reaches_singletons_without_changing_pair_syn() -> None:
+    names = ("a", "b")
+    table = {("a",): 0.2, ("b",): 0.3, names: 1.1}
+
+    complete = greedy_phi_tree(names, table, complete_to_singletons=True)
+
+    assert complete.action == "split"
+    assert np.isclose(complete.residual, 0.6)
+    assert [child.sources for child in complete.children] == [("a",), ("b",)]
+    assert _node_label(complete, labels={}, decimals=2).endswith("Syn 0.60")
 
 
 def test_all_order_cross_count_and_search_only_normalization() -> None:

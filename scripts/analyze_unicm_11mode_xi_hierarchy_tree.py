@@ -100,8 +100,8 @@ def _expand_pair_leaves(tree: PhiTreeNode) -> PhiTreeNode:
         return tree
     if tree.order != 2 or not np.isclose(tree.phi_value, tree.residual, atol=1e-12, rtol=0):
         raise ValueError(f"Cannot expand cached coalition {tree.sources}: internal EI data required")
-    return replace(tree, action="expanded_pair", children=tuple(
-        PhiTreeNode((name,), 0.0, 0.0, "leaf", None, tree.depth + 1)
+    return replace(tree, split_kind="expanded_pair", children=tuple(
+        PhiTreeNode((name,), 0.0, 0.0, tree.depth + 1, "leaf")
         for name in tree.sources
     ))
 
@@ -109,8 +109,8 @@ def _expand_pair_leaves(tree: PhiTreeNode) -> PhiTreeNode:
 def _tree_from_record(record: dict[str, object]) -> PhiTreeNode:
     return PhiTreeNode(
         tuple(record["sources"]), float(record["phi_value_bits"]),
-        float(record["residual_syn_bits"]), str(record["action"]),
-        record["atom_kind"], int(record["depth"]),
+        float(record["residual_syn_bits"]), int(record["depth"]),
+        str(record["action"]),
         tuple(_tree_from_record(child) for child in record["children"]),
     )
 
@@ -224,6 +224,9 @@ def render_trees(
     canvas=None,
     show_colorbar: bool = True,
     compact_core_annotation: bool = False,
+    show_checkpoint: bool = True,
+    show_tree_metrics: bool = True,
+    core_highlights: Sequence[bool] | None = None,
 ) -> None:
     trees = [_expand_pair_leaves(tree) for tree in trees]
     _validate_syn(trees, syn_tolerance)
@@ -247,12 +250,22 @@ def render_trees(
     else:
         figure, axes = canvas, canvas.subplots(1, len(trees))
     axes_array = np.atleast_1d(axes)
+    if core_highlights is None:
+        core_highlights = [True] * len(trees)
+    if len(core_highlights) != len(trees):
+        raise ValueError("core_highlights must match the number of trees")
     maximum_depth = max(node.depth for tree in trees for node in _terminal_order(tree))
 
-    for axis, tree, seed in zip(axes_array, trees, seeds, strict=True):
+    for axis, tree, seed, highlight_core in zip(
+        axes_array, trees, seeds, core_highlights, strict=True
+    ):
         positions, terminals = _positions(tree)
         internal = [node for node in _flatten(tree) if node.children]
-        core = next((node for node in internal if frozenset(node.sources) == CORE_MODES), None)
+        core = (
+            next((node for node in internal if frozenset(node.sources) == CORE_MODES), None)
+            if highlight_core
+            else None
+        )
         if core is not None:
             core_x = [positions[id(node)][0] for node in _terminal_order(core)]
             left, right = min(core_x) - 0.65, max(core_x) + 0.65
@@ -313,12 +326,18 @@ def render_trees(
                 clip_on=False,
             )
 
-        metrics = _tree_metrics(tree)
+        checkpoint_line = f"checkpoint {seed}\n" if show_checkpoint else ""
+        info = checkpoint_line + rf"$\Xi$ = {tree.phi_value:.3f} bits"
+        if show_tree_metrics:
+            metrics = _tree_metrics(tree)
+            info += (
+                "\n"
+                f"spine {metrics['dominant_spine_fraction']:.0%}  |  "
+                f"imbalance {metrics['normalized_colless_imbalance']:.2f}"
+            )
         axis.text(
             0.02, 0.98,
-            f"checkpoint {seed}\n"
-            rf"$\Xi$ = {tree.phi_value:.3f} bits" "\n"
-            f"spine {metrics['dominant_spine_fraction']:.0%}  |  imbalance {metrics['normalized_colless_imbalance']:.2f}",
+            info,
             transform=axis.transAxes, ha="left", va="top", fontsize=7.4, color=INK, linespacing=1.35,
         )
         axis.set_xlim(-1.0, max(point[0] for point in positions.values()) + 0.7)

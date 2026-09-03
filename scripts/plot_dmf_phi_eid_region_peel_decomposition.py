@@ -87,7 +87,7 @@ def region_ei(
     conditional = np.asarray(noise, dtype=float).copy()
     if complement:
         conditional = conditional + transition[:, complement] @ transition[:, complement].T
-    return max(0.0, 0.5 * (target_logdet - safe_logdet(conditional, ridge=ridge)) / np.log(2.0))
+    return float(0.5 * (target_logdet - safe_logdet(conditional, ridge=ridge)) / np.log(2.0))
 
 
 def region_phi(
@@ -127,27 +127,58 @@ def single_peel_decomposition(
         dtype=float,
     )
     remaining = tuple(range(transition.shape[1]))
-    root_phi = max(0.0, region_phi(remaining, transition=transition, noise=noise, target_logdet=target_logdet, singleton_ei=singleton_ei, ridge=ridge))
+    root_phi = region_phi(
+        remaining,
+        transition=transition,
+        noise=noise,
+        target_logdet=target_logdet,
+        singleton_ei=singleton_ei,
+        ridge=ridge,
+    )
 
     rows: list[tuple[int, int, str, float, float, int]] = []
     depth = 0
     while len(remaining) > 1:
         if max_depth is not None and depth >= int(max_depth):
             break
-        current_phi = max(0.0, region_phi(remaining, transition=transition, noise=noise, target_logdet=target_logdet, singleton_ei=singleton_ei, ridge=ridge))
+        current_phi = region_phi(
+            remaining,
+            transition=transition,
+            noise=noise,
+            target_logdet=target_logdet,
+            singleton_ei=singleton_ei,
+            ridge=ridge,
+        )
+        if current_phi < -float(eps):
+            raise RuntimeError(
+                f"Syn nonnegativity violation for coalition {remaining}: "
+                f"minimum={current_phi:.12g}, threshold={-float(eps):.12g}, affected_count=1."
+            )
         if current_phi <= float(eps):
             break
         best_removed: int | None = None
         best_child_phi = -np.inf
         for candidate in remaining:
             child = tuple(index for index in remaining if index != candidate)
-            child_phi = max(0.0, region_phi(child, transition=transition, noise=noise, target_logdet=target_logdet, singleton_ei=singleton_ei, ridge=ridge))
+            child_phi = region_phi(
+                child,
+                transition=transition,
+                noise=noise,
+                target_logdet=target_logdet,
+                singleton_ei=singleton_ei,
+                ridge=ridge,
+            )
             if child_phi > best_child_phi:
                 best_child_phi = child_phi
                 best_removed = int(candidate)
         if best_removed is None:
             break
-        residual = max(0.0, current_phi - float(best_child_phi))
+        residual = float(current_phi - float(best_child_phi))
+        if residual < -float(eps):
+            raise RuntimeError(
+                f"Syn nonnegativity violation at peel depth {depth}: "
+                f"minimum={residual:.12g}, threshold={-float(eps):.12g}, affected_count=1."
+            )
         rows.append((depth, best_removed, str(labels[best_removed]), residual, current_phi, len(remaining)))
         remaining = tuple(index for index in remaining if index != best_removed)
         depth += 1
@@ -203,7 +234,13 @@ def budgeted_local_split_decomposition(
         return float(phi_cache[key])
 
     def best_budgeted_split(subset: tuple[int, ...], rng: np.random.Generator):
-        current_phi = max(0.0, phi(subset))
+        current_phi = phi(subset)
+        if current_phi < -float(split_tolerance):
+            raise RuntimeError(
+                f"Syn nonnegativity violation for coalition {subset}: "
+                f"minimum={current_phi:.12g}, threshold={-float(split_tolerance):.12g}, "
+                "affected_count=1."
+            )
         min_size = max(1, int(min_split_size))
         if len(subset) < 2 * min_size or current_phi <= float(eps):
             return None
@@ -222,13 +259,17 @@ def budgeted_local_split_decomposition(
             right = tuple(index for index in subset if index not in left_set)
             if not right:
                 return
-            captured = max(0.0, phi(left)) + max(0.0, phi(right))
+            captured = phi(left) + phi(right)
             residual = current_phi - captured
             eval_count += 1
             if residual < -float(split_tolerance):
-                return
+                raise RuntimeError(
+                    f"Syn nonnegativity violation for split {left} | {right}: "
+                    f"minimum={residual:.12g}, threshold={-float(split_tolerance):.12g}, "
+                    "affected_count=1."
+                )
             if best is None or captured > best[0] or (np.isclose(captured, best[0]) and residual < best[1]):
-                best = (captured, max(0.0, residual), left, right)
+                best = (captured, residual, left, right)
 
         # Deterministic anchor candidates: all one-vs-rest peels and a few prefix halves.
         if min_size <= 1:
@@ -286,7 +327,12 @@ def budgeted_local_split_decomposition(
         }
 
     root = tuple(range(transition.shape[1]))
-    root_phi = max(0.0, phi(root))
+    root_phi = phi(root)
+    if root_phi < -float(split_tolerance):
+        raise RuntimeError(
+            f"Syn nonnegativity violation at root: minimum={root_phi:.12g}, "
+            f"threshold={-float(split_tolerance):.12g}, affected_count=1."
+        )
     rng = np.random.default_rng(seed)
     rows: list[tuple[int, tuple[int, ...], tuple[int, ...], float, float, float, int]] = []
     stack: list[tuple[int, tuple[int, ...]]] = [(0, root)]

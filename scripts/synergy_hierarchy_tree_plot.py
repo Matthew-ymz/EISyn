@@ -74,7 +74,7 @@ def _node_label(
     decimals: int,
 ) -> str:
     source_text = _source_label(node.sources, labels)
-    if node.atom_kind is None:
+    if node.atom_kind is None and not node.children:
         return source_text
     atom_text = f"Syn {node.residual:.{decimals}f}"
     return f"{source_text}\n{atom_text}"

@@ -45,11 +45,11 @@ LEAF_EDGE = "#73808C"
 
 def _node_from_record(record: dict[str, object]) -> ScalableHierarchyNode:
     return ScalableHierarchyNode(
-        indices=tuple(int(index) for index in record["indices"]),
-        xi_bits=float(record["xi_bits"]),
-        syn_bits=float(record["syn_bits_raw"]),
+        sources=tuple(int(index) for index in record["indices"]),
+        xi_value=float(record["xi_bits"]),
+        syn_value=float(record["syn_bits_raw"]),
         depth=int(record["depth"]),
-        search_kind=str(record["search_kind"]),
+        split_kind=str(record["search_kind"]),
         children=tuple(_node_from_record(dict(child)) for child in record["children"]),
     )
 
@@ -325,9 +325,14 @@ def run_comparison(
     figure_root: Path,
     *,
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
-    exact_max_size: int = 10,
+    exact_max_size: int = 14,
     covariance_ridge: float = 1.0e-6,
     split_objective: str = RAW_RESIDUAL,
+    candidate_strategy: str = "stratified_random_local",
+    initial_candidate_budget: int = 8_000,
+    total_candidate_budget: int = 10_000,
+    local_search_top_k: int = 8,
+    search_seed: int = 0,
     figure_suffix: str = "",
     dpi: int = 600,
 ) -> dict[str, object]:
@@ -345,6 +350,11 @@ def run_comparison(
             exact_max_size=int(exact_max_size),
             covariance_ridge=float(covariance_ridge),
             split_objective=split_objective,
+            candidate_strategy=candidate_strategy,
+            initial_candidate_budget=int(initial_candidate_budget),
+            total_candidate_budget=int(total_candidate_budget),
+            local_search_top_k=int(local_search_top_k),
+            search_seed=int(search_seed),
             dpi=int(dpi),
         )
         payloads.append(payload)
@@ -387,6 +397,11 @@ def run_comparison(
         "fixed_estimator": "affine degree-1 TM / linear-Gaussian log-det equivalent",
         "fixed_covariance_ridge": float(covariance_ridge),
         "fixed_exact_search_max_coalition_size": int(exact_max_size),
+        "candidate_strategy": str(candidate_strategy),
+        "initial_candidate_budget_per_large_node": int(initial_candidate_budget),
+        "total_candidate_budget_per_large_node": int(total_candidate_budget),
+        "local_search_top_k": int(local_search_top_k),
+        "search_seed": int(search_seed),
         "split_objective": str(split_objective),
         "split_objective_denominator": (
             "(2^|A| - 1)(2^|B| - 1)"
@@ -414,7 +429,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--figure-root", type=Path, default=DEFAULT_FIGURE_ROOT)
     parser.add_argument("--horizons", default="1,10,60")
-    parser.add_argument("--exact-max-size", type=int, default=10)
+    parser.add_argument("--exact-max-size", type=int, default=14)
     parser.add_argument("--covariance-ridge", type=float, default=1.0e-6)
     parser.add_argument(
         "--split-objective",
@@ -422,6 +437,15 @@ def parse_args() -> argparse.Namespace:
         default=RAW_RESIDUAL,
     )
     parser.add_argument("--figure-suffix", default="")
+    parser.add_argument(
+        "--candidate-strategy",
+        choices=("spectral", "stratified_random_local"),
+        default="stratified_random_local",
+    )
+    parser.add_argument("--initial-candidate-budget", type=int, default=8_000)
+    parser.add_argument("--total-candidate-budget", type=int, default=10_000)
+    parser.add_argument("--local-search-top-k", type=int, default=8)
+    parser.add_argument("--search-seed", type=int, default=0)
     parser.add_argument("--dpi", type=int, default=600)
     return parser.parse_args()
 
@@ -438,6 +462,11 @@ def main() -> None:
         exact_max_size=args.exact_max_size,
         covariance_ridge=args.covariance_ridge,
         split_objective=args.split_objective,
+        candidate_strategy=args.candidate_strategy,
+        initial_candidate_budget=args.initial_candidate_budget,
+        total_candidate_budget=args.total_candidate_budget,
+        local_search_top_k=args.local_search_top_k,
+        search_seed=args.search_seed,
         figure_suffix=str(args.figure_suffix),
         dpi=args.dpi,
     )

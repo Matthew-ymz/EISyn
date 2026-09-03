@@ -11,6 +11,7 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -27,6 +28,7 @@ from scripts.validate_greedy_hierarchy_kuramoto import NAMES, coupling_matrix
 
 
 DEFAULT_OUTPUT_ROOT = ROOT / "docs/reports/assets/kuramoto_hierarchy"
+DEFAULT_COMBINED_FIGURE = DEFAULT_OUTPUT_ROOT / "kuramoto_all_kout_complete_spt.png"
 POSITIONS = {
     "theta1": (-1.10, 0.72),
     "theta2": (-1.25, -0.62),
@@ -155,6 +157,54 @@ def render_report_assets(
     return assets
 
 
+def _crop_white_margin(image: np.ndarray, *, pad: int = 24) -> np.ndarray:
+    rgb = np.asarray(image)[..., :3]
+    occupied = np.any(rgb < 0.985, axis=2)
+    if not np.any(occupied):
+        return image
+    rows, columns = np.where(occupied)
+    top = max(0, int(rows.min()) - int(pad))
+    bottom = min(image.shape[0], int(rows.max()) + int(pad) + 1)
+    left = max(0, int(columns.min()) - int(pad))
+    right = min(image.shape[1], int(columns.max()) + int(pad) + 1)
+    return image[top:bottom, left:right]
+
+
+def render_combined_figure(
+    assets: dict[float, dict[str, Path]],
+    output_path: Path = DEFAULT_COMBINED_FIGURE,
+    *,
+    dpi: int = 300,
+) -> Path:
+    """Combine all four network/tree pairs into one vertically aligned figure."""
+    _configure_style()
+    figure, axes = plt.subplots(4, 2, figsize=(12.0, 17.0), constrained_layout=True)
+    figure.patch.set_facecolor("white")
+    for row_index, cross_coupling in enumerate(DEFAULT_CROSS_COUPLINGS):
+        pair = assets[float(cross_coupling)]
+        for column_index, key in enumerate(("network", "tree")):
+            axis = axes[row_index, column_index]
+            axis.imshow(_crop_white_margin(plt.imread(pair[key])))
+            axis.axis("off")
+        axes[row_index, 0].text(
+            -0.04,
+            0.5,
+            rf"$K_{{\mathrm{{out}}}}={cross_coupling:g}$",
+            transform=axes[row_index, 0].transAxes,
+            ha="right",
+            va="center",
+            rotation=90,
+            fontsize=13,
+            color="#24313C",
+        )
+    axes[0, 0].set_title("Coupling network", fontsize=14, pad=12, color="#24313C")
+    axes[0, 1].set_title("Complete SPT hierarchy", fontsize=14, pad=12, color="#24313C")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(output_path, dpi=int(dpi), bbox_inches="tight", facecolor="white")
+    plt.close(figure)
+    return output_path
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
@@ -165,7 +215,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    render_report_assets(args.summary, args.output_root, seed=args.seed)
+    assets = render_report_assets(args.summary, args.output_root, seed=args.seed)
+    render_combined_figure(assets, args.output_root / DEFAULT_COMBINED_FIGURE.name)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,11 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.spt import SPTConfig, build_spt_from_ei_table, flatten_atoms
+
 DEFAULT_RESULT_DIR = ROOT / "results" / "phi_eid_mlp_surrogate"
 DEFAULT_FIGURE_DIR = ROOT / "docs" / "ref" / "assets" / "phi_eid_mlp_surrogate"
 SOURCE_COUNT = 8
@@ -192,26 +197,6 @@ def intervention_ei(
     return float(np.mean(np.sum(cond * np.log2(ratio), axis=1)))
 
 
-def nontrivial_bipartitions(nodes: tuple[int, ...]) -> list[tuple[tuple[int, ...], tuple[int, ...]]]:
-    ordered = tuple(sorted(nodes))
-    if len(ordered) <= 1:
-        return []
-    first = ordered[0]
-    rest = ordered[1:]
-    full = set(ordered)
-    splits = []
-    for mask in range(1 << len(rest)):
-        left = {first}
-        for idx, node in enumerate(rest):
-            if mask & (1 << idx):
-                left.add(node)
-        if len(left) == len(ordered):
-            continue
-        right = full - left
-        splits.append((tuple(sorted(left)), tuple(sorted(right))))
-    return splits
-
-
 def compute_ei_table(*, mode: str, model: object | None = None) -> dict[tuple[int, ...], float]:
     table: dict[tuple[int, ...], float] = {(): 0.0}
     nodes = tuple(range(1, SOURCE_COUNT + 1))
@@ -227,24 +212,17 @@ def greedy_phi_atoms(
     *,
     eps: float = 1e-6,
 ) -> list[PhiAtom]:
-    nodes = tuple(sorted(nodes))
-    if len(nodes) <= 1 or ei[nodes] <= eps:
-        return [PhiAtom(nodes, max(0.0, ei[nodes]))] if ei[nodes] > eps else []
-    best: tuple[float, tuple[int, ...], tuple[int, ...]] | None = None
-    for left, right in nontrivial_bipartitions(nodes):
-        captured = ei[left] + ei[right]
-        if best is None or captured > best[0]:
-            best = (captured, left, right)
-    if best is None:
-        return [PhiAtom(nodes, max(0.0, ei[nodes]))]
-    captured, left, right = best
-    residual = max(0.0, ei[nodes] - captured)
-    atoms: list[PhiAtom] = []
-    if residual > eps:
-        atoms.append(PhiAtom(nodes, residual))
-    atoms.extend(greedy_phi_atoms(left, ei, eps=eps))
-    atoms.extend(greedy_phi_atoms(right, ei, eps=eps))
-    return atoms
+    ordered = tuple(sorted(nodes))
+    result = build_spt_from_ei_table(
+        ordered,
+        ei,
+        config=SPTConfig(eps=float(eps), syn_tolerance=1.0e-6),
+    )
+    return [
+        PhiAtom(tuple(int(source) for source in atom.sources), float(atom.value))
+        for atom in flatten_atoms(result.root)
+        if abs(float(atom.value)) > float(eps)
+    ]
 
 
 def atom_map(atoms: list[PhiAtom]) -> dict[tuple[int, ...], float]:

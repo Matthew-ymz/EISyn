@@ -35,6 +35,7 @@ from scripts.analyze_hcp_schaefer500_task_specific_regions import (
     load_task_pair,
     parse_schaefer_labels,
 )
+from scripts.spt import SPTConfig, build_spt_from_ei_table, flatten_nodes
 from yrd.transport_map import gaussian_logdet_bias_correction
 
 
@@ -44,6 +45,7 @@ STATE_LABELS = ("REST", "Emotion", "Gambling", "Language", "Motor", "Relational"
 HEMISPHERES = ("LH", "RH")
 LEAF_NAMES = tuple(f"{network}-{hemisphere[0]}" for network in NETWORK_ORDER for hemisphere in HEMISPHERES)
 CONFIG_VERSION = "yeo7xhemi_qridge2_uniformsqrt3_tm_affine_tree_v2"
+SYN_NONNEGATIVE_TOLERANCE_BITS = 0.10
 
 
 def make_config_id(*, alpha: float, intervention_samples: int, seed: int) -> str:
@@ -241,22 +243,59 @@ def tm_ei_table(
         )
         raw = float(gaussian_mi - correction)
         ei_raw[name] = raw
-        ei[name] = max(0.0, raw)
+        ei[name] = raw
         bias[name] = float(correction)
 
-    atoms: dict[str, float] = {}
-    for name, node in nodes.items():
-        if node.children is not None:
-            left, right = node.children
-            atoms[name] = float(ei[name] - ei[left] - ei[right])
-    phi = float(ei[root] - sum(ei[leaf] for leaf in LEAF_NAMES))
-    atom_sum_error = float(sum(atoms.values()) - phi)
+    def canonical(leaves: Sequence[str]) -> tuple[str, ...]:
+        selected = set(leaves)
+        return tuple(leaf for leaf in LEAF_NAMES if leaf in selected)
+
+    coalition_to_name = {canonical(node.leaves): name for name, node in nodes.items()}
+    ei_table = {canonical(nodes[name].leaves): float(value) for name, value in ei.items()}
+
+    def fixed_selector(coalition: tuple[str, ...]):
+        name = coalition_to_name[tuple(coalition)]
+        children = nodes[name].children
+        if children is None:
+            return "leaf", []
+        left, right = children
+        return "fixed-prior", [(canonical(nodes[left].leaves), canonical(nodes[right].leaves))]
+
+    result = build_spt_from_ei_table(
+        LEAF_NAMES,
+        ei_table,
+        singleton_ei={leaf: float(ei[leaf]) for leaf in LEAF_NAMES},
+        config=SPTConfig(
+            syn_tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
+            complete_to_singletons=True,
+        ),
+        candidate_selector=fixed_selector,
+    )
+    atoms = {
+        coalition_to_name[tuple(node.sources)]: float(node.syn_value)
+        for node in flatten_nodes(result.root)
+        if node.children
+    }
+    phi = float(result.root.xi_value)
+    atom_sum_error = float(result.closure_error)
     contribution = {leaf: 0.0 for leaf in LEAF_NAMES}
     for name, atom in atoms.items():
         share = atom / len(nodes[name].leaves)
         for leaf in nodes[name].leaves:
             contribution[leaf] += share
     contribution_error = float(sum(contribution.values()) - phi)
+
+    def serialize(node) -> dict[str, Any]:
+        return {
+            "name": coalition_to_name[tuple(node.sources)],
+            "sources": list(node.sources),
+            "xi_bits": float(node.xi_value),
+            "syn_bits": float(node.syn_value),
+            "depth": int(node.depth),
+            "split_kind": str(node.split_kind),
+            "children": [serialize(child) for child in node.children],
+        }
+
     return {
         "whole_ei": float(ei[root]),
         "leaf_ei_sum": float(sum(ei[leaf] for leaf in LEAF_NAMES)),
@@ -265,6 +304,13 @@ def tm_ei_table(
         "ei_raw": ei_raw,
         "bias_correction": bias,
         "atoms": atoms,
+        "tree": serialize(result.root),
+        "spt_contract": {
+            "core": "scripts.spt.build_spt",
+            "route": "fixed-prior candidate selector",
+            "syn_nonnegative_tolerance_bits": SYN_NONNEGATIVE_TOLERANCE_BITS,
+            "tolerance_zero_count": int(result.audit.tolerance_zero_count),
+        },
         "contribution": contribution,
         "atom_sum_error": atom_sum_error,
         "contribution_sum_error": contribution_error,

@@ -16,7 +16,8 @@ from scripts.phi_hierarchy import greedy_phi_tree
 from scripts.synergy_hierarchy_tree_plot import _max_abs_syn, plot_synergy_hierarchy_tree
 
 
-DEFAULT_SUMMARY = ROOT / "results/greedy_hierarchy_kuramoto/summary.json"
+RAW_SUMMARY = ROOT / "results/greedy_hierarchy_kuramoto/summary.json"
+DEFAULT_SUMMARY = ROOT / "results/greedy_hierarchy_kuramoto/jackknife_summary.json"
 DEFAULT_OUTPUT_DIR = ROOT / "results/greedy_hierarchy_kuramoto/xi_hierarchy_trees"
 DEFAULT_CROSS_COUPLINGS = (0.0, 0.25, 0.75, 1.5)
 
@@ -24,7 +25,7 @@ DEFAULT_CROSS_COUPLINGS = (0.0, 0.25, 0.75, 1.5)
 def _ei_table(row: dict[str, object]) -> dict[tuple[str, ...], float]:
     return {
         tuple(str(key).split("+")): float(value)
-        for key, value in dict(row["ei_bits"]).items()
+        for key, value in dict(row.get("jackknife_ei_bits", row["ei_bits"])).items()
     }
 
 
@@ -46,7 +47,13 @@ def _condition_rows(summary: dict[str, object], *, seed: int) -> list[dict[str, 
 def _tree(row: dict[str, object]):
     table = _ei_table(row)
     sources = max(table, key=len)
-    return greedy_phi_tree(sources, table, eps=1.0e-5, split_tolerance=0.10)
+    return greedy_phi_tree(
+        sources,
+        table,
+        eps=1.0e-5,
+        split_tolerance=0.10,
+        complete_to_singletons=True,
+    )
 
 
 def render_condition(
@@ -63,6 +70,7 @@ def render_condition(
         hierarchy,
         output_path,
         source_labels=labels,
+        decimals=3,
         syn_scale_max=syn_scale_max,
         dpi=dpi,
     )

@@ -1,6 +1,6 @@
 # 五维系统上的 Phi EID 层级贪婪分解示例
 
-> 本例用于闭式推导与代码 sanity check。更接近经典连续动力学机制的主正对照见 [模块化 Kuramoto 已知动力学中的 Greedy 层级恢复](kuramoto_greedy_hierarchy_known_dynamics.md)。
+> 本例用于闭式推导与代码 sanity check。当前保留的连续动力学 SPT 主结果见 [Part1 报告中的六振子混合阶扫描](../reports/Part1.md)。
 
 本文给出一个可以手算的五维布尔动力学例子，用来展示如何把系统级
 $\Phi^{\mathrm{EID}}$ 按层级可加性分解成协同或高阶关系的分布。例子刻意选择两个互不耦合的机制：一个三源 XOR 机制和一个二源 XOR 机制。这样可以看清算法如何把总协同预算分到不同阶数和不同源模块上。

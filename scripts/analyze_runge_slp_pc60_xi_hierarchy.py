@@ -7,7 +7,6 @@ import argparse
 import json
 import math
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -15,8 +14,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import to_hex, to_rgb
-from scipy.cluster.hierarchy import leaves_list, linkage
-from scipy.spatial.distance import squareform
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,10 +25,19 @@ from scripts.analyze_runge_slp_pc05_shapley import (
     fit_affine_intervention_model,
     standardize,
 )
-from scripts.phi_hierarchy import (
+from scripts.spt import (
     ALL_ORDER_CROSS_DENSITY,
     RAW_RESIDUAL,
-    split_objective_value,
+    SPTAudit,
+    SPTConfig,
+    SPTNode,
+    audit_syn_value,
+    build_spt,
+    flatten_nodes,
+    nontrivial_bipartitions,
+    pairwise_syn_affinity,
+    spectral_candidate_selector,
+    stratified_random_candidate_selector,
 )
 
 
@@ -54,18 +60,7 @@ EDGE_COLOR = "#B2BAC3"
 INK = "#24313C"
 
 
-@dataclass(frozen=True)
-class ScalableHierarchyNode:
-    indices: tuple[int, ...]
-    xi_bits: float
-    syn_bits: float
-    depth: int
-    search_kind: str
-    children: tuple["ScalableHierarchyNode", ...] = ()
-
-    @property
-    def size(self) -> int:
-        return len(self.indices)
+ScalableHierarchyNode = SPTNode
 
 
 class AffineXiOracle:
@@ -102,36 +97,7 @@ class AffineXiOracle:
 
 def _audit_nonnegative(value: float, *, context: str, tolerance: float) -> bool:
     """Return whether a tiny negative was absorbed; fail on a real violation."""
-    if value < -float(tolerance):
-        raise RuntimeError(
-            f"Syn nonnegativity violation in {context}: value={value:.12g} bits, "
-            f"tolerance={tolerance:.12g} bits, affected_count=1."
-        )
-    return value < 0.0
-
-
-def pairwise_syn_affinity(
-    oracle: AffineXiOracle,
-    node_count: int,
-    *,
-    tolerance: float,
-) -> tuple[np.ndarray, int]:
-    affinity = np.zeros((node_count, node_count), dtype=np.float64)
-    tolerance_zero_count = 0
-    for left in range(node_count):
-        for right in range(left + 1, node_count):
-            value = oracle.xi((left, right))
-            if _audit_nonnegative(
-                value,
-                context=f"pair ({left}, {right})",
-                tolerance=tolerance,
-            ):
-                tolerance_zero_count += 1
-                display_value = 0.0
-            else:
-                display_value = value
-            affinity[left, right] = affinity[right, left] = display_value
-    return affinity, tolerance_zero_count
+    return audit_syn_value(value, context=context, tolerance=tolerance)
 
 
 def _canonical_split(
@@ -144,141 +110,73 @@ def _canonical_split(
 
 
 def _exact_candidates(indices: tuple[int, ...]) -> set[tuple[tuple[int, ...], tuple[int, ...]]]:
-    first, rest = indices[0], indices[1:]
-    candidates: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
-    full = set(indices)
-    for mask in range(1 << len(rest)):
-        left = {first}
-        left.update(rest[position] for position in range(len(rest)) if mask & (1 << position))
-        if len(left) == len(indices):
-            continue
-        candidates.add(_canonical_split(left, full - left))
-    return candidates
-
-
-def _spectral_orders(indices: tuple[int, ...], affinity: np.ndarray) -> list[tuple[int, ...]]:
-    local = affinity[np.ix_(indices, indices)]
-    orders: list[tuple[int, ...]] = []
-    if len(indices) >= 3 and float(local.max()) > 0.0:
-        degree = local.sum(axis=1)
-        inverse_root = np.zeros_like(degree)
-        positive = degree > 0.0
-        inverse_root[positive] = 1.0 / np.sqrt(degree[positive])
-        laplacian = np.eye(len(indices)) - inverse_root[:, None] * local * inverse_root[None, :]
-        _, vectors = np.linalg.eigh(laplacian)
-        for column in range(1, min(5, vectors.shape[1])):
-            order = tuple(indices[position] for position in np.argsort(vectors[:, column], kind="stable"))
-            orders.append(order)
-
-        maximum = float(local.max())
-        distances = 1.0 - local / maximum
-        np.fill_diagonal(distances, 0.0)
-        condensed = squareform(distances, checks=False)
-        hierarchy = linkage(condensed, method="average", optimal_ordering=True)
-        orders.append(tuple(indices[position] for position in leaves_list(hierarchy)))
-    orders.append(indices)
-    return orders
+    return set(nontrivial_bipartitions(indices))
 
 
 def _scalable_candidates(
     indices: tuple[int, ...],
     affinity: np.ndarray,
 ) -> set[tuple[tuple[int, ...], tuple[int, ...]]]:
-    candidates: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
-    full = set(indices)
-    for order in _spectral_orders(indices, affinity):
-        for cut in range(1, len(order)):
-            candidates.add(_canonical_split(order[:cut], order[cut:]))
-    for index in indices:
-        candidates.add(_canonical_split((index,), full - {index}))
-    return candidates
+    _, candidates = spectral_candidate_selector(affinity, exact_max_size=0)(indices)
+    return set(candidates)
 
 
 def build_scalable_hierarchy(
     indices: tuple[int, ...],
     oracle: AffineXiOracle,
-    affinity: np.ndarray,
+    affinity: np.ndarray | None,
     *,
     exact_max_size: int,
     tolerance: float,
     split_objective: str = RAW_RESIDUAL,
+    candidate_strategy: str = "spectral",
+    initial_candidate_budget: int = 8_000,
+    total_candidate_budget: int = 10_000,
+    local_search_top_k: int = 8,
+    search_seed: int = 0,
     depth: int = 0,
     audit: dict[str, int] | None = None,
 ) -> ScalableHierarchyNode:
-    audit = {"candidate_count": 0, "tolerance_zero_count": 0} if audit is None else audit
-    block_xi = oracle.xi(indices)
-    if len(indices) == 1:
-        return ScalableHierarchyNode(indices, block_xi, 0.0, depth, "leaf")
-
-    if len(indices) <= int(exact_max_size):
-        candidates = _exact_candidates(indices)
-        search_kind = "exact"
-    else:
-        candidates = _scalable_candidates(indices, affinity)
-        search_kind = "spectral-candidate"
-    audit["candidate_count"] += len(candidates)
-
-    if split_objective not in (RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY):
-        raise ValueError(f"Unsupported split objective: {split_objective!r}")
-    best: tuple[float, float, float, tuple[int, ...], tuple[int, ...]] | None = None
-    for left, right in sorted(candidates):
-        captured = oracle.xi(left) + oracle.xi(right)
-        residual = float(block_xi - captured)
-        if _audit_nonnegative(
-            residual,
-            context=f"split {left} | {right}",
-            tolerance=tolerance,
-        ):
-            audit["tolerance_zero_count"] += 1
-        objective_value = split_objective_value(
-            residual, len(left), len(right), objective=split_objective
+    if candidate_strategy == "spectral":
+        if affinity is None:
+            raise ValueError("Spectral candidate search requires an affinity matrix.")
+        selector = spectral_candidate_selector(affinity, exact_max_size=int(exact_max_size))
+        candidate_budget = None
+        local_starts = 0
+    elif candidate_strategy == "stratified_random_local":
+        if int(initial_candidate_budget) > int(total_candidate_budget):
+            raise ValueError("The initial candidate budget cannot exceed the total budget.")
+        selector = stratified_random_candidate_selector(
+            initial_budget=int(initial_candidate_budget),
+            exact_max_size=int(exact_max_size),
+            seed=int(search_seed),
         )
-        candidate = (objective_value, captured, residual, left, right)
-        if best is None:
-            best = candidate
-        elif split_objective == ALL_ORDER_CROSS_DENSITY:
-            if (candidate[0], candidate[2], candidate[3], candidate[4]) < (
-                best[0], best[2], best[3], best[4]
-            ):
-                best = candidate
-        elif candidate[1] > best[1] or (
-            np.isclose(candidate[1], best[1]) and candidate[2] < best[2]
-        ):
-            best = candidate
-    if best is None:
-        raise RuntimeError(f"No candidate split was generated for coalition {indices}.")
-
-    _, _, residual, left, right = best
-    children = (
-        build_scalable_hierarchy(
-            left,
-            oracle,
-            affinity,
-            exact_max_size=exact_max_size,
-            tolerance=tolerance,
+        candidate_budget = int(total_candidate_budget)
+        local_starts = int(local_search_top_k)
+    else:
+        raise ValueError(f"Unsupported candidate strategy: {candidate_strategy!r}")
+    shared = SPTAudit()
+    result = build_spt(
+        indices,
+        oracle,
+        config=SPTConfig(
             split_objective=split_objective,
-            depth=depth + 1,
-            audit=audit,
+            syn_tolerance=float(tolerance),
+            complete_to_singletons=True,
+            candidate_budget=candidate_budget,
+            local_search_top_k=local_starts,
         ),
-        build_scalable_hierarchy(
-            right,
-            oracle,
-            affinity,
-            exact_max_size=exact_max_size,
-            tolerance=tolerance,
-            split_objective=split_objective,
-            depth=depth + 1,
-            audit=audit,
-        ),
+        candidate_selector=selector,
+        depth=int(depth),
+        audit=shared,
     )
-    return ScalableHierarchyNode(indices, block_xi, residual, depth, search_kind, children)
-
-
-def flatten_nodes(root: ScalableHierarchyNode) -> list[ScalableHierarchyNode]:
-    nodes = [root]
-    for child in root.children:
-        nodes.extend(flatten_nodes(child))
-    return nodes
+    if audit is not None:
+        audit["candidate_count"] = int(audit.get("candidate_count", 0)) + shared.candidate_count
+        audit["initial_candidate_count"] = int(audit.get("initial_candidate_count", 0)) + shared.initial_candidate_count
+        audit["local_candidate_count"] = int(audit.get("local_candidate_count", 0)) + shared.local_candidate_count
+        audit["local_improvement_count"] = int(audit.get("local_improvement_count", 0)) + shared.local_improvement_count
+        audit["tolerance_zero_count"] = int(audit.get("tolerance_zero_count", 0)) + shared.tolerance_zero_count
+    return result.root
 
 
 def _blend_with_white(color: str, strength: float) -> str:
@@ -707,7 +605,12 @@ def run_analysis(
     exact_max_size: int,
     covariance_ridge: float,
     split_objective: str,
-    dpi: int,
+    candidate_strategy: str = "stratified_random_local",
+    initial_candidate_budget: int = 8_000,
+    total_candidate_budget: int = 10_000,
+    local_search_top_k: int = 8,
+    search_seed: int = 0,
+    dpi: int = 600,
 ) -> dict[str, object]:
     source = np.load(source_path)
     rollout = np.load(rollout_path, mmap_mode="r")
@@ -723,11 +626,13 @@ def run_analysis(
         float(covariance_ridge),
     )
     oracle = AffineXiOracle(coefficients, residual_covariance)
-    affinity, pair_tolerance_zero_count = pairwise_syn_affinity(
-        oracle,
-        60,
-        tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
-    )
+    if candidate_strategy == "spectral":
+        affinity, pair_tolerance_zero_count = pairwise_syn_affinity(
+            oracle, 60, tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
+        )
+    else:
+        affinity = None
+        pair_tolerance_zero_count = 0
     audit = {"candidate_count": 0, "tolerance_zero_count": 0}
     tree = build_scalable_hierarchy(
         tuple(range(60)),
@@ -736,6 +641,11 @@ def run_analysis(
         exact_max_size=int(exact_max_size),
         tolerance=SYN_NONNEGATIVE_TOLERANCE_BITS,
         split_objective=split_objective,
+        candidate_strategy=candidate_strategy,
+        initial_candidate_budget=int(initial_candidate_budget),
+        total_candidate_budget=int(total_candidate_budget),
+        local_search_top_k=int(local_search_top_k),
+        search_seed=int(search_seed),
         audit=audit,
     )
     internal = [node for node in flatten_nodes(tree) if node.children]
@@ -755,6 +665,12 @@ def run_analysis(
     payload: dict[str, object] = {
         "experiment": "Runge SLP 60-PC scalable Xi hierarchy",
         "status": "approximate candidate-search hierarchy; not exhaustive over 2^59 root bipartitions",
+        "candidate_strategy": str(candidate_strategy),
+        "singleton_split_supplement": False,
+        "initial_candidate_budget_per_large_node": int(initial_candidate_budget),
+        "total_candidate_budget_per_large_node": int(total_candidate_budget),
+        "local_search_top_k": int(local_search_top_k),
+        "search_seed": int(search_seed),
         "horizon": int(horizon),
         "source_shape": list(source.shape),
         "target_shape": [int(rollout.shape[0]), int(rollout.shape[2])],
@@ -765,6 +681,9 @@ def run_analysis(
         "split_tolerance_zero_count": int(audit["tolerance_zero_count"]),
         "significant_nonnegativity_violation_count": 0,
         "candidate_split_count": int(audit["candidate_count"]),
+        "initial_candidate_split_count": int(audit.get("initial_candidate_count", 0)),
+        "local_candidate_split_count": int(audit.get("local_candidate_count", 0)),
+        "local_improvement_count": int(audit.get("local_improvement_count", 0)),
         "coalition_evaluation_count": int(oracle.evaluations),
         "exact_search_max_coalition_size": int(exact_max_size),
         "split_objective": str(split_objective),
@@ -794,13 +713,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--figure", type=Path, default=DEFAULT_FIGURE)
     parser.add_argument("--horizon", type=int, default=1)
-    parser.add_argument("--exact-max-size", type=int, default=10)
+    parser.add_argument("--exact-max-size", type=int, default=14)
     parser.add_argument("--covariance-ridge", type=float, default=1.0e-6)
     parser.add_argument(
         "--split-objective",
         choices=(RAW_RESIDUAL, ALL_ORDER_CROSS_DENSITY),
         default=RAW_RESIDUAL,
     )
+    parser.add_argument(
+        "--candidate-strategy",
+        choices=("spectral", "stratified_random_local"),
+        default="stratified_random_local",
+    )
+    parser.add_argument("--initial-candidate-budget", type=int, default=8_000)
+    parser.add_argument("--total-candidate-budget", type=int, default=10_000)
+    parser.add_argument("--local-search-top-k", type=int, default=8)
+    parser.add_argument("--search-seed", type=int, default=0)
     parser.add_argument("--dpi", type=int, default=600)
     return parser.parse_args()
 
@@ -816,6 +744,11 @@ def main() -> None:
         exact_max_size=args.exact_max_size,
         covariance_ridge=args.covariance_ridge,
         split_objective=args.split_objective,
+        candidate_strategy=args.candidate_strategy,
+        initial_candidate_budget=args.initial_candidate_budget,
+        total_candidate_budget=args.total_candidate_budget,
+        local_search_top_k=args.local_search_top_k,
+        search_seed=args.search_seed,
         dpi=args.dpi,
     )
     print(

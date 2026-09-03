@@ -31,7 +31,7 @@ from scripts.phi_hierarchy import (
     PhiAtom,
     all_nonempty_subsets,
     greedy_phi_atoms,
-    nontrivial_bipartitions,
+    greedy_phi_tree,
     subset_phi_raw,
 )
 from yrd import clip_nonnegative_ei
@@ -133,18 +133,18 @@ def best_root_split(
 ) -> tuple[tuple[str, ...], tuple[str, ...], float, float]:
     """Return the same maximum-captured-Phi root split used by the hierarchy."""
     singleton = {name: float(table[(name,)]) for name in NAMES}
-    root_phi = subset_phi_raw(NAMES, table, singleton)
-    candidates = []
-    for left, right in nontrivial_bipartitions(NAMES):
-        left_phi = subset_phi_raw(left, table, singleton)
-        right_phi = subset_phi_raw(right, table, singleton)
-        residual = root_phi - left_phi - right_phi
-        if residual >= -float(split_tolerance):
-            candidates.append((left_phi + right_phi, -residual, left, right, residual))
-    if not candidates:
-        raise RuntimeError("No root split satisfies the hierarchy residual tolerance.")
-    captured, _, left, right, residual = max(candidates)
-    return left, right, float(residual), float(captured)
+    tree = greedy_phi_tree(
+        NAMES,
+        table,
+        split_tolerance=float(split_tolerance),
+        singleton_ei=singleton,
+        complete_to_singletons=True,
+    )
+    if len(tree.children) != 2:
+        raise RuntimeError("Canonical SPT did not return a binary root split.")
+    left, right = tree.children
+    captured = float(left.phi_value + right.phi_value)
+    return left.sources, right.sources, float(tree.residual), captured
 
 
 def is_planted_split(left: Sequence[str], right: Sequence[str]) -> bool:

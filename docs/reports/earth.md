@@ -11,6 +11,7 @@
   - [2.5 北极相关超边的尺度变化与角色翻转](#25-北极相关超边的尺度变化与角色翻转)
   - [2.6 前五主成分的精确 Shapley 协同归因](#26-前五主成分的精确-shapley-协同归因)
   - [2.7 60-PC Synergy Partition Tree（SPT）](#earth-spt)
+  - [2.8 全阶组合数归一化的切分敏感性](#28-全阶组合数归一化的切分敏感性)
 - [3. UniCM 实验：冻结 Transformer 中的层级有效信息](#3-unicm-实验冻结-transformer-中的层级有效信息)
   - [3.1 可解释性分析口径](#31-可解释性分析口径)
   - [3.2 中期增强的系统级整合有效信息](#32-中期增强的系统级整合有效信息)
@@ -132,7 +133,27 @@ $$
 
 ### 2.7 60-PC Synergy Partition Tree（SPT）：跨尺度保持的核心—外围骨架
 
-本文将这种递归协同二分算法称为 **Synergy Partition Tree（SPT）**。下面三棵 SPT 把同一 60-PC 系统在 $H=1,10,60$ 的完整贪婪二分过程直接展开。每个内部节点是仍被联合读取的 PC 联盟，节点颜色和标签表示该层的局部 Syn；末端是单个 PC。三个 horizon 采用相同变量、干预支持、TM 估计器和候选划分规则，只有预测时距改变，因此可以直接比较树形重组。
+本文将这种递归协同二分算法称为 **Synergy Partition Tree（SPT）**。下面比较同一 60-PC 系统在 $H=1,10,60$ 的完整贪婪二分过程。三个条件使用同一组 4,096 个独立最大熵干预、同一冻结 lag-4 MLP rollout、相同的 60 维 source 与 target、相同的 affine degree-1 transport-map 等价估计，以及相同的候选分裂算法，只有预测时距改变，因此可以直接比较树形重组。
+
+#### 跨尺度全貌与定量比较
+
+![Earth SLP 60-PC vertical point hierarchy comparison](../../fig/earth_slp_pc60_xi_hierarchy_vertical_comparison.png)
+
+*层级树补充图 E1｜SLP 60-PC 在三个预测尺度上的无文字 Synergy Partition Tree（SPT）全貌。图内只保留树结构以及位于树外的 $H$ 和整体整合信息 $\Xi$。灰色小点是单节点叶子；绿色点是具有 Syn 的内部协同节点。三个面板共用同一绝对标尺：Syn 越大，点的面积越大、填色越深、描边越粗。因此，不能把每个面板内最深的点误读为相同强度。*
+
+| Horizon | $\Xi$ (bits) | 根 Syn | 最大局部 Syn | 占优主干分裂 | 多节点侧枝 | 最终核心 |
+|---:|---:|---:|---:|---:|:---|:---|
+| 1 | 11.189 | 0.240 | 0.277 | 58 | `No.16 + No.21` | `No.1 + No.3` |
+| 10 | 7.763 | 0.202 | 0.203 | 58 | `No.24 + No.58` | `No.6 + No.7` |
+| 60 | 1.402 | 0.015 | 0.033 | 59 | 无 | `No.0 + No.1` |
+
+$H=1$ 的内部点整体最深且最大，说明短期协同广泛而较强；底部还能看到一个二节点侧枝。$H=10$ 保持相同的核心—外围骨架，但强度有所下降，最终核心及二节点侧枝的成员发生重组。$H=60$ 几乎成为纯单节点剥离主干，内部点在共享标尺下明显变小、变浅，说明长期绝对协同大幅收缩。
+
+这张无文字全貌图能稳定回答两个问题：协同强度如何随 $H$ 变化，以及树是否出现多节点侧枝。它不能直接显示单节点的具体剥离顺序；若需要讨论 `No.0`、`No.1` 等节点身份，应配合下面的带标签版本，而不应把 60 个标签重新塞回全貌图。
+
+#### 带标签的完整层级
+
+下面三棵树把每个内部节点和 PC 身份完整展开。每个内部节点是仍被联合读取的 PC 联盟，节点颜色和标签表示该层的局部 Syn；末端是单个 PC。
 
 **$H=1$：**
 
@@ -146,11 +167,29 @@ $$
 
 ![Earth SLP 60-PC Xi hierarchy at H=60](../../fig/earth_slp_pc60_xi_hierarchy_H060.png)
 
-*层级树补充图 E1｜SLP 60-PC 在三个预测尺度上的 Synergy Partition Tree（SPT）。$H=1$ 和 $H=10$ 的主干均覆盖 59 个内部划分中的 58 个，主干比例为 `98.3%`；归一化 Colless 不平衡度分别为 `0.9977` 和 `0.9982`。$H=60$ 的 59 次内部划分全部位于同一主干，不平衡度为 `1.0000`。系统 $\Xi$ 从 $H=1$ 的 `11.189` bits 降到 $H=10$ 的 `7.763` bits，并在 $H=60$ 降到 `1.402` bits。*
+*层级树补充图 E1a—c｜SLP 60-PC 在三个预测尺度上的带标签 SPT。$H=1$ 和 $H=10$ 的主干均覆盖 59 个内部划分中的 58 个，主干比例为 `98.3%`；归一化 Colless 不平衡度分别为 `0.9977` 和 `0.9982`。$H=60$ 的 59 次内部划分全部位于同一主干，不平衡度为 `1.0000`。系统 $\Xi$ 从 $H=1$ 的 `11.189` bits 降到 $H=10$ 的 `7.763` bits，并在 $H=60$ 降到 `1.402` bits。*
 
 这些树确实没有呈现“几个规模相近的大分支彼此分开”的平衡模块结构；但这不等于系统没有结构。它们更明确地支持一种**嵌套核心—外围组织**：每一步主要剥离一个外围 PC，剩余大联盟继续作为主干，直到最深层核心。核心成员还随尺度改变：$H=1$ 的最深核心为 `No.1 + No.3`，$H=10$ 为 `No.6 + No.7`，$H=60$ 为 `No.0 + No.1`。所以稳定的是“主干式组织形状”，不是一组跨尺度固定的模块或固定核心。
 
-这一结论仍受表示和搜索口径限制。PC 是全局空间基，不是预定义地理区块；大系统树使用可扩展候选划分而非穷举全部二分。因此，图 E1 可以否定“当前 PC 表示下存在明显平衡分块”的直观读法，却不能证明原始气候场在所有表示下都没有模块。$10^{-8}$ bits 非负容差下，$H=60$ 有一个候选 pair 落在容差内负区间并按数值零处理；最终采用的层级节点全部非负，没有显著违例。
+#### 大规模树的版式依据
+
+高密度树的顶刊图形通常采用“主图给全貌、补充图给身份细节”的分层表达：
+
+- Hug 等在 *Nature Microbiology* 的大规模生命树中使用径向结构、谱系色块和节点圆点，完整标签及支持度放入矩形补充树，而不是全部堆在主图中。[A new view of the tree of life](https://www.nature.com/articles/nmicrobiol201648)
+- 一项 *Nature Biotechnology* 工作在包含 2,500 个簇的系统树上直接用圆半径表示簇大小、用圆颜色表示物种数，说明点的面积与颜色可以承担定量编码。[Discovery and protein language model-guided design of hyperactive transposases](https://www.nature.com/articles/s41587-025-02816-4)
+- `ggtree` 的方法论文把数值属性映射到节点颜色和大小，并提供 clade collapse 与局部 zoom，适合在节点数进一步增大时建立“全貌 + 局部”的两级视图。[ggtree: an R package for visualization and annotation of phylogenetic trees](https://doi.org/10.1111/2041-210X.12628)
+- 经典的大规模基因表达聚类图也把完整聚类结构作为无文字或低文字全貌展示，把可读的基因名留给放大版本。[Cluster analysis and display of genome-wide expression patterns](https://pmc.ncbi.nlm.nih.gov/articles/PMC24541/)
+- `iTOL` 进一步表明，矩形与圆形树都可承载大规模层级及外圈注释；圆形布局更节省叶节点周长，但不利于三个条件使用统一的竖向基线比较。[Interactive Tree Of Life v6](https://academic.oup.com/nar/article/52/W1/W78/7645242)
+
+因此，本例没有照搬常见的圆形系统树，而是保留竖向主干：60 个节点只需要一个面板高度，三个 $H$ 可以严格对齐，且 Syn 的共享视觉标尺最容易比较。节点扩展到数百个以后，推荐继续保留这张无文字全貌图，同时折叠低 Syn 的连续区段，并另给少量重点子树的局部放大；不建议简单缩小数百个文字标签。
+
+#### 计算边界与审计
+
+60 个节点在根部有约 $2^{59}$ 个无序二分，无法执行完整穷举。本实验先用二节点 Syn 构造亲和关系，再从谱排序和层次排序产生候选切分；联盟规模不超过 10 时恢复精确穷举。三个 horizon 分别评估约 12,400 个候选分裂和 17,000—18,800 个联盟。因此，结果是可复现的候选搜索层级，而不是全局穷举最优树。
+
+这一结论仍受表示和搜索口径限制。PC 是全局空间基，不是预定义地理区块；大系统树使用上述可扩展候选划分而非穷举全部二分。因此，图 E1 可以否定“当前 PC 表示下存在明显平衡分块”的直观读法，却不能证明原始气候场在所有表示下都没有模块。
+
+Syn 非负容差固定为 $10^{-8}$ bits。三个条件的层级闭合误差均不超过 $8.89\times10^{-16}$ bits；$H=60$ 的 1,770 个二节点亲和中有 1 个值落在 $[-10^{-8},0)$ 并按数值零处理，其余条件没有容差内归零，所有候选分裂均无容差内负值，三个条件都没有显著非负性违反。当前比较只有一个固定干预批次，尚不能把剥离顺序的小幅变化解释为跨样本稳定的物理机制。
 
 ### 2.8 全阶组合数归一化的切分敏感性
 
@@ -188,19 +227,19 @@ $\Xi$ 衡量冻结模型中无法由单个模态信息相加解释的联合读�
 
 ![UniCM 的系统级整合有效信息及层级分解](../../fig/earth_unicm_hierarchical_ei.png)
 
-*图 4. UniCM 中的联合信息结构及其预测用途。a，系统级联合增量 $\Xi$ 的三 checkpoint 均值及标准差，lead 8 达到 `0.184 ± 0.042` bits。b，lead 8 的 checkpoint 1 代表性十一模态精确 Synergy Partition Tree（SPT）；树完整展开到单模态叶节点。淡绿色包围区、加粗分支和括号突出 ENSO–IOD 五模态核心，其子树累计协同量为 `0.173` bits，占该 checkpoint 全树 $\Xi$ 的 `82.7%`；另外两个 checkpoint 的完整树见第 3.6.1 节。c，各预测 target 的 $\Xi_j$；IOD 在 lead 7—10 最突出，但这些 target 项不能相加为系统总量。d，源模态的平均 Shapley 百分比；c、d 中白点标出每个 lead 的均值首位，不表示跨 checkpoint 排名一致。e，冻结预测及三种输出校准的 ORAS5 测试 nRMSE。f，在每个 target—lead 内打乱 Syn 权重与源模态的对应关系；200 个重新调参的随机对照均未达到真实 Syn，`P=0.005`。*
+*图 4. UniCM 中的联合信息结构及其预测用途。a，checkpoint 2 在 lead 1、8、24 的十一模态精确 Synergy Partition Tree（SPT）；三棵树完整展开到单模态叶节点并共享节点 Syn 色标，节点数值不加正负号，因为全部节点均通过既定非负容差检查。淡绿色包围区、加粗分支和括号突出 ENSO–IOD 五模态核心。b，各预测 target 的 $\Xi_j$；IOD 在 lead 7—10 最突出，但这些 target 项不能相加为系统总量。c，源模态的平均 Shapley 百分比；b、c 中白点标出每个 lead 的均值首位，不表示跨 checkpoint 排名一致。d，冻结预测及三种输出校准的 ORAS5 测试 nRMSE。e，在每个 target—lead 内打乱 Syn 权重与源模态的对应关系；200 个重新调参的随机对照均未达到真实 Syn，`P=0.005`。*
 
 ### 3.2 中期增强的系统级整合有效信息
 
-整体 EI 和单模态 EI 之和都随预测期增长而下降，但两者的差值并不单调。图 4a 中，$\Xi$ 在 lead 1—5 约为 `0.05—0.07` bits，随后在 lead 7—10 明显增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 仍维持约 `0.09—0.15` bits。换言之，模型在短期可以较多依靠各模态自身记忆，而在中期更依赖多个模态的联合状态。
+整体 EI 和单模态 EI 之和都随预测期增长而下降，但两者的差值并不单调。跨 checkpoint 汇总中，$\Xi$ 在 lead 1—5 约为 `0.05—0.07` bits，随后在 lead 7—10 明显增强，并在 lead 8 达到 `0.183958 ± 0.042136` bits；lead 11—24 仍维持约 `0.09—0.15` bits。换言之，模型在短期可以较多依靠各模态自身记忆，而在中期更依赖多个模态的联合状态。
 
-这一结论不等同于单个 lead 的精细排序已经稳定。ENSO 和 IOD 的整体 EI 曲线在 checkpoint 之间保持相似总体形状，但 lead 排序未通过全部 seed 鲁棒性标准。图 4a 因而支持“中期联合增量增强”这一尺度级结论，不支持把相邻月份的微小差异解释为确定的物理跃迁。
+这一结论不等同于单个 lead 的精细排序已经稳定。ENSO 和 IOD 的整体 EI 曲线在 checkpoint 之间保持相似总体形状，但 lead 排序未通过全部 seed 鲁棒性标准。因此，现有结果支持“中期联合增量增强”这一尺度级结论，不支持把相邻月份的微小差异解释为确定的物理跃迁。
 
 ### 3.3 ENSO 空间型态与 IOD 背景构成主导层级
 
-图 4b 选取 checkpoint 1 作为 lead 8 的代表性 SPT。该树有 11 个单模态叶节点和 10 个内部划分；原来的末端二模态节点继续展开为两个单模态，其 Syn 保留在父节点。树呈逐层剥离的链式结构，并在五模态层形成 `{nino, IOD, nino12, nino3, nino4}` 核心，图中 `nino` 标作 ENSO。另两个 checkpoint 的完整 SPT 放在第 3.6.1 节，用于验证该中层核心的跨 checkpoint 一致性。
+图 4a 固定 checkpoint 2，对比 lead 1、8、24 的 SPT。每棵树都有 11 个单模态叶节点和 10 个内部划分；原来的末端二模态节点继续展开为两个单模态，其 Syn 保留在父节点。三棵树使用相同的输入历史、干预、估计器和联合 target 定义，只有 forecast lead 改变，因此主图现在直接呈现短期—中期—长期的层级重组。图中 `nino` 标作 ENSO。
 
-主图淡绿色包围区中的核心累计协同量为 `0.173` bits，占 checkpoint 1 全树 $\Xi$ 的 `82.7%`。补充图中另外两个 checkpoint 的对应比例为 `81.6%` 和 `77.5%`。因此，链式拓扑仍有清晰的模块信息：约八成协同集中在 ENSO 空间型态与 IOD 背景组成的嵌套核心。这个比例是二至五模态各层局部 Syn 的子树总和，不能解释为单一五阶原子。三个 checkpoint 的最深配对仍有变化，支持的是稳定中层核心，而不是唯一固定的内部排序；详细拓扑和闭合检查见第 3.6.1 节。
+checkpoint 2 的系统 $\Xi$ 从 lead 1 的 `0.061` bits 增至 lead 8 的 `0.207` bits，再回落到 lead 24 的 `0.092` bits。lead 8 的淡绿色包围区累计协同量为 `0.169` bits，占该树 $\Xi$ 的 `81.6%`。因此，主图把中期总量增强与 ENSO 空间型态—IOD 背景嵌套核心的形成放在同一组配对树中；该比例是二至五模态各层局部 Syn 的子树总和，不能解释为单一五阶原子。跨 checkpoint 的核心稳定性与内部排序差异仍见第 3.6.1 节。
 
 这一解释与 ENSO diversity 文献一致：单一 ENSO 指数不足以描述事件的空间型态、生命周期和演变路径 [1-5]。在 UniCM 中，nino3、nino4 和 nino12 更适合解释为 ENSO 内部空间结构的不同读数，而非 ENSO 之外的独立强迫。IOD 的出现则表明，印度洋背景可以参与调制模型对 ENSO 中期演变的读取。这里的“参与”指冻结模型中的信息依赖，不自动等同于已识别的真实动力因果方向。
 
@@ -234,13 +273,13 @@ $$
 -\sum_{m=1}^{11}EI(X_m\rightarrow Y_j).
 $$
 
-全部 `3 checkpoint × 11 target × 24 lead` 的 $\Xi_j$ 均为正，但强度和时间型态高度不均匀（图 4c）。IOD 是唯一在系统中期峰值窗口显著突出的 target：lead 8 达到 `0.1873 ± 0.0673` bits，lead 7—10 平均为 `0.1635 ± 0.0637` bits。同期第二至第四位依次为 SIOD（`0.0488 ± 0.0316` bits）、nino3（`0.0461 ± 0.0227` bits）和 nino12（`0.0377 ± 0.0069` bits）；综合 ENSO 为 `0.0346 ± 0.0040` bits，WWV 仅为 `0.0134 ± 0.0118` bits。与此相对，nino4 和综合 ENSO 的各自峰值出现在 lead 1，nino3 和 nino12 的峰值出现在 lead 3，说明太平洋 ENSO 空间型态的强联合读出偏早，而 lead 7—10 的系统增强主要落到未来 IOD。
+全部 `3 checkpoint × 11 target × 24 lead` 的 $\Xi_j$ 均为正，但强度和时间型态高度不均匀（图 4b）。IOD 是唯一在系统中期峰值窗口显著突出的 target：lead 8 达到 `0.1873 ± 0.0673` bits，lead 7—10 平均为 `0.1635 ± 0.0637` bits。同期第二至第四位依次为 SIOD（`0.0488 ± 0.0316` bits）、nino3（`0.0461 ± 0.0227` bits）和 nino12（`0.0377 ± 0.0069` bits）；综合 ENSO 为 `0.0346 ± 0.0040` bits，WWV 仅为 `0.0134 ± 0.0118` bits。与此相对，nino4 和综合 ENSO 的各自峰值出现在 lead 1，nino3 和 nino12 的峰值出现在 lead 3，说明太平洋 ENSO 空间型态的强联合读出偏早，而 lead 7—10 的系统增强主要落到未来 IOD。
 
 IOD 的特殊性不是“它最容易预测”，而是“它的中期预测最需要联合状态”。lead 8 时，未来 IOD 的整体 EI 为 `0.7168` bits，11 个单模态 EI 之和为 `0.5295` bits，剩余联合增量为 `0.1873` bits；按 checkpoint 分别计算比例后，$\Xi_{\mathrm{IOD}}/EI(\mathbf{X}_{1:11}\rightarrow Y_{\mathrm{IOD}})$ 平均为 `25.7%`。历史 IOD 仍是最大的单源读出，平均贡献 `0.3174` bits，说明模型并没有丢掉 IOD 自身记忆；但仅靠包括 IOD 在内的各单源信息相加，仍不能恢复整体预测。对照最清楚的是 WWV：lead 8 的整体 EI 更高，达到 `1.0212` bits，但其中 `0.9938` bits 已可由 WWV 历史单独读取，$\Xi_{\mathrm{WWV}}$ 只有 `0.0122` bits，约占整体 EI 的 `1.2%`。因此，热图显示的不是一般预测能力，而是每个未来模态对跨模态组合的额外依赖。
 
 这一结构与 IOD 的物理定义和季节性相容。IOD 本身是西、东印度洋海温异常之差，其演变同时涉及印度洋盆地背景、东西向梯度以及与 ENSO—Walker 环流相关的跨海盆状态 [R4, R6, R7]；这些量只有联合读取时才可能形成稳定的未来偶极信号。更重要的是，当前干预缓存固定 `start_month=0`，其月序列与数据加载器一致，从一月开始循环；因而 lead 7—10 对应七月至十月，恰好覆盖 IOD 通常发展并接近成熟的季节。模型的月份嵌入可能在这个窗口把 ENSO 空间型态和印度洋背景组合成更强的 IOD 读出。由此，更准确的假设不是“IOD 单向门控 ENSO”，而是“在 IOD 季节性发展窗口，UniCM 把印太联合状态集中投影到未来 IOD”。
 
-这里仍有两个边界。第一，固定起报月份使预测 lead 与目标季节混合，必须把 `start_month` 循环平移 12 次，才能区分真正的 7—10 个月延迟机制和七月至十月的季节锁相。第二，图 4c 使用全部 11 个历史模态作为源，尚不能证明 IOD 峰值完全由图 5 的五模态核心产生；仍需固定 `ENSO + IOD + nino12 + nino3 + nino4` 并计算 $\Xi_{S\rightarrow j}$。因此，当前结果把 IOD 定位为冻结模型中的主要联合接收端，但不把它等同于已识别的真实双向因果枢纽。
+这里仍有两个边界。第一，固定起报月份使预测 lead 与目标季节混合，必须把 `start_month` 循环平移 12 次，才能区分真正的 7—10 个月延迟机制和七月至十月的季节锁相。第二，图 4b 使用全部 11 个历史模态作为源，尚不能证明 IOD 峰值完全由图 5 的五模态核心产生；仍需固定 `ENSO + IOD + nino12 + nino3 + nino4` 并计算 $\Xi_{S\rightarrow j}$。因此，当前结果把 IOD 定位为冻结模型中的主要联合接收端，但不把它等同于已识别的真实双向因果枢纽。
 
 ### 3.6 十一模态的精确 Shapley 协同归因
 
@@ -284,13 +323,13 @@ UniCM 与 SLP 的共同点不是“没有模块”，而是都缺少平衡、互
 
 ![All-order-normalized Earth UniCM hierarchy](../../fig/earth_unicm_11mode_xi_hierarchy_lead08_allorder_normalized.png)
 
-*层级树补充图 E2b｜全阶组合数归一化选择下的 UniCM lead 8 SPT。节点标签和共享颜色尺度均为原始局部 Syn，采用与图 4b 相同的单模态叶节点和 ENSO–IOD 核心强调方式。checkpoint 1 和 3 的完整拓扑与原始目标一致；checkpoint 2 在九模态层分出 `NPMM + SIOD` 二模态侧枝，Colless 不平衡度由 `1.00` 降至 `0.82`；完整展开后该树有 10 个内部划分，其中主干占 `90%`，侧枝 `NPMM + SIOD` 同样展开到单模态叶节点。三组系统 $\Xi$、五模态印太中层核心和末端主核心均保持不变。*
+*层级树补充图 E2b｜全阶组合数归一化选择下的 UniCM lead 8 SPT。节点标签和共享颜色尺度均为原始局部 Syn，采用与图 4a 相同的单模态叶节点和 ENSO–IOD 核心强调方式。checkpoint 1 和 3 的完整拓扑与原始目标一致；checkpoint 2 在九模态层分出 `NPMM + SIOD` 二模态侧枝，Colless 不平衡度由 `1.00` 降至 `0.82`；完整展开后该树有 10 个内部划分，其中主干占 `90%`，侧枝 `NPMM + SIOD` 同样展开到单模态叶节点。三组系统 $\Xi$、五模态印太中层核心和末端主核心均保持不变。*
 
 这个结果没有显示普遍的大模块重组。三个 checkpoint 中只有一个出现新增二模态侧枝，而且稳定的 `{nino, IOD, nino12, nino3, nino4}` 中层核心以及 `nino + IOD`、`nino + nino3`、`nino12 + nino3` 三个末端核心全部保持。因而，UniCM 的主干式结构不能主要归因于原始残差的组合数量偏差；同时，`NPMM + SIOD` 只在一个 checkpoint 和一个目标函数下出现，现阶段只能作为模块候选，不能称为稳定模块。三个 checkpoint 的原子闭合误差仍为 0，没有负原子或容差内归零值。
 
 ### 3.7 从机制读数到预测改进：Syn 引导的输出校准
 
-图 4e—f 回答的是一个比“哪些模态具有高 Syn”更实际的问题：**冻结 Modeformer 已经给出预测后，Syn 能否帮助一个小型输出校准器更可靠地修正预测值？** 校准发生在 Transformer 之后，不改变 Modeformer 的参数，也不重新训练其动力过程。它只使用 ORAS5 的一段历史资料，学习如何把冻结预测映射到更合适的均值和振幅。
+图 4d—e 回答的是一个比“哪些模态具有高 Syn”更实际的问题：**冻结 Modeformer 已经给出预测后，Syn 能否帮助一个小型输出校准器更可靠地修正预测值？** 校准发生在 Transformer 之后，不改变 Modeformer 的参数，也不重新训练其动力过程。它只使用 ORAS5 的一段历史资料，学习如何把冻结预测映射到更合适的均值和振幅。
 
 #### 校准器读取什么
 
@@ -457,9 +496,9 @@ $$
 
 校准使用 ORAS5 1980—2014 月资料。按起报时间顺序划分为 253 个拟合样本、36 个验证样本和 48 个测试样本：拟合段截至 2001 年 12 月，验证段为 2004—2006 年，测试段为 2009—2012 年。相邻数据段之间保留与 24 个月预测窗匹配的空档，避免不同数据段共享未来目标月份。
 
-主指标是 nRMSE。先在每个 target—lead 单元内计算测试 RMSE，再除以该模态在拟合段的标准差，最后对全部 264 个单元等权平均。因此，图 4e 中数值越低越好，每个模态和每个 lead 对总指标具有相同权重。
+主指标是 nRMSE。先在每个 target—lead 单元内计算测试 RMSE，再除以该模态在拟合段的标准差，最后对全部 264 个单元等权平均。因此，图 4d 中数值越低越好，每个模态和每个 lead 对总指标具有相同权重。
 
-#### 图 4e 的四个点怎样比较
+#### 图 4d 的四个点怎样比较
 
 四个方法使用完全相同的测试样本：
 
@@ -474,9 +513,9 @@ Syn prior 的 nRMSE 最低，为 `0.981`。从 Frozen 到 Syn prior 的总降幅
 
 与 univariate 相比，Syn prior 的绝对改善为 `0.0167`，95% 区间为 `[0.0061, 0.0303]`。因此，当前最强证据是：**在相同的多模态特征和模型容量下，按 Syn 分配正则化比均匀分配更有效，且在总体平均上也优于单变量校准。**
 
-#### 图 4f 为什么需要随机对照
+#### 图 4e 为什么需要随机对照
 
-Syn prior 与 uniform ridge 的比较只能说明 Syn 加权的非均匀正则化优于均匀正则化，不能判断正确的模态对应关系是否优于任意一种非均匀分配。图 4f 因而在每个 target—lead 单元内保留 11 个 Syn 重要性数值，只随机打乱它们对应的源模态标签。这样既保留了权重分布，又破坏了“哪个模态应当少收缩”的结构。随机对照数量在完整运行前固定为 200；每个对照都使用与真实 Syn 相同的特征、参数量、数据划分和超参数搜索预算，并在验证段重新选择 $\alpha$ 与 $\gamma$。
+Syn prior 与 uniform ridge 的比较只能说明 Syn 加权的非均匀正则化优于均匀正则化，不能判断正确的模态对应关系是否优于任意一种非均匀分配。图 4e 因而在每个 target—lead 单元内保留 11 个 Syn 重要性数值，只随机打乱它们对应的源模态标签。这样既保留了权重分布，又破坏了“哪个模态应当少收缩”的结构。随机对照数量在完整运行前固定为 200；每个对照都使用与真实 Syn 相同的特征、参数量、数据划分和超参数搜索预算，并在验证段重新选择 $\alpha$ 与 $\gamma$。
 
 真实 Syn 相对 uniform ridge 的 nRMSE 改善为 `0.0262`；200 个独立打乱并重新调参的随机先验中，没有一个达到真实 Syn。有限随机检验因此为
 
@@ -484,9 +523,9 @@ $$
 P=\frac{0+1}{200+1}=0.00498.
 $$
 
-这说明图 4e 的额外改善不是“随便给不同模态不同惩罚”就能得到，而依赖 Syn 权重是否分配给正确的源模态。它把图 4a—d 的机制读数推进了一步：Syn 不仅可用于解释冻结模型，还可作为有限样本校准的结构先验。
+这说明图 4d 的额外改善不是“随便给不同模态不同惩罚”就能得到，而依赖 Syn 权重是否分配给正确的源模态。它把图 4a—c 的机制读数推进了一步：Syn 不仅可用于解释冻结模型，还可作为有限样本校准的结构先验。
 
-这一结论仍限定在平均 nRMSE。Syn prior 的平均 ACC 为 `0.274`，略低于 uniform ridge 的 `0.281`；不同 target 的收益也不完全一致。因此，图 4e—f 支持的是“Syn 引导的正则化改善全模态平均幅值误差”，而不是“每个高 Syn 模态都会预测得更准”，也不是已证明的业务预测增益。
+这一结论仍限定在平均 nRMSE。Syn prior 的平均 ACC 为 `0.274`，略低于 uniform ridge 的 `0.281`；不同 target 的收益也不完全一致。因此，图 4d—e 支持的是“Syn 引导的正则化改善全模态平均幅值误差”，而不是“每个高 Syn 模态都会预测得更准”，也不是已证明的业务预测增益。
 
 ## 4. 综合讨论与解释边界
 
@@ -525,7 +564,7 @@ $$
 
 这种递进的价值在于互补：SLP 提供空间广度、尺度演化和观测场背景，UniCM 提供模态语义、模型内部读出和预测用途。它们目前支持的是同一种高层组织原则在两种表示中重复出现，而不是 ENSO—IOD 已经被两套实验独立识别为同一条因果通道。要把互补证据推进为机制对应，还需要把 SLP PC 的载荷和时间序列定量投影到 ENSO/IOD 指数，在共同月尺度和共同 lead 上重算树，并检查该对应在替代 PC 基底、bootstrap 样本和不同动力模型下是否保持。
 
-图 1—6 按这条逻辑形成由观测场到训练模型、再到预测用途的证据链。图 1 表明全球 SLP 中的二源协同超边具有明确的预测尺度结构；图 2 把这一结果收窄到北极分量；图 3 从超边转向分量级归因。图 4a—d 在冻结 Transformer 中定位中期 ENSO—IOD 嵌套源模块和未来 IOD 接收端；图 4e—f 检验这些机制读数能否作为输出校准的结构先验；图 5 排除五模态核心必须依赖自由 SPT 路径的解释，图 6 则显示该核心的系统份额在 lead 7—10 集中、随后重新分散。
+图 1—6 按这条逻辑形成由观测场到训练模型、再到预测用途的证据链。图 1 表明全球 SLP 中的二源协同超边具有明确的预测尺度结构；图 2 把这一结果收窄到北极分量；图 3 从超边转向分量级归因。图 4a—c 在冻结 Transformer 中定位中期 ENSO—IOD 嵌套源模块和未来 IOD 接收端；图 4d—e 检验这些机制读数能否作为输出校准的结构先验；图 5 排除五模态核心必须依赖自由 SPT 路径的解释，图 6 则显示该核心的系统份额在 lead 7—10 集中、随后重新分散。
 
 这种呼应不应被写成两个实验已经相互验证。SLP 实验分析的是重新拟合的 60 个压力场分量，UniCM 实验分析的是预定义海气模态上的冻结神经网络；两者的变量、时间单位、动力载体和估计维度均不同。更稳妥的结论是，两种独立设置都显示：高阶可预测信息具有尺度选择性，并且需要以“联合状态”而非静态节点重要性来描述。
 
@@ -541,8 +580,8 @@ $$
 - 标准 SPT 的贪婪 $\Xi$ 分解依赖层级路径和数值容差；节点协同集合不是唯一的高阶 PID 表示。
 - 图 3 的 Shapley 百分比依赖 affine TM、独立高斯干预先验和当前 Varimax 基底；它衡量冻结 rollout 的统计归因，不具有旋转不变性，也不能直接解释为某个地理区的物理贡献。完整 60 维 target 的二、三阶 TM 当前受样本—基函数比例限制。
 - 固定模块集合由同一批 checkpoint 的 SPT 结果提出，因此图 5 排除了“必须进入自由路径才有信号”，但不是独立 checkpoint 或观测资料上的外部验证；其绝对量仍需 degree-2/3 TM 和干预支撑敏感性复核。
-- 图 4c 的标量 target $\Xi_j$ 与联合 target $\Xi$ 使用不同的 readout 维度；$\sum_j\Xi_j$ 不等于联合 target $\Xi$，因此 IOD 的标量值不能解释为系统总量的占比。当前固定起报月份还混合了 lead 与目标季节，其接收端定位需通过 12 个 `start_month` 和固定五模态源集合的 $\Xi_{S\rightarrow j}$ 共同验证。
-- 图 6 的 Shapley 百分比依赖 affine TM、已知独立干预先验和固定 `start_month=0`。它与图 4a 的经验源协方差 $\Xi$ 共享冻结预测，但绝对量口径不完全相同；相邻 lead 的单模态首位还存在 checkpoint 不一致，因此当前最稳健的是五模态核心在中期集中、长期回落的块级趋势。
+- 图 4b 的标量 target $\Xi_j$ 与联合 target $\Xi$ 使用不同的 readout 维度；$\sum_j\Xi_j$ 不等于联合 target $\Xi$，因此 IOD 的标量值不能解释为系统总量的占比。当前固定起报月份还混合了 lead 与目标季节，其接收端定位需通过 12 个 `start_month` 和固定五模态源集合的 $\Xi_{S\rightarrow j}$ 共同验证。
+- 图 6 的 Shapley 百分比依赖 affine TM、已知独立干预先验和固定 `start_month=0`。它与图 4a 的 SPT 使用相同冻结预测，但绝对量口径不完全相同；相邻 lead 的单模态首位还存在 checkpoint 不一致，因此当前最稳健的是五模态核心在中期集中、长期回落的块级趋势。
 
 ## 5. 图表与数据索引
 
@@ -553,8 +592,11 @@ $$
 - 图 2 PNG/SVG/PDF 与摘要：`fig/earth_slp_arctic_hyperedge_horizon.{png,svg,pdf}`、`fig/earth_slp_arctic_hyperedge_horizon_summary.json`
 - 图 3 的分析脚本：`scripts/analyze_runge_slp_pc05_shapley.py`
 - 图 3 PNG/SVG/PDF 与摘要：`fig/earth_slp_pc05_shapley.{png,svg,pdf}`、`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/slp_pc05_shapley_affine/summary.json`
-- 图 4 PNG：`fig/earth_unicm_hierarchical_ei.png`；e—f 的预测校准数据来自 `results/unicm_synergy_regularized_forecast_extended_1980_2018/summary.json`
-- 图 4e—f 的 target-specific Syn、校准脚本与报告：`results/unicm_target_pair_syn_tm_degree1_signed_n8192/target_pair_syn_summary.csv`、`scripts/run_unicm_synergy_regularized_calibration.py`、`results/unicm_synergy_regularized_forecast_extended_1980_2018/comparison_report.md`
+- SLP 60-PC SPT 的跨尺度无文字全貌图：`fig/earth_slp_pc60_xi_hierarchy_vertical_comparison.png`
+- SLP 60-PC SPT 的带标签图：`fig/earth_slp_pc60_xi_hierarchy_H001.png`、`fig/earth_slp_pc60_xi_hierarchy_H010.png`、`fig/earth_slp_pc60_xi_hierarchy_H060.png`
+- SLP 60-PC SPT 的全阶组合数归一化对照图：`fig/earth_slp_pc60_xi_hierarchy_vertical_comparison_allorder_normalized.png`
+- 图 4 PNG：`fig/earth_unicm_hierarchical_ei.png`；d—e 的预测校准数据来自 `results/unicm_synergy_regularized_forecast_extended_1980_2018/summary.json`
+- 图 4d—e 的 target-specific Syn、校准脚本与报告：`results/unicm_target_pair_syn_tm_degree1_signed_n8192/target_pair_syn_summary.csv`、`scripts/run_unicm_synergy_regularized_calibration.py`、`results/unicm_synergy_regularized_forecast_extended_1980_2018/comparison_report.md`
 - Runge 周尺度分量输入：`results/runge_slp_daily_1948_2026_20260628/results/runge/2015_gateways/component_weekly_scores.csv`
 - Runge 全候选三阶 TM 结果：`results/runge_slp_daily_1948_2026_20260628/mlp_tm_ei_lag04/results/runge/multistep_conditioned_ei_tm_exhaustive`
 - Runge 代表超边强制 TM 趋势：`fig/runge_slp_daily_1948_2026_20260628/multistep_conditioned_ei_tm_targeted/forced_tm_edge_trends_H001_H060.csv`

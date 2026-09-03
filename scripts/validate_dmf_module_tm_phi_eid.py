@@ -180,7 +180,7 @@ def estimate_tm_phi_eid(
         "whole_ei": whole_ei,
         "singleton_sum": singleton_sum,
         "raw_phi_eid": raw_phi,
-        "phi_eid": max(0.0, raw_phi),
+        "phi_eid": raw_phi,
     }
 
 

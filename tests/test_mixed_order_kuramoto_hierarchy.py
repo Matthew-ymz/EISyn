@@ -133,7 +133,8 @@ def test_greedy_trace_uses_the_same_maximum_capture_rule() -> None:
     assert trace["selected_left"] == ["a", "b"]
     assert trace["selected_right"] == ["c"]
     assert np.isclose(trace["residual_bits"], 0.6)
-    assert trace["children"][0]["action"] == "terminal"
+    assert trace["children"][0]["action"] == "split"
+    assert all(child["action"] == "terminal" for child in trace["children"][0]["children"])
 
 
 def test_joint_tm_context_is_fixed_for_all_subset_marginals() -> None:

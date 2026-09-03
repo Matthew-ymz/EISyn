@@ -6,6 +6,7 @@ from __future__ import annotations
 import itertools
 import json
 import math
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.spt import SPTConfig, SPTNode, build_spt
 
 
 OUT_DIR = Path("docs/ref/assets/phi_eid_highdim")
@@ -60,63 +67,30 @@ def synergy_field(subset: Iterable[int], modules: Iterable[SynergyModule]) -> fl
     return float(sum(module.weight for module in modules if set(module.sources).issubset(source_set)))
 
 
-def nontrivial_bipartitions(nodes: tuple[int, ...]) -> Iterable[tuple[tuple[int, ...], tuple[int, ...]]]:
-    """Yield each unordered bipartition once."""
-
-    ordered = tuple(sorted(nodes))
-    if len(ordered) <= 1:
-        return
-    first = ordered[0]
-    rest = ordered[1:]
-    all_set = set(ordered)
-    for mask in range(1 << len(rest)):
-        left = {first}
-        for idx, node in enumerate(rest):
-            if mask & (1 << idx):
-                left.add(node)
-        if len(left) == len(ordered):
-            continue
-        right = all_set - left
-        yield tuple(sorted(left)), tuple(sorted(right))
-
-
 def greedy_tree(nodes: tuple[int, ...], modules: tuple[SynergyModule, ...], *, eps: float = 1e-12) -> dict[str, object]:
-    """Top-down split that maximizes child synergy captured by the partition."""
+    """Compatibility serialization of the canonical SPT output."""
 
-    nodes = tuple(sorted(nodes))
-    own = synergy_field(nodes, modules)
-    if len(nodes) <= 1 or own <= eps:
-        return {"nodes": nodes, "synergy": own, "terminal": True, "children": [], "residual": own}
+    class ModuleOracle:
+        def xi(self, sources: Iterable[int]) -> float:
+            return synergy_field(sources, modules)
 
-    best: tuple[float, tuple[int, ...], tuple[int, ...]] | None = None
-    checked = 0
-    for left, right in nontrivial_bipartitions(nodes):
-        checked += 1
-        captured = synergy_field(left, modules) + synergy_field(right, modules)
-        if best is None or captured > best[0]:
-            best = (captured, left, right)
+    result = build_spt(
+        tuple(sorted(nodes)),
+        ModuleOracle(),
+        config=SPTConfig(eps=float(eps), syn_tolerance=float(eps)),
+    )
 
-    if best is None or best[0] <= eps:
+    def serialize(node: SPTNode, *, root: bool = False) -> dict[str, object]:
         return {
-            "nodes": nodes,
-            "synergy": own,
-            "terminal": True,
-            "children": [],
-            "residual": own,
-            "checked_bipartitions": checked,
+            "nodes": tuple(int(source) for source in node.sources),
+            "synergy": float(node.xi_value),
+            "terminal": not bool(node.children),
+            "residual": float(node.syn_value),
+            "checked_bipartitions": result.audit.candidate_count if root else 0,
+            "children": [serialize(child) for child in node.children],
         }
 
-    captured, left, right = best
-    residual = max(0.0, own - captured)
-    return {
-        "nodes": nodes,
-        "synergy": own,
-        "terminal": False,
-        "split": [left, right],
-        "residual": residual,
-        "checked_bipartitions": checked,
-        "children": [greedy_tree(left, modules, eps=eps), greedy_tree(right, modules, eps=eps)],
-    }
+    return serialize(result.root, root=True)
 
 
 def benchmark_split_search() -> list[dict[str, float]]:

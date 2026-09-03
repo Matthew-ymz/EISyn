@@ -12,6 +12,9 @@
 
 1. [**Schaefer100 DMF：跨连接组耦合转变**](#dmf-main)
 2. [**HCP Schaefer-1000：57 人任务态 $\Xi$ 与脑区分布**](#hcp-main)
+   - [2.2.1 全组合最小二分协同图谱](#hcp-min-bipartition)
+   - [2.2.2 同一被试跨状态的 Yeo-7 SPT](#hcp-paired-spt)
+   - [2.2.3 各任务最高表现者的状态匹配 SPT](#hcp-top-performer-spt)
 3. [**讨论：解释边界与可复现性**](#discussion)
 4. [**附录 A：DMF 补充诊断、EI 分量、结构 null 与 Kuramoto 对照**](#appendix-a)
    - [A.5 被替换主图与无约束树留存](#appendix-a-5)
@@ -434,6 +437,14 @@ $$
 
 REST 的 system-level $\Xi$ 均值为 7.122 bits；EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 与 WM 依次为 4.633、4.785、5.150、5.568、5.357、6.243 与 5.323 bits。七项 REST–任务均值差均为正，范围为 0.879--2.489 bits；全部七项配对检验经 BH 校正后显著，其中最弱的 SOCIAL 对比仍有 $q=0.0304$。排除噪声协方差条件数最大的 `sub-800941` 后，七项方向和显著性均不变。因此，**REST 整体 $\Xi$ 高于全部任务态**在完整 57 人中成立，但它是群体结论，不是逐人定律：REST 高于对应任务的被试比例为 61.4%--86.0%。
 
+图 2b 的节点均值可以进一步拆成两个互补维度：某个联盟在 57 棵 SPT 中出现得有多频繁，以及它一旦出现时局部 Syn 有多强。为避免把两种来源压缩成单一色块，下面的气泡图以圆面积编码出现比例，以圆颜色和圆内数字共同编码“出现时平均 Syn”；零填充群体均值不再进入图面。图中保留按八状态平均 atom share 排名前 40 的节点，以便同时覆盖稳定主干和较低频的强节点。
+
+![HCP Schaefer-1000 SPT bubble heatmap](../../results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_bubble_heatmap_57.png)
+
+*图 2b 扩展｜57 人 SPT 节点的出现频率与条件强度。列为 REST 和七个任务态，每一行为一个 Yeo-7 网络联盟。圆面积是该联盟在当前状态 57 棵 SPT 中的出现比例；圆颜色与圆内数字均为联盟出现时的平均局部 Syn（bits），仅当支持度至少为 5/57 时标注数字。空白表示该联盟在该状态的 57 棵树中从未出现。行按跨状态平均 atom share 选择前 40，不表示统计显著性排序。*
+
+全七网络根节点在所有状态均为 57/57，因此它是构造上最稳定的共同外层节点；其出现时平均 Syn 在 REST 为 1.096 bits，在七任务中为 0.583--0.894 bits。缺 Limbic 的六网络联盟则更能区分“频率”和“强度”：它在 REST 为 25/57，在七任务为 34/57--55/57，出现时平均 Syn 为 0.860--1.202 bits，并在 SOCIAL 达到最高频率和最高条件均值。图中还存在圆较小但颜色较深的节点，说明出现频率与条件强度是两个独立维度：低频节点也可能具有较强的局部 Syn。反过来，一个组合重复出现也不意味着 57 人共享同一棵完整树，因为同一节点仍可嵌入不同的上下层剥离顺序。该图是结构描述，不提供显著性检验；matched-null 频率验证仍以第 2.3 节为准。
+
 进一步直接检验每个任务态的 system-level $\Xi$ 是否随该任务的行为表现变化。七项检验沿用后文冻结的单一主端点，全部控制年龄秩和性别；EMOTION 还控制 Shape 速度。主统计量为偏 Spearman 相关，双侧 $p$ 来自 100,000 次 pooled Freedman--Lane 置换，并同时在七项任务间作 BH 与 max-$T$ 校正；区间来自 20,000 次被试 bootstrap。
 
 | 任务 | 行为端点 | 偏 Spearman $\rho$ | 95% CI | 双侧 $p$ | BH $q$ | max-$T$ $p$ |
@@ -501,17 +512,70 @@ REST 下的一般认知重新检验没有得到对应的正结果。对 120 个�
 
 主验证套件的 $\Xi$/Phi 非负容差预先设为 $10^{-10}$ bits：仅 $[-10^{-10},0)$ 可视为数值零，低于该阈值必须中止。主 system-level $\Xi$、跨网络 $\Xi$、REST observed/null、模块 atom 与鲁棒性网格共检查 17,271 个值，没有容差内负值或显著非负性违反；完整计数见 `nonnegativity_audit.json`。REST 一般认知筛查按其固定组合计算契约另设 $10^{-9}$ bits 容差，6,840 个 Syn 值的最小值为 0.000979 bits，同样没有负值。
 
-### 2.2.1 REST 的代表性 Yeo-7 SPT
+<a id="hcp-min-bipartition"></a>
 
-HCP 实验每名被试、每个状态都有一棵七网络树，因此不存在可以直接取算术平均的“群体树”。图 B2 只展示 REST：先在 57 人中寻找最高频的完整剥离拓扑，再在该拓扑内选择跨网络 $\Xi$ 最接近 REST 群体均值的被试。该规则选中 `sub-103111`；其跨网络 $\Xi=6.022$ bits，接近 57 人均值 `6.044` bits。
+### 2.2.1 全组合最小二分协同图谱
 
-![Brain HCP Schaefer-1000 representative REST Xi hierarchy](../../fig/brain_hcp_schaefer1000_xi_hierarchy_rest_representative.png)
+图 2b 只汇总每名被试的 SPT 实际访问到的节点，因此一个固定网络联盟可能因没有进入该被试的树而缺席。为使每名被试、每个状态和每个联盟都对应同一个可直接平均的量，进一步对七个 Yeo 网络的全部 2--7 网络联盟作穷举分析，不构造或递归搜索 SPT。七网络共有
 
-*层级树补充图 B2｜HCP Schaefer-1000 的代表性 REST Yeo-7 Synergy Partition Tree（SPT）。`sub-103111` 的 system-level $\Xi$ 为 `6.418` bits，其中跨网络分量为 `6.022` bits、网络内分量为 `0.396` bits。树依次剥离 Control、Limbic、Default 和 Salience/ventral attention，随后保留 Visual–Somatomotor–Dorsal attention 三网络核心，并以 Somatomotor–Dorsal attention 为末端二元核心。全部 6 个 SPT 节点协同严格闭合到跨网络 $\Xi$。*
+$$
+\sum_{k=2}^{7}\binom{7}{k}=120
+$$
 
-单看这位代表被试，树是完全链形的，说明其七网络联合读出表现为逐层收缩的核心—外围结构，而不是平衡模块划分。但这一具体剥离顺序不能上升为群体固定拓扑：57 人中共有 53 种完整拓扑，最高频拓扑也只出现 3 人（`5.3%`）。所以 HCP 的群体结论应分成两层：七网络树在个体内可以呈现清楚的嵌套主干；**主干中谁先剥离、谁构成最深核心则高度个体化**。这也解释了为何正文的群体推断使用守恒归因、状态配对统计和固定联盟，而不以一棵单独的树代表所有被试。
+个非单网络联盟。对被试 $s$、状态 $c$ 和联盟 $S$，令 $\Xi_{sc}(S)$ 为该固定联盟相对其 singleton sources 的联合 EI 增量。对 $S$ 的每个无序非平凡二分 $A\mid S\setminus A$，定义局部二分协同为
 
-该七网络层级在每个节点穷举全部无序二分，不存在大系统的候选搜索近似。非负容差为 $10^{-10}$ bits；代表树的最小原子为 `0.640` bits，没有负值或容差内归零。图 B2 是冻结主配置 $(k,p,\alpha)=(1,3,1)$ 的描述性实例，不改变第 2.3 节的超参数稳健性边界。
+$$
+\operatorname{Syn}_{sc}(A,S\setminus A)
+=\Xi_{sc}(S)-\Xi_{sc}(A)-\Xi_{sc}(S\setminus A),
+$$
+
+其中单网络集合的 $\Xi$ 定义为 0。该联盟的代表值取所有二分中的最小值：
+
+$$
+m_{sc}(S)
+=\min_{A\mid S\setminus A}
+\operatorname{Syn}_{sc}(A,S\setminus A),
+$$
+
+再在 57 人上取算术平均 $\overline m_c(S)=57^{-1}\sum_s m_{sc}(S)$。这个最小值回答“联盟在其最弱二分处仍保留多少不可分解联合增量”，而不是联盟总协同或 SPT 节点贡献。全部 120 个联盟合计需要检查 966 个无序二分；同一被试--状态的 127 个子集 EI 在所有二分间复用。
+
+![HCP Schaefer-1000 57 人全组合最小二分协同热图](../../results/hcp_min_bipartition_synergy_57/minimum_bipartition_synergy_heatmap_57.png)
+
+*图 2b 全组合扩展｜57 人在 REST 与七任务下的固定联盟最小二分协同。每一行是一个 2--7 网络联盟，每一列是一个状态；单元格颜色和数字均为 $\overline m_c(S)$，单位 bits。联盟先按网络数分组，再在同一阶数内按八状态平均值降序排列；全部单元格使用同一绝对色标，REST 与任务之间以白线分隔。该图穷举所有固定联盟，不使用 SPT 的递归分裂或节点选择，也不表示显著性排序。*
+
+共得到 $8\times57\times120=54{,}720$ 个被试级联盟值。按固定的 $10^{-9}$ bits 非负容差审计，最小值为 0.000507 bits，没有容差内负值或显著非负性违反；群体平均单元格范围为 0.043--1.206 bits。把同一状态的 120 个联盟等权平均后，REST 为 0.480 bits，七任务为 0.299--0.394 bits；这与 system-level $\Xi$ 的 REST 优势方向一致，但这里只是使用相同联盟支持的描述性汇总，没有为 120 个联盟分别执行状态差异检验。
+
+跨八状态平均最高的联盟是 Visual--Somatomotor--Dorsal attention--Salience/ventral attention--Control--Default，即缺 Limbic 的六网络联盟，平均最小二分协同为 0.990 bits；它在 SOCIAL 达到 1.206 bits。完整七网络联盟在 REST 为 1.096 bits，在七任务为 0.583--0.894 bits。由于不同阶数的联盟包含不同数量的 source，并分别从 1、3、7、15、31 或 63 个候选二分中取最小值，绝对值随联盟大小变化，不能据此直接断言“阶数越高，单位网络协同越强”。跨阶比较需要按联盟大小归一化或使用大小匹配的 null。
+
+该图与 SPT 图承担不同角色。全组合热图为每个联盟保留同一统计对象，避免把“没有被树选中”当成数值 0，因而更适合群体平均和状态比较；SPT 则把少数被选中的局部二分组织成一条可闭合的个体层级。热图中的 120 行彼此重叠，不能相加还原 system-level $\Xi$，也不提供剥离顺序。下一节的个体树只用于展示这些局部二分如何在具体被试内嵌套。
+
+<a id="hcp-paired-spt"></a>
+
+### 2.2.2 同一被试跨状态的 Yeo-7 SPT
+
+群体气泡图回答哪些节点在 57 人中反复出现，但不能展示这些节点在单棵树内怎样嵌套。为控制被试差异，图 B2 固定 `sub-101915`，比较其 REST、LANGUAGE、MOTOR 与 SOCIAL 四个状态。这样每个面板只改变状态及其对应时序，图谱、网络定义、被试和冻结模型配置保持一致；它比四个状态分别选择不同代表被试更适合观察个体内结构重组。
+
+![HCP Schaefer-1000 sub-101915 state-specific SPTs](../../fig/brain_hcp_schaefer1000_xi_hierarchy_sub101915_states.png)
+
+*层级树补充图 B2｜`sub-101915` 在四个状态下的 Yeo-7 Synergy Partition Tree（SPT）。a：REST；b：LANGUAGE；c：MOTOR；d：SOCIAL。浅灰线表示层级分支；叶标签的边框颜色只标识网络身份。内部圆角节点框沿用地球科学层级树的青绿色连续色标，填色和框内数值均表示局部 Syn（bits）。节点高度表示剩余联盟大小，不表示信息量；每棵树的 6 个节点之和严格等于面板给出的跨网络 $\Xi$。*
+
+同一被试下，四个状态仍都呈逐层剥离的链形，但剥离顺序和末端二元核心明显改变。REST 依次剥离 Limbic、Control、Visual、Salience/ventral attention 和 Somatomotor，最终保留 Dorsal attention–Default；LANGUAGE 依次剥离 Limbic、Visual、Dorsal attention、Salience/ventral attention 和 Somatomotor，最终保留 Control–Default；MOTOR 先剥离 Dorsal attention，再依次剥离 Limbic、Visual、Control 和 Default，最终保留 Somatomotor–Salience/ventral attention；SOCIAL 依次剥离 Limbic、Salience/ventral attention、Somatomotor、Control 和 Default，最终保留 Visual–Dorsal attention。该被试的 system-level $\Xi$ 也从 REST 的 8.265 bits 降至 LANGUAGE 的 3.770 bits，在 MOTOR 和 SOCIAL 分别为 6.803 和 6.559 bits。对这个实例而言，状态变化不仅缩放总协同强度，也重排了深层核心的成员。
+
+这一控制被试的比较比跨被试代表树更直接，但仍只是一个人的描述性轨迹，不能把 `sub-101915` 的剥离顺序解释为群体状态效应。群体结论仍来自 57 人的配对统计；若要检验具体分支是否稳定改变，需要对每个内部联盟建立逐被试的配对出现指标，而不是只比较四张图。四棵树均来自冻结主配置 $(k,p,\alpha)=(1,3,1)$，每个节点穷举全部无序二分。非负容差为 $10^{-10}$ bits，24 个节点的最小 Syn 为 `0.281` bits，没有负值或容差内归零，最大闭合误差为 $8.9\times10^{-16}$ bits。
+
+<a id="hcp-top-performer-spt"></a>
+
+### 2.2.3 各任务最高表现者的状态匹配 SPT
+
+为探索高任务表现是否对应共同的 SPT 数值模式，进一步沿用七任务 pooled-57 分析冻结的主端点，在每个任务中选择端点原始值最高者，并只绘制该被试在对应任务态下的树。选择不读取 SPT 数值。LANGUAGE 的最高难度等级有 24 人并列，SOCIAL 的有限试次校正 $d'$ 有 9 人并列；这两项固定取被试编号最小者作为可复现代表，其余五项最高者唯一。MOTOR 的广义运动分数和 GAMBLING 的跨期奖励价值来自扫描外，因此其面板不能解释为 run 内任务表现。
+
+![七任务最高表现者的状态匹配 SPT](../../fig/brain_hcp_schaefer1000_task_top_performer_spt.png)
+
+*层级树补充图 B3｜每个任务冻结主端点的最高表现者及其状态匹配 Yeo-7 SPT。a--g：LANGUAGE、SOCIAL、EMOTION、MOTOR、GAMBLING、RELATIONAL 和 WM。框内数值与统一色标均表示局部 Syn（bits）；每个面板的六个节点严格闭合到面板给出的 cross-network $\Xi$。LANGUAGE 和 SOCIAL 标明最高分并列人数，并列时按被试编号选择，不按树结构或 $\Xi$ 二次筛选。*
+
+这些个案没有显示“表现最高者同时具有最高整体协同”的规律。七人的 system-level $\Xi$ 在各自任务的 57 人分布中位于第 2.6--90.4 百分位，cross-network $\Xi$ 位于第 0.9--90.4 百分位，覆盖近乎完整的个体范围。GAMBLING 最高端点者的 system-level $\Xi$ 仅位于第 2.6 百分位，LANGUAGE 的并列代表位于第 11.4 百分位；相反，EMOTION 最高者位于第 90.4 百分位。因此最高表现并不对应统一的 $\Xi$ 方向，这与七任务 system-level $\Xi$--行为相关均未通过任务间校正的主结果一致。
+
+局部结构存在一个较弱但非特异的重复：EMOTION、RELATIONAL 和 WM 的最大节点都是缺 Limbic 的六网络联盟；该联盟分别也是当前任务 57 人中 24、18 和 23 人的最大节点，因而更像常见任务态主干，而不是顶尖表现者特异标志。七棵树的最大节点都位于五或六网络联盟，但链形 SPT 本来包含更多高阶节点，不能仅凭这一观察推断高阶协同富集。总体上，这组图适合展示“高表现可由不同的层级路径实现”，尚不能提供跨任务共享的顶尖表现机制；更严格的检验应比较预先定义的 top-$k$ 与其余被试，并对联盟大小、并列端点和候选选择进行控制。
 
 ### 2.3 57 人验证总览
 
@@ -554,6 +618,8 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 |---|---|
 | 主图 A–H | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_behavior_main_57.{png,svg,pdf}` |
 | 层级原子与网络归因补充图 | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_attribution_supplement_57.{png,svg,pdf}` |
+| 120 个固定联盟的最小二分协同 | `results/hcp_min_bipartition_synergy_57/{minimum_bipartition_synergy_57.npz,minimum_bipartition_synergy_heatmap_57.png}` |
+| 七任务最高表现者的状态匹配 SPT | `fig/brain_hcp_schaefer1000_task_top_performer_spt.png`；`scripts/plot_hcp_task_top_performer_spt.py` |
 | REST 固定组合与一般认知 | `results/hcp_rest_general_cognition_57/{summary.json,rest_general_cognition_coalition_correlations_57.png}` |
 | EMOTION 表现与 120 个固定组合 | `results/hcp_emotion_performance_coalitions_57/{summary.json,report.md,emotion_performance_coalition_screen_57.png}` |
 | MOTOR 广义运动指数与 120 个固定组合 | `results/hcp_motor_composite_scores_57/{summary.json,report.md,motor_composite_coalition_screen_57.png}` |

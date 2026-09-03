@@ -39,6 +39,7 @@ from scripts.phi_hierarchy import (
     PhiAtom,
     all_nonempty_subsets,
     greedy_phi_atoms,
+    greedy_phi_tree,
     nontrivial_bipartitions,
     subset_phi_raw,
 )
@@ -372,6 +373,7 @@ def fit_joint_conditional_transport_map(
     train_fraction: float,
     epochs: int,
     seed: int,
+    target_scaling: str = "per_dimension",
 ) -> tuple[object, dict[str, float]]:
     """Fit one nonlinear conditional TM for the complete five-source joint."""
     import torch
@@ -390,7 +392,15 @@ def fit_joint_conditional_transport_map(
     if not 512 <= split < len(target_array) - 128:
         raise ValueError("train_fraction must leave sufficient TM train and test rows.")
     target_mean = target_array[:split].mean(axis=0)
-    target_scale = np.maximum(target_array[:split].std(axis=0), 1.0e-6)
+    if target_scaling == "per_dimension":
+        target_scale = np.maximum(target_array[:split].std(axis=0), 1.0e-6)
+    elif target_scaling == "global":
+        target_scale = np.full(
+            target_array.shape[1],
+            max(float(target_array[:split].std()), 1.0e-6),
+        )
+    else:
+        raise ValueError("target_scaling must be 'per_dimension' or 'global'.")
     standardized_target = (target_array - target_mean) / target_scale
     source_tensor = _torch_tensor(source)
     target_tensor = _torch_tensor(standardized_target)
@@ -527,6 +537,7 @@ def fit_joint_conditional_transport_map(
         "selection_rule": "retain source context only above two paired SEM",
         "target_dimension": int(target_array.shape[1]),
         "context_dimension": int(source.shape[1]),
+        "target_scaling": str(target_scaling),
     }
 
 
@@ -790,85 +801,60 @@ def greedy_decision_trace(
     eps: float = GREEDY_EPS,
     split_tolerance: float = GREEDY_SPLIT_TOLERANCE,
 ) -> dict[str, object]:
-    """Expose the decisions made by the shared nonnegative Greedy rule."""
-    ordered = tuple(subset)
-    block_phi = subset_phi_raw(ordered, table, singleton)
-    if len(ordered) <= 1 or block_phi <= float(eps):
-        return {
-            "sources": list(ordered),
-            "phi_bits": float(block_phi),
-            "action": "terminal",
-            "candidates": [],
-            "children": [],
-        }
-    candidates: list[dict[str, object]] = []
-    for left, right in nontrivial_bipartitions(ordered):
-        left_phi = subset_phi_raw(left, table, singleton)
-        right_phi = subset_phi_raw(right, table, singleton)
-        captured = left_phi + right_phi
-        residual = block_phi - captured
-        candidates.append(
-            {
-                "left": list(left),
-                "right": list(right),
-                "left_phi_bits": float(left_phi),
-                "right_phi_bits": float(right_phi),
-                "captured_phi_bits": float(captured),
-                "residual_bits": float(residual),
-                "eligible": bool(residual >= -float(split_tolerance)),
-                "selected": False,
-            }
-        )
-    eligible = [row for row in candidates if bool(row["eligible"])]
-    selected: dict[str, object] | None = None
-    for candidate in eligible:
-        if selected is None or float(candidate["captured_phi_bits"]) > float(
-            selected["captured_phi_bits"]
-        ) or (
-            np.isclose(
-                float(candidate["captured_phi_bits"]),
-                float(selected["captured_phi_bits"]),
+    """Annotate the decisions returned by the canonical SPT core."""
+    tree = greedy_phi_tree(
+        subset,
+        table,
+        policy=NONNEGATIVE_TOLERANT,
+        eps=eps,
+        split_tolerance=split_tolerance,
+        singleton_ei=singleton,
+        complete_to_singletons=True,
+    )
+
+    def annotate(node) -> dict[str, object]:
+        candidates: list[dict[str, object]] = []
+        selected_sides = {frozenset(child.sources) for child in node.children}
+        for left, right in nontrivial_bipartitions(node.sources):
+            left_phi = subset_phi_raw(left, table, singleton)
+            right_phi = subset_phi_raw(right, table, singleton)
+            captured = left_phi + right_phi
+            residual = node.phi_value - captured
+            candidates.append(
+                {
+                    "left": list(left),
+                    "right": list(right),
+                    "left_phi_bits": float(left_phi),
+                    "right_phi_bits": float(right_phi),
+                    "captured_phi_bits": float(captured),
+                    "residual_bits": float(residual),
+                    "eligible": bool(residual >= -float(split_tolerance)),
+                    "selected": bool(
+                        selected_sides == {frozenset(left), frozenset(right)}
+                    ),
+                }
             )
-            and float(candidate["residual_bits"]) < float(selected["residual_bits"])
-        ):
-            selected = candidate
-    if selected is None or float(selected["captured_phi_bits"]) <= float(eps):
-        return {
-            "sources": list(ordered),
-            "phi_bits": float(block_phi),
-            "action": "terminal",
+        record: dict[str, object] = {
+            "sources": list(node.sources),
+            "phi_bits": float(node.phi_value),
+            "action": "split" if node.children else "terminal",
             "candidates": candidates,
-            "children": [],
+            "children": [annotate(child) for child in node.children],
         }
-    selected["selected"] = True
-    left = tuple(str(name) for name in selected["left"])
-    right = tuple(str(name) for name in selected["right"])
-    return {
-        "sources": list(ordered),
-        "phi_bits": float(block_phi),
-        "action": "split",
-        "selected_left": list(left),
-        "selected_right": list(right),
-        "captured_phi_bits": float(selected["captured_phi_bits"]),
-        "residual_bits": float(selected["residual_bits"]),
-        "candidates": candidates,
-        "children": [
-            greedy_decision_trace(
-                left,
-                table,
-                singleton,
-                eps=eps,
-                split_tolerance=split_tolerance,
-            ),
-            greedy_decision_trace(
-                right,
-                table,
-                singleton,
-                eps=eps,
-                split_tolerance=split_tolerance,
-            ),
-        ],
-    }
+        if node.children:
+            record.update(
+                {
+                    "selected_left": list(node.children[0].sources),
+                    "selected_right": list(node.children[1].sources),
+                    "captured_phi_bits": float(
+                        node.children[0].phi_value + node.children[1].phi_value
+                    ),
+                    "residual_bits": float(node.residual),
+                }
+            )
+        return record
+
+    return annotate(tree)
 
 
 def run_condition(

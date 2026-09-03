@@ -241,7 +241,7 @@ def gaussian_phi_from_linear_transition(
         "joint_ei": float(joint_ei),
         "singleton_ei_sum": singleton_sum,
         "raw_phi": raw_phi,
-        "phi_eid_clipped": max(0.0, raw_phi),
+        "phi_eid_clipped": raw_phi,
         "singleton_ei": singleton,
     }
 
@@ -451,7 +451,7 @@ def module_ei_table(
     for size in range(1, len(names) + 1):
         for subset in itertools.combinations(names, size):
             indices = sorted({idx for name in subset for idx in module_indices[name]})
-            table[tuple(subset)] = max(0.0, ei_for_source_indices(transition, noise, indices, ridge=ridge))
+            table[tuple(subset)] = ei_for_source_indices(transition, noise, indices, ridge=ridge)
     return table
 
 

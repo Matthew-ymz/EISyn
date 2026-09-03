@@ -4,7 +4,6 @@ import argparse
 import importlib.util
 import itertools
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -14,6 +13,11 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.phi_hierarchy import PhiAtom as GreedyAtom, greedy_phi_atoms, subset_phi_raw
+
 DMF_MODULE_PATH = ROOT / "exp" / "brain" / "dmf_fig6.py"
 DEFAULT_SOURCE_RESULTS = ROOT / "exp" / "brain" / "result_lausanne_fig6" / "count_00_fig6b_mean_rate.npz"
 DEFAULT_CONNECTIVITY_CSV = ROOT / "exp" / "brain" / "result_lausanne_fig6" / "count_00_connectivity.csv"
@@ -30,14 +34,6 @@ MODULE_COLORS = {
     "Lim": "#F0E442",
     "Sub": "#7F7F7F",
 }
-
-
-@dataclass(frozen=True)
-class GreedyAtom:
-    sources: tuple[str, ...]
-    value: float
-    kind: str
-    depth: int
 
 
 def load_dmf_module():
@@ -146,74 +142,8 @@ def module_ei_table(
             if complement:
                 conditional = conditional + transition[:, complement] @ transition[:, complement].T
             value = 0.5 * (target_logdet - safe_logdet(conditional, ridge=ridge)) / np.log(2.0)
-            table[tuple(subset)] = max(0.0, float(value))
+            table[tuple(subset)] = float(value)
     return table
-
-
-def subset_phi_raw(subset: tuple[str, ...], ei_table: Mapping[tuple[str, ...], float], singleton_ei: Mapping[str, float]) -> float:
-    return float(ei_table[subset] - sum(float(singleton_ei[name]) for name in subset))
-
-
-def nontrivial_bipartitions(subset: Sequence[str]) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
-    ordered = tuple(str(name) for name in subset)
-    if len(ordered) <= 1:
-        return []
-    first = ordered[0]
-    rest = ordered[1:]
-    full = set(ordered)
-    splits: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
-    for mask in range(1 << len(rest)):
-        left = {first}
-        for idx, name in enumerate(rest):
-            if mask & (1 << idx):
-                left.add(name)
-        if len(left) == len(ordered):
-            continue
-        right = full - left
-        splits.append((tuple(name for name in ordered if name in left), tuple(name for name in ordered if name in right)))
-    return splits
-
-
-def greedy_phi_atoms(
-    subset: tuple[str, ...],
-    ei_table: Mapping[tuple[str, ...], float],
-    *,
-    eps: float = 1.0e-6,
-    split_tolerance: float = 1.0e-4,
-    depth: int = 0,
-    singleton_ei: Mapping[str, float] | None = None,
-) -> list[GreedyAtom]:
-    if singleton_ei is None:
-        singleton_ei = {name: float(ei_table[(name,)]) for name in subset}
-    block_phi = subset_phi_raw(subset, ei_table, singleton_ei)
-    if len(subset) <= 1 or block_phi <= float(eps):
-        return []
-
-    best: tuple[float, float, tuple[str, ...], tuple[str, ...]] | None = None
-    for left, right in nontrivial_bipartitions(subset):
-        left_phi = subset_phi_raw(left, ei_table, singleton_ei)
-        right_phi = subset_phi_raw(right, ei_table, singleton_ei)
-        residual = block_phi - left_phi - right_phi
-        if residual < -float(split_tolerance):
-            continue
-        captured = left_phi + right_phi
-        if best is None or captured > best[0] or (np.isclose(captured, best[0]) and residual < best[1]):
-            best = (captured, residual, left, right)
-
-    if best is None or best[0] <= float(eps):
-        return [GreedyAtom(subset, max(0.0, block_phi), "terminal", int(depth))]
-
-    _, residual, left, right = best
-    atoms: list[GreedyAtom] = []
-    if residual > float(eps):
-        atoms.append(GreedyAtom(subset, max(0.0, residual), "split_residual", int(depth)))
-    atoms.extend(
-        greedy_phi_atoms(left, ei_table, eps=eps, split_tolerance=split_tolerance, depth=depth + 1, singleton_ei=singleton_ei)
-    )
-    atoms.extend(
-        greedy_phi_atoms(right, ei_table, eps=eps, split_tolerance=split_tolerance, depth=depth + 1, singleton_ei=singleton_ei)
-    )
-    return atoms
 
 
 def build_payload_for_transition(
@@ -232,7 +162,7 @@ def build_payload_for_transition(
         table = module_ei_table(transition, noise, module_indices, ridge=ridge)
         root = tuple(str(name) for name in module_names)
         singleton = {name: float(table[(name,)]) for name in root}
-        phi_eid[g_index] = max(0.0, subset_phi_raw(root, table, singleton))
+        phi_eid[g_index] = subset_phi_raw(root, table, singleton)
         atoms = greedy_phi_atoms(root, table, eps=eps, singleton_ei=singleton)
         for atom in atoms:
             rows.append((g_index, "+".join(atom.sources), float(atom.value), int(atom.depth), len(atom.sources), atom.kind))

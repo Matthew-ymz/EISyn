@@ -48,15 +48,6 @@ RUNGE_TREND_CSV = (
     / "multistep_conditioned_ei_tm_targeted"
     / "forced_tm_edge_trends_H001_H060.csv"
 )
-UNICM_PHI_ROWS = (
-    ROOT
-    / "results"
-    / "unicm_all_mode_target_phi_eid_cpu_bound4_n8192"
-    / "all_mode_target_phi_eid_rows.csv"
-)
-UNICM_GREEDY_DIR = (
-    ROOT / "results" / "unicm_phi_eid_greedy_decomposition_cpu_bound4_n8192"
-)
 UNICM_TARGET_XI_LEADS = (
     ROOT
     / "results"
@@ -72,6 +63,11 @@ UNICM_CALIBRATION_SUMMARY = (
     / "unicm_synergy_regularized_forecast_extended_1980_2018"
     / "summary.json"
 )
+UNICM_SPT_LEAD_COMPARISON_ROOT = (
+    ROOT / "results" / "unicm_xi_hierarchy_lead_comparison"
+)
+UNICM_SPT_LEADS = (1, 8, 24)
+UNICM_SPT_CHECKPOINT = 2
 HORIZONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 60)
 MODE_ORDER = (
     "nino",
@@ -177,6 +173,26 @@ def save_figure(fig: plt.Figure, base: Path) -> list[Path]:
     fig.savefig(outputs[2], bbox_inches="tight")
     plt.close(fig)
     return outputs
+
+
+def load_unicm_checkpoint2_lead_trees() -> tuple[list[object], float]:
+    summaries = {
+        1: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead01_seed2_strict" / "summary.json",
+        8: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead08" / "summary.json",
+        24: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead24" / "summary.json",
+    }
+    trees = []
+    tolerances = []
+    for lead in UNICM_SPT_LEADS:
+        payload = json.loads(summaries[lead].read_text(encoding="utf-8"))
+        row = next(
+            record
+            for record in payload["checkpoints"]
+            if int(record["seed"]) == UNICM_SPT_CHECKPOINT
+        )
+        trees.append(_tree_from_record(row["tree"]))
+        tolerances.append(float(payload["split_tolerance_bits"]))
+    return trees, max(tolerances)
 
 
 def align_and_expand_map_row(
@@ -754,83 +770,49 @@ def plot_runge_figure(
 
 
 def plot_unicm_figure(output_base: Path) -> list[Path]:
-    phi_rows = pd.read_csv(UNICM_PHI_ROWS)
-    phi = (
-        phi_rows.groupby("lead", as_index=False)["phi_eid"]
-        .agg(["mean", "std"])
-        .reset_index()
-    )
-    hierarchy = json.loads((ROOT / "results/unicm_xi_hierarchy_tree/summary.json").read_text())
+    trees, syn_tolerance = load_unicm_checkpoint2_lead_trees()
     target_xi = pd.read_csv(UNICM_TARGET_XI_LEADS)
     shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
     calibration = json.loads(UNICM_CALIBRATION_SUMMARY.read_text(encoding="utf-8"))
-    fig = plt.figure(figsize=(10.0, 12.4), layout="constrained")
+    fig = plt.figure(figsize=(11.8, 10.2), layout="constrained")
     grid = fig.add_gridspec(
         3,
-        5,
-        height_ratios=[1.25, 6.15, 1.75],
-        hspace=0.08,
+        6,
+        height_ratios=[5.55, 2.55, 1.55],
+        hspace=0.06,
     )
 
-    ax_a = fig.add_subplot(grid[0, :])
-    ax_a.fill_between(
-        phi["lead"],
-        phi["mean"] - phi["std"],
-        phi["mean"] + phi["std"],
-        color="#C9D8E8",
-        alpha=0.7,
-        linewidth=0,
-    )
-    ax_a.plot(
-        phi["lead"],
-        phi["mean"],
-        color=BLUE,
-        marker="o",
-        markersize=2.7,
-        linewidth=1.45,
-    )
-    peak = phi.loc[phi["mean"].idxmax()]
-    ax_a.scatter([peak["lead"]], [peak["mean"]], s=30, color=ORANGE, zorder=5)
-    ax_a.annotate(
-        f"peak at lead {int(peak['lead'])}\n{peak['mean']:.3f} ± {peak['std']:.3f} bits",
-        xy=(float(peak["lead"]), float(peak["mean"])),
-        xytext=(11.0, 0.213),
-        fontsize=5.7,
-        color=INK,
-        arrowprops={"arrowstyle": "-", "color": ORANGE, "linewidth": 0.7},
-        ha="left",
-        va="center",
-    )
-    ax_a.axhline(0, color="#666666", linewidth=0.6, linestyle=":")
-    ax_a.set_xlabel("Prediction lead (months)")
-    ax_a.set_ylabel(r"Integrated increment, $\Xi$ (bits)")
-    ax_a.yaxis.set_label_coords(-0.055, 0.50)
-    ax_a.set_xlim(1, 24)
-    ax_a.set_ylim(0, max(0.235, float((phi["mean"] + phi["std"]).max()) * 1.04))
-    ax_a.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
-    add_panel_label(ax_a, "a", x=-0.04, y=1.02)
-
-    tree_canvas = fig.add_subfigure(grid[1, 0:3])
+    tree_canvas = fig.add_subfigure(grid[0, :])
     with mpl.rc_context():
         render_trees(
-            [_tree_from_record(hierarchy["checkpoints"][0]["tree"])],
-            [hierarchy["checkpoints"][0]["seed"]],
+            trees,
+            [UNICM_SPT_CHECKPOINT] * len(trees),
             output_base.with_suffix(".png"),
-            lead=int(hierarchy["lead"]),
-            split_objective=hierarchy.get("split_objective", "raw_residual"),
+            lead=8,
+            split_objective="raw_residual",
             dpi=600,
-            syn_tolerance=float(hierarchy["split_tolerance_bits"]),
+            syn_tolerance=syn_tolerance,
             canvas=tree_canvas,
-            show_colorbar=False,
+            show_colorbar=True,
             compact_core_annotation=True,
+            show_checkpoint=False,
+            show_tree_metrics=False,
+            core_highlights=(False, True, True),
         )
-    tree_canvas.suptitle(
-        "b    Lead 8: representative hierarchy (checkpoint 1)",
-        x=0.015, ha="left", fontsize=8.2, fontweight="bold", color=INK,
+    for axis, lead in zip(tree_canvas.axes[:3], UNICM_SPT_LEADS, strict=True):
+        axis.set_title(f"Lead {lead}", fontsize=7.7, fontweight="bold", color=INK, pad=2)
+    tree_canvas.text(
+        0.002,
+        0.995,
+        "a",
+        ha="left",
+        va="top",
+        fontsize=8.2,
+        fontweight="bold",
+        color="#111111",
     )
 
-    heatmap_grid = grid[1, 3:5].subgridspec(2, 1, hspace=0.01)
-    ax_d = fig.add_subplot(heatmap_grid[0, 0])
+    ax_d = fig.add_subplot(grid[1, 0:3])
     target_heat = (
         target_xi.pivot(index="target", columns="lead", values="xi_mean")
         .reindex(TARGET_MODE_ORDER)
@@ -881,9 +863,9 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         ax_d.axhline(boundary, color="white", linewidth=0.75)
     colorbar = fig.colorbar(image, ax=ax_d, fraction=0.045, pad=0.025)
     colorbar.set_label(r"Target-resolved $\Xi_j$ (bits)")
-    add_panel_label(ax_d, "c", x=-0.17, y=1.02)
+    add_panel_label(ax_d, "b", x=-0.13, y=1.02)
 
-    ax_e = fig.add_subplot(heatmap_grid[1, 0])
+    ax_e = fig.add_subplot(grid[1, 3:6])
     shapley_leads = np.asarray(
         [int(record["lead"]) for record in shapley["lead_summary"]]
     )
@@ -922,7 +904,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_e.set_ylabel("Source mode")
     source_colorbar = fig.colorbar(source_image, ax=ax_e, fraction=0.045, pad=0.025)
     source_colorbar.set_label("Mean Shapley share (%)")
-    add_panel_label(ax_e, "d", x=-0.17, y=1.02)
+    add_panel_label(ax_e, "c", x=-0.13, y=1.02)
 
     metrics = calibration["test_metrics"]
     method_keys = ("frozen", "univariate", "uniform", "syn_regularized")
@@ -964,9 +946,9 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_f.xaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
     ax_f.set_ylim(-0.55, 3.55)
     ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_f, "e", x=-0.18, y=1.04)
+    add_panel_label(ax_f, "d", x=-0.18, y=1.04)
 
-    ax_g = fig.add_subplot(grid[2, 2:5])
+    ax_g = fig.add_subplot(grid[2, 2:6])
     uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
     syn_gain = uniform_score - float(
         metrics["syn_regularized"]["mean_cell_nrmse"]
@@ -1032,7 +1014,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_g.set_ylim(-0.38, 0.38)
     ax_g.spines["left"].set_visible(False)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_g, "f", x=-0.08, y=1.04)
+    add_panel_label(ax_g, "e", x=-0.08, y=1.04)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, bbox_inches="tight")
