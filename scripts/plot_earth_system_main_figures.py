@@ -63,8 +63,14 @@ UNICM_CALIBRATION_SUMMARY = (
     / "unicm_synergy_regularized_forecast_extended_1980_2018"
     / "summary.json"
 )
-UNICM_SPT_LEAD_COMPARISON_ROOT = (
-    ROOT / "results" / "unicm_xi_hierarchy_lead_comparison"
+UNICM_TARGET_XI_CALIBRATION_SUMMARY = (
+    ROOT / "results" / "unicm_target_xi_shapley_prior" / "summary.json"
+)
+UNICM_SPT_UNIFORM_SUMMARY = (
+    ROOT
+    / "results"
+    / "unicm_xi_hierarchy_uniform_n16384"
+    / "summary.json"
 )
 UNICM_SPT_LEADS = (1, 8, 24)
 UNICM_SPT_CHECKPOINT = 2
@@ -176,23 +182,23 @@ def save_figure(fig: plt.Figure, base: Path) -> list[Path]:
 
 
 def load_unicm_checkpoint2_lead_trees() -> tuple[list[object], float]:
-    summaries = {
-        1: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead01_seed2_strict" / "summary.json",
-        8: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead08" / "summary.json",
-        24: UNICM_SPT_LEAD_COMPARISON_ROOT / "lead24" / "summary.json",
-    }
+    payload = json.loads(UNICM_SPT_UNIFORM_SUMMARY.read_text(encoding="utf-8"))
+    if not bool(payload["all_nine_conditions_valid_nonnegative_spt"]):
+        raise ValueError("The fixed-parameter UniCM SPT audit did not pass all nine conditions.")
     trees = []
-    tolerances = []
     for lead in UNICM_SPT_LEADS:
-        payload = json.loads(summaries[lead].read_text(encoding="utf-8"))
         row = next(
             record
-            for record in payload["checkpoints"]
-            if int(record["seed"]) == UNICM_SPT_CHECKPOINT
+            for record in payload["results"]
+            if int(record["checkpoint"]) == UNICM_SPT_CHECKPOINT
+            and int(record["lead"]) == lead
         )
+        if row["status"] != "valid_nonnegative_spt":
+            raise ValueError(
+                f"Invalid fixed-parameter SPT for checkpoint {UNICM_SPT_CHECKPOINT}, lead {lead}."
+            )
         trees.append(_tree_from_record(row["tree"]))
-        tolerances.append(float(payload["split_tolerance_bits"]))
-    return trees, max(tolerances)
+    return trees, float(payload["syn_tolerance_bits"])
 
 
 def align_and_expand_map_row(
@@ -226,12 +232,18 @@ def align_and_expand_map_row(
         )
 
 
-def add_latitude_ticks_only(ax: plt.Axes) -> None:
+def add_latitude_ticks_only(ax: plt.Axes, *, scale: float = 1.0) -> None:
     latitudes = (-60, -30, 0, 30, 60)
     labels = ("60°S", "30°S", "0°", "30°N", "60°N")
     ax.set_xticks([])
     ax.set_yticks(np.radians(latitudes), labels)
-    ax.tick_params(axis="y", labelsize=4.1, pad=1.0, length=1.6, width=0.35)
+    ax.tick_params(
+        axis="y",
+        labelsize=4.1 * scale,
+        pad=1.0,
+        length=1.6 * scale,
+        width=0.35 * scale,
+    )
 
 
 def _axes_xy(ax: plt.Axes, lon: float, lat: float) -> np.ndarray:
@@ -246,9 +258,11 @@ def draw_compact_runge_map(
     land: list[list[tuple[float, float]]],
     coastlines: list[list[tuple[float, float]]],
     horizon: int,
+    *,
+    scale: float = 1.0,
 ) -> None:
     draw_world(ax, land, coastlines)
-    add_latitude_ticks_only(ax)
+    add_latitude_ticks_only(ax, scale=scale)
     lookup = nodes.set_index("local")
     active = set(
         frame[["source_a_local", "source_b_local", "target_local"]]
@@ -264,15 +278,15 @@ def draw_compact_runge_map(
     ax.scatter(
         np.radians(inactive.lon),
         np.radians(inactive.lat),
-        s=5,
+        s=5 * scale**2,
         color="#A7ADB5",
         edgecolors="none",
         alpha=0.28,
         zorder=3,
     )
     for subset, color, size, edge in (
-        (targets, TEAL, 28, "#153D42"),
-        (sources, BLUE, 48, "#173852"),
+        (targets, TEAL, 28 * scale**2, "#153D42"),
+        (sources, BLUE, 48 * scale**2, "#173852"),
     ):
         selected = nodes[nodes["local"].isin(subset)]
         ax.scatter(
@@ -281,7 +295,7 @@ def draw_compact_runge_map(
             s=size,
             color=color,
             edgecolors=edge,
-            linewidths=0.45,
+            linewidths=0.45 * scale,
             zorder=6,
         )
     values = frame["delta2_tm"].to_numpy(dtype=float)
@@ -340,10 +354,10 @@ def draw_compact_runge_map(
             [hub[0]],
             [hub[1]],
             transform=ax.transAxes,
-            s=3.0 + 5.0 * strength,
+            s=(3.0 + 5.0 * strength) * scale**2,
             color=VIOLET,
             edgecolors="white",
-            linewidths=0.2,
+            linewidths=0.2 * scale,
             alpha=min(0.86, alpha + 0.2),
             zorder=7,
         )
@@ -354,20 +368,20 @@ def draw_compact_runge_map(
             str(int(row.paper)),
             ha="center",
             va="center",
-            fontsize=3.8,
+            fontsize=3.8 * scale,
             fontweight="bold",
             color="white",
-            path_effects=[pe.withStroke(linewidth=0.9, foreground="#111111")],
+            path_effects=[pe.withStroke(linewidth=0.9 * scale, foreground="#111111")],
             zorder=8,
         )
     ax.text(
         0.5,
         1.04,
-        rf"$H={horizon}$",
+        rf"$\ell={horizon}$ {'week' if int(horizon) == 1 else 'weeks'}",
         transform=ax.transAxes,
         ha="center",
         va="bottom",
-        fontsize=6.8,
+        fontsize=6.8 * scale,
         fontweight="bold",
     )
 
@@ -580,7 +594,7 @@ def plot_runge_figure(
                 zorder=4,
             )
     ax_d.set_xticks(sparse_tick_positions, sparse_tick_horizons)
-    ax_d.set_xlabel("Evaluated horizon, $H$")
+    ax_d.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_d.set_ylabel("Source pairs retained in top-$K$")
     ax_d.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     ax_d.legend(
@@ -622,7 +636,7 @@ def plot_runge_figure(
     ax_e.set_ylim(0, 100)
     ax_e.set_xticks(positions, HORIZONS)
     ax_e.set_yticks((0, 25, 50, 75, 100))
-    ax_e.set_xlabel("Evaluated forecast horizon, $H$")
+    ax_e.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_e.set_ylabel("Top-200 synergy-mass composition (%)")
     ax_e.legend(
         loc="lower center",
@@ -651,7 +665,7 @@ def plot_runge_figure(
         label="maximum target span",
     )[0]
     ax_f.set_xticks(sparse_tick_positions, sparse_tick_horizons)
-    ax_f.set_xlabel("Evaluated horizon, $H$")
+    ax_f.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_f.set_ylabel("Maximum target span (km)", color=TEAL)
     ax_f.tick_params(axis="y", colors=TEAL)
     ax_f.set_ylim(0, 21000.0)
@@ -721,7 +735,7 @@ def plot_runge_figure(
         scilimits=(0, 0),
         useMathText=True,
     )
-    ax_g.set_xlabel("Forecast horizon, $H$")
+    ax_g.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_g.set_ylabel(r"TM estimate of $Syn^{\mathrm{EID}}$ (bits)")
     ax_g.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     add_panel_label(ax_g, "g", x=-0.085, y=1.02)
@@ -774,12 +788,15 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     target_xi = pd.read_csv(UNICM_TARGET_XI_LEADS)
     shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
     calibration = json.loads(UNICM_CALIBRATION_SUMMARY.read_text(encoding="utf-8"))
-    fig = plt.figure(figsize=(11.8, 10.2), layout="constrained")
+    xi_calibration = json.loads(
+        UNICM_TARGET_XI_CALIBRATION_SUMMARY.read_text(encoding="utf-8")
+    )
+    fig = plt.figure(figsize=(11.8, 9.25), layout="constrained")
     grid = fig.add_gridspec(
         3,
         6,
-        height_ratios=[5.55, 2.55, 1.55],
-        hspace=0.06,
+        height_ratios=[5.1, 2.45, 1.55],
+        hspace=0.015,
     )
 
     tree_canvas = fig.add_subfigure(grid[0, :])
@@ -797,10 +814,11 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
             compact_core_annotation=True,
             show_checkpoint=False,
             show_tree_metrics=False,
-            core_highlights=(False, True, True),
+            core_highlights=(False, True, False),
         )
     for axis, lead in zip(tree_canvas.axes[:3], UNICM_SPT_LEADS, strict=True):
-        axis.set_title(f"Lead {lead}", fontsize=7.7, fontweight="bold", color=INK, pad=2)
+        unit = "month" if int(lead) == 1 else "months"
+        axis.set_title(rf"$\ell={lead}$ {unit}", fontsize=7.7, fontweight="bold", color=INK, pad=2)
     tree_canvas.text(
         0.002,
         0.995,
@@ -810,6 +828,15 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         fontsize=8.2,
         fontweight="bold",
         color="#111111",
+    )
+    tree_canvas.text(
+        0.998,
+        0.995,
+        "checkpoint 2  |  n = 16,384",
+        ha="right",
+        va="top",
+        fontsize=6.2,
+        color=MID_GREY,
     )
 
     ax_d = fig.add_subplot(grid[1, 0:3])
@@ -845,7 +872,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         heatmap_tick_indices,
         [str(int(target_heat.columns[index])) for index in heatmap_tick_indices],
     )
-    ax_d.set_xlabel("Prediction lead (months)")
+    ax_d.set_xlabel(r"Prediction lead, $\ell$ (months)")
     ax_d.set_ylabel("Predicted target mode")
     ax_d.axvline(5.5, color="#313131", linewidth=0.55, linestyle=":")
     ax_d.axvline(9.5, color="#313131", linewidth=0.55, linestyle=":")
@@ -861,7 +888,7 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     )
     for boundary in (4.5, 6.5, 9.5):
         ax_d.axhline(boundary, color="white", linewidth=0.75)
-    colorbar = fig.colorbar(image, ax=ax_d, fraction=0.045, pad=0.025)
+    colorbar = fig.colorbar(image, ax=ax_d, fraction=0.035, pad=0.012)
     colorbar.set_label(r"Target-resolved $\Xi_j$ (bits)")
     add_panel_label(ax_d, "b", x=-0.13, y=1.02)
 
@@ -900,21 +927,38 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         np.arange(len(SOURCE_SHARE_MODE_ORDER)),
         ["ENSO" if mode == "nino" else mode for mode in SOURCE_SHARE_MODE_ORDER],
     )
-    ax_e.set_xlabel("Prediction lead (months)")
+    ax_e.set_xlabel(r"Prediction lead, $\ell$ (months)")
     ax_e.set_ylabel("Source mode")
-    source_colorbar = fig.colorbar(source_image, ax=ax_e, fraction=0.045, pad=0.025)
+    source_colorbar = fig.colorbar(source_image, ax=ax_e, fraction=0.035, pad=0.012)
     source_colorbar.set_label("Mean Shapley share (%)")
     add_panel_label(ax_e, "c", x=-0.13, y=1.02)
 
     metrics = calibration["test_metrics"]
-    method_keys = ("frozen", "univariate", "uniform", "syn_regularized")
-    method_labels = ("Frozen", "Univariate", "Uniform ridge", "Syn prior")
-    method_values = np.asarray(
-        [float(metrics[key]["mean_cell_nrmse"]) for key in method_keys]
+    method_keys = ("frozen", "univariate", "uniform", "target_xi_shapley")
+    method_labels = (
+        "Frozen",
+        "Univariate",
+        "Uniform ridge",
+        r"$\Xi$-Shapley prior",
     )
-    method_colors = (MID_GREY, "#91A7CF", BLUE, ORANGE)
+    method_values = np.asarray(
+        [
+            float(metrics["frozen"]["mean_cell_nrmse"]),
+            float(metrics["univariate"]["mean_cell_nrmse"]),
+            float(metrics["uniform"]["mean_cell_nrmse"]),
+            float(xi_calibration["test_nrmse"]["target_xi_shapley_prior"]),
+        ]
+    )
+    xi_color = "#287D76"
+    method_colors = (MID_GREY, "#91A7CF", BLUE, xi_color)
 
-    ax_f = fig.add_subplot(grid[2, 0:2])
+    bottom_grid = grid[2, :].subgridspec(
+        1,
+        2,
+        width_ratios=[1.0, 1.15],
+        wspace=0.10,
+    )
+    ax_f = fig.add_subplot(bottom_grid[0, 0])
     method_y = np.arange(len(method_keys))[::-1]
     ax_f.scatter(
         method_values,
@@ -948,27 +992,31 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
     ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     add_panel_label(ax_f, "d", x=-0.18, y=1.04)
 
-    ax_g = fig.add_subplot(grid[2, 2:6])
+    ax_g = fig.add_subplot(bottom_grid[0, 1])
     uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
-    syn_gain = uniform_score - float(
-        metrics["syn_regularized"]["mean_cell_nrmse"]
+    xi_gain = uniform_score - float(
+        xi_calibration["test_nrmse"]["target_xi_shapley_prior"]
     )
     random_scores = np.asarray(
-        calibration["shuffled_syn_control"]["scores"],
+        xi_calibration["shuffled_xi_control"]["scores"],
         dtype=float,
     )
-    random_repeats = int(calibration["shuffled_syn_control"]["repeats"])
+    random_repeats = int(xi_calibration["shuffled_xi_control"]["repeats"])
     random_p = float(
-        calibration["shuffled_syn_control"]["fraction_null_at_least_as_good"]
+        xi_calibration["shuffled_xi_control"]["fraction_null_at_least_as_good"]
     )
     null_gains = uniform_score - random_scores
+    display_min = -0.006
+    visible_null = null_gains[null_gains >= display_min]
     rng = np.random.default_rng(20260728)
-    jitter = rng.uniform(-0.15, 0.15, size=len(null_gains))
+    null_y = 1.0 + rng.uniform(-0.18, 0.18, size=len(visible_null))
     ax_g.axvline(0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
+    ax_g.axhline(1.0, color=LIGHT_GREY, linewidth=0.5, zorder=0)
+    ax_g.axhline(0.0, color=LIGHT_GREY, linewidth=0.5, zorder=0)
     ax_g.scatter(
-        null_gains,
-        jitter,
-        s=15,
+        visible_null,
+        null_y,
+        s=14,
         color="#B4BFCC",
         edgecolor="white",
         linewidth=0.25,
@@ -976,19 +1024,19 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         zorder=2,
     )
     ax_g.scatter(
-        [syn_gain],
-        [0],
-        marker="D",
-        s=40,
-        color=ORANGE,
+        [xi_gain],
+        [0.0],
+        s=32,
+        marker="o",
+        color=xi_color,
         edgecolor="white",
         linewidth=0.5,
-        zorder=4,
+        zorder=3,
     )
     ax_g.text(
         0.02,
         0.92,
-        f"{random_repeats} shuffled Syn priors",
+        rf"{len(visible_null)}/{random_repeats} null draws shown",
         transform=ax_g.transAxes,
         ha="left",
         va="top",
@@ -1005,16 +1053,24 @@ def plot_unicm_figure(output_base: Path) -> list[Path]:
         fontsize=5.6,
         color=INK,
     )
-    ax_g.set_xlabel("Normalized RMSE gain over uniform ridge")
-    ax_g.set_yticks([])
-    ax_g.set_xlim(
-        min(-0.017, float(null_gains.min()) - 0.002),
-        max(0.024, syn_gain + 0.003),
+    ax_g.text(
+        xi_gain - 0.001,
+        0.13,
+        f"{xi_gain:+.3f}",
+        ha="right",
+        va="bottom",
+        fontsize=5.5,
+        color=xi_color,
     )
-    ax_g.set_ylim(-0.38, 0.38)
-    ax_g.spines["left"].set_visible(False)
+    ax_g.set_yticks(
+        (1.0, 0.0),
+        (r"Shuffled $\Xi$ priors", r"$\Xi$-Shapley prior"),
+    )
+    ax_g.set_xlim(display_min, max(0.047, xi_gain + 0.004))
+    ax_g.set_ylim(-0.42, 1.42)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_g, "e", x=-0.08, y=1.04)
+    ax_g.set_xlabel("Normalized RMSE gain over uniform ridge")
+    add_panel_label(ax_g, "e", x=-0.18, y=1.04)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, bbox_inches="tight")

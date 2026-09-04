@@ -194,10 +194,10 @@ def _draw_panel(axis, tree, *, lead: int, seed: int, norm: Normalize, cmap, inva
     for node in internal:
         x_value, y_value = positions[id(node)]
         value = float(node.syn_value)
-        if value < 0.0:
+        if value < -SYN_TOLERANCE:
             face, edge, text_color = "#F5D8D4", NEGATIVE_COLOR, "#762820"
         else:
-            relative = float(norm(value))
+            relative = float(norm(max(value, 0.0)))
             face = cmap(relative)
             edge = _blend_with_white(SYN_COLOR, 0.55 + 0.45 * relative)
             text_color = "white" if relative > 0.68 else INK
