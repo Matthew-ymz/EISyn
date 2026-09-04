@@ -800,7 +800,7 @@ def tree_positions(root: ScalableHierarchyNode) -> dict[tuple[int, ...], tuple[f
 
 
 def plot_tree(axis, root: ScalableHierarchyNode, *, label: str, zone_ids: np.ndarray,
-              norm: Normalize) -> None:
+              norm: Normalize, visual_scale: float = 1.0) -> None:
     positions = tree_positions(root)
     internal = [node for node in flatten_nodes(root) if node.children]
     audit_nonnegative([node.syn_bits for node in internal], AFFINE_TOLERANCE_BITS, "figure")
@@ -808,18 +808,18 @@ def plot_tree(axis, root: ScalableHierarchyNode, *, label: str, zone_ids: np.nda
     for node in internal:
         parent = positions[node.indices]
         children = [positions[child.indices] for child in node.children]
-        axis.plot([children[0][0], children[1][0]], [parent[1], parent[1]], color="#B7C0C8", lw=0.45, zorder=1)
+        axis.plot([children[0][0], children[1][0]], [parent[1], parent[1]], color="#B7C0C8", lw=0.45 * visual_scale, zorder=1)
         for child in children:
-            axis.plot([child[0], child[0]], [child[1], parent[1]], color="#B7C0C8", lw=0.45, zorder=1)
+            axis.plot([child[0], child[0]], [child[1], parent[1]], color="#B7C0C8", lw=0.45 * visual_scale, zorder=1)
         # Audit above rejects significant negatives; only tolerance-scale negatives
         # are displayed at zero. Cached raw Syn values are never changed.
         display_syn = 0.0 if node.syn_bits < 0 else node.syn_bits
-        axis.scatter([parent[0]], [parent[1]], s=5 + 24 * norm(display_syn),
-                     c=[cmap(norm(display_syn))], edgecolors="#35515D", lw=0.3, zorder=3)
+        axis.scatter([parent[0]], [parent[1]], s=(5 + 24 * norm(display_syn)) * visual_scale**2,
+                     c=[cmap(norm(display_syn))], edgecolors="#35515D", lw=0.3 * visual_scale, zorder=3)
     order = leaf_order(root)
     for position, atom in enumerate(order):
-        axis.scatter([position], [0], s=8, color=TIME_COLORS[TIME_NAMES[atom % 3]],
-                     edgecolors="white", lw=0.25, zorder=4)
+        axis.scatter([position], [0], s=8 * visual_scale**2, color=TIME_COLORS[TIME_NAMES[atom % 3]],
+                     edgecolors="white", lw=0.25 * visual_scale, zorder=4)
     if root.search_kind == "time-block-search":
         for node in internal:
             if node.size == 66 and len({i % 3 for i in node.indices}) == 1:

@@ -67,7 +67,13 @@ def panel_label(ax, label: str, x: float = -0.12, y: float = 1.08) -> None:
     ax.text(x, y, label, transform=ax.transAxes, fontsize=13, fontweight="bold", va="top")
 
 
-def add_time_series_panel(ax, flow: np.ndarray, data_zone_ids: np.ndarray) -> None:
+def add_time_series_panel(
+    ax,
+    flow: np.ndarray,
+    data_zone_ids: np.ndarray,
+    *,
+    panel: str = "a",
+) -> None:
     """Show four-week inflow profiles for three representative high-demand zones."""
     start_date = datetime(2023, 10, 2)
     origin = datetime(2023, 1, 1)
@@ -101,7 +107,7 @@ def add_time_series_panel(ax, flow: np.ndarray, data_zone_ids: np.ndarray) -> No
     ax.legend(loc="lower left", bbox_to_anchor=(0.0, 1.01), ncol=3,
               columnspacing=0.9, handlelength=1.5, handletextpad=0.35,
               borderaxespad=0.0, fontsize=6.4, frameon=False)
-    panel_label(ax, "a", -0.16)
+    panel_label(ax, panel, -0.16)
 
 
 def add_synergy_flow_panel(
@@ -109,6 +115,8 @@ def add_synergy_flow_panel(
     finite: dict,
     flow: np.ndarray,
     data_zone_ids: np.ndarray,
+    *,
+    panel: str = "c",
 ) -> None:
     """Compare temporal coupling against regional inflow and outflow activity."""
     selected_ids, state_values = mean_zone_values(finite)
@@ -154,10 +162,49 @@ def add_synergy_flow_panel(
     ax.set_yticks([0.0, 0.2, 0.4])
     ax.set_xlabel("Mean flow (rides per hour)")
     ax.set_ylabel("Time-scale synergy (bits)")
-    panel_label(ax, "c", -0.20)
+    panel_label(ax, panel, -0.20)
 
 
-def add_map_panels(fig, spec, finite: dict) -> None:
+def add_temporal_share_panel(ax, finite: dict, *, panel: str = "d") -> None:
+    summaries = {
+        row["state"]: row for row in finite["summary"] if row["method"] == "hurdle"
+    }
+    x_state = np.arange(3)
+    rng = np.random.default_rng(19)
+    mean_shares = 100 * np.asarray(
+        [summaries[state]["temporal_share_mean"] for state in STATES]
+    )
+    ax.bar(x_state, mean_shares, width=0.52, color=TEAL)
+    for index, state in enumerate(STATES):
+        points = 100 * np.asarray(
+            [row["temporal_share"] for row in summaries[state]["seed_rows"]]
+        )
+        ax.scatter(
+            np.full(len(points), index) + rng.uniform(-0.035, 0.035, len(points)),
+            points,
+            s=20,
+            facecolor="white",
+            edgecolor=DARK_GRAY,
+            linewidth=0.65,
+            zorder=3,
+        )
+        ax.text(
+            index,
+            mean_shares[index] - 1.25,
+            f"{mean_shares[index]:.1f}%",
+            ha="center",
+            va="top",
+            fontsize=7.5,
+            color="white",
+            fontweight="bold",
+        )
+    ax.set_xticks(x_state, ["Weekday", "Weekend", "Rainy"])
+    ax.set_ylim(65, 88)
+    ax.set_ylabel("Share of synergy across time scales (%)")
+    panel_label(ax, panel, -0.22)
+
+
+def add_map_panels(fig, spec, finite: dict, *, panel: str = "e") -> None:
     geojson = load_geojson()
     features = geojson["features"]
     feature_by_id = {zone_id(feature): feature for feature in features}
@@ -212,7 +259,7 @@ def add_map_panels(fig, spec, finite: dict) -> None:
         ax.text(0.5, -0.005, state_label, transform=ax.transAxes,
                 ha="center", va="top", fontsize=9.5)
         if index == 0:
-            panel_label(ax, "e", -0.04, 1.02)
+            panel_label(ax, panel, -0.04, 1.02)
 
     colorbar = fig.colorbar(
         mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes,
@@ -281,25 +328,9 @@ def main() -> None:
         fig.add_subplot(validation[0, 1]), finite, flow, data_zone_ids
     )
 
-    summaries = {row["state"]: row for row in finite["summary"] if row["method"] == "hurdle"}
-    x_state = np.arange(3)
-    rng = np.random.default_rng(19)
-
     # d: temporal share without method terminology on the figure.
     ax_share = fig.add_subplot(top[0, 2])
-    mean_shares = 100 * np.asarray([summaries[state]["temporal_share_mean"] for state in STATES])
-    ax_share.bar(x_state, mean_shares, width=0.52, color=TEAL)
-    for index, state in enumerate(STATES):
-        points = 100 * np.asarray([row["temporal_share"] for row in summaries[state]["seed_rows"]])
-        ax_share.scatter(np.full(len(points), index) + rng.uniform(-0.035, 0.035, len(points)),
-                         points, s=20, facecolor="white", edgecolor=DARK_GRAY,
-                         linewidth=0.65, zorder=3)
-        ax_share.text(index, mean_shares[index] - 1.25, f"{mean_shares[index]:.1f}%",
-                      ha="center", va="top", fontsize=7.5, color="white", fontweight="bold")
-    ax_share.set_xticks(x_state, ["Weekday", "Weekend", "Rainy"])
-    ax_share.set_ylim(65, 88)
-    ax_share.set_ylabel("Share of synergy across time scales (%)")
-    panel_label(ax_share, "d", -0.22)
+    add_temporal_share_panel(ax_share, finite)
 
     # e: three state maps occupy the hero region.
     add_map_panels(fig, outer[1], finite)

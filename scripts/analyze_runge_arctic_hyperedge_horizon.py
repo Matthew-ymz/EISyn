@@ -294,7 +294,7 @@ def plot_figure(
     ax_b.set_xlim(0.5, 61.0)
     ax_b.set_ylim(bottom=0.0)
     ax_b.set_xticks((1, 5, 10, 20, 40, 60))
-    ax_b.set_xlabel("Forecast horizon, $H$")
+    ax_b.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_b.set_ylabel("Arctic-related synergy-mass share (%)")
     ax_b.grid(axis="y", color=GRID, linewidth=0.55)
     ax_b.legend(
@@ -330,7 +330,7 @@ def plot_figure(
     ax_c.set_xlim(0.5, 61.0)
     ax_c.set_ylim(bottom=0.0)
     ax_c.set_xticks((1, 5, 10, 20, 40, 60))
-    ax_c.set_xlabel("Forecast horizon, $H$")
+    ax_c.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_c.set_ylabel("Role-resolved top-200 mass share (%)")
     ax_c.grid(axis="y", color=GRID, linewidth=0.55)
     ax_c.legend(
@@ -382,7 +382,7 @@ def plot_figure(
     ax_d.set_ylim(72.0, 0.0)
     ax_d.set_xticks((1, 5, 10, 20, 40, 60))
     ax_d.set_yticks((1, 20, 40, 60))
-    ax_d.set_xlabel("Forecast horizon, $H$")
+    ax_d.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_d.set_ylabel("Best global rank (lower is stronger)")
     ax_d.grid(axis="y", color=GRID, linewidth=0.55)
     role_handles = [

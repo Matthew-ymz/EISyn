@@ -482,7 +482,7 @@ def plot_figure(
 
     ax_c.stackplot(horizons, six_percent.T, colors=COLORS, alpha=0.94)
     ax_c.set_ylim(0, 100)
-    ax_c.set_xlabel("Forecast horizon, H")
+    ax_c.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_c.set_ylabel("Shapley composition (%)")
     ax_c.set_title("Five PCs plus Others block", fontsize=7.6, pad=3)
     format_axis(ax_c)
@@ -507,7 +507,7 @@ def plot_figure(
         label="No.0–4 + Others interaction",
     )
     ax_d.set_yscale("log")
-    ax_d.set_xlabel("Forecast horizon, H")
+    ax_d.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
     ax_d.set_ylabel("Grand-coalition interaction (bits)")
     ax_d.set_title("Interaction mass across scales", fontsize=7.6, pad=3)
     format_axis(ax_d)

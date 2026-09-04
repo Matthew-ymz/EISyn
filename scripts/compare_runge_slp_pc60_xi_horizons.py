@@ -250,7 +250,7 @@ def draw_vertical_point_tree(
     axis.text(
         0.01,
         1.04,
-        rf"$H={int(horizon)}$",
+        rf"$\ell={int(horizon)}$ {'week' if int(horizon) == 1 else 'weeks'}",
         transform=axis.transAxes,
         ha="left",
         va="center",

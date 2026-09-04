@@ -89,7 +89,15 @@ def _focus_positions(focus) -> tuple[dict[tuple[int, ...], tuple[float, float]],
     return positions, order
 
 
-def _draw_panel(ax: plt.Axes, root, horizon: int, maximum: float, panel: str) -> None:
+def _draw_panel(
+    ax: plt.Axes,
+    root,
+    horizon: int,
+    maximum: float,
+    panel: str,
+    *,
+    show_horizon: bool = True,
+) -> None:
     spine, sides = _dominant_spine(root)
     by_size = {node.size: node for node in spine}
     side_by_size = {node.size: side for node, side in zip(spine, sides, strict=True)}
@@ -174,8 +182,10 @@ def _draw_panel(ax: plt.Axes, root, horizon: int, maximum: float, panel: str) ->
     ax.text(n59_x + 0.025, n59_y, "n=59", ha="left", va="center", fontsize=6.3, color=INK)
     ax.text(focus_x + 0.025, focus_y, "n=7", ha="left", va="center", fontsize=6.3, color=INK)
 
+    unit = "week" if int(horizon) == 1 else "weeks"
+    heading = rf"{panel}  $\ell = {horizon}$ {unit}" if show_horizon else panel
     ax.text(
-        0.0, 1.04, f"{panel}  H = {horizon}",
+        0.0, 1.04, heading,
         transform=ax.transAxes, ha="left", va="bottom",
         fontsize=8.5, fontweight="bold", color=INK,
     )

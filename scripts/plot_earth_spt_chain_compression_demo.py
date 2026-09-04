@@ -126,7 +126,7 @@ def _draw_full_tree(ax: plt.Axes, root, maximum: float) -> None:
         arrowprops={"arrowstyle": "-", "color": ACCENT, "linewidth": 0.9},
         color=ACCENT, fontsize=7.2, ha="left", va="bottom",
     )
-    ax.text(0.0, 1.06, "a  Full H=1 hierarchy", transform=ax.transAxes, ha="left", va="bottom", fontsize=9, fontweight="bold", color=INK)
+    ax.text(0.0, 1.06, r"a  Full $\ell=1$ week hierarchy", transform=ax.transAxes, ha="left", va="bottom", fontsize=9, fontweight="bold", color=INK)
     ax.text(0.0, 1.005, "60 leaves · 59 internal splits", transform=ax.transAxes, ha="left", va="bottom", fontsize=7, color="#5C6873")
     ax.set_xlim(-0.035, 1.025)
     ax.set_ylim(-0.06, 1.05)
@@ -225,7 +225,7 @@ def main() -> None:
     _draw_full_tree(left, root, maximum)
     _draw_compressed_tree(right, root, maximum)
     figure.suptitle(
-        rf"Earth SLP synergy partition tree ($H=1$; $\Xi$ = {root.xi_bits:.2f} bits)",
+        rf"Earth SLP synergy partition tree ($\ell=1$ week; $\Xi$ = {root.xi_bits:.2f} bits)",
         x=0.5, y=1.01, fontsize=10, color=INK,
     )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
