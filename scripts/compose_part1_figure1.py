@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import itertools
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -37,7 +37,7 @@ CONFOUNDER_RESULT = (
     / "sine_beta_original_neighborhood_one_decimal.json"
 )
 KURAMOTO_HIERARCHY_RESULT = (
-    ROOT / "results" / "pairwise_asymmetry_kuramoto_mlp" / "summary.json"
+    ROOT / "results" / "mixed_order_kuramoto_kout_main" / "summary.json"
 )
 
 
@@ -172,394 +172,87 @@ def prepare_large_text_sources() -> None:
     )
 
 
-def select_asymmetric_kuramoto_condition(
-    payload: dict[str, object],
-    *,
-    rho: float,
-) -> dict[str, object]:
-    """Convert one sweep level to the panel's module-summary schema."""
-    rows = [
-        row
-        for row in payload["rows"]
-        if np.isclose(float(row["rho"]), float(rho))
-    ]
-    if not rows:
-        raise ValueError(f"No Kuramoto asymmetry rows found for rho={rho}.")
-    summary: dict[str, object] = {}
-    for mechanism in ("pairwise", "triadic"):
-        mechanism_summary: dict[str, float] = {}
-        for metric in (
-            "pair_atom_bits",
-            "triple_residual_bits",
-            "positive_atom_bits",
-            "pair_atom_fraction",
-            "triple_residual_fraction",
-        ):
-            values = np.asarray(
-                [
-                    float(row["modules"][mechanism][metric])
-                    for row in rows
-                ]
-            )
-            mechanism_summary[f"{metric}_mean"] = float(values.mean())
-            mechanism_summary[f"{metric}_sem"] = float(
-                values.std(ddof=1) / np.sqrt(len(values))
-                if len(values) > 1
-                else 0.0
-            )
-        summary[mechanism] = mechanism_summary
-    mae = np.asarray(
-        [
-            float(row["dynamics_fit"]["heldout_circular_mae_rad"])
-            for row in rows
-        ]
+def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
+    """Draw all three cached networks and complete trees at a common text size."""
+    from scripts.run_mixed_order_kuramoto_kout_main import (
+        NAMES, NETWORK_POSITIONS, WITHIN_COUPLING, pairwise_ring_weights,
+        tree_from_record,
     )
-    summary["heldout_circular_mae_rad_mean"] = float(mae.mean())
-    delta = np.asarray(
-        [
-            float(row["modules"]["triadic"]["triple_residual_fraction"])
-            - float(row["modules"]["pairwise"]["triple_residual_fraction"])
-            for row in rows
-        ]
-    )
-    summary["paired_delta_triple_fraction"] = {
-        "mean": float(delta.mean()),
-        "sem": float(
-            delta.std(ddof=1) / np.sqrt(len(delta))
-            if len(delta) > 1
-            else 0.0
-        ),
-        "positive_count": int(np.sum(delta > 0.0)),
-        "n_seeds": len(delta),
-    }
-    return {
-        "rows": rows,
-        "summary": summary,
-        "selected_rho": float(rho),
-        "pairwise_edge_weights": rows[0]["pairwise_edge_weights"],
-    }
+    from scripts.synergy_hierarchy_tree_plot import _layout, _blend_with_white
 
-
-def draw_kuramoto_hierarchy_panel(
-    fig: plt.Figure,
-    *,
-    payload: dict[str, object],
-) -> None:
-    """Show the mechanism and atom contrast for equal-size mixed-order modules."""
-    pair_color = "#4477AA"
-    triadic_color = "#D9922E"
-    cross_color = "#B8BDC5"
-    pairwise_weights = payload.get("pairwise_edge_weights", {})
-    edge_keys = (
-        "theta1-theta2",
-        "theta1-theta3",
-        "theta2-theta3",
-    )
-    edge_values = np.asarray(
-        [float(pairwise_weights.get(key, 0.75)) for key in edge_keys]
-    )
-    edge_widths = 0.75 + 1.75 * edge_values / edge_values.max()
-
-    network_ax = fig.add_axes((0.055, 0.050, 0.205, 0.185))
-    atom_ax = fig.add_axes((0.325, 0.063, 0.250, 0.158))
-    mass_ax = fig.add_axes((0.655, 0.063, 0.305, 0.158))
-
-    positions = np.array(
-        [
-            [0.0, 0.62],
-            [-0.55, -0.35],
-            [0.55, -0.35],
-            [2.0, 0.62],
-            [1.45, -0.35],
-            [2.55, -0.35],
-        ]
-    )
-    for (left, right), edge_width in zip(
-        itertools.combinations((0, 1, 2), 2),
-        edge_widths,
-    ):
-        network_ax.plot(
-            *zip(positions[left], positions[right]),
-            color=pair_color,
-            lw=float(edge_width),
-            zorder=1,
-        )
-    network_ax.add_patch(
-        Polygon(
-            positions[[3, 4, 5]],
-            closed=True,
-            facecolor=triadic_color,
-            edgecolor=triadic_color,
-            alpha=0.18,
-            lw=1.8,
-            zorder=1,
-        )
-    )
-    for left in (0, 1, 2):
-        for right in (3, 4, 5):
-            network_ax.plot(
-                *zip(positions[left], positions[right]),
-                color=cross_color,
-                lw=0.42,
-                alpha=0.38,
-                linestyle=(0, (2.0, 2.0)),
-                zorder=0,
-            )
-    network_ax.scatter(
-        positions[:, 0],
-        positions[:, 1],
-        s=105,
-        color="white",
-        edgecolor="0.15",
-        lw=0.75,
-        zorder=2,
-    )
-    for index, (x_value, y_value) in enumerate(positions):
-        network_ax.text(
-            x_value,
-            y_value,
-            str(index + 1),
-            ha="center",
-            va="center",
-            fontsize=5.8,
-            zorder=3,
-        )
-    network_ax.text(
-        0.0,
-        -0.72,
-        r"$K_2$",
-        color=pair_color,
-        ha="center",
-        fontsize=5.8,
-    )
-    network_ax.text(
-        2.0,
-        -0.72,
-        r"$K_3$",
-        color=triadic_color,
-        ha="center",
-        fontsize=5.8,
-    )
-    network_ax.set(xlim=(-0.95, 2.95), ylim=(-0.87, 1.02))
-    network_ax.axis("off")
-
-    pair_bits = np.asarray(
-        [
-            float(payload["summary"]["pairwise"]["pair_atom_bits_mean"]),
-            float(payload["summary"]["triadic"]["pair_atom_bits_mean"]),
-        ]
-    )
-    triple_bits = np.asarray(
-        [
-            float(payload["summary"]["pairwise"]["triple_residual_bits_mean"]),
-            float(payload["summary"]["triadic"]["triple_residual_bits_mean"]),
-        ]
-    )
-    atom_positions = np.asarray([1.0, 0.0])
-    atom_ax.barh(
-        atom_positions,
-        pair_bits,
-        color=pair_color,
-        height=0.56,
-        edgecolor="white",
-        lw=0.8,
-    )
-    atom_ax.barh(
-        atom_positions,
-        triple_bits,
-        left=pair_bits,
-        color=triadic_color,
-        height=0.56,
-        edgecolor="white",
-        lw=0.8,
-    )
-    for y_value, pair_value, triple_value in zip(
-        atom_positions,
-        pair_bits,
-        triple_bits,
-    ):
-        if pair_value > 0.25:
-            atom_ax.text(
-                pair_value / 2.0,
-                y_value,
-                f"{pair_value:.2f}",
-                color="white",
-                fontsize=5.2,
-                fontweight="bold",
-                ha="center",
-                va="center",
-            )
-        else:
-            atom_ax.text(
-                pair_value + 0.04,
-                y_value + 0.34,
-                f"{pair_value:.2f}",
-                color=pair_color,
-                fontsize=5.0,
-                fontweight="bold",
-                ha="left",
-                va="center",
-            )
-        atom_ax.text(
-            pair_value + triple_value / 2.0,
-            y_value,
-            f"{triple_value:.2f}",
-            color="white",
-            fontsize=5.2,
-            fontweight="bold",
-            ha="center",
-            va="center",
-        )
-    atom_ax.set_yticks(atom_positions, ("{1,2,3}", "{4,5,6}"))
-    atom_ax.set_xlabel("bits", fontsize=5.8)
-    atom_ax.tick_params(axis="both", labelsize=5.5, length=2)
-    atom_ax.set(xlim=(0.0, 3.55), ylim=(-0.55, 1.55))
-    atom_ax.grid(axis="x", color="0.92", lw=0.45, zorder=0)
-    atom_ax.spines["left"].set_visible(False)
-    atom_ax.spines["top"].set_visible(False)
-    atom_ax.spines["right"].set_visible(False)
-
-    pair_fractions = np.asarray(
-        [
-            float(row["modules"]["pairwise"]["triple_residual_fraction"])
-            for row in payload["rows"]
-        ]
-    )
-    triadic_fractions = np.asarray(
-        [
-            float(row["modules"]["triadic"]["triple_residual_fraction"])
-            for row in payload["rows"]
-        ]
-    )
-    triple_means = np.asarray(
-        [pair_fractions.mean(), triadic_fractions.mean()]
-    )
-    triple_sems = np.asarray(
-        [
-            float(payload["summary"]["pairwise"]["triple_residual_fraction_sem"]),
-            float(payload["summary"]["triadic"]["triple_residual_fraction_sem"]),
-        ]
-    )
-    pair_means = 1.0 - triple_means
-    y_positions = np.asarray([1.0, 0.0])
-    bar_height = 0.56
-    mass_ax.barh(
-        y_positions,
-        pair_means,
-        height=bar_height,
-        color=pair_color,
-        edgecolor="white",
-        lw=0.8,
-        zorder=1,
-    )
-    mass_ax.barh(
-        y_positions,
-        triple_means,
-        left=pair_means,
-        height=bar_height,
-        color=triadic_color,
-        edgecolor="white",
-        lw=0.8,
-        zorder=1,
-    )
-    for y_value, pair_mean, triple_mean, triple_sem in zip(
-        y_positions,
-        pair_means,
-        triple_means,
-        triple_sems,
-    ):
-        if pair_mean >= 0.12:
-            mass_ax.text(
-                pair_mean / 2.0,
-                y_value,
-                f"{100.0 * pair_mean:.1f}%",
-                color="white",
-                fontsize=5.3,
-                fontweight="bold",
-                ha="center",
-                va="center",
-                zorder=3,
-            )
-        else:
-            mass_ax.text(
-                pair_mean + 0.008,
-                y_value + 0.34,
-                f"{100.0 * pair_mean:.1f}%",
-                color=pair_color,
-                fontsize=5.0,
-                fontweight="bold",
-                ha="left",
-                va="center",
-                zorder=3,
-            )
-        mass_ax.text(
-            pair_mean + triple_mean / 2.0,
-            y_value,
-            f"{100.0 * triple_mean:.1f}%"
-            f"\n± {100.0 * triple_sem:.1f}",
-            color="white",
-            fontsize=5.1,
-            fontweight="bold",
-            ha="center",
-            va="center",
-            linespacing=0.88,
-            zorder=3,
-        )
-    pair_boundaries = 1.0 - pair_fractions
-    triadic_boundaries = 1.0 - triadic_fractions
-    for y_value, boundaries in zip(
-        y_positions,
-        (pair_boundaries, triadic_boundaries),
-    ):
-        for offset, boundary in zip((-0.12, 0.0, 0.12), boundaries):
-            mass_ax.plot(
-                boundary,
-                y_value + offset,
-                marker="|",
-                color="0.12",
-                ms=4.0,
-                mew=0.65,
-                zorder=4,
-            )
-    mass_ax.text(
-        0.18,
-        1.47,
-        r"$\mathcal{A}_2$",
-        color=pair_color,
-        fontsize=5.3,
-        fontweight="bold",
-        ha="center",
-        va="center",
-    )
-    mass_ax.text(
-        0.72,
-        1.47,
-        r"$\mathcal{A}_3$",
-        color=triadic_color,
-        fontsize=5.3,
-        fontweight="bold",
-        ha="center",
-        va="center",
-    )
-    mass_ax.set(
-        xlim=(0.0, 1.0),
-        ylim=(-0.45, 1.63),
-        yticks=y_positions,
-        yticklabels=("{1,2,3}", "{4,5,6}"),
-        xticks=(0.0, 0.25, 0.50, 0.75, 1.0),
-        xticklabels=("0", "25", "50", "75", "100%"),
-    )
-    mass_ax.tick_params(axis="both", labelsize=5.5, length=2)
-    mass_ax.grid(axis="x", color="0.92", lw=0.45, zorder=0)
-    mass_ax.spines["left"].set_visible(False)
-    mass_ax.spines["top"].set_visible(False)
-    mass_ax.spines["right"].set_visible(False)
+    records = payload["conditions"]
+    tolerance = float(payload["experiment_contract"]["syn_nonnegative_tolerance_bits"])
+    values = np.array([atom["value_bits"] for row in records for atom in row["atoms"]])
+    violations = values < -tolerance
+    if violations.any():
+        raise ValueError(f"Syn minimum={values.min():.6g} bits; threshold={-tolerance:g}; "
+                         f"affected count={violations.sum()}")
+    print(f"SPT Syn tolerance={tolerance:g} bits; numerical-zero-band count="
+          f"{((values < 0) & (values >= -tolerance)).sum()}; values displayed without clipping")
+    scale = float(values.max())
+    positions = np.array([NETWORK_POSITIONS[name] for name in NAMES])
+    weights = pairwise_ring_weights(float(payload["experiment_contract"]["pairwise_asymmetry"]))
+    fig.text(.066, .382, "Mixed-order Kuramoto: complete SPT", fontsize=7, weight="bold", va="top")
+    # Label the two planted communities once, on opposite sides of the first
+    # reference network, without repeating the annotations across conditions.
+    fig.text(.097, .292, "pairwise\ntriangle", ha="right", va="center",
+             fontsize=5.2, linespacing=1.05, color="#355F7A")
+    fig.text(.269, .292, "triadic\nhyperedge", ha="left", va="center",
+             fontsize=5.2, linespacing=1.05, color="#A95E24")
+    for index, record in enumerate(records):
+        left = .035 + index * .323
+        width = .295
+        k = float(record["k_out"])
+        fig.text(left + width / 2, .356, rf"$K_{{\mathrm{{out}}}}={k:g}$",
+                 ha="center", va="top", fontsize=7, weight="bold")
+        network = fig.add_axes((left + .015, .237, width - .030, .116))
+        if k > 0:
+            for i in range(3):
+                for j in range(3, 6):
+                    network.plot(*zip(positions[i], positions[j]), color="#B8BDC5",
+                                 lw=.23 + .85*k/WITHIN_COUPLING, alpha=.50, zorder=0)
+        network.add_patch(Polygon(positions[3:], closed=True, facecolor="#D9903D",
+                                  edgecolor="#B86722", alpha=.28, lw=.9))
+        for (i, j), weight in weights.items():
+            network.plot(*zip(positions[i], positions[j]), color="#4477A8",
+                         lw=.4 + 1.2*weight/max(weights.values()), zorder=2)
+        for i, (x, y) in enumerate(positions):
+            network.scatter(x, y, s=58, facecolor="#DCEAF3" if i < 3 else "#F4DDC5",
+                            edgecolor="#355F7A" if i < 3 else "#A95E24", lw=.6, zorder=3)
+            network.text(x, y, str(i+1), ha="center", va="center", fontsize=5.4, zorder=4)
+        network.set(xlim=(-1.42, 1.42), ylim=(-.95, .92), aspect="equal")
+        network.axis("off")
+        tree = tree_from_record(record)
+        axis = fig.add_axes((left, .022, width, .198))
+        layout = _layout(tree)
+        max_depth = max(-y for x, y in layout.values())
+        # Depth-specific spacing retains every node while giving each tree equal area.
+        def draw(node):
+            x, y = layout[node.sources]
+            for child in node.children:
+                cx, cy = layout[child.sources]
+                axis.plot([x, cx], [y, cy], color="#AFBAC2", lw=.65, zorder=1)
+                draw(child)
+            internal = bool(node.children)
+            label = ",".join(name.removeprefix("theta") for name in node.sources)
+            if internal:
+                label = "{" + label + "}" + f"\nSyn {node.residual:.2f}"
+            strength = abs(float(node.residual))/scale if internal else 0
+            axis.text(x, y, label, ha="center", va="center", fontsize=5.1,
+                      linespacing=1.12, color="#24313C", zorder=3,
+                      bbox=dict(boxstyle="round,pad=.24", lw=.55+.6*strength,
+                                facecolor=_blend_with_white("#267A70", .10+.52*strength) if internal else "#F4F6F8",
+                                edgecolor="#267A70" if internal else "#8B96A1"))
+        draw(tree)
+        axis.text(.5, 1.055, rf"$\Xi={record['root_xi_bits']:.2f}$ bits",
+                  transform=axis.transAxes, ha="center", fontsize=6.1)
+        axis.set(xlim=(-.7, 5.7), ylim=(-max_depth-.32, .42))
+        axis.axis("off")
 
 
 def build_figure() -> plt.Figure:
-    # 183 mm × 138 mm: full-width mixed-modality figure with a hierarchy
-    # validation band beneath the original three-panel argument.
-    fig = plt.figure(figsize=(183 / 25.4, 138 / 25.4), facecolor="white")
+    # Explicit three-band layout: mechanism, benchmark evidence, complete SPTs.
+    fig = plt.figure(figsize=(183 / 25.4, 165 / 25.4), facecolor="white")
 
     intervention = trim_white(load_rgb(INTERVENTION_DIAGRAM), tolerance=10, pad=4)
     hyperedge = trim_white(load_rgb(HYPEREDGE_DIAGRAM), tolerance=10, pad=8)
@@ -571,49 +264,35 @@ def build_figure() -> plt.Figure:
     hierarchy_sweep = json.loads(
         KURAMOTO_HIERARCHY_RESULT.read_text(encoding="utf-8")
     )
-    hierarchy_payload = select_asymmetric_kuramoto_condition(
-        hierarchy_sweep,
-        rho=0.25,
-    )
+    panel_letter(fig, x=0.022, y=0.985, letter="a")
+    panel_letter(fig, x=0.589, y=0.985, letter="b")
+    image_panel(fig, (0.022, 0.752, 0.535, 0.233), intervention)
+    image_panel(fig, (0.589, 0.750, 0.390, 0.233), hyperedge)
 
-    panel_letter(
-        fig,
-        x=0.025,
-        y=0.982,
-        letter="a",
-    )
-    panel_letter(fig, x=0.585, y=0.982, letter="b")
-    image_panel(fig, (0.025, 0.658, 0.525, 0.292), intervention)
-    image_panel(fig, (0.585, 0.650, 0.390, 0.300), hyperedge)
+    panel_letter(fig, x=0.022, y=0.738, letter="c")
+    image_panel(fig, (0.022, 0.409, 0.543, 0.320), systems)
+    image_panel(fig, (0.589, 0.409, 0.390, 0.320), confounder)
 
-    panel_letter(
-        fig,
-        x=0.025,
-        y=0.638,
-        letter="c",
-    )
-    image_panel(fig, (0.020, 0.270, 0.555, 0.355), systems)
-
-    # The generative diagram and the beta-sweep readouts are one experiment.
-    # Align them as a single stacked panel b without a second outer heading.
-    image_panel(fig, (0.585, 0.265, 0.390, 0.370), confounder)
-
-    panel_letter(fig, x=0.025, y=0.250, letter="d")
-    draw_kuramoto_hierarchy_panel(fig, payload=hierarchy_payload)
+    panel_letter(fig, x=0.022, y=0.382, letter="d")
+    draw_kuramoto_hierarchy_panel(fig, payload=hierarchy_sweep)
 
     return fig
 
 
 def main() -> None:
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    prepare_large_text_sources()
+    parser = argparse.ArgumentParser(description="Compose the cached Part 1 main figure.")
+    parser.add_argument("--refresh-sources", action="store_true",
+                        help="Re-render benchmark source panels from their cached results.")
+    args = parser.parse_args()
+    if args.refresh_sources or not all(path.exists() for path in
+                                      (SYSTEM_BENCHMARK_LARGE_TEXT, CONFOUNDER_BENCHMARK_LARGE_TEXT)):
+        prepare_large_text_sources()
     # Upstream cached-figure renderers use enlarged source fonts. Restore the
     # final composite style before adding native axes to the integrated figure.
     mpl.rcParams.update(COMPOSITE_STYLE)
     fig = build_figure()
     fig.savefig(OUTPUT_STEM.with_suffix(".png"), dpi=600, bbox_inches=None)
-    fig.savefig(OUTPUT_STEM.with_suffix(".pdf"), bbox_inches=None)
-    fig.savefig(OUTPUT_STEM.with_suffix(".svg"), bbox_inches=None)
     plt.close(fig)
 
 
