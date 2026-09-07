@@ -30,6 +30,11 @@ from scripts.unicm_peid_syn_analysis import (  # noqa: E402
     overall_prediction_cache_path,
     sample_full_history_mode_inputs,
 )
+from scripts.compute_unicm_order_syn import (  # noqa: E402
+    ESTIMATOR_VERSION,
+    fit_independent_source_affine_channel,
+    independent_source_ei_table_from_channel,
+)
 
 
 MODE_LABELS = tuple(MODE_NAMES)
@@ -39,8 +44,8 @@ HEATMAP_MODE_LABELS = tuple(label for label in MODE_LABELS if label.startswith("
 CORE_LABELS = ("nino", "IOD", "nino12", "nino3", "nino4")
 LEADS = tuple(range(1, 25))
 SEEDS = (1, 2, 3)
-N_SAMPLES = 8192
-SAMPLING_SEED = 20260619
+N_SAMPLES = 16384
+SAMPLING_SEED = 20260901
 INTERVENTION_BOUND = 4.0
 START_MONTH = 0
 DEVICE = "cpu"
@@ -48,8 +53,8 @@ MAIN_COVARIANCE_RIDGE = 1e-6
 RIDGE_SENSITIVITY = (1e-8, 1e-6, 1e-4)
 SYN_NONNEGATIVE_TOLERANCE_BITS = 1e-8
 CLOSURE_TOLERANCE_BITS = 1e-10
-DEFAULT_CACHE_DIR = ROOT / "results" / "unicm_overall_ei_cpu_bound4_n8192" / "cache"
-DEFAULT_OUTPUT_DIR = ROOT / "results" / "unicm_11mode_shapley_affine"
+DEFAULT_CACHE_DIR = ROOT / "results" / "unicm_xi_hierarchy_uniform_n16384" / "cache"
+DEFAULT_OUTPUT_DIR = ROOT / "results" / "unicm_11mode_shapley_affine_n16384_independent"
 DEFAULT_FIGURE_STEM = ROOT / "fig" / "earth_unicm_11mode_shapley"
 
 COLORS = (
@@ -201,15 +206,13 @@ def coalition_ei_table(
     return table
 
 
-def evaluate_game(
-    coefficients: np.ndarray,
-    residual_covariance: np.ndarray,
+def evaluate_game_from_ei_table(
+    ei_values: dict[int, float],
     *,
     seed: int,
     lead: int,
 ) -> tuple[dict[str, object], dict[str, float | int]]:
     player_count = len(MODE_LABELS)
-    ei_values = coalition_ei_table(coefficients, residual_covariance, mode_feature_blocks())
     singleton_values = np.asarray([ei_values[1 << player] for player in range(player_count)])
     interaction_values = {
         mask: ei_values[mask]
@@ -275,14 +278,18 @@ def evaluate_game(
 
 
 def cache_path(cache_dir: Path, seed: int) -> Path:
-    args = argparse.Namespace(
-        n_samples=N_SAMPLES,
-        sampling_seed=SAMPLING_SEED,
-        intervention_bound=INTERVENTION_BOUND,
-        start_month=START_MONTH,
-        device=DEVICE,
+    return cache_dir / (
+        f"checkpoint{int(seed)}_samples{N_SAMPLES}_sampling{SAMPLING_SEED}"
+        f"_bound{INTERVENTION_BOUND:g}_fullhist12_start{START_MONTH}_{DEVICE}.npz"
     )
-    return overall_prediction_cache_path(cache_dir, seed=int(seed), args=args)
+
+
+def mask_ei_table(table: dict[tuple[str, ...], float]) -> dict[int, float]:
+    names = tuple(MODE_NAMES)
+    values = {0: 0.0}
+    for subset, value in table.items():
+        values[sum(1 << names.index(name) for name in subset)] = float(value)
+    return values
 
 
 def evaluate_all(
@@ -290,7 +297,6 @@ def evaluate_all(
     cache_dir: Path,
     covariance_ridge: float,
 ) -> tuple[list[dict[str, object]], dict[str, float | int]]:
-    standardized_source = standardize(source.reshape(source.shape[0], -1), "UniCM source")
     records: list[dict[str, object]] = []
     audits: list[dict[str, float | int]] = []
     for seed in SEEDS:
@@ -302,17 +308,23 @@ def evaluate_all(
         if predictions.shape != (N_SAMPLES, len(LEADS), len(MODE_LABELS)):
             raise ValueError(f"Unexpected prediction shape {predictions.shape} in {path}.")
         for lead in LEADS:
-            coefficients, residual_covariance = fit_affine_readout(
-                standardized_source,
+            weights, residual_covariance, fit_audit = fit_independent_source_affine_channel(
+                source,
                 predictions[:, lead - 1, :],
-                covariance_ridge,
             )
-            record, audit = evaluate_game(
-                coefficients,
+            table, estimator_audit = independent_source_ei_table_from_channel(
+                weights,
                 residual_covariance,
+                intervention_bound=INTERVENTION_BOUND,
+                jitter=covariance_ridge,
+            )
+            record, audit = evaluate_game_from_ei_table(
+                mask_ei_table(table),
                 seed=seed,
                 lead=lead,
             )
+            audit.update(fit_audit)
+            audit.update(estimator_audit)
             records.append(record)
             audits.append(audit)
     return records, {
@@ -547,12 +559,7 @@ def plot_figure(
         bbox_to_anchor=(0.5, 1.015),
     )
     figure_stem.parent.mkdir(parents=True, exist_ok=True)
-    for suffix in ("png", "svg", "pdf"):
-        figure.savefig(
-            figure_stem.with_suffix(f".{suffix}"),
-            dpi=400 if suffix == "png" else None,
-            bbox_inches="tight",
-        )
+    figure.savefig(figure_stem.with_suffix(".png"), dpi=400, bbox_inches="tight")
     plt.close(figure)
 
 
@@ -635,8 +642,9 @@ def main() -> None:
             "intervention_bound": INTERVENTION_BOUND,
             "start_month": START_MONTH,
             "source_prior": "independent bounded-uniform maximum-entropy intervention coordinates",
-            "affine_equivalent_source_covariance": "identity after per-coordinate standardization",
-            "readout": "affine degree-1 TM / linear-Gaussian log-det equivalent",
+            "estimator": ESTIMATOR_VERSION,
+            "affine_equivalent_source_covariance": f"({INTERVENTION_BOUND:g}^2/3) times identity in native intervention coordinates",
+            "readout": "affine degree-1 TM / Gaussian readout under the known independent uniform source prior",
             "main_covariance_ridge": MAIN_COVARIANCE_RIDGE,
             "coalition_count": 1 << len(MODE_LABELS),
             "coalition_value": "v(S) = EI(S -> Y) - sum_i EI({i} -> Y)",
@@ -648,8 +656,7 @@ def main() -> None:
         "ridge_sensitivity": sensitivity,
         "key_findings": key_findings(records, aggregate),
         "figure_files": [
-            str(args.figure_stem.with_suffix(f".{suffix}").relative_to(ROOT))
-            for suffix in ("png", "svg", "pdf")
+            str(args.figure_stem.with_suffix(".png").relative_to(ROOT))
         ],
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)

@@ -175,11 +175,10 @@ def _node_record(tree: PhiTreeNode) -> dict[str, object]:
     }
 
 
-def _coalition_label(node: PhiTreeNode) -> str:
-    if node.order <= 4:
-        names = ["ENSO" if name == "nino" else name for name in node.sources]
-        members = " +\n".join(" + ".join(names[i:i + 2]) for i in range(0, len(names), 2))
-    elif frozenset(node.sources) == CORE_MODES:
+def _coalition_label(node: PhiTreeNode, *, compact: bool = False) -> str:
+    if compact:
+        return f"{node.residual:.3f}"
+    if frozenset(node.sources) == CORE_MODES:
         members = "5-mode core"
     else:
         members = f"{node.order} modes"
@@ -227,6 +226,11 @@ def render_trees(
     show_checkpoint: bool = True,
     show_tree_metrics: bool = True,
     core_highlights: Sequence[bool] | None = None,
+    node_label_fontsize: float = 6.5,
+    terminal_label_fontsize: float = 7.5,
+    core_label_fontsize: float = 9.0,
+    root_info_fontsize: float = 7.4,
+    compact_node_labels: bool = False,
 ) -> None:
     trees = [_expand_pair_leaves(tree) for tree in trees]
     _validate_syn(trees, syn_tolerance)
@@ -279,7 +283,8 @@ def render_trees(
                       color=SYN_COLOR, linewidth=1.5)
             share = core.phi_value / tree.phi_value
             axis.text((left + right) / 2, -1.58, "ENSO–IOD synergy core",
-                      ha="center", va="top", fontsize=9, weight="bold", color=SYN_COLOR)
+                      ha="center", va="top", fontsize=core_label_fontsize,
+                      weight="bold", color=SYN_COLOR)
             if not compact_core_annotation:
                 axis.text((left + right) / 2, -1.98,
                           rf"$\Xi_{{core}}$ = {core.phi_value:.3f} bits  |  {share:.1%} of total $\Xi$",
@@ -303,11 +308,11 @@ def render_trees(
             # Only validated numerical negatives are displayed as zero; raw values stay intact.
             relative = float(norm(0.0 if syn < 0 else syn))
             axis.text(
-                x_value, y_value, _coalition_label(node),
-                ha="center", va="center", fontsize=6.5,
-                color="white" if relative > 0.65 else INK, linespacing=1.15,
+                x_value, y_value, _coalition_label(node, compact=compact_node_labels),
+                ha="center", va="center", fontsize=node_label_fontsize,
+                color="white" if relative > 0.65 else INK, linespacing=1.0,
                 bbox={
-                    "boxstyle": "round,pad=0.28",
+                    "boxstyle": f"round,pad={0.20 if compact_node_labels else 0.28}",
                     "facecolor": cmap(relative),
                     "edgecolor": _blend_with_white(SYN_COLOR, 0.58 + 0.42 * relative),
                     "linewidth": 0.9 + 1.5 * relative,
@@ -320,7 +325,7 @@ def render_trees(
             color = MODE_COLORS.get(terminal.sources[0], "#7B8794")
             axis.text(
                 positions[id(terminal)][0], -0.22, label, rotation=58,
-                ha="right", va="top", fontsize=7.5, color=INK,
+                ha="right", va="top", fontsize=terminal_label_fontsize, color=INK,
                 bbox={"boxstyle": "round,pad=0.22", "facecolor": _blend_with_white(color, 0.18),
                       "edgecolor": color, "linewidth": 0.9},
                 clip_on=False,
@@ -338,7 +343,8 @@ def render_trees(
         axis.text(
             0.02, 0.98,
             info,
-            transform=axis.transAxes, ha="left", va="top", fontsize=7.4, color=INK, linespacing=1.35,
+            transform=axis.transAxes, ha="left", va="top",
+            fontsize=root_info_fontsize, color=INK, linespacing=1.35,
         )
         axis.set_xlim(-1.0, max(point[0] for point in positions.values()) + 0.7)
         axis.set_ylim(-2.8, maximum_depth + 1.5)

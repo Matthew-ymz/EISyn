@@ -26,9 +26,9 @@ from scripts.analyze_unicm_11mode_xi_hierarchy_tree import (  # noqa: E402
     _tree_metrics,
 )
 from scripts.plot_unicm_all_mode_target_pair_syn import extract_all_mode_target  # noqa: E402
-from scripts.plot_unicm_phi_eid_greedy_decomposition import (  # noqa: E402
-    compute_subset_ei_table_from_covariance,
-    precompute_source_logdets,
+from scripts.compute_unicm_order_syn import (  # noqa: E402
+    ESTIMATOR_VERSION,
+    independent_source_ei_table,
 )
 from scripts.plot_unicm_spt_lead_comparison import (  # noqa: E402
     INK,
@@ -190,17 +190,14 @@ def _audit_tree_candidates(tree, ei_table, singleton_ei, tolerance: float) -> di
 
 
 def _evaluate_condition(
-    histories_flat: np.ndarray,
-    subset_columns,
-    source_logdets,
+    histories: np.ndarray,
     target: np.ndarray,
     args: argparse.Namespace,
 ) -> tuple[object, dict[str, object]]:
-    ei_table = compute_subset_ei_table_from_covariance(
-        histories_flat,
+    ei_table, estimator_audit = independent_source_ei_table(
+        histories,
         target,
-        subset_columns,
-        source_logdets,
+        intervention_bound=args.intervention_bound,
         jitter=args.jitter,
     )
     mode_names = tuple(MODE_NAMES)
@@ -267,6 +264,7 @@ def _evaluate_condition(
             "eps_bits": args.eps,
             "syn_tolerance_bits": args.syn_tolerance,
         },
+        "estimator_audit": estimator_audit,
     }
     return signed.root, diagnostics
 
@@ -334,10 +332,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         intervention_bound=args.intervention_bound,
         seed=args.sampling_seed,
     )
-    history_flat, subset_columns, source_logdets = precompute_source_logdets(
-        histories,
-        jitter=args.jitter,
-    )
     checkpoint_paths = resolve_checkpoint_paths(Path(args.checkpoint_root), CHECKPOINTS)
     predictions = {
         checkpoint: _load_or_predict(checkpoint, checkpoint_paths[checkpoint], histories, args)
@@ -350,9 +344,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         for checkpoint in CHECKPOINTS:
             condition_started = time.monotonic()
             tree, diagnostics = _evaluate_condition(
-                history_flat,
-                subset_columns,
-                source_logdets,
+                histories,
                 extract_all_mode_target(predictions[checkpoint], lead=lead),
                 args,
             )
@@ -397,7 +389,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "sampling_seed": args.sampling_seed,
         "intervention_bound": args.intervention_bound,
         "start_month": 0,
-        "estimator": "affine degree-1 TM / Gaussian log-det equivalent",
+        "estimator": ESTIMATOR_VERSION,
+        "estimator_description": "affine degree-1 TM / Gaussian readout under the known independent uniform source prior",
+        "source_prior": f"independent; covariance=({args.intervention_bound:g}^2/3)*I",
         "jitter": args.jitter,
         "syn_tolerance_bits": args.syn_tolerance,
         "eps_bits": args.eps,
@@ -442,8 +436,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sampling-seed", type=int, default=20260901)
     parser.add_argument("--intervention-bound", type=float, default=4.0)
     parser.add_argument("--jitter", type=float, default=1.0e-6)
-    parser.add_argument("--syn-tolerance", type=float, default=1.0e-4)
-    parser.add_argument("--eps", type=float, default=1.0e-5)
+    parser.add_argument("--syn-tolerance", type=float, default=1.0e-8)
+    parser.add_argument("--eps", type=float, default=1.0e-8)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--batch-size", type=int, default=512)
     return parser.parse_args()
