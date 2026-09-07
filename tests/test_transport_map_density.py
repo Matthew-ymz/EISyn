@@ -7,6 +7,7 @@ import numpy as np
 from exp.TM.transport_map_density import (
     AffineTransportMapDensityEstimator,
     _polynomial_exponents,
+    _polynomial_design,
     estimate_mutual_information_transport_map,
     estimate_specific_mutual_information_transport_map,
     fit_affine_transport_map_density,
@@ -19,6 +20,17 @@ from exp.TM.transport_map_density import (
 
 
 class TransportMapDensityTests(unittest.TestCase):
+    def test_memory_bounded_polynomial_design_matches_broadcast(self) -> None:
+        rng = np.random.default_rng(7)
+        for dimensions in (0, 1, 4):
+            for degree in (1, 2, 3):
+                values = rng.normal(size=(20, dimensions))
+                mean, scale = values.mean(axis=0), values.std(axis=0)
+                exponents = _polynomial_exponents(dimensions, degree)
+                expected = np.prod(((values-mean)/scale)[:, None, :] ** exponents[None, :, :], axis=2)
+                actual = _polynomial_design(values, exponents=exponents, mean=mean, scale=scale)
+                np.testing.assert_allclose(actual, expected, rtol=1e-14, atol=1e-14)
+
     def test_affine_transport_map_matches_gaussian_log_density(self) -> None:
         rng = np.random.default_rng(17)
         mean = np.array([0.8, -0.4], dtype=float)

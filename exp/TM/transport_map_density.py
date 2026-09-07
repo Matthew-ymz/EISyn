@@ -550,7 +550,14 @@ def _polynomial_design(
     if values.shape[1] == 0:
         return np.ones((values.shape[0], 1), dtype=float)
     standardized = (values - np.asarray(mean, dtype=float)) / np.asarray(scale, dtype=float)
-    return np.prod(standardized[:, None, :] ** np.asarray(exponents, dtype=int)[None, :, :], axis=2)
+    # Do not materialize sample x monomial x predictor: for a 143D
+    # quadratic map that temporary alone exceeds typical workstation RAM.
+    powers = np.asarray(exponents, dtype=int)
+    design = np.ones((len(values), len(powers)), dtype=float)
+    for column, row in enumerate(powers):
+        for predictor in np.flatnonzero(row):
+            design[:, column] *= standardized[:, predictor] ** row[predictor]
+    return design
 
 
 def _coerce_samples(samples: np.ndarray, *, expected_dim: int | None = None) -> np.ndarray:
