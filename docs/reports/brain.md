@@ -102,20 +102,20 @@ pairwise BOLD-like $\Phi^R$ 从 $G=0$ 的 $3.631\pm0.159$ bits 上升，在 $G=1
 图 1 按“先定位、再看结构、再量化、最后定位到脑表面”的顺序阅读：
 
 1. **a：在哪个耦合范围分析？** 系统扫描确定 $\Xi$ 峰及其邻近窗口。
-2. **b：已知功能网络内部怎样组织？** 这里使用 Yeo-7 约束的 Synergy Partition Tree（SPT）组织：顶层按先验固定分成七块，每块内部各自构造一棵 ROI 二叉 SPT。每个叶节点仍是 E/I 配对的一个 ROI；固定的七块顶层不是 SPT 搜索结果，也不是从数据中重新发现的网络。
-3. **c：同一功能网络内部有多少跨区联合增量？** 对每个网络，计算“整个网络的联合 EI − 其中各 ROI 的 EI 之和”。同一条件下，这等于对应网络子树所有局部 Syn 之和，不包括单个 ROI 内的 E/I 分量。
+2. **b：已知功能网络内部怎样组织？** 这里使用 Yeo-7 约束的 Synergy Partition Tree（SPT）组织：顶层按先验固定分成七块，每块内部各自构造一棵 ROI 二叉 SPT。根、网络和所有标注子树均直接报告其全部 E/I 标量源的整体 $\Xi$；每个叶节点是 E/I 配对的一个 ROI。固定七块不是 SPT 搜索结果，也不是从数据中重新发现的网络。
+3. **c：每个功能网络的整体联合增量是多少？** 对每个网络直接计算其全部 E/I 标量源相对于同一未来全系统 target 的 $\Xi$，不先拆分 ROI 内与跨 ROI 分量。
 4. **d：不同功能网络一起工作，额外贡献多少？** 先算“全脑联合 EI − 七个网络各自 EI 之和”，它对应树顶层的七分叉总量；再用精确 Shapley 分配给七个网络。
-5. **e：每个 ROI 分到多少跨区协同贡献？** 让 100 个 ROI 按随机顺序逐个加入，记录每一步增加的跨 ROI $\Xi$，对不同顺序取平均。将每个 ROI 的 Shapley 贡献映射到脑表面；所有 ROI 的份额合计为跨 ROI 总量，不再是“最后拿走这个 ROI 会损失多少”。
+5. **e：每个 ROI 分到多少整体协同贡献？** 让 100 个 ROI 按随机顺序逐个加入，记录每一步增加的整体 $\Xi$，对不同顺序取平均。将每个 ROI 的 Shapley 贡献映射到脑表面；所有 ROI 的份额合计为系统整体 $\Xi$，不再是“最后拿走这个 ROI 会损失多少”。
 
 **树和归因使用同一套数据，但分组约束不同。** b 的顶层遵循 Yeo 先验；e 使用普通 100-ROI Shapley，加入顺序不受 Yeo 标签或树结构约束。因此 e 不是按树节点平均分摊，也不能假设同一网络内 ROI 的份额之和自动等于 c、d 中该网络两根柱值之和。
 
-同一条件下，c 的七个柱值之和加上 d 的七个柱值之和，等于跨 ROI $\Xi$，也等于 b 的顶层七分叉贡献加七棵子树内部贡献。主图 b 展示单条件树（网络内 5.615 + 网络间 17.406 = 跨 ROI 23.021 bits），c、d、e 展示 24 个条件的均值；c、d 合计为 5.622 + 17.151 = 22.773 bits，e 的 100 个 ROI 贡献同样合计 22.773 bits。
+同一条件下，c 的七个 network $\Xi$ 加上 d 的七个网络间 Shapley 份额，等于整体 $\Xi$。主图 b 展示单条件树（七个 network $\Xi$ 合计 8.697 bits，顶层网络间 Syn 为 17.406 bits，整体 $\Xi=26.102$ bits），c、d、e 展示 24 个条件的均值；c、d 合计为 8.727 + 17.151 = 25.878 bits，e 的 100 个 ROI 贡献同样合计 25.878 bits。
 
 ![Schaefer100 DMF Yeo-prior hierarchy and ROI Shapley](../../fig/dmf_schaefer100/dmf_schaefer100_summary_yeo_prior_shapley.png)
 
 被替换的七面板主图、无约束树组合图、先验约束树与 leverage 版本，以及无约束独立树，均在[附录 A.5](#appendix-a-5)完整展示留存。正文以下“图 1”均指本图，不混用旧版面板编号或脑图指标。
 
-*图 1｜从系统扫描到先验约束层级、网络分解与 ROI Shapley 归因。a：上部为平均发放率与 full-state interventional $\Xi$，下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$；曲线为 8 个 seed 的均值，阴影为跨 seed SD。三种信息量的 observable、维度与预测时距不同，双轴只用于比较峰形和峰位。b：$G=1.3$、seed 4 的 Yeo-7 约束 SPT 组织；顶层为固定七分叉，各网络内部为数据驱动的 ROI 二叉 SPT，E/I 状态配对为同一叶块。网络标签显示 ROI 数和网络内跨 ROI $\Xi$，内部节点数值为局部 Syn（bits）；高度按 ROI 数对数归一化，不表示信息量。c：各网络内的跨 ROI 分量。d：网络间总量的精确七网络 Shapley 归因。c、d 柱高先在每个 seed 内平均 $G\in\{1.2,1.3,1.4\}$，再对 8 个 seed 取均值，误差线为跨 seed SD；标签斜杠后的数字为 ROI 数。e：100 个 ROI 对跨 ROI $\Xi$ 的普通 Shapley 贡献在上述 24 个条件上的均值，单位 bits；采用随机排列及其反向排列配对抽样，未来全系统 target 与条件协方差保持不变，不包含 ROI 内 E/I 协同。MC 抽样误差单独记录，不与模拟 seed SD 混合。b–d 共用 Yeo 配色，e 使用连续色标。e 不受 Yeo 分组约束，也不是对 b 的 SPT 节点分摊。*
+*图 1｜从系统扫描到先验约束层级、network $\Xi$ 与 ROI Shapley 归因。a：上部为平均发放率与 full-state interventional $\Xi$，下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$；曲线为 8 个 seed 的均值，阴影为跨 seed SD。三种信息量的 observable、维度与预测时距不同，双轴只用于比较峰形和峰位。b：$G=1.3$、seed 4 的 Yeo-7 约束 SPT 组织；顶层为固定七分叉，各网络内部为数据驱动的 ROI 二叉 SPT，E/I 状态配对为同一叶块。根、网络及标注子树均显示对应全部标量源的整体 $\Xi$（bits）；高度按 ROI 数对数归一化，不表示信息量。c：各网络直接计算的整体 $\Xi$。d：顶层网络间 Syn 的精确七网络 Shapley 归因。c、d 柱高先在每个 seed 内平均 $G\in\{1.2,1.3,1.4\}$，再对 8 个 seed 取均值，误差线为跨 seed SD；标签斜杠后的数字为 ROI 数。e：100 个 ROI 对整体 $\Xi$ 的普通 Shapley 贡献在上述 24 个条件上的均值，单位 bits；采用随机排列及其反向排列配对抽样，未来全系统 target 与条件协方差保持不变。MC 抽样误差单独记录，不与模拟 seed SD 混合。b–d 共用 Yeo 配色，e 使用连续色标。e 不受 Yeo 分组约束，也不是对 b 的 SPT 节点分摊。*
 
 <a id="dmf-horizon"></a>
 
@@ -127,7 +127,11 @@ pairwise BOLD-like $\Phi^R$ 从 $G=0$ 的 $3.631\pm0.159$ bits 上升，在 $G=1
 
 ### 1.6 峰值邻近窗 Synergy Partition Tree（SPT）分解
 
-本节所有图 1c、d、e 结果都采用相同汇总流程。对每个 seed $s\in\{3,\ldots,10\}$ 和每个 $G\in\{1.2,1.3,1.4\}$，先独立生成干预样本、演化目标状态、估计条件协方差并完成层级分解；随后对所得 24 个 seed–$G$ 条件做等权汇总。因此本节峰值邻近窗汇总的 bits 是 24 个条件的算术平均，不是某个特定 $G$ 的取值。ROI 内/跨 ROI 的比例仍先在每个条件内计算，而不是用平均分量除以平均总量。为单独显示随机 seed 波动，图 1c、d 的误差线先在每个 seed 内平均三个 $G$，再计算 8 个 seed 之间的 SD；三个 $G$ 的位置差异不进入误差线。该 SD 描述模拟随机性，不应解释为人群统计不确定性。 图 1b 另取 $G=1.3$、seed 4 展示单条件离散拓扑，不参与上述平均。
+本节所有图 1c、d、e 结果都采用相同汇总流程。对每个 seed $s\in\{3,\ldots,10\}$ 和每个 $G\in\{1.2,1.3,1.4\}$，先独立生成干预样本、演化目标状态、估计条件协方差并完成层级分解；随后对所得 24 个 seed–$G$ 条件做等权汇总。因此本节峰值邻近窗汇总的 bits 是 24 个条件的算术平均，不是某个特定 $G$ 的取值。为单独显示随机 seed 波动，图 1c、d 的误差线先在每个 seed 内平均三个 $G$，再计算 8 个 seed 之间的 SD；三个 $G$ 的位置差异不进入误差线。该 SD 描述模拟随机性，不应解释为人群统计不确定性。图 1b 另取 $G=1.3$、seed 4 展示单条件离散拓扑，不参与上述平均。
+
+当前主图的树、network $\Xi$ 与 ROI Shapley 都从标量源定义的整体 $\Xi$ 直接计算，不经过 ROI 内/跨 ROI 预分解。以下旧分解仅保留为历史审计，不参与图 1 的数值、排序或缓存。
+
+#### 历史审计：ROI 内/跨 ROI 分解（不参与当前主图）
 
 在每个 seed–$G$ 条件内，系统量首先按 ROI 块分解为
 
@@ -291,19 +295,19 @@ $$
 
 ### 1.6.1 Schaefer100 ROI 显式 SPT
 
-图 1b 在峰值点 $G=1.3$ 选取 seed 4；选择规则是该 seed 的跨 ROI $\Xi$ 最接近 8 个 seed 的均值，不对离散拓扑作平均。该结构采用 Yeo-7 约束的 SPT 组织：顶层按先验固定分为七块，各块内部再按 SPT 准则搜索 ROI 的二叉分解，叶节点始终保留 E/I 配对。严格来说，SPT 指七块内部的二叉子树，固定七分叉只提供上层分组与闭合关系。
+图 1b 在峰值点 $G=1.3$ 选取 seed 4；选择规则是该 seed 的整体 $\Xi$ 最接近 8 个 seed 的均值，不对离散拓扑作平均。该结构采用 Yeo-7 约束的 SPT 组织：顶层按先验固定分为七块，各块内部再按 SPT 准则搜索 ROI 的二叉分解，叶节点始终保留 E/I 配对。根、七个网络和所有子树的 coalition value 都是对应全部 E/I 标量源的整体 $\Xi$；固定七分叉只提供上层分组与闭合关系。
 
-七棵网络子树的内部贡献合计 5.615 bits，顶层网络间贡献为 17.406 bits，总和仍为跨 ROI $\Xi$ 的 23.021 bits。七块是指定的功能分组，不能解释为算法自行恢复 Yeo 网络。无先验树及其完整结构诊断已移至[附录 A.5.4](#appendix-a-5-4)，供同条件对照。
+七个网络的整体 $\Xi$ 合计 8.697 bits，顶层网络间 Syn 为 17.406 bits，闭合为整体 $\Xi=26.102$ bits。七块是指定的功能分组，不能解释为算法自行恢复 Yeo 网络。无先验树及其完整结构诊断已移至[附录 A.5.4](#appendix-a-5-4)，供同条件对照。
 
 ### 1.7 ROI 贡献、结构关联与稳定性
 
-主图 e 将每个 ROI 作为一个 Shapley 参与者，分配的是跨 ROI 总量。每个排列中逐步增加的贡献相加，恰好还原同条件的跨 ROI $\Xi$；抽样只影响如何分配，不靠事后归一化凑齐总量。下述 leverage 和 involvement 分析则保留为敏感性补充，不能把其相关系数当作新 Shapley 脑图的相关系数。
+主图 e 将每个 ROI 作为一个 Shapley 参与者，直接分配整体 $\Xi$。每个排列中逐步增加的贡献相加，恰好还原同条件的整体 $\Xi$；抽样只影响如何分配，不靠事后归一化凑齐总量。下述 leverage 和 involvement 分析则保留为历史敏感性补充，不能把其相关系数当作新 Shapley 脑图的相关系数。
 
-24 个条件各使用 32,768 个排列，即 16,384 对随机排列及其反向排列；24 个条件共享排列，以便配对比较。平均脑图的最大 Monte Carlo 标准误为 0.000848 bits，单条件最大标准误为 0.001012 bits。前后两半抽样的 ROI 排名 Spearman 相关为 0.999892，前十名完全一致，最大贡献差为 0.003734 bits，达到预先设定的精度与稳定性门槛。这些是抽样收敛诊断，不是人群置信区间，也不表示相近 ROI 的精细名次已被确定。
+24 个条件各使用 32,768 个排列，即 16,384 对随机排列及其反向排列；24 个条件共享排列，以便配对比较。平均脑图的最大 Monte Carlo 标准误为 0.000848 bits，单条件最大标准误为 0.001012 bits。前后两半抽样的 ROI 排名 Spearman 相关为 0.999856，前十名完全一致，最大贡献差为 0.003734 bits，达到预先设定的精度与稳定性门槛。这些是抽样收敛诊断，不是人群置信区间，也不表示相近 ROI 的精细名次已被确定。
 
-100 个 ROI 的平均贡献合计 22.773033 bits；逐条件闭合误差最大为 $1.92\times10^{-13}$ bits。贡献较高的前三个 parcel 为 RH SomMot 2（0.4954 bits）、LH SalVentAttn Med 2（0.4633 bits）和 RH SalVentAttn Med 1（0.4557 bits）。归因仍针对当前模型、固定未来全系统 target 和跨 ROI 游戏，不应解释为脑区的唯一生物学因果贡献。
+100 个 ROI 的平均贡献合计 25.878243 bits；逐条件闭合误差最大为 $1.95\times10^{-13}$ bits。贡献较高的前三个 parcel 为 RH SomMot 2（0.5010 bits）、LH SalVentAttn Med 2（0.4665 bits）和 RH SalVentAttn Med 1（0.4583 bits）。归因仍针对当前模型、固定未来全系统 target 和整体 $\Xi$ 游戏，不应解释为脑区的唯一生物学因果贡献。
 
-非负容差固定为 $10^{-8}$ bits，无显著非负性违反。全部抽样中有 172,835 个微小负边际值，最小为 $-6.41\times10^{-16}$ bits；这些均处于数值容差内，保留原值参与求和，没有裁剪或事后重归一化。该记录反映浮点误差，不是负 Syn 的证据。
+非负容差固定为 $10^{-8}$ bits，无显著非负性违反。全部抽样边际值均为正，最小值为 $7.59\times10^{-6}$ bits；没有裁剪或事后重归一化。
 
 跨 ROI leverage 与加权结构强度呈正 Spearman 相关（$\rho=0.971$，$p=2.02\times10^{-62}$），ROI 内耦合与结构强度呈负相关（$\rho=-0.984$，$p=3.09\times10^{-75}$），ROI involvement 与结构强度呈正相关（$\rho=0.969$，$p=5.14\times10^{-61}$）。24 个条件的 ROI involvement 排名两两 Spearman 相关中位数为 0.984，最小值为 0.936，说明空间排序不由单一 seed 或单一 $G$ 驱动。
 
@@ -433,15 +437,17 @@ $$
 
 ![HCP Schaefer-1000 57 人任务态 Xi 与语言、社会、情绪及运动表现关联](../../results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_behavior_main_57.png)
 
-*图 2｜57 人 Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；白色菱形为均值，显著性为相对 REST 的双侧配对 Wilcoxon，并在七项任务内作 BH 校正。b：57 人群体平均的主要 SPT 节点协同绝对贡献。c：守恒网络归因占 system-level $\Xi$ 的平均份额，每列合计 100%。d：LANGUAGE 状态下 Visual–Somatomotor–Limbic–Control 协同与 Story 正确率的关系。e：Visual–Dorsal attention–Control 协同与 Math 正确率的关系。f：完整 SOCIAL 状态下 Visual–Limbic–Control 协同与有限试次校正 $d'$ 的关系；57 人作为 pooled 样本，横纵轴控制年龄和性别，图内 $p$ 为包含 120 组合选择过程的 max-$T$ 校正值。g：完整 EMOTION 状态下 Limbic–Control–Default 协同与 Shape 速度校正后的 Face 匹配速度；较高横轴值表示更快，图内为点对点置换 $p$。为便于横向比较，d--g 的纵轴统一为 coalition Syn 的秩残差，并固定相同范围；d、e 只去除秩均值，f、g 则按各自主分析去除相应协变量。d、e 为暖橙色，f 为绿色，g 为冷蓝色。h：MOTOR 广义运动指数的绝对相关前十项中，保留点对点置换 $p<0.05$ 的九个负相关组合；点和误差线分别为调整后 $\rho$ 和 bootstrap 95% CI，右侧标出未作全局校正的点对点 $p$。每个散点代表一名被试，实线只辅助显示单调关系。d、e、g、h 均为任务内探索性面板；f 是图中唯一直接报告 120 组合选择校正的行为关联。*
+*图 2｜57 人 Schaefer-1000 主结果。a：REST 与七任务的 system-level $\Xi$；白色菱形为均值，显著性为相对 REST 的双侧配对 Wilcoxon，并在七项任务内作 BH 校正。b：2--7 阶 Yeo-7 SPT 节点的绝对 order mass；每名被试先在自己的树内按节点阶数汇总局部 Syn，缺失阶数记为 0，再对 57 棵树等权平均。c：守恒网络归因占 system-level $\Xi$ 的平均份额，每列合计 100%。d：LANGUAGE 状态下 Visual–Somatomotor–Limbic–Control 协同与 Story 正确率的关系。e：Visual–Dorsal attention–Control 协同与 Math 正确率的关系。f：完整 SOCIAL 状态下 Visual–Limbic–Control 协同与有限试次校正 $d'$ 的关系；57 人作为 pooled 样本，横纵轴控制年龄和性别，图内 $p$ 为包含 120 组合选择过程的 max-$T$ 校正值。g：完整 EMOTION 状态下 Limbic–Control–Default 协同与 Shape 速度校正后的 Face 匹配速度；较高横轴值表示更快，图内为点对点置换 $p$。为便于横向比较，d--g 的纵轴统一为 coalition Syn 的秩残差，并固定相同范围；d、e 只去除秩均值，f、g 则按各自主分析去除相应协变量。d、e 为暖橙色，f 为绿色，g 为冷蓝色。h：MOTOR 广义运动指数的绝对相关前十项中，保留点对点置换 $p<0.05$ 的九个负相关组合；点和误差线分别为调整后 $\rho$ 和 bootstrap 95% CI，右侧标出未作全局校正的点对点 $p$。每个散点代表一名被试，实线只辅助显示单调关系。d、e、g、h 均为任务内探索性面板；f 是图中唯一直接报告 120 组合选择校正的行为关联。*
 
 REST 的 system-level $\Xi$ 均值为 7.122 bits；EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 与 WM 依次为 4.633、4.785、5.150、5.568、5.357、6.243 与 5.323 bits。七项 REST–任务均值差均为正，范围为 0.879--2.489 bits；全部七项配对检验经 BH 校正后显著，其中最弱的 SOCIAL 对比仍有 $q=0.0304$。排除噪声协方差条件数最大的 `sub-800941` 后，七项方向和显著性均不变。因此，**REST 整体 $\Xi$ 高于全部任务态**在完整 57 人中成立，但它是群体结论，不是逐人定律：REST 高于对应任务的被试比例为 61.4%--86.0%。
 
-图 2b 的节点均值可以进一步拆成两个互补维度：某个联盟在 57 棵 SPT 中出现得有多频繁，以及它一旦出现时局部 Syn 有多强。为避免把两种来源压缩成单一色块，下面的气泡图以圆面积编码出现比例，以圆颜色和圆内数字共同编码“出现时平均 Syn”；零填充群体均值不再进入图面。图中保留按八状态平均 atom share 排名前 40 的节点，以便同时覆盖稳定主干和较低频的强节点。
+图 2b 与 Earth 实验采用相同的 tree-wise order mass：先在每棵 SPT 内把同阶节点的局部 Syn 相加，再跨 57 名被试平均。八个状态都不再呈现 2--7 阶严格递增；REST、EMOTION、LANGUAGE、MOTOR、RELATIONAL、SOCIAL 和 WM 在 6 阶达到峰值，GAMBLING 在 5 阶达到峰值。所有状态从 6 阶到 7 阶均下降，降幅为 0.129--0.564 bits；MOTOR 与 RELATIONAL 还在 2 阶到 3 阶下降，GAMBLING 在 5 阶到 6 阶轻微下降。因此，树上被选中的协同质量主要集中在 5--6 阶，而不是随阶数持续升高。该汇总保留 SPT 的可加闭合含义，但受树选择路径影响，不能替代下文对全部固定联盟的群体比较。
+
+阶数汇总有意舍弃了具体联盟身份。为保留 SPT 结构信息，下面的独立补充图将某个联盟在 57 棵 SPT 中出现的频率与其出现时局部 Syn 强度分开编码：圆面积表示出现比例，圆颜色和圆内数字表示“出现时平均 Syn”，零填充群体均值不进入图面。图中保留按八状态平均 atom share 排名前 40 的节点，以同时覆盖稳定主干和较低频的强节点。
 
 ![HCP Schaefer-1000 SPT bubble heatmap](../../results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_bubble_heatmap_57.png)
 
-*图 2b 扩展｜57 人 SPT 节点的出现频率与条件强度。列为 REST 和七个任务态，每一行为一个 Yeo-7 网络联盟。圆面积是该联盟在当前状态 57 棵 SPT 中的出现比例；圆颜色与圆内数字均为联盟出现时的平均局部 Syn（bits），仅当支持度至少为 5/57 时标注数字。空白表示该联盟在该状态的 57 棵树中从未出现。行按跨状态平均 atom share 选择前 40，不表示统计显著性排序。*
+*SPT 结构补充图｜57 人 SPT 节点的出现频率与条件强度。列为 REST 和七个任务态，每一行为一个 Yeo-7 网络联盟。圆面积是该联盟在当前状态 57 棵 SPT 中的出现比例；圆颜色与圆内数字均为联盟出现时的平均局部 Syn（bits），仅当支持度至少为 5/57 时标注数字。空白表示该联盟在该状态的 57 棵树中从未出现。行按跨状态平均 atom share 选择前 40，不表示统计显著性排序。*
 
 全七网络根节点在所有状态均为 57/57，因此它是构造上最稳定的共同外层节点；其出现时平均 Syn 在 REST 为 1.096 bits，在七任务中为 0.583--0.894 bits。缺 Limbic 的六网络联盟则更能区分“频率”和“强度”：它在 REST 为 25/57，在七任务为 34/57--55/57，出现时平均 Syn 为 0.860--1.202 bits，并在 SOCIAL 达到最高频率和最高条件均值。图中还存在圆较小但颜色较深的节点，说明出现频率与条件强度是两个独立维度：低频节点也可能具有较强的局部 Syn。反过来，一个组合重复出现也不意味着 57 人共享同一棵完整树，因为同一节点仍可嵌入不同的上下层剥离顺序。该图是结构描述，不提供显著性检验；matched-null 频率验证仍以第 2.3 节为准。
 
@@ -618,6 +624,7 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 |---|---|
 | 主图 A–H | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_behavior_main_57.{png,svg,pdf}` |
 | 层级原子与网络归因补充图 | `results/hcp_schaefer1000_task_evoked_xi_57/final/hcp_schaefer1000_attribution_supplement_57.{png,svg,pdf}` |
+| 57 人 SPT tree-wise order mass 验证 | `results/hcp_treewise_order_mass_57/{summary.json,treewise_order_mass_heatmap_57.png}` |
 | 120 个固定联盟的最小二分协同 | `results/hcp_min_bipartition_synergy_57/{minimum_bipartition_synergy_57.npz,minimum_bipartition_synergy_heatmap_57.png}` |
 | 七任务最高表现者的状态匹配 SPT | `fig/brain_hcp_schaefer1000_task_top_performer_spt.png`；`scripts/plot_hcp_task_top_performer_spt.py` |
 | REST 固定组合与一般认知 | `results/hcp_rest_general_cognition_57/{summary.json,rest_general_cognition_coalition_correlations_57.png}` |
@@ -1038,7 +1045,7 @@ $$
 | Yeo-7 分解 | `results/dmf_schaefer100/full/critical_yeo7.npz`、`results/dmf_schaefer100/full/yeo7_summary.json` |
 | 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_yeo_prior_shapley.png` |
 | 历史主图与无约束树归档 | `fig/dmf_schaefer100/archive/`；对应附录 A.5 的图 A5a–A5d |
-| ROI Shapley 缓存及抽样诊断 | `results/dmf_schaefer100/roi_shapley/results.npz` |
+| 整体 $\Xi$ 的 ROI Shapley 缓存及抽样诊断 | `results/dmf_schaefer100/roi_shapley/full_xi_results.npz` |
 | 代表性 seed/G 与无约束树缓存 | `results/dmf_schaefer100/xi_hierarchy_tree/summary.json` |
 | 加密耦合动力学诊断 | `results/dmf_schaefer100/critical_diagnostics/full/results.npz`、`results/dmf_schaefer100/critical_diagnostics/full/summary.json`、`fig/dmf_schaefer100/dmf_schaefer100_critical_diagnostics.{png,svg,pdf}` |
 | 多预测时距扫描 | `results/dmf_schaefer100/multihorizon/full/results.npz`、`results/dmf_schaefer100/multihorizon/full/summary.json`、`fig/dmf_schaefer100/dmf_schaefer100_multihorizon_appendix.{png,svg,pdf}` |
@@ -1082,7 +1089,7 @@ python scripts/plot_dmf_schaefer100_summary.py \
   --topology results/dmf_schaefer100/full/critical_topology.npz \
   --yeo7 results/dmf_schaefer100/full/critical_yeo7.npz \
   --prep results/dmf_schaefer100/group_mean_native.npz \
-  --yeo-prior --roi-shapley results/dmf_schaefer100/roi_shapley/results.npz \
+  --yeo-prior --roi-shapley results/dmf_schaefer100/roi_shapley/full_xi_results.npz \
   --output fig/dmf_schaefer100/dmf_schaefer100_summary_yeo_prior_shapley
 ```
 

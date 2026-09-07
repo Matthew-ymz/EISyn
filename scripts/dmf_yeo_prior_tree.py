@@ -1,4 +1,4 @@
-"""Yeo-first ROI tree using the existing fixed-target conditional-Xi estimator.
+"""Yeo-first ROI tree using full fixed-target conditional Xi throughout.
 
 Contract: change only the admissible top-level split, from free binary search
 to the prescribed seven Yeo blocks. Reuse the representative seed/G covariance,
@@ -57,9 +57,13 @@ def build_yeo_prior_tree(
     for group in groups:
         for position, left in enumerate(group):
             for right in group[position + 1:]:
-                value = oracle.xi((left, right))
+                value = (
+                    oracle.xi((left, right))
+                    - oracle.xi((left,))
+                    - oracle.xi((right,))
+                )
                 numerical_zero = _audit_nonnegative(
-                    value, context=f"Yeo within-network pair {left}, {right}",
+                    value, context=f"Yeo ROI-pair split {left}, {right}",
                     tolerance=tolerance,
                 )
                 pair_zero_count += int(numerical_zero)
@@ -80,14 +84,24 @@ def build_yeo_prior_tree(
     root = ScalableHierarchyNode(
         tuple(range(roi_count)), total, between, 0, "yeo7-prior", children,
     )
-    closure = sum(node.syn_bits for node in flatten_nodes(root) if node.children) - total
+    def closure_error(node: ScalableHierarchyNode) -> float:
+        nodes = flatten_nodes(node)
+        return (
+            sum(n.syn_bits for n in nodes if n.children)
+            + sum(n.xi_bits for n in nodes if not n.children)
+            - node.xi_bits
+        )
+
+    closure = closure_error(root)
     subtree_errors = [
-        sum(n.syn_bits for n in flatten_nodes(child) if n.children) - child.xi_bits
-        for child in children
+        closure_error(child) for child in children
     ]
     if max(abs(closure), max(abs(e) for e in subtree_errors)) > tolerance:
         raise RuntimeError("Yeo-prior tree or network-subtree closure failed")
-    atoms = [n.syn_bits for n in flatten_nodes(root) if n.children]
+    atoms = [
+        n.syn_bits if n.children else n.xi_bits
+        for n in flatten_nodes(root)
+    ]
     for value in atoms:
         _audit_nonnegative(value, context="Yeo-prior tree atom", tolerance=tolerance)
     return root, {
@@ -101,9 +115,9 @@ def build_yeo_prior_tree(
         "minimum_syn_bits": min(atoms),
         "candidate_split_count": audit["candidate_count"],
         "coalition_evaluation_count": oracle.evaluations,
-        "cross_roi_xi_bits": total,
-        "between_network_xi_bits": between,
-        "within_network_xi_bits": [c.xi_bits for c in children],
+        "full_xi_bits": total,
+        "between_network_syn_bits": between,
+        "network_xi_bits": [c.xi_bits for c in children],
         "closure_error_bits": closure,
         "subtree_closure_errors_bits": subtree_errors,
     }
@@ -154,7 +168,7 @@ def render_yeo_prior_tree(
     axis.plot([roots[0][0], roots[-1][0]], [1, 1], color="#697887", lw=1.1)
     axis.text(
         (roots[0][0] + roots[-1][0]) / 2, 1,
-        rf"Yeo-7 prior split  |  Between-network $\Xi={root.syn_bits:.3f}$ bits",
+        rf"Yeo-7 prior hierarchy  |  $\Xi={root.xi_bits:.3f}$ bits",
         ha="center", va="center", fontsize=6.5, color="#34414D",
         bbox=dict(facecolor="white", edgecolor="#9EA9B2", boxstyle="round,pad=0.35"),
         zorder=5,
@@ -164,7 +178,7 @@ def render_yeo_prior_tree(
         "Salience / ventral attention": "Sal/Vent", "Limbic": "Limbic",
         "Frontoparietal control": "Control", "Default mode": "Default",
     }
-    max_syn = max((n.syn_bits for c in children for n in flatten_nodes(c) if n.children), default=0.0)
+    max_xi = max((n.xi_bits for c in children for n in flatten_nodes(c) if n.children), default=0.0)
     for network, child in zip(network_order, children):
         color = network_colors[network]
         lo, hi = spans[network]
@@ -174,7 +188,7 @@ def render_yeo_prior_tree(
         axis.text(
             (lo+hi)/2, 0.82,
             f"{short_names.get(network_names[network], network_names[network])}/{child.size}\n"
-            + rf"$\Xi_{{in}}$ {child.xi_bits:.3f}",
+            + rf"$\Xi$ {child.xi_bits:.3f}",
             ha="center", va="center", fontsize=5.5, color=color,
             bbox=dict(facecolor="white", edgecolor="none", pad=1.8), zorder=5,
         )
@@ -187,8 +201,8 @@ def render_yeo_prior_tree(
             axis.plot([points[0][0], points[1][0]], [y, y], color=color, alpha=0.60, lw=0.7)
             for sx, sy in points:
                 axis.plot([sx, sx], [sy, y], color=color, alpha=0.60, lw=0.7)
-            value = 0.0 if -SYN_NONNEGATIVE_TOLERANCE_BITS <= node.syn_bits < 0 else node.syn_bits
-            strength = value/max_syn if max_syn > 0 else 0
+            value = node.xi_bits
+            strength = value/max_xi if max_xi > 0 else 0
             axis.scatter([x], [y], s=8+20*strength, color=_blend_with_white(color, 0.4),
                          edgecolor=color, linewidth=0.7, zorder=3)
             if node.indices in selected and all(abs(x-px)>3 or abs(y-py)>0.065 for px,py in label_points):
@@ -202,9 +216,9 @@ def render_yeo_prior_tree(
                                      edgecolor="white", lw=0.25))
             axis.text(x, -0.045, _short_roi_label(labels[roi]), rotation=90, ha="right", va="top",
                       fontsize=3.7, color="#55616D")
-    axis.text(0.5, 1.015, rf"$G={coupling_g:g}$, seed {seed}  |  Cross-ROI $\Xi={root.xi_bits:.2f}$ bits",
+    axis.text(0.5, 1.015, rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={root.xi_bits:.2f}$ bits",
               transform=axis.transAxes, ha="center", va="bottom", fontsize=7, color="#34414D")
-    axis.text(0, -0.225, "Network labels: within-network Xi; node labels: local Syn (bits). Height: log ROI count.",
+    axis.text(0, -0.225, "Network and subtree labels: overall Xi (bits). Height: log ROI count.",
               fontsize=5.5, color="#55616D", ha="left")
     axis.set_xlim(-1, cursor-2.5)
     axis.set_ylim(-0.26, 1.10)

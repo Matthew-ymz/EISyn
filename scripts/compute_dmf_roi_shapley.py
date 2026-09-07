@@ -1,8 +1,7 @@
-"""Permutation Shapley of the fixed-target, 100-ROI conditional-Xi game.
+"""Permutation Shapley of full fixed-target Xi for 100 ROI players.
 
 Contract: reuse all 8 seeds x 3 G covariances and E/I-paired ROI blocks.
-Change attribution only, from leave-one-out leverage to ordinary ROI Shapley;
-do not constrain permutations by Yeo and do not include within-ROI Xi.
+Do not constrain permutations by Yeo or pre-separate within/cross-ROI terms.
 Each independent draw is a random permutation paired with its reverse. The
 same draw is used across conditions, so aggregate MC errors retain covariance
 across conditions. MC errors are distinct from simulation-seed variability.
@@ -29,7 +28,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 TOLERANCE_BITS = 1e-8
-VERSION = "paired-permutation-roi-xi-v1"
+VERSION = "paired-permutation-full-xi-v2"
 
 
 def source_digest(path: Path) -> str:
@@ -49,24 +48,27 @@ def prepare_game(covariances: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.nd
     if np.linalg.eigvalsh(c).min() <= 1e-12:
         raise ValueError("Covariance floor is active; Cholesky game would not match the existing oracle")
     n = c.shape[1] // 2
-    block_logdet = np.stack([
-        np.linalg.slogdet(c[:, [i, i+n]][:, :, [i, i+n]])[1] for i in range(n)
-    ], axis=1)
-    totals = 0.5 * (block_logdet.sum(axis=1) - np.linalg.slogdet(c)[1]) / np.log(2)
-    return c, block_logdet, totals
+    scalar_log_variances = np.log(np.diagonal(c, axis1=1, axis2=2))
+    roi_scalar_log_variances = scalar_log_variances[:, :n] + scalar_log_variances[:, n:]
+    totals = 0.5 * (
+        roi_scalar_log_variances.sum(axis=1) - np.linalg.slogdet(c)[1]
+    ) / np.log(2)
+    return c, roi_scalar_log_variances, totals
 
 
-def permutation_contributions(covariances, block_logdet, permutation):
+def permutation_contributions(covariances, roi_scalar_log_variances, permutation):
     p = np.asarray(permutation, dtype=int)
-    n = block_logdet.shape[1]
+    n = roi_scalar_log_variances.shape[1]
     if p.shape != (n,) or not np.array_equal(np.sort(p), np.arange(n)):
         raise ValueError("Not a permutation of all ROI indices")
     indices = np.column_stack((p, p+n)).ravel()
-    result = np.empty_like(block_logdet)
+    result = np.empty_like(roi_scalar_log_variances)
     for condition, c in enumerate(covariances):
         factor = cholesky(c[np.ix_(indices, indices)], lower=True, check_finite=False)
         increments = 2 * np.log(np.diag(factor)).reshape(n, 2).sum(axis=1)
-        result[condition, p] = 0.5 * (block_logdet[condition, p] - increments) / np.log(2)
+        result[condition, p] = 0.5 * (
+            roi_scalar_log_variances[condition, p] - increments
+        ) / np.log(2)
     return result
 
 
@@ -100,9 +102,9 @@ def estimate(covariances, *, rng_seed=20260831, min_pairs=512, max_pairs=16384,
         raise ValueError("Require max_pairs to be a power-of-two multiple of min_pairs")
     if min(mean_se_target, condition_se_target, split_target) <= 0:
         raise ValueError("Precision targets must be positive")
-    c, block_logdet, totals = prepare_game(covariances)
-    n = block_logdet.shape[1]
-    per_condition = Moments(block_logdet.shape)
+    c, roi_scalar_log_variances, totals = prepare_game(covariances)
+    n = roi_scalar_log_variances.shape[1]
+    per_condition = Moments(roi_scalar_log_variances.shape)
     aggregate = Moments((n,))
     rng = np.random.default_rng(rng_seed)
     next_check, previous_mean = min_pairs, None
@@ -112,8 +114,8 @@ def estimate(covariances, *, rng_seed=20260831, min_pairs=512, max_pairs=16384,
     converged = False
     for pair in range(1, max_pairs + 1):
         p = rng.permutation(n)
-        forward = permutation_contributions(c, block_logdet, p)
-        backward = permutation_contributions(c, block_logdet, p[::-1])
+        forward = permutation_contributions(c, roi_scalar_log_variances, p)
+        backward = permutation_contributions(c, roi_scalar_log_variances, p[::-1])
         for values in (forward, backward):
             affected = values < -TOLERANCE_BITS
             minimum_marginal = min(minimum_marginal, float(values.min()))
@@ -174,8 +176,8 @@ def estimate(covariances, *, rng_seed=20260831, min_pairs=512, max_pairs=16384,
         "maximum_estimate_closure_error_bits": float(np.abs(per_condition.mean.sum(axis=1)-totals).max()),
         "maximum_mean_mc_se_bits": float(aggregate.se().max()),
         "elapsed_seconds": perf_counter()-start, "checkpoints": checkpoints,
-        "game": "conditional total correlation among E/I-paired ROI blocks, fixed full-system target",
-        "interpretation": "ordinary ROI Shapley of cross-ROI Xi; not Yeo-constrained; not within-ROI Xi",
+        "game": "full conditional total correlation of all E/I scalar sources, with ROI players and a fixed full-system target",
+        "interpretation": "ordinary ROI Shapley of overall Xi; not Yeo-constrained and not pre-separated into within/cross-ROI terms",
         "mc_error": "SE across independent antithetic pairs; aggregate SE accounts for shared permutations across conditions",
     }
     return per_condition.mean, per_condition.se(), aggregate.se(), totals, summary
@@ -184,7 +186,10 @@ def estimate(covariances, *, rng_seed=20260831, min_pairs=512, max_pairs=16384,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "results/dmf_schaefer100/full/critical_yeo7.npz")
-    parser.add_argument("--output", type=Path, default=ROOT / "results/dmf_schaefer100/roi_shapley/results.npz")
+    parser.add_argument(
+        "--output", type=Path,
+        default=ROOT / "results/dmf_schaefer100/roi_shapley/full_xi_results.npz",
+    )
     parser.add_argument("--max-pairs", type=int, default=16384)
     parser.add_argument("--min-pairs", type=int, default=512)
     parser.add_argument("--rng-seed", type=int, default=20260831)
@@ -199,7 +204,7 @@ def main():
         raise RuntimeError("Existing cache does not match or is unconverged; use a different output path")
     with np.load(args.input, allow_pickle=True) as z:
         cov = np.asarray(z["conditional_covariance"], dtype=float)
-        expected = np.asarray(z["cross_roi"], dtype=float)
+        expected = np.asarray(z["fine_phi"], dtype=float)
         labels, names = z["region_labels"].astype(str), z["network_names"].astype(str)
         membership, seeds, coupling = z["network_membership"], z["seeds"], z["G"]
     with threadpool_limits(limits=1):
@@ -213,13 +218,13 @@ def main():
     np.testing.assert_allclose(values.sum(axis=-1), expected, atol=1e-8, rtol=0)
     mean = values.mean(axis=(0, 1))
     summary.update(source_sha256=digest, seed_count=len(seeds), coupling_values=coupling.tolist(),
-                   mean_cross_roi_xi_bits=float(expected.mean()),
+                   mean_xi_bits=float(expected.mean()),
                    top10=[{"roi": str(labels[i]), "shapley_bits": float(mean[i]), "mc_se_bits": float(mean_se[i])}
                           for i in np.argsort(mean)[-10:][::-1]])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         args.output, roi_shapley_bits=values, condition_mc_se_bits=se, mean_mc_se_bits=mean_se,
-        cross_roi=expected, seeds=seeds, G=coupling, region_labels=labels,
+        full_xi=expected, seeds=seeds, G=coupling, region_labels=labels,
         network_names=names, network_membership=membership, summary_json=json.dumps(summary),
     )
     print("[done] " + json.dumps(summary), flush=True)

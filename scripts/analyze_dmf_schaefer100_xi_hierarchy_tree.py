@@ -52,27 +52,29 @@ NETWORK_COLORS = (
 
 
 class ConditionalBlockXiOracle:
-    """Cached conditional total correlation for arbitrary sets of ROI blocks."""
+    """Cached full conditional Xi for arbitrary sets of ROI blocks."""
 
     def __init__(self, conditional: np.ndarray, blocks: Sequence[Sequence[int]]):
         self.conditional = np.asarray(conditional, dtype=np.float64)
         self.blocks = tuple(tuple(map(int, block)) for block in blocks)
-        self._cache: dict[tuple[int, ...], float] = {
-            (index,): 0.0 for index in range(len(self.blocks))
-        }
+        self._cache: dict[tuple[int, ...], float] = {}
+        for index, block in enumerate(self.blocks):
+            local = self.conditional[np.ix_(block, block)]
+            scalar_blocks = tuple((position,) for position in range(len(block)))
+            self._cache[(index,)] = conditional_total_correlation(local, scalar_blocks)
         self.evaluations = len(self.blocks)
 
     def xi(self, indices: Iterable[int]) -> float:
         key = tuple(sorted(int(index) for index in indices))
-        if not key or len(key) == 1:
+        if not key:
             return 0.0
         cached = self._cache.get(key)
         if cached is not None:
             return cached
         source_indices = [source for index in key for source in self.blocks[index]]
         local = self.conditional[np.ix_(source_indices, source_indices)]
-        local_blocks = tuple((2 * position, 2 * position + 1) for position in range(len(key)))
-        value = conditional_total_correlation(local, local_blocks)
+        scalar_blocks = tuple((position,) for position in range(len(source_indices)))
+        value = conditional_total_correlation(local, scalar_blocks)
         self._cache[key] = float(value)
         self.evaluations += 1
         return float(value)
@@ -129,8 +131,6 @@ def render_tree(
     labels: Sequence[str],
     network_membership: np.ndarray,
     network_names: Sequence[str],
-    full_xi: float,
-    within_roi_xi: float,
     seed: int,
     coupling_g: float,
     dpi: int,
@@ -210,7 +210,7 @@ def render_tree(
         edge = _blend_with_white(SPLIT_COLOR, 0.55 + 0.45 * relative)
         if node.indices in labeled:
             axis.text(
-                x_value, y_value, f"n={node.size}\nSyn {syn:.2f}",
+                x_value, y_value, f"n={node.size}\n$\\Xi$ {node.xi_bits:.2f}",
                 ha="center", va="center", fontsize=5.5, color=INK, linespacing=1.12,
                 bbox={"boxstyle": "round,pad=0.27", "facecolor": face, "edgecolor": edge,
                       "linewidth": 0.8 + 1.7 * relative}, zorder=4,
@@ -254,7 +254,7 @@ def render_tree(
     if not standalone:
         axis.text(
             0.5, 1.015,
-            rf"$G={coupling_g:g}$, seed {seed}  |  Cross-ROI $\Xi={root.xi_bits:.2f}$ bits",
+            rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={root.xi_bits:.2f}$ bits",
             transform=axis.transAxes, ha="center", va="bottom", fontsize=7, color=INK,
         )
         axis.set_xlim(-1.0, root.size)
@@ -264,7 +264,7 @@ def render_tree(
     root_x, _ = positions[root.indices]
     axis.text(
         root_x, 1.115,
-        rf"Cross-ROI $\Xi$ = {root.xi_bits:.2f} bits   |   full $\Xi$ = {full_xi:.2f} bits   |   within-ROI = {within_roi_xi:.2f} bits",
+        rf"Overall $\Xi$ = {root.xi_bits:.2f} bits",
         ha="center", va="center", fontsize=9.0, color=INK,
     )
     axis.text(
@@ -307,15 +307,14 @@ def run_analysis(
         g_values = np.asarray(archive["G"], dtype=float)
         g_index = int(np.flatnonzero(np.isclose(g_values, coupling_g))[0])
         seeds = np.asarray(archive["seeds"], dtype=int)
-        cross_roi = np.asarray(archive["cross_roi"], dtype=float)[:, g_index]
-        seed_index = int(np.argmin(np.abs(cross_roi - cross_roi.mean())))
+        full_xi_by_seed = np.asarray(archive["fine_phi"], dtype=float)[:, g_index]
+        seed_index = int(np.argmin(np.abs(full_xi_by_seed - full_xi_by_seed.mean())))
         seed = int(seeds[seed_index])
         conditional = np.asarray(archive["conditional_covariance"], dtype=float)[seed_index, g_index]
         labels = [str(value) for value in np.asarray(archive["region_labels"], dtype=object)]
         network_names = [str(value) for value in np.asarray(archive["network_names"], dtype=object)]
         membership = np.asarray(archive["network_membership"], dtype=int)
         full_xi = float(np.asarray(archive["fine_phi"], dtype=float)[seed_index, g_index])
-        within_roi_xi = float(np.asarray(archive["within_roi"], dtype=float)[seed_index, g_index])
 
     roi_count = len(labels)
     roi_blocks = tuple((index, index + roi_count) for index in range(roi_count))
@@ -330,25 +329,29 @@ def run_analysis(
         audit=audit,
     )
     internal = [node for node in flatten_nodes(tree) if node.children]
-    closure_error = float(sum(node.syn_bits for node in internal) - tree.xi_bits)
+    leaves = [node for node in flatten_nodes(tree) if not node.children]
+    closure_error = float(
+        sum(node.syn_bits for node in internal)
+        + sum(node.xi_bits for node in leaves)
+        - tree.xi_bits
+    )
     if abs(closure_error) > 1.0e-8:
         raise RuntimeError(f"Hierarchy closure failed: error={closure_error:.12g} bits")
     render_tree(
         tree, figure_path, labels=labels, network_membership=membership,
-        network_names=network_names, full_xi=full_xi, within_roi_xi=within_roi_xi,
+        network_names=network_names,
         seed=seed, coupling_g=coupling_g, dpi=dpi,
     )
     metrics = _tree_metrics(tree)
     payload: dict[str, object] = {
         "experiment": "Schaefer100 DMF representative 100-ROI Xi hierarchy",
         "status": "approximate spectral-candidate hierarchy; exact for coalitions at or below the declared size",
-        "selection": "At G=1.3, choose the seed whose cross-ROI Xi is nearest the eight-seed mean; topology is not averaged",
+        "selection": "At G=1.3, choose the seed whose overall Xi is nearest the eight-seed mean; topology is not averaged",
         "coupling_g": float(coupling_g),
         "seed": seed,
-        "seed_cross_roi_xi_bits": float(tree.xi_bits),
-        "eight_seed_cross_roi_xi_mean_bits": float(cross_roi.mean()),
+        "seed_xi_bits": float(tree.xi_bits),
+        "eight_seed_xi_mean_bits": float(full_xi_by_seed.mean()),
         "full_xi_bits": full_xi,
-        "within_roi_xi_bits": within_roi_xi,
         "roi_count": roi_count,
         "syn_nonnegative_tolerance_bits": SYN_NONNEGATIVE_TOLERANCE_BITS,
         "pair_tolerance_zero_count": int(pair_tolerance_zero_count),
@@ -387,7 +390,7 @@ def main() -> None:
         coupling_g=args.coupling_g, exact_max_size=args.exact_max_size, dpi=args.dpi,
     )
     print(
-        f"[done] seed={payload['seed']} cross-ROI Xi={payload['seed_cross_roi_xi_bits']:.6f} bits; "
+        f"[done] seed={payload['seed']} Xi={payload['seed_xi_bits']:.6f} bits; "
         f"spine={payload['tree_metrics']['dominant_spine_fraction']:.3f}; "
         f"imbalance={payload['tree_metrics']['normalized_colless_imbalance']:.3f}"
     )

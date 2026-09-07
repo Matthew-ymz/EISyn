@@ -24,6 +24,10 @@ from scripts.reproduce_hcp_schaefer1000_panels_a_c_57 import (
     significance_stars,
 )
 from scripts import screen_hcp_social_composite_scores_57 as social_screen
+from scripts.validate_hcp_treewise_order_mass_57 import (
+    ORDERS as TREE_ORDERS,
+    load_tree_order_mass,
+)
 
 
 MODEL_ROOT = ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/full/k1_p3_a1"
@@ -38,6 +42,9 @@ MOTOR_SUMMARY = MOTOR_ROOT / "summary.json"
 SOCIAL_ROOT = ROOT / "results/hcp_social_composite_scores_57"
 SOCIAL_CACHE = SOCIAL_ROOT / "social_coalition_synergy_57.npz"
 ALL_TASK_SUMMARY = ROOT / "results/hcp_all_task_behavior_coalitions_57/summary.json"
+TREE_ORDER_RECORDS = (
+    ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/full/records.jsonl"
+)
 OUTPUT = ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/final"
 MAIN_STEM = "hcp_schaefer1000_behavior_main_57"
 EMOTION_PREVIEW_STEM = "hcp_schaefer1000_behavior_main_57_emotion_preview"
@@ -687,9 +694,10 @@ def plot_main(
     motor_associations: list[dict[str, float | int | str | list[float]]] | None = None,
     stem: str = MAIN_STEM,
 ) -> None:
-    atom_names = arrays["atom_names"].astype(str)
-    selected = np.argsort(arrays["atom_share"].mean(axis=1).mean(axis=0))[::-1][:12]
-    atom_panel = arrays["atom_value"].mean(axis=1)[:, selected].T
+    tree_order_mass, order_subjects, _ = load_tree_order_mass(TREE_ORDER_RECORDS)
+    if len(order_subjects) != 57:
+        raise ValueError("Expected 57 subjects in the coalition-order summary")
+    order_panel = tree_order_mass.mean(axis=1).T
     network_panel = arrays["network_share"].mean(axis=1).T * 100.0
 
     include_emotion = emotion_behavior is not None
@@ -714,7 +722,7 @@ def plot_main(
         hspace=0.30 if include_motor else 0.16,
     )
     middle_grid = outer_grid[1, 0].subgridspec(
-        1, 2, width_ratios=(1.34, 1.0), wspace=0.28
+        1, 2, width_ratios=(1.18, 1.0), wspace=0.42
     )
     axis_a = figure.add_subplot(outer_grid[0, 0])
     axis_b = figure.add_subplot(middle_grid[0, 0])
@@ -751,47 +759,42 @@ def plot_main(
         axis_h = None
     plot_system_xi(axis_a, summary, arrays)
 
-    atom_upper = max(float(np.quantile(atom_panel, 0.995)), 0.1)
-    atom_image = axis_b.imshow(
-        atom_panel,
-        cmap="magma_r",
-        vmin=0.0,
-        vmax=atom_upper,
+    order_image = axis_b.imshow(
+        order_panel,
+        cmap="viridis",
+        norm=mpl.colors.Normalize(vmin=0.0, vmax=float(order_panel.max())),
         aspect="auto",
         interpolation="nearest",
     )
     axis_b.set(
         xticks=np.arange(8),
         xticklabels=STATE_LABELS,
-        yticks=np.arange(len(selected)),
-        yticklabels=[compact_atom(atom_names[index]) for index in selected],
+        yticks=np.arange(len(TREE_ORDERS)),
+        yticklabels=[str(order) for order in TREE_ORDERS],
         xlabel="",
-        ylabel="Greedy hierarchy atom",
+        ylabel="SPT node order",
     )
     axis_b.tick_params(axis="x", labelrotation=34, length=0, labelsize=6.6)
-    axis_b.tick_params(axis="y", length=0, labelsize=5.5)
-    axis_b.axvline(0.5, color="#F0F0F0", linewidth=0.9)
-    for row in range(atom_panel.shape[0]):
-        for column in range(atom_panel.shape[1]):
-            value = atom_panel[row, column]
-            axis_b.text(
-                column,
-                row,
-                f"{value:.3f}",
-                ha="center",
-                va="center",
-                fontsize=4.1,
-                color="white" if value > 0.38 * atom_upper else "black",
-            )
-    atom_colorbar = figure.colorbar(
-        atom_image, ax=axis_b, fraction=0.032, pad=0.022, aspect=32
+    axis_b.tick_params(axis="y", length=0, labelsize=6.6)
+    order_colorbar = figure.colorbar(
+        order_image, ax=axis_b, fraction=0.035, pad=0.012
     )
-    atom_colorbar.set_label("")
-    atom_colorbar.ax.tick_params(labelsize=6.0)
+    order_colorbar.set_label("SPT order mass (bits)", fontsize=6.4)
+    order_colorbar.ax.tick_params(labelsize=6.0)
+    axis_b.text(
+        1.0,
+        1.02,
+        "Tree-wise order sum | 57-subject mean",
+        transform=axis_b.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=5.4,
+        color="#444444",
+    )
 
     network_lower = float(np.floor(network_panel.min()))
     network_upper = float(np.ceil(network_panel.max()))
-    axis_c.imshow(
+    network_image = axis_c.imshow(
         network_panel,
         cmap="YlGnBu",
         vmin=network_lower,
@@ -810,6 +813,11 @@ def plot_main(
     axis_c.tick_params(axis="x", labelrotation=38, length=0, labelsize=6.1)
     axis_c.tick_params(axis="y", length=0, labelsize=6.1)
     axis_c.axvline(0.5, color="#333333", linewidth=0.9)
+    network_colorbar = figure.colorbar(
+        network_image, ax=axis_c, fraction=0.035, pad=0.012
+    )
+    network_colorbar.set_label("Network attribution (%)", fontsize=6.4)
+    network_colorbar.ax.tick_params(labelsize=6.0)
     for row in range(network_panel.shape[0]):
         for column in range(network_panel.shape[1]):
             value = network_panel[row, column]

@@ -23,7 +23,10 @@ from scripts.brain_surface_plot import (
     draw_brain_map_four_views,
     parcel_values_to_vertices,
 )
-from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import render_tree
+from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import (
+    ConditionalBlockXiOracle,
+    render_tree,
+)
 from scripts.compare_runge_slp_pc60_xi_horizons import _node_from_record
 from scripts.dmf_yeo_prior_tree import build_yeo_prior_tree, render_yeo_prior_tree
 
@@ -55,13 +58,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tree-summary", type=Path, default=ROOT / "results/dmf_schaefer100/xi_hierarchy_tree/summary.json")
     parser.add_argument("--legacy-layout", action="store_true", help="Render the original a–g summary instead of the five-panel composition.")
     parser.add_argument("--yeo-prior", action="store_true", help="Constrain the root to Yeo-7 and search within each network; use a separate output stem.")
-    parser.add_argument("--roi-shapley", type=Path, help="Validated ROI Shapley cache to use instead of leave-one-out leverage in panel e.")
+    parser.add_argument("--roi-shapley", type=Path, help="Validated overall-Xi ROI Shapley cache for panel e; required with --yeo-prior.")
     return parser.parse_args()
 
 
 def load(path: Path) -> dict[str, np.ndarray]:
     with np.load(path, allow_pickle=True) as archive:
         return {key: np.asarray(archive[key]) for key in archive.files}
+
+
+def network_xi_values(
+    conditional_covariance: np.ndarray,
+    membership: np.ndarray,
+) -> np.ndarray:
+    """Compute overall Xi for every Yeo network without ROI-level pre-decomposition."""
+    covariance = np.asarray(conditional_covariance, dtype=float)
+    membership = np.asarray(membership, dtype=int)
+    roi_count = len(membership)
+    if covariance.shape[-2:] != (2 * roi_count, 2 * roi_count):
+        raise ValueError("Conditional covariance and ROI membership do not align")
+    result = np.empty((*covariance.shape[:-2], 7), dtype=float)
+    blocks = tuple((index, index + roi_count) for index in range(roi_count))
+    for condition_index in np.ndindex(covariance.shape[:-2]):
+        oracle = ConditionalBlockXiOracle(covariance[condition_index], blocks)
+        for network in range(7):
+            result[condition_index + (network,)] = oracle.xi(
+                np.flatnonzero(membership == network)
+            )
+    return result
 
 
 def configure() -> None:
@@ -518,38 +542,47 @@ def plot_summary(args: argparse.Namespace) -> None:
     # The tree is one frozen seed/G condition; bars and surface average the window.
     gi = int(np.flatnonzero(np.isclose(yeo["G"], hierarchy["coupling_g"]))[0])
     si = int(np.flatnonzero(yeo["seeds"] == hierarchy["seed"])[0])
-    if not np.isclose(yeo["cross_roi"][si, gi], tree.xi_bits, atol=1e-8, rtol=0):
+    if not np.isclose(yeo["fine_phi"][si, gi], tree.xi_bits, atol=1e-8, rtol=0):
         raise ValueError("Tree cache does not match the supplied seed/G data")
     if not np.array_equal(topology["region_labels"], yeo["region_labels"]):
         raise ValueError("Surface and hierarchy ROI labels must use the same order")
     yeo_prior = getattr(args, "yeo_prior", False)
     roi_shapley_path = getattr(args, "roi_shapley", None)
+    if yeo_prior and roi_shapley_path is None:
+        raise ValueError("The current Yeo-prior figure requires an overall-Xi ROI Shapley cache")
     roi_shapley = None
     if roi_shapley_path is not None:
         from scripts.compute_dmf_roi_shapley import source_digest
         attribution = load(roi_shapley_path)
         metadata = json.loads(str(attribution["summary_json"]))
-        if not metadata["converged"] or metadata["source_sha256"] != source_digest(args.yeo7):
-            raise ValueError("ROI Shapley cache is unconverged or uses different input data")
+        if (
+            metadata.get("version") != "paired-permutation-full-xi-v2"
+            or not metadata["converged"]
+            or metadata["source_sha256"] != source_digest(args.yeo7)
+        ):
+            raise ValueError("ROI Shapley cache is not a converged overall-Xi result for the supplied data")
         for key in ("region_labels", "seeds", "G", "network_membership"):
             if not np.array_equal(attribution[key], yeo[key]):
                 raise ValueError(f"ROI Shapley cache does not match {key}")
         roi_shapley = np.asarray(attribution["roi_shapley_bits"], dtype=float)
-        if roi_shapley.shape != (*yeo["cross_roi"].shape, len(yeo["region_labels"])):
+        if roi_shapley.shape != (*yeo["fine_phi"].shape, len(yeo["region_labels"])):
             raise ValueError("Invalid ROI Shapley shape")
         if not np.isfinite(roi_shapley).all() or np.any(roi_shapley < -1e-8):
             raise ValueError("Invalid ROI Shapley values or significant nonnegativity violation")
-        np.testing.assert_allclose(roi_shapley.sum(axis=-1), yeo["cross_roi"], atol=1e-8, rtol=0)
+        np.testing.assert_allclose(roi_shapley.sum(axis=-1), yeo["fine_phi"], atol=1e-8, rtol=0)
+    network_xi = network_xi_values(
+        yeo["conditional_covariance"], yeo["network_membership"]
+    )
     if yeo_prior:
         tree, audit = build_yeo_prior_tree(
             yeo["conditional_covariance"][si, gi], yeo["network_membership"],
             exact_max_size=int(hierarchy["exact_search_max_coalition_size"]),
         )
         np.testing.assert_allclose(
-            audit["within_network_xi_bits"], yeo["within_group_by_network"][si, gi], atol=1e-8, rtol=0,
+            audit["network_xi_bits"], network_xi[si, gi], atol=1e-8, rtol=0,
         )
         np.testing.assert_allclose(tree.syn_bits, yeo["between_group_shapley"][si, gi].sum(), atol=1e-8, rtol=0)
-        np.testing.assert_allclose(tree.xi_bits, yeo["cross_roi"][si, gi], atol=1e-8, rtol=0)
+        np.testing.assert_allclose(tree.xi_bits, yeo["fine_phi"][si, gi], atol=1e-8, rtol=0)
         print(json.dumps({"seed": int(hierarchy["seed"]), "G": float(hierarchy["coupling_g"]), **audit}), flush=True)
 
     figure = plt.figure(figsize=(16.0, 11.4))
@@ -643,10 +676,9 @@ def plot_summary(args: argparse.Namespace) -> None:
     panel_label(ax_a, "a", y=1.04)
 
 
-    within_network = np.asarray(yeo["within_group_by_network"], dtype=float)
-    within_network_by_seed = within_network.mean(axis=1)
-    network_values = within_network_by_seed.mean(axis=0)
-    network_errors = sd(within_network_by_seed, axis=0)
+    network_xi_by_seed = network_xi.mean(axis=1)
+    network_values = network_xi_by_seed.mean(axis=0)
+    network_errors = sd(network_xi_by_seed, axis=0)
     network_names = [str(value) for value in yeo["network_names"]]
     network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
     order = np.argsort(network_values)
@@ -669,7 +701,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_e.tick_params(axis="y", pad=1)
-    ax_e.set_xlabel(r"Within-network cross-ROI $\Xi$ (bits)")
+    ax_e.set_xlabel(r"Network $\Xi$ (bits)")
     ax_e.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_e, "c")
 
@@ -708,7 +740,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         left_values,
         right_values,
         cmap="viridis",
-        colorbar_label="ROI Shapley contribution (bits)" if roi_shapley is not None else "Cross-ROI leverage (bits)",
+        colorbar_label=r"ROI Shapley contribution to $\Xi$ (bits)" if roi_shapley is not None else "Cross-ROI leverage (bits)",
         colorbar_label_size=6.2,
         zoom=1.10,
     )
@@ -736,8 +768,6 @@ def plot_summary(args: argparse.Namespace) -> None:
             labels=[str(label) for label in yeo["region_labels"]],
             network_membership=np.asarray(yeo["network_membership"], dtype=int),
             network_names=network_names,
-            full_xi=float(hierarchy["full_xi_bits"]),
-            within_roi_xi=float(hierarchy["within_roi_xi_bits"]),
             seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
             dpi=450, axis=ax_tree,
             network_colors=[network_color(name) for name in network_names],

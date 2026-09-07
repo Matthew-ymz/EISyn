@@ -509,7 +509,11 @@ def pairwise_syn_affinity(
     audit = SPTAudit()
     for left in range(int(node_count)):
         for right in range(left + 1, int(node_count)):
-            value = float(oracle.xi((left, right)))
+            value = float(
+                oracle.xi((left, right))
+                - oracle.xi((left,))
+                - oracle.xi((right,))
+            )
             _audit_syn(
                 value,
                 tolerance=float(tolerance),
