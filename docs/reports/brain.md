@@ -5,6 +5,7 @@
 1. **Schaefer100 DMF 结果保持不变。** 群体平均结构连接上的 $\Xi$ 与 pairwise BOLD-like $\Phi^R$ 将耦合转变定位在相邻粗网格，但峰位依赖预测时距，因此不把单一峰解释为时间尺度无关的严格临界点。峰值邻近窗的 $\Xi$ 以跨 ROI、尤其跨网络分量为主；结构 null 说明经验边布局主要改变网络间份额，而非最大化总 $\Xi$。
 2. **57 人 Schaefer-1000 主结果同时连接群体状态差异与个体行为。** 在统一的任务诱发 PCA、三阶历史和 Ridge $\alpha=1$ 下，REST 的 system-level $\Xi$ 均值为 7.122 bits，高于七任务的 4.633--6.243 bits；七项配对 Wilcoxon 检验均经 BH 校正显著。逐任务直接关联 system-level $\Xi$ 与冻结行为端点时，没有显著正相关或负相关通过七任务 BH 或 max-$T$ 校正；MOTOR 的方向虽为负（$\rho=-0.179$），但双侧 $p=0.188$、BH $q=0.407$，预先指定方向的单侧 $p=0.0955$。七任务行为比较进一步把 57 人作为一个完整样本，不加入招募批次协变量、不分层置换，也不报告 29/28 人子组；每个任务只冻结一个主端点并检验同样的 120 个网络组合。证据排序为 SOCIAL、LANGUAGE、MOTOR、RELATIONAL、EMOTION、WM、GAMBLING。Visual–Limbic–Control 与 SOCIAL 校正 $d'$ 的负相关是唯一通过任务内 max-$T<0.05$ 的结果（调整后 $\rho=-0.464$，$p=0.0208$）；该关系与 Random 正确拒绝率的关联强于与 TOM 命中率的关联，并在控制反应偏置后基本不变，因此更接近**减少把随机运动误判为社会互动**，而不是一般性的心理互动报告倾向。LANGUAGE 的 Somatomotor–Limbic 正相关和 MOTOR 的五网络负相关接近但未跨过该阈值。MOTOR 最强十项中有九项包含 Default mode network（DMN），但把全部 63 个含 DMN 组合逐被试平均后只有 $\rho=-0.205$、负向单侧 $p=0.0658$；七种网络锚定平均全部为负，DMN 也不是最强锚点，因而没有 DMN 特异的校正证据。RELATIONAL 与 EMOTION 仅有未校正候选，WM 与 GAMBLING 的区间跨 0。因而最稳妥的故事不是“七任务各有一个显著脑区”，而是**任务态整体协同稳定改变，但全系统量没有显示经校正的行为关联；只有 SOCIAL 的特定网络组合个体差异经受住当前组合选择校正，LANGUAGE/MOTOR 提供次一级候选，其余任务界定特异性与可检出性的边界**。
 3. **57 人方法学验证限定了结论边界。** REST circular-shift null 中 56/57 人高于 null 均值；缺 Limbic 的六网络核高于 matched-null 频率。25 点参数网格中只有 12 点保持 REST 群体均值最高、7 点七项对比全部显著，表明结论依赖合理正则化，而非对任意超参数成立。按留出误差选择的最优共享点为 $(p,\alpha)=(5,10)$，且仍保留七项显著 REST 优势。Schaefer-1000 TEVF 的七任务 parcel 图可在留一被试分类中达到 90.2%，说明任务空间模式具有稳定的个体外可辨识性。
+4. **MMP360 的 1002 人同任务联合筛查发现更强但以一般表现为主的小效应。** 七任务共纳入 48 个评分端点，每个评分只与同一任务 LR 时序上的 120 个网络联盟配对。RELATIONAL 总体速度（$\rho=-0.175$）、LANGUAGE 总体正确率（$\rho=0.156$）、EMOTION 总体速度（$\rho=-0.156$）和 WM 总体正确率（$\rho=-0.158$）的任务家族优胜结果均通过七任务 Holm 校正（$p=0.00021$--$0.00264$）。但显著项主要集中在总体正确率、总体速度或 Match、Shape、0-back 等控制条件；条件差值结果更少、更弱。原 SOCIAL Limbic–Control 与 $d'$ 的临界结果在六评分联合校正后不再显著。因此，大样本没有天然压低相关显著性，反而能稳定检出 $|\rho|\approx0.15$ 的小效应；真正的限制是效应量仍小、广泛搜索需要严格校正，而且当前证据更像一般表现差异，尚不足以建立任务特异机制。
 
 本文不再报告 Schaefer-500 HCP 实验；原 29/30 人的探索性认知关联已由同一批 57 名 Schaefer-1000 被试上的重新检验替代。
 
@@ -15,13 +16,14 @@
    - [2.2.1 全组合最小二分协同图谱](#hcp-min-bipartition)
    - [2.2.2 同一被试跨状态的 Yeo-7 SPT](#hcp-paired-spt)
    - [2.2.3 各任务最高表现者的状态匹配 SPT](#hcp-top-performer-spt)
-3. [**讨论：解释边界与可复现性**](#discussion)
-4. [**附录 A：DMF 补充诊断、EI 分量、结构 null 与 Kuramoto 对照**](#appendix-a)
+3. [**HCP MMP360：1002 人探索性脑--行为关联**](#hcp-mmp360-1002)
+4. [**讨论：解释边界与可复现性**](#discussion)
+5. [**附录 A：DMF 补充诊断、EI 分量、结构 null 与 Kuramoto 对照**](#appendix-a)
    - [A.5 被替换主图与无约束树留存](#appendix-a-5)
-5. [**附录 B：Schaefer100 DMF 动力学方程**](#appendix-b)
-6. [**附录 C：83 ROI 与 100 ROI 受控比较**](#appendix-c)
-7. [**附录 D：Schaefer100 可复现文件**](#appendix-d)
-8. [**附录 E：HCP Schaefer-1000 的 57 人验证**](#appendix-e)
+6. [**附录 B：Schaefer100 DMF 动力学方程**](#appendix-b)
+7. [**附录 C：83 ROI 与 100 ROI 受控比较**](#appendix-c)
+8. [**附录 D：Schaefer100 可复现文件**](#appendix-d)
+9. [**附录 E：HCP Schaefer-1000 的 57 人验证**](#appendix-e)
 
 <a id="dmf-main"></a>
 
@@ -385,6 +387,10 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 26. Wang R, Liu M, Cheng X, et al. Segregation, integration, and balance of large-scale resting brain networks configure different cognitive abilities. *PNAS*. 2021;118:e2022288118. [doi:10.1073/pnas.2022288118](https://doi.org/10.1073/pnas.2022288118)
 27. Santoro A, Battiston F, Lucas M, Petri G, Amico E. Higher-order connectomics of human brain function reveals local topological signatures of task decoding, individual identification, and behavior. *Nature Communications*. 2024;15:10244. [doi:10.1038/s41467-024-54472-y](https://doi.org/10.1038/s41467-024-54472-y)
 28. Luppi AI, Mediano PAM, Rosas FE, et al. A synergistic workspace for human consciousness revealed by Integrated Information Decomposition. *eLife*. 2024;13:RP88173. [doi:10.7554/eLife.88173](https://doi.org/10.7554/eLife.88173)
+29. Mohr H, Wolfensteller U, Betzel RF, et al. Integration and segregation of large-scale brain networks during short-term task automatization. *Nature Communications*. 2016;7:13217. [doi:10.1038/ncomms13217](https://doi.org/10.1038/ncomms13217)
+30. Markett S, Jawinski P, Kirsch P, Gerchen MF. Specific and segregated changes to the functional connectome evoked by the processing of emotional faces: a task-based connectome study. *Scientific Reports*. 2020;10:4822. [doi:10.1038/s41598-020-61522-0](https://doi.org/10.1038/s41598-020-61522-0)
+31. Di Plinio S, Ferri F, Marzetti L, Romani GL, Northoff G, Pizzella V. Functional connections between activated and deactivated brain regions mediate emotional interference during externally directed cognition. *Human Brain Mapping*. 2018;39:3597–3610. [doi:10.1002/hbm.24197](https://doi.org/10.1002/hbm.24197)
+32. Amos TJ, Guragai B, Rao Q, et al. Task functional networks predict individual differences in the speed of emotional facial discrimination. *NeuroImage*. 2024;297:120715. [doi:10.1016/j.neuroimage.2024.120715](https://doi.org/10.1016/j.neuroimage.2024.120715)
 
 
 <a id="hcp-wm"></a>
@@ -610,15 +616,51 @@ $$
 
 REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST 和七任务分别计算每个 parcel 的时间方差，再除以该 run 的 1000-parcel 平均方差。八状态 parcel 图的 LOSO 准确率为 64.9%，Yeo7 网络均值为 34.6%，两项置换检验均为 $p=0.00050$。该指标混合自发活动、任务活动和残余混杂，只用于空间参照，不替代 TEVF 或 $\Xi$。
 
+<a id="hcp-mmp360-1002"></a>
+
+## 3. HCP MMP360：1002 人探索性脑--行为关联
+
+### 3.1 七任务同任务评分联合筛查
+
+扩大筛查后仍只允许“任务评分—同任务 LR 时序”配对。每个任务从 MMP360 parcel 时序提取 Yeo7 网络第一主成分，固定三阶历史、Ridge $\alpha=1$ 和 Gaussian linear TM/log-det 估计器，并穷举全部 120 个二至七网络联盟。行为端点共 48 个：LANGUAGE、SOCIAL、EMOTION、GAMBLING 和 RELATIONAL 各 6 个，MOTOR 4 个，WM 14 个。每个任务以该任务全部“端点 $\times$ 120 组合”为一个 max-$T$ 家族，共检验 5,760 个关联；七个任务优胜结果再作 Holm 校正。主检验使用 100,000 次 Freedman--Lane 残差置换，任务优胜效应的区间来自 5,000 次被试 bootstrap。
+
+MOTOR 没有有效的扫描内正确率或反应时，因此其耐力、灵巧度、握力和综合指数均明确标为扫描外运动能力。GAMBLING 的结果由程序预定，较大数字选择比例和反应速度只表示选择倾向，不称为任务正确率。为使同一任务内的端点共享一个置换家族，各任务使用全部候选端点均完整的共同被试：LANGUAGE、EMOTION、MOTOR 和 RELATIONAL 为 1,002 人，SOCIAL 和 WM 为 994 人，GAMBLING 为 973 人。
+
+![MMP360 1002 人七任务同任务评分全组合筛查](../../results/hcp_mmp360_same_task_score_screen_1002/same_task_score_coalition_screen_1002.png)
+
+*图 5｜MMP360 七任务同任务评分联合筛查。a：每个任务在其完整“端点 $\times$ 120 组合”家族中的最强关联；点和误差线为调整后 Spearman $\rho$ 与 bootstrap 95% CI。b：每个达到任务家族 max-$T<0.05$ 的行为端点只展示最强联盟，避免把高度重叠联盟的重复命中画成独立发现；右侧 $p$ 已同时控制该任务的所有候选评分和 120 个网络组合。图中没有把不同任务的评分与其他任务时序交叉配对。*
+
+| 任务 | 家族优胜评分 | 优胜联盟 | 阶数 | 调整后 $\rho$ | 95% CI | 任务家族 max-$T$ $p$ | 七任务 Holm $p$ |
+|---|---|---|---:|---:|---:|---:|---:|
+| RELATIONAL | 总体速度 | Vis+DAN+Limbic+DMN | 4 | -0.175 | [-0.236, -0.113] | 0.000030 | 0.000210 |
+| LANGUAGE | 总体正确率 | DAN+SVAN+Limbic+DMN | 4 | 0.156 | [0.095, 0.218] | 0.000250 | 0.001500 |
+| EMOTION | 总体速度 | SM+SVAN+Limbic | 3 | -0.156 | [-0.217, -0.095] | 0.000330 | 0.001650 |
+| WM | 总体正确率 | Limbic+Control | 2 | -0.158 | [-0.216, -0.096] | 0.000660 | 0.002640 |
+| SOCIAL | TOM 命中率 | DAN+Limbic+Control+DMN | 4 | -0.115 | [-0.181, -0.050] | 0.063629 | 0.190888 |
+| MOTOR | 耐力（扫描外） | Vis+SM | 2 | 0.109 | [0.047, 0.168] | 0.096469 | 0.192938 |
+| GAMBLING | 奖励条件选择速度 | Vis+SVAN+DMN | 3 | -0.104 | [-0.165, -0.043] | 0.166138 | 0.192938 |
+
+LANGUAGE、EMOTION、RELATIONAL 和 WM 的任务家族优胜结果均在七任务 Holm 校正后保留；SOCIAL、MOTOR 和 GAMBLING 不保留。显著单项共有 115 个，但并不代表 115 个独立机制：RELATIONAL 的 48 项主要是总体/Match 速度与共享 Visual、DAN、Limbic、DMN 骨架的嵌套联盟；EMOTION 的 42 项主要是总体/Shape 速度与含 Somatomotor、SVAN、Limbic 的重叠联盟；LANGUAGE 的 16 项集中于总体/Math 正确率；WM 的 9 项集中于总体或 0-back 正确率和少量 Body 速度对比。图 5b 因此按端点压缩为 12 个代表结果，而不逐项陈列重复联盟。
+
+### 3.2 结果边界：显著性增强，但任务特异性有限
+
+更大范围搜索确实找到了比原两项更显著的相关，但最强模式多数落在**总体表现或控制条件**，而非任务特异成分。RELATIONAL 的总体速度结果最强，但 Match 速度也有 12 个显著联盟；控制 Match 速度后的 Relational 特异速度仅剩 Vis+DAN+Control（$\rho=-0.121$，任务家族 max-$T$ $p=0.0366$）。因此主信号更像视觉比较和一般反应效率，而不是关系推理特异协同。EMOTION 同样由总体速度和 Shape 速度主导；Face 正确率控制 Shape 后的最强结果为 $\rho=-0.122$、$p=0.0296$，Face 速度控制 Shape 后的原 Vis+DAN+SVAN+DMN 结果为 $\rho=-0.119$、$p=0.0419$。这保留了 Face 特异证据，但明显弱于一般视觉匹配速度信号。
+
+WM 的 Limbic–Control 负相关同时出现在总体正确率和 0-back 正确率，说明家族优胜结果不能解释为工作记忆负荷特异机制。只有 Body 刺激的 2-back 速度在控制 0-back 后还出现四个显著联盟，最强为 Vis+SVAN+Limbic+DMN（$\rho=-0.132$，$p=0.0209$）；由于四种刺激中只有 Body 命中，它仍属于事后内容特异候选。LANGUAGE 的正相关集中在总体和 Math 正确率，而 Story 正确率没有任务家族显著联盟；其 DAN+SVAN+Limbic+DMN 骨架更适合解释为多网络视觉注意、控制和语义/内部表征的共同募集，尚不能归为故事理解机制。
+
+扩展校正还推翻了先前对 SOCIAL 的临界判断。Limbic–Control 与 $d'$ 在只校正单一端点的 120 组合时为 $p=0.044$，但把 SOCIAL 的六个预定端点与 120 组合联合成 720 项家族后不再显著；该任务新的家族优胜 TOM 命中率也只有 $p=0.0636$。因此不再把 SOCIAL 写成阳性旁证。更可信的总体结论是：**1002 人中可稳定检出若干小幅脑--行为关联，但广泛搜索后的强信号主要追踪一般正确率或反应速度，真正的条件特异关联较少且更弱。**
+
+这些结果仍与“整合和分离需要按任务平衡”的文献框架相容（Bertolero et al., 2018；Wang et al., 2021；Mohr et al., 2016），但不能把负相关统一解释为“协同越低、处理越高效”。Syn 衡量多个网络历史对未来状态的不可分解额外预测信息，不等同于功能连接、模块度或激活。下一步最有信息量的验证不是增加更多评分，而是冻结四个七任务 Holm 显著的优胜组合，对 LR/RL run、HCP 家系和头动进行验证，并将 RELATIONAL 的 Rel/Match、EMOTION 的 Face/Shape、WM 的 2-back/0-back 直接落实到条件分段时序；只有评分和时序两侧都呈条件特异性，才能把当前相关推进为任务机制。
+
 <a id="discussion"></a>
 
-## 3. 讨论：解释边界与可复现性
+## 4. 讨论：解释边界与可复现性
 
 57 人结果确认了主配置下的三层证据链：REST 的 system-level $\Xi$ 整体更高；任务态对剩余 $\Xi$ 的网络份额和高阶组合进行重分配；任务 GLM 成分在 Schaefer-1000 parcel 空间形成可推广到留出被试的任务特异模式。三者分别描述整体联合可预测性、网络级守恒归因和经典任务空间分布，不能互相替代。REST 整体 $\Xi$ 较高也不自动意味着其特定网络组合编码一般认知；逐任务 system-level $\Xi$ 与对应行为没有一项通过七任务校正，REST 的 120 组合筛查也没有提供一般认知关联证据。
 
-结论有十个边界。第一，主 $\Xi$ 结果仅覆盖 REST1_LR 与七项 LR 任务，未检验 RL run、家系结构、GSR、运动与生理混杂或皮层下结构。第二，25 点网格显示方向对模型自由度与正则化敏感；弱正则的高阶模型会反转，因而不声称参数无关。第三，20 次 null 的经验 $p$ 最小为 $1/21$，模块频率检验未作跨候选多重比较；SPT 节点协同只用于描述候选结构，不是唯一高阶分解。第四，一般认知分析只检验冻结的 $(p,\alpha)=(3,1)$、REST1_LR 和 120 个固定组合；没有建模家系、头动或生理协变量，且新增 28 人按行为多样性选择。第五，EMOTION 表现分析没有 Face/Shape 条件 EV、家系编号或完整头动摘要，且主配置下的差值候选不能跨参数保持。第六，MOTOR 广义指数来自扫描外的耐力、灵巧度和握力，不是 run 内表现，三个分量的内部一致性也较弱；当前候选还没有通过 120 组合校正。第七，GAMBLING 奖惩结果由程序预定，主评分来自扫描外延迟折扣而不是 run 内正确率；当前皮层图谱又不含纹状体等奖赏相关皮层下结构，因此负结果只约束当前皮层组合。第八，RELATIONAL 最高候选在控制 Match 表现后明显减弱，不能解释为关系推理特异机制。第九，WM 最高候选在控制 0-back 后几乎消失，不能解释为工作记忆负荷特异机制。第十，TEVF 依赖 `taskRetained`/`taskRegressed` 的 GLM 配对，而共同方差图不是任务解释比例。
+结论有十一个边界。第一，主 $\Xi$ 结果仅覆盖 REST1_LR 与七项 LR 任务，未检验 RL run、家系结构、GSR、运动与生理混杂或皮层下结构。第二，25 点网格显示方向对模型自由度与正则化敏感；弱正则的高阶模型会反转，因而不声称参数无关。第三，20 次 null 的经验 $p$ 最小为 $1/21$，模块频率检验未作跨候选多重比较；SPT 节点协同只用于描述候选结构，不是唯一高阶分解。第四，一般认知分析只检验冻结的 $(p,\alpha)=(3,1)$、REST1_LR 和 120 个固定组合；没有建模家系、头动或生理协变量，且新增 28 人按行为多样性选择。第五，EMOTION 表现分析没有 Face/Shape 条件 EV、家系编号或完整头动摘要，且主配置下的差值候选不能跨参数保持。第六，MOTOR 广义指数来自扫描外的耐力、灵巧度和握力，不是 run 内表现，三个分量的内部一致性也较弱；当前候选还没有通过 120 组合校正。第七，GAMBLING 奖惩结果由程序预定，主评分来自扫描外延迟折扣而不是 run 内正确率；当前皮层图谱又不含纹状体等奖赏相关皮层下结构，因此负结果只约束当前皮层组合。第八，RELATIONAL 最高候选在控制 Match 表现后明显减弱，不能解释为关系推理特异机制。第九，WM 最高候选在控制 0-back 后几乎消失，不能解释为工作记忆负荷特异机制。第十，TEVF 依赖 `taskRetained`/`taskRegressed` 的 GLM 配对，而共同方差图不是任务解释比例。第十一，1002 人 MMP360 筛查虽把每项评分严格限制在同任务时序，并在每个任务内联合校正全部评分和 120 个联盟，但仍属于同一样本探索；尚未控制 HCP 家系和头动，也未在 RL run 或条件分段时序上复现。四个 Holm 显著的任务优胜项主要由总体或控制条件表现驱动，不能直接解释为任务特异机制。
 
-所有 57 人 HCP 结果由冻结契约 `results/hcp_schaefer1000_57_validation_suite/experiment_contract.json` 管理。长计算保留 PCA 缓存、逐被试或逐网格 checkpoint 与 `live_progress.json`；图形同时输出 PNG、SVG 和 PDF。主要产物如下：
+57 人 HCP 结果由冻结契约 `results/hcp_schaefer1000_57_validation_suite/experiment_contract.json` 管理；MMP360 1002 人验证另保留逐被试联盟缓存和统计摘要。长计算保留 PCA 缓存、逐被试或逐网格 checkpoint 与 `live_progress.json`。主要产物如下：
 
 | 内容 | 产物 |
 |---|---|
@@ -643,6 +685,8 @@ REST 没有 task GLM，不能定义 TEVF。为作共同口径比较，对 REST �
 | TEVF 与共同方差 | `results/hcp_schaefer1000_57_validation_suite/tevf/{summary.json,task_evoked_region_maps.npz,task_evoked_region_profiles.png,task_map_discriminability.png,rest_all_tasks_variance_profiles.png}` |
 | 验证总览 | `results/hcp_schaefer1000_57_validation_suite/final/hcp_schaefer1000_validation_overview_57.{png,svg,pdf}` |
 | 非负性审计 | `results/hcp_schaefer1000_57_validation_suite/nonnegativity_audit.json` |
+| MMP360 1002 人单端点初筛 | `results/hcp_mmp360_behavior_main_validation_1002/{summary.json,coalition_synergy_1002.npz,hcp_mmp360_exploratory_winners_scatter_1002.png}` |
+| MMP360 1002 人七任务同任务评分联合筛查 | `results/hcp_mmp360_same_task_score_screen_1002/{summary.json,coalition_synergy_all7_1002.npz,same_task_score_coalition_screen_1002.png,run.log}`；`scripts/screen_hcp_mmp360_same_task_scores_1002.py` |
 
 <a id="appendix-a"></a>
 
