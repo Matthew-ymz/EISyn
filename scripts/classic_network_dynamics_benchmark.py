@@ -2576,10 +2576,10 @@ def _sample_uniform_states(spec: ModelSpec, *, samples: int, seed: int) -> np.nd
 
 def _method_plot_specs() -> list[tuple[str, str, str, str]]:
     return [
-        ("wms", "WMS", "#4C6A92", "o"),
-        ("surd_synergy", "SURD synergy", "#9AA0A6", "s"),
-        ("shap_interaction", "MLP+SHAP interaction", "#D99A3D", "^"),
-        ("peid_synergy", "MLP+PEID synergy", "#2A8C72", "D"),
+        ("wms", "WMS", "#0072B2", "o"),
+        ("surd_synergy", "SURD synergy", "#595959", "s"),
+        ("shap_interaction", "MLP+SHAP interaction", "#E69F00", "^"),
+        ("peid_synergy", "MLP+PEID synergy", "#009E73", "D"),
     ]
 
 
@@ -2588,7 +2588,19 @@ def _oracle_peid_plot_spec() -> tuple[str, str, str, str]:
 
 
 def _mmi_pid_plot_spec() -> tuple[str, str, str, str]:
-    return ("mmi_pid_synergy", "MMI-PID synergy", "#7C6FA6", "P")
+    return ("mmi_pid_synergy", "MMI-PID synergy", "#CC79A7", "P")
+
+
+def _method_linestyle(key: str) -> object:
+    """Add a print-safe channel so method identity does not depend on hue alone."""
+    return {
+        "wms": "-",
+        "surd_synergy": "--",
+        "shap_interaction": ":",
+        "peid_synergy": "-.",
+        "mmi_pid_synergy": (0, (3.0, 1.0, 1.0, 1.0)),
+        "oracle_peid_synergy": "-",
+    }.get(key, "-")
 
 
 def _available_method_plot_specs(
@@ -2618,8 +2630,17 @@ def _plot_four_method_sweep(
     for key, label, color, marker in _available_method_plot_specs(summary):
         mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
         std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
-        ax.plot(x_values, mean, marker=marker, linewidth=2.1, markersize=5.2, label=label, color=color)
-        ax.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.14, linewidth=0)
+        ax.plot(
+            x_values,
+            mean,
+            marker=marker,
+            linestyle=_method_linestyle(key),
+            linewidth=6.0 if key == "peid_synergy" else 5.2,
+            markersize=5.4,
+            label=label,
+            color=color,
+        )
+        ax.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.11, linewidth=0)
     ax.axhline(0.0, color="#888888", linewidth=1.0, linestyle="--")
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Synergy / Interaction")
@@ -5643,8 +5664,28 @@ def _plot_panel(
         plot_axis = surd_axis if separate_surd_axis and key == "surd_synergy" else axis
         mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
         std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
-        plot_axis.plot(x_values, mean, marker=marker, linewidth=1.6, markersize=4.0, label=method_label, color=color)
-        plot_axis.fill_between(x_values, mean - std, mean + std, color=color, alpha=0.13, linewidth=0)
+        plot_axis.plot(
+            x_values,
+            mean,
+            marker=marker,
+            linestyle=_method_linestyle(key),
+            linewidth=6.0 if key == "peid_synergy" else 5.2,
+            markersize=5.2,
+            markeredgecolor="white",
+            markeredgewidth=0.45,
+            label=method_label,
+            color=color,
+            zorder=3 if key == "peid_synergy" else 2,
+        )
+        plot_axis.fill_between(
+            x_values,
+            mean - std,
+            mean + std,
+            color=color,
+            alpha=0.10,
+            linewidth=0,
+            zorder=1,
+        )
     axis.axhline(0.0, color="#888888", linewidth=0.8, linestyle="--")
     axis.set_xlabel(xlabel)
     axis.set_title(label, loc="left", fontsize=title_fontsize, fontweight="bold")
