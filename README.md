@@ -114,6 +114,7 @@ transport-map EI 与连续动力学实验，包括：
 - [docs/reports/coupled_standard_map_peid.md](docs/reports/coupled_standard_map_peid.md)：预测误差、逐关系因果强度和预注册门槛结果。
 - [scripts/compare_coupled_standard_map_methods.py](scripts/compare_coupled_standard_map_methods.py)：沿耦合强度扫描比较 WMS、MLP+SHAP、SURD、PCMCI-CMIknn、Neural Granger 与 MLP+PEID。
 - [docs/reports/coupled_standard_map_method_comparison.md](docs/reports/coupled_standard_map_method_comparison.md)：六方法的预测门槛、真源/空源分离、趋势与失败模式。
+- [docs/reports/hcp_57_ped_oinfo_replication.md](docs/reports/hcp_57_ped_oinfo_replication.md)：57 名 HCP 被试在 REST 与七任务下的三元 PED/O-information 复现、组合定位与稳健性分析。
 - [exp/mediated_peid_known_dynamics.ipynb](exp/mediated_peid_known_dynamics.ipynb)：已知动力学中的 mediated PEID 验证。
 
 ## 常用命令
