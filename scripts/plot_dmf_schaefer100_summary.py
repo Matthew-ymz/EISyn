@@ -40,6 +40,7 @@ DEFAULT_SURFACE_ASSET = (
 DEFAULT_HORIZON = (
     ROOT / "results" / "dmf_schaefer100" / "multihorizon" / "full" / "results.npz"
 )
+NATS_PER_BIT = np.log(2.0)
 
 
 def parse_args() -> argparse.Namespace:
@@ -250,7 +251,7 @@ def plot_legacy_summary(args: argparse.Namespace) -> None:
     topology, yeo = load(args.topology), load(args.yeo7)
     horizon = load(args.horizon)
     critical_g = np.asarray(topology["G"], dtype=float)
-    phi = direct_values(main, "phi_eid")
+    phi = NATS_PER_BIT * direct_values(main, "phi_eid")
     whole = direct_values(main, "whole_ei")
     singleton = direct_values(main, "singleton_ei_sum")
 
@@ -315,12 +316,12 @@ def plot_legacy_summary(args: argparse.Namespace) -> None:
     ax_a_info = add_rate_information_panel(
         ax_a, source=source, g=np.asarray(main["G"], dtype=float), values=phi,
         critical_g=critical_g, color="#6A3D9A", label=r"Full-system $\Xi$",
-        ylabel=r"$\Xi$ (bits)",
+        ylabel=r"$\Xi$ (nats)",
     )
-    ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
+    ax_a_info.set_ylabel(r"$\Xi$ (nats)", color="#6A3D9A", labelpad=7)
     ax_a.set_xlabel("")
     ax_a.tick_params(axis="x", labelbottom=False)
-    wms_values = np.asarray(wms["phi_wms"], dtype=float)
+    wms_values = NATS_PER_BIT * np.asarray(wms["phi_wms"], dtype=float)
     wms_mean, wms_error = np.mean(wms_values, axis=0), sd(wms_values)
     ax_a_wms.plot(
         np.asarray(wms["G"], dtype=float),
@@ -341,10 +342,10 @@ def plot_legacy_summary(args: argparse.Namespace) -> None:
     )
     ax_a_wms.grid(True, color="0.90", lw=0.5, zorder=0)
     ax_a_wms.set_xlabel("Global coupling $G$")
-    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$", color="#1B9E77")
+    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$ (nats)", color="#1B9E77")
     ax_a_wms.tick_params(axis="y", colors="#1B9E77")
     if phi_r is not None:
-        phi_r_values = np.asarray(phi_r["phi_r_mean"], dtype=float)
+        phi_r_values = NATS_PER_BIT * np.asarray(phi_r["phi_r_mean"], dtype=float)
         phi_r_mean, phi_r_error = np.mean(phi_r_values, axis=0), sd(phi_r_values)
         phi_r_g = np.asarray(phi_r["G"], dtype=float)
         ax_a_phi_r = ax_a_wms.twinx()
@@ -366,7 +367,7 @@ def plot_legacy_summary(args: argparse.Namespace) -> None:
             lw=0,
             zorder=2,
         )
-        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
+        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (nats)", color="#D55E00")
         ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
         ax_a_phi_r.spines["right"].set_visible(True)
     panel_label(ax_a, "a", y=1.04)
@@ -536,7 +537,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     phi_r = load(args.phi_r) if args.phi_r is not None else None
     topology, yeo = load(args.topology), load(args.yeo7)
     critical_g = np.asarray(topology["G"], dtype=float)
-    phi = direct_values(main, "phi_eid")
+    phi = NATS_PER_BIT * direct_values(main, "phi_eid")
     hierarchy = json.loads(args.tree_summary.read_text(encoding="utf-8"))
     tree = _node_from_record(hierarchy["tree"])
     # The tree is one frozen seed/G condition; bars and surface average the window.
@@ -619,12 +620,12 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_a_info = add_rate_information_panel(
         ax_a, source=source, g=np.asarray(main["G"], dtype=float), values=phi,
         critical_g=critical_g, color="#6A3D9A", label=r"Full-system $\Xi$",
-        ylabel=r"$\Xi$ (bits)",
+        ylabel=r"$\Xi$ (nats)",
     )
-    ax_a_info.set_ylabel(r"$\Xi$ (bits)", color="#6A3D9A", labelpad=7)
+    ax_a_info.set_ylabel(r"$\Xi$ (nats)", color="#6A3D9A", labelpad=7)
     ax_a.set_xlabel("")
     ax_a.tick_params(axis="x", labelbottom=False)
-    wms_values = np.asarray(wms["phi_wms"], dtype=float)
+    wms_values = NATS_PER_BIT * np.asarray(wms["phi_wms"], dtype=float)
     wms_mean, wms_error = np.mean(wms_values, axis=0), sd(wms_values)
     ax_a_wms.plot(
         np.asarray(wms["G"], dtype=float),
@@ -645,10 +646,10 @@ def plot_summary(args: argparse.Namespace) -> None:
     )
     ax_a_wms.grid(True, color="0.90", lw=0.5, zorder=0)
     ax_a_wms.set_xlabel("Global coupling $G$")
-    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$", color="#1B9E77")
+    ax_a_wms.set_ylabel("Observational\n" + r"$\Phi^{WMS}$ (nats)", color="#1B9E77")
     ax_a_wms.tick_params(axis="y", colors="#1B9E77")
     if phi_r is not None:
-        phi_r_values = np.asarray(phi_r["phi_r_mean"], dtype=float)
+        phi_r_values = NATS_PER_BIT * np.asarray(phi_r["phi_r_mean"], dtype=float)
         phi_r_mean, phi_r_error = np.mean(phi_r_values, axis=0), sd(phi_r_values)
         phi_r_g = np.asarray(phi_r["G"], dtype=float)
         ax_a_phi_r = ax_a_wms.twinx()
@@ -670,15 +671,15 @@ def plot_summary(args: argparse.Namespace) -> None:
             lw=0,
             zorder=2,
         )
-        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (bits)", color="#D55E00")
+        ax_a_phi_r.set_ylabel(r"Pairwise BOLD-like $\Phi^R$ (nats)", color="#D55E00")
         ax_a_phi_r.tick_params(axis="y", colors="#D55E00")
         ax_a_phi_r.spines["right"].set_visible(True)
     panel_label(ax_a, "a", y=1.04)
 
 
     network_xi_by_seed = network_xi.mean(axis=1)
-    network_values = network_xi_by_seed.mean(axis=0)
-    network_errors = sd(network_xi_by_seed, axis=0)
+    network_values = NATS_PER_BIT * network_xi_by_seed.mean(axis=0)
+    network_errors = NATS_PER_BIT * sd(network_xi_by_seed, axis=0)
     network_names = [str(value) for value in yeo["network_names"]]
     network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
     order = np.argsort(network_values)
@@ -701,14 +702,14 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_e.tick_params(axis="y", pad=1)
-    ax_e.set_xlabel(r"Network $\Xi$ (bits)")
+    ax_e.set_xlabel(r"Network $\Xi$ (nats)")
     ax_e.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_e, "c")
 
     between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
     between_shapley_by_seed = between_shapley.mean(axis=1)
-    shapley_values = between_shapley_by_seed.mean(axis=0)
-    shapley_errors = sd(between_shapley_by_seed, axis=0)
+    shapley_values = NATS_PER_BIT * between_shapley_by_seed.mean(axis=0)
+    shapley_errors = NATS_PER_BIT * sd(between_shapley_by_seed, axis=0)
     ax_f.barh(
         ypos, shapley_values[order], xerr=shapley_errors[order],
         color=[network_color(network_names[index]) for index in order], capsize=2,
@@ -719,14 +720,14 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_f.tick_params(axis="y", pad=1)
-    ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (bits)")
+    ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (nats)")
     ax_f.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_f, "d")
 
 
-    cross = np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
+    cross = NATS_PER_BIT * np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
     if roi_shapley is not None:
-        cross = roi_shapley.mean(axis=(0, 1))
+        cross = NATS_PER_BIT * roi_shapley.mean(axis=(0, 1))
     left_mesh, right_mesh, left_values, right_values = load_schaefer100_surface_map(
         args.surface_asset,
         np.asarray(topology["region_labels"]),
@@ -740,7 +741,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         left_values,
         right_values,
         cmap="viridis",
-        colorbar_label=r"ROI Shapley contribution to $\Xi$ (bits)" if roi_shapley is not None else "Cross-ROI leverage (bits)",
+        colorbar_label=r"ROI Shapley contribution to $\Xi$ (nats)" if roi_shapley is not None else "Cross-ROI leverage (nats)",
         colorbar_label_size=6.2,
         zoom=1.10,
     )

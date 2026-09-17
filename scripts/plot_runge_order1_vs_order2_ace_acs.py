@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 from pathlib import Path
 
 import matplotlib as mpl
@@ -216,6 +217,7 @@ def main() -> None:
 
     original_nodes = build_runge_nodes(args.component_maps, args.original_gateway, args.original_mediator)
     total_nodes = build_nodes(args.component_maps, args.gateway, args.hyperedges, significance_z=args.significance_z, include_order2=True)
+    total_nodes[["ace", "acs"]] *= np.log(2.0)
     original_vmax = float(original_nodes[["ace", "acs"]].to_numpy().max())
     ridge_cap = robust_vmax_excluding_largest_ace(total_nodes)
     raw_vmax = float(total_nodes[["ace", "acs"]].to_numpy().max())
@@ -244,14 +246,15 @@ def main() -> None:
         axes[1],
         ridge_norm,
         cmap,
-        label="Hyper-ACS (inner node) and Hyper-ACE (outer ring), clipped scale",
+        label="PEID composite (nats): Hyper-ACS (inner) and Hyper-ACE (outer), clipped",
         extend="max",
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=500, bbox_inches="tight")
-    fig.savefig(args.output.with_suffix(".svg"), bbox_inches="tight")
-    fig.savefig(args.output.with_suffix(".pdf"), bbox_inches="tight")
+    if not os.environ.get("EISYN_NATS_REVIEW_DIR"):
+        fig.savefig(args.output.with_suffix(".svg"), bbox_inches="tight")
+        fig.savefig(args.output.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
 
     summary = pd.DataFrame(

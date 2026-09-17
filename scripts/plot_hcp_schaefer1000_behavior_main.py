@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -46,6 +47,9 @@ TREE_ORDER_RECORDS = (
     ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/full/records.jsonl"
 )
 OUTPUT = ROOT / "results/hcp_schaefer1000_task_evoked_xi_57/final"
+if os.environ.get("EISYN_NATS_REVIEW_DIR"):
+    OUTPUT = Path(os.environ["EISYN_NATS_REVIEW_DIR"])
+NATS_PER_BIT = np.log(2.0)
 MAIN_STEM = "hcp_schaefer1000_behavior_main_57"
 EMOTION_PREVIEW_STEM = "hcp_schaefer1000_behavior_main_57_emotion_preview"
 EMOTION_TWO_PANEL_STEM = "hcp_emotion_behavior_two_panel_preview_57"
@@ -111,7 +115,8 @@ def configure_style() -> None:
 
 def save_figure(figure: mpl.figure.Figure, stem: str) -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    for suffix in ("png", "svg", "pdf"):
+    suffixes = ("png",) if os.environ.get("EISYN_NATS_REVIEW_DIR") else ("png", "svg", "pdf")
+    for suffix in suffixes:
         figure.savefig(
             OUTPUT / f"{stem}.{suffix}",
             dpi=600,
@@ -383,7 +388,7 @@ def blocked_pointwise_spearman(
 
 def plot_system_xi(axis: mpl.axes.Axes, summary: dict, arrays: dict[str, np.ndarray]) -> None:
     states = arrays["states"].astype(str).tolist()
-    values = arrays["system_xi"].T
+    values = NATS_PER_BIT * arrays["system_xi"].T
     colors = ["#4C78A8"] + ["#D07A3A"] * 7
     positions = np.arange(8, dtype=float)
     boxes = axis.boxplot(
@@ -439,7 +444,7 @@ def plot_system_xi(axis: mpl.axes.Axes, summary: dict, arrays: dict[str, np.ndar
         xticklabels=STATE_LABELS,
         xlim=(-0.55, 7.45),
         ylim=(data_min - 0.08 * span, star_y + 0.11 * span),
-        ylabel=r"System-level $\Xi$ (bits)",
+        ylabel=r"System-level $\Xi$ (nats)",
         xlabel="State",
     )
     axis.tick_params(axis="x", labelrotation=20)
@@ -697,7 +702,7 @@ def plot_main(
     tree_order_mass, order_subjects, _ = load_tree_order_mass(TREE_ORDER_RECORDS)
     if len(order_subjects) != 57:
         raise ValueError("Expected 57 subjects in the coalition-order summary")
-    order_panel = tree_order_mass.mean(axis=1).T
+    order_panel = NATS_PER_BIT * tree_order_mass.mean(axis=1).T
     network_panel = arrays["network_share"].mean(axis=1).T * 100.0
 
     include_emotion = emotion_behavior is not None
@@ -779,7 +784,7 @@ def plot_main(
     order_colorbar = figure.colorbar(
         order_image, ax=axis_b, fraction=0.035, pad=0.012
     )
-    order_colorbar.set_label("SPT order mass (bits)", fontsize=6.4)
+    order_colorbar.set_label("SPT order mass (nats)", fontsize=6.4)
     order_colorbar.ax.tick_params(labelsize=6.0)
     axis_b.text(
         1.0,
@@ -898,7 +903,7 @@ def plot_emotion_two_panel(behavior: pd.DataFrame) -> None:
 def plot_supplement(arrays: dict[str, np.ndarray]) -> None:
     atom_names = arrays["atom_names"].astype(str)
     selected = np.argsort(arrays["atom_share"].mean(axis=1).mean(axis=0))[::-1][:12]
-    atom_panel = arrays["atom_value"].mean(axis=1)[:, selected].T
+    atom_panel = NATS_PER_BIT * arrays["atom_value"].mean(axis=1)[:, selected].T
     network_panel = arrays["network_share"].mean(axis=1).T * 100.0
     figure, (axis_a, axis_b) = plt.subplots(
         1, 2, figsize=(7.2, 3.25), constrained_layout=True, gridspec_kw={"width_ratios": (1.32, 1.0)}
@@ -921,7 +926,7 @@ def plot_supplement(arrays: dict[str, np.ndarray]) -> None:
             value = atom_panel[row, column]
             axis_a.text(column, row, f"{value:.3f}", ha="center", va="center", fontsize=4.5, color="white" if value > 0.38 * atom_upper else "black")
     colorbar = figure.colorbar(image, ax=axis_a, fraction=0.035, pad=0.025, aspect=30)
-    colorbar.set_label("Contribution (bits)", fontsize=6.7)
+    colorbar.set_label("Contribution (nats)", fontsize=6.7)
     lower, upper = float(np.floor(network_panel.min())), float(np.ceil(network_panel.max()))
     axis_b.imshow(network_panel, cmap="YlGnBu", vmin=lower, vmax=upper, aspect="auto")
     axis_b.set(

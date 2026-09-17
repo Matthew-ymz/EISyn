@@ -3054,9 +3054,15 @@ def _plot_sine_beta_single_source_sweep(beta_result: dict[str, object], figure_d
         linewidth: float = 2.0,
         zorder: float = 2,
     ) -> None:
+        plot_frame = frame
+        if ax is single_bits or ax is synergy_bits:
+            plot_frame = frame.copy()
+            plot_frame[y_col] = np.log(2.0) * plot_frame[y_col].astype(float)
+            if std_col in plot_frame:
+                plot_frame[std_col] = np.log(2.0) * plot_frame[std_col].astype(float)
         _plot_beta_mean_line(
             ax,
-            frame,
+            plot_frame,
             y_col,
             label=label,
             marker=marker,
@@ -3292,6 +3298,8 @@ def _plot_sine_beta_combined_readout_sweep(
     legend_columns: int = 5,
     compact_text: bool = False,
     reserve_legend_band: bool = False,
+    highlight_mlp_peid: bool = False,
+    png_only: bool = False,
 ) -> Path | None:
     beta_result = _override_beta_mlp_readouts(beta_result, mlp_readout_result)
     summary_rows = beta_result.get("summary", [])
@@ -3379,7 +3387,7 @@ def _plot_sine_beta_combined_readout_sweep(
             linewidth=style["linewidth"],
             zorder=3 if "peid" in method else 2,
         )
-    single_bits.set_ylabel("Information (bits)")
+    single_bits.set_ylabel("Information (nats)")
 
     for y_col, std_col, label, source, method in [
         ("shap_x_to_z_mean_abs_mean", "shap_x_to_z_mean_abs_std", "SHAP x->z", "x", "shap"),
@@ -3460,7 +3468,7 @@ def _plot_sine_beta_combined_readout_sweep(
             zorder=3 if "peid" in method else 2,
         )
     synergy_bits.axhline(0.0, color="#6b7280", linestyle="--", linewidth=0.9)
-    synergy_bits.set_ylabel("Information (bits)")
+    synergy_bits.set_ylabel("Information (nats)")
 
     if "shap_xy_mean_abs_interaction_mean" in frame and "shap_xy_mean_abs_interaction_std" in frame:
         style = method_styles["shap"]
@@ -3498,17 +3506,17 @@ def _plot_sine_beta_combined_readout_sweep(
         ]
         if compact_text
         else [
-            ("Obs. MI / WMS (bits)", "observational"),
-            ("MMI-PID (bits)", "mmi_pid"),
-            ("MLP+PEID (bits)", "mlp_peid"),
-            ("SURD (bits)", "surd"),
+            ("Obs. MI / WMS (nats)", "observational"),
+            ("MMI-PID (nats)", "mmi_pid"),
+            ("MLP+PEID (nats)", "mlp_peid"),
+            ("SURD (nats)", "surd"),
             ("SHAP (native)", "shap"),
             ("PCMCI-CMIknn (native)", "pcmci"),
             ("Neural Granger (group norm)", "neural_granger"),
         ]
     )
     if include_oracle:
-        method_specs.insert(3, ("Oracle+PEID (bits)", "oracle_peid"))
+        method_specs.insert(3, ("Oracle+PEID (nats)", "oracle_peid"))
     if liang_result and liang_result.get("summary"):
         method_specs.append(("Liang IF" if compact_text else "Liang IF (flow)", "liang_if"))
     method_handles = [
@@ -3533,7 +3541,32 @@ def _plot_sine_beta_combined_readout_sweep(
         columnspacing=1.0,
     )
 
-    path = _save_beta_figure(fig, figure_dir, stem)
+    if highlight_mlp_peid:
+        # Raise the information axes above their twins so crossings remain clear.
+        for ax in (single_bits, synergy_bits):
+            ax.set_zorder(10)
+            ax.patch.set_visible(False)
+            for line in ax.lines:
+                if line.get_label().startswith("MLP+PEID"):
+                    line.set_color("#007A58")
+                    line.set_linewidth(3.3)
+                    line.set_markersize(6.3)
+                    line.set_markeredgewidth(0.65)
+                    line.set_alpha(1.0)
+                    line.set_zorder(20)
+        legend = fig.legends[-1]
+        for handle, text in zip(legend.legend_handles, legend.get_texts()):
+            if text.get_text().startswith("MLP+PEID"):
+                handle.set_color("#007A58")
+                handle.set_linewidth(3.3)
+                text.set_color("#007A58")
+                text.set_fontweight("bold")
+
+    if png_only:
+        path = figure_dir / f"{stem}.png"
+        fig.savefig(path, dpi=600, bbox_inches="tight")
+    else:
+        path = _save_beta_figure(fig, figure_dir, stem)
     plt.close(fig)
     return path
 

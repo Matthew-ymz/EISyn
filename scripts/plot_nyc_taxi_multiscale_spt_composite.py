@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -43,6 +44,9 @@ SPT_RUN = (
     / "affine_regression_v3_time_block_search_n4096_pc2_r1e-06_exact8"
 )
 OUTPUT = ROOT / "fig/nyc_taxi_multiscale_spt_composite.png"
+if os.environ.get("EISYN_NATS_REVIEW_DIR"):
+    OUTPUT = Path(os.environ["EISYN_NATS_REVIEW_DIR"]) / OUTPUT.name
+NATS_PER_BIT = np.log(2.0)
 
 
 def _load_spt() -> tuple[object, np.ndarray, mpl.colors.Normalize, int, str]:
@@ -61,10 +65,10 @@ def _load_spt() -> tuple[object, np.ndarray, mpl.colors.Normalize, int, str]:
         for name in ("unconstrained", "time_prior")
     }
     norm = mpl.colors.SymLogNorm(
-        linthresh=0.001,
+        linthresh=0.001 * NATS_PER_BIT,
         linscale=0.5,
         vmin=0,
-        vmax=max(
+        vmax=NATS_PER_BIT * max(
             node.syn_bits
             for root in roots.values()
             for node in flatten_nodes(root)
@@ -141,7 +145,7 @@ def plot_compact_tree(axis, root, zone_ids, norm):
                               [view["y"], view["y"], child["y"]],
                               color="#AAB7BF", lw=.65, zorder=1)
                 draw(child)
-            value = 0.0 if node.syn_bits < 0 else node.syn_bits
+            value = NATS_PER_BIT * (0.0 if node.syn_bits < 0 else node.syn_bits)
             axis.scatter(view["x"], view["y"], s=24,
                          color=mpl.colormaps["YlGnBu"](norm(value)),
                          edgecolor="#35515D", linewidth=.4, zorder=3)
@@ -243,7 +247,7 @@ def main() -> None:
         0.72,
         (
             f"Unconstrained SPT | {state.replace('_', ' ')}\n"
-            f"joint-target affine Xi = {root.xi_bits:.2f} bits"
+            f"joint-target affine Xi = {NATS_PER_BIT * root.xi_bits:.2f} nats"
         ),
         ha="left",
         va="center",
@@ -270,10 +274,10 @@ def main() -> None:
     colorbar = figure.colorbar(
         mpl.cm.ScalarMappable(norm=norm, cmap="YlGnBu"),
         cax=colorbar_axis,
-        ticks=(0, 0.001, 0.01, 0.1, 1, 10),
+        ticks=NATS_PER_BIT * np.asarray((0, 0.001, 0.01, 0.1, 1, 10)),
     )
-    colorbar.ax.set_yticklabels(("0", ".001", ".01", ".1", "1", "10"))
-    colorbar.set_label("Local Syn (bits)", fontsize=8)
+    colorbar.ax.set_yticklabels(("0", ".0007", ".0069", ".069", ".693", "6.93"))
+    colorbar.set_label("Local Syn (nats)", fontsize=8)
     colorbar.outline.set_linewidth(0.6)
 
     add_map_panels(figure, outer[2], finite, panel="e")

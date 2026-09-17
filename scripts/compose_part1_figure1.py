@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -18,6 +19,9 @@ if str(ROOT) not in sys.path:
 FIGURE_DIR = ROOT / "fig" / "part1_synergy_comparison"
 SOURCE_DIR = FIGURE_DIR / "figure1_sources"
 OUTPUT_STEM = FIGURE_DIR / "figure1_integrated_hierarchy_draft"
+if os.environ.get("EISYN_NATS_REVIEW_DIR"):
+    OUTPUT_STEM = Path(os.environ["EISYN_NATS_REVIEW_DIR"]) / "figure1_integrated_hierarchy_spt_clean"
+NATS_PER_BIT = np.log(2.0)
 
 INTERVENTION_DIAGRAM = SOURCE_DIR / "interventional_peid_decomposition.png"
 HYPEREDGE_DIAGRAM = SOURCE_DIR / "confounded_hyperedge_system.png"
@@ -236,7 +240,7 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
             internal = bool(node.children)
             label = ",".join(name.removeprefix("theta") for name in node.sources)
             if internal:
-                label = "{" + label + "}" + f"\nSyn {node.residual:.2f}"
+                    label = "{" + label + "}" + f"\nSyn {NATS_PER_BIT * node.residual:.2f}"
             strength = abs(float(node.residual))/scale if internal else 0
             axis.text(x, y, label, ha="center", va="center", fontsize=5.1,
                       linespacing=1.12, color="#24313C", zorder=3,
@@ -244,7 +248,7 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
                                 facecolor=_blend_with_white("#267A70", .10+.52*strength) if internal else "#F4F6F8",
                                 edgecolor="#267A70" if internal else "#8B96A1"))
         draw(tree)
-        axis.text(.5, 1.055, rf"$\Xi={record['root_xi_bits']:.2f}$ bits",
+        axis.text(.5, 1.055, rf"$\Xi={NATS_PER_BIT * record['root_xi_bits']:.2f}$ nats",
                   transform=axis.transAxes, ha="center", fontsize=6.1)
         axis.set(xlim=(-.7, 5.7), ylim=(-max_depth-.32, .42))
         axis.axis("off")

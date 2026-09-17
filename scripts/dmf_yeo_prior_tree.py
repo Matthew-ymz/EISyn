@@ -168,7 +168,7 @@ def render_yeo_prior_tree(
     axis.plot([roots[0][0], roots[-1][0]], [1, 1], color="#697887", lw=1.1)
     axis.text(
         (roots[0][0] + roots[-1][0]) / 2, 1,
-        rf"Yeo-7 prior hierarchy  |  $\Xi={root.xi_bits:.3f}$ bits",
+        rf"Yeo-7 prior hierarchy  |  $\Xi={NATS_PER_BIT * root.xi_bits:.3f}$ nats",
         ha="center", va="center", fontsize=6.5, color="#34414D",
         bbox=dict(facecolor="white", edgecolor="#9EA9B2", boxstyle="round,pad=0.35"),
         zorder=5,
@@ -188,7 +188,7 @@ def render_yeo_prior_tree(
         axis.text(
             (lo+hi)/2, 0.82,
             f"{short_names.get(network_names[network], network_names[network])}/{child.size}\n"
-            + rf"$\Xi$ {child.xi_bits:.3f}",
+            + rf"$\Xi$ {NATS_PER_BIT * child.xi_bits:.3f}",
             ha="center", va="center", fontsize=5.5, color=color,
             bbox=dict(facecolor="white", edgecolor="none", pad=1.8), zorder=5,
         )
@@ -206,7 +206,7 @@ def render_yeo_prior_tree(
             axis.scatter([x], [y], s=8+20*strength, color=_blend_with_white(color, 0.4),
                          edgecolor=color, linewidth=0.7, zorder=3)
             if node.indices in selected and all(abs(x-px)>3 or abs(y-py)>0.065 for px,py in label_points):
-                axis.text(x, y, f"{value:.3f}", ha="center", va="center", fontsize=4.6,
+                axis.text(x, y, f"{NATS_PER_BIT * value:.3f}", ha="center", va="center", fontsize=4.6,
                           bbox=dict(facecolor="white", edgecolor=color, boxstyle="round,pad=0.2"), zorder=4)
                 label_points.append((x,y))
         for roi in _leaf_order(child):
@@ -216,10 +216,11 @@ def render_yeo_prior_tree(
                                      edgecolor="white", lw=0.25))
             axis.text(x, -0.045, _short_roi_label(labels[roi]), rotation=90, ha="right", va="top",
                       fontsize=3.7, color="#55616D")
-    axis.text(0.5, 1.015, rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={root.xi_bits:.2f}$ bits",
+    axis.text(0.5, 1.015, rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={NATS_PER_BIT * root.xi_bits:.2f}$ nats",
               transform=axis.transAxes, ha="center", va="bottom", fontsize=7, color="#34414D")
-    axis.text(0, -0.225, "Network and subtree labels: overall Xi (bits). Height: log ROI count.",
+    axis.text(0, -0.225, "Network and subtree labels: overall Xi (nats). Height: log ROI count.",
               fontsize=5.5, color="#55616D", ha="left")
     axis.set_xlim(-1, cursor-2.5)
     axis.set_ylim(-0.26, 1.10)
     axis.axis("off")
+NATS_PER_BIT = np.log(2.0)

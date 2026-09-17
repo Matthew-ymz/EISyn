@@ -479,8 +479,9 @@ def plot(summary: Mapping[str, Any], output: Path) -> None:
     task_color = "#D28E5B"
     line_color = "#B8C0CA"
     rows = summary["condition_results"]
+    nats_per_bit = np.log(2.0)
     all_values = [
-        value
+        nats_per_bit * value
         for row in rows
         for pair in row["paired_subject_values"]
         for value in (pair["matched_rest_xi"], pair["task_xi"])
@@ -490,8 +491,8 @@ def plot(summary: Mapping[str, Any], output: Path) -> None:
     fig, axes_grid = plt.subplots(2, 4, figsize=(10.8, 5.8), sharey=True, constrained_layout=True)
     axes = axes_grid.flat
     for index, (axis, row) in enumerate(zip(axes, rows, strict=False)):
-        rest = np.asarray([pair["matched_rest_xi"] for pair in row["paired_subject_values"]])
-        task = np.asarray([pair["task_xi"] for pair in row["paired_subject_values"]])
+        rest = nats_per_bit * np.asarray([pair["matched_rest_xi"] for pair in row["paired_subject_values"]])
+        task = nats_per_bit * np.asarray([pair["task_xi"] for pair in row["paired_subject_values"]])
         rng = np.random.default_rng(2026082800 + index)
         jitter = rng.uniform(-0.065, 0.065, len(rest))
         for offset, rest_value, task_value in zip(jitter, rest, task, strict=True):
@@ -530,14 +531,14 @@ def plot(summary: Mapping[str, Any], output: Path) -> None:
         axis.text(
             0.5,
             lower + 0.04 * (upper - lower),
-            f"Δ={row['rest_minus_task_mean_bits']:+.2f} bits",
+            f"Δ={nats_per_bit * row['rest_minus_task_mean_bits']:+.2f} nats",
             ha="center",
             va="bottom",
             fontsize=6.2,
             color="#424A53",
         )
-    axes[0].set_ylabel(r"System-level $\Xi$ (bits)")
-    axes[4].set_ylabel(r"System-level $\Xi$ (bits)")
+    axes[0].set_ylabel(r"System-level $\Xi$ (nats)")
+    axes[4].set_ylabel(r"System-level $\Xi$ (nats)")
     legend_axis = axes[7]
     legend_axis.axis("off")
     legend_axis.scatter([], [], s=18, color=rest_color, label="Length-matched REST")

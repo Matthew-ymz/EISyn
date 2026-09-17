@@ -175,14 +175,16 @@ def _node_record(tree: PhiTreeNode) -> dict[str, object]:
     }
 
 
-def _coalition_label(node: PhiTreeNode, *, compact: bool = False) -> str:
+def _coalition_label(
+    node: PhiTreeNode, *, compact: bool = False, display_scale: float = 1.0
+) -> str:
     if compact:
-        return f"{node.residual:.3f}"
+        return f"{display_scale * node.residual:.3f}"
     if frozenset(node.sources) == CORE_MODES:
         members = "5-mode core"
     else:
         members = f"{node.order} modes"
-    return f"{members}\nSyn {node.residual:.3f}"
+    return f"{members}\nSyn {display_scale * node.residual:.3f}"
 
 
 def _positions(tree: PhiTreeNode) -> tuple[dict[int, tuple[float, float]], list[PhiTreeNode]]:
@@ -231,6 +233,8 @@ def render_trees(
     core_label_fontsize: float = 9.0,
     root_info_fontsize: float = 7.4,
     compact_node_labels: bool = False,
+    display_scale: float = 1.0,
+    display_unit: str = "bits",
 ) -> None:
     trees = [_expand_pair_leaves(tree) for tree in trees]
     _validate_syn(trees, syn_tolerance)
@@ -246,7 +250,7 @@ def render_trees(
         }
     )
     all_internal = [node for tree in trees for node in _flatten(tree) if node.children]
-    maximum_syn = max(float(node.residual) for node in all_internal)
+    maximum_syn = display_scale * max(float(node.residual) for node in all_internal)
     norm = Normalize(vmin=0.0, vmax=maximum_syn if maximum_syn > 0 else 1.0)
     cmap = mpl.colors.LinearSegmentedColormap.from_list("syn", ["#F1F7F5", SYN_COLOR])
     if canvas is None:
@@ -287,7 +291,7 @@ def render_trees(
                       weight="bold", color=SYN_COLOR)
             if not compact_core_annotation:
                 axis.text((left + right) / 2, -1.98,
-                          rf"$\Xi_{{core}}$ = {core.phi_value:.3f} bits  |  {share:.1%} of total $\Xi$",
+                          rf"$\Xi_{{core}}$ = {display_scale * core.phi_value:.3f} {display_unit}  |  {share:.1%} of total $\Xi$",
                           ha="center", va="top", fontsize=8, color=INK)
         for node in internal:
             px, py = positions[id(node)]
@@ -304,11 +308,13 @@ def render_trees(
 
         for node in internal:
             x_value, y_value = positions[id(node)]
-            syn = float(node.residual)
+            syn = display_scale * float(node.residual)
             # Only validated numerical negatives are displayed as zero; raw values stay intact.
             relative = float(norm(0.0 if syn < 0 else syn))
             axis.text(
-                x_value, y_value, _coalition_label(node, compact=compact_node_labels),
+                x_value, y_value, _coalition_label(
+                    node, compact=compact_node_labels, display_scale=display_scale
+                ),
                 ha="center", va="center", fontsize=node_label_fontsize,
                 color="white" if relative > 0.65 else INK, linespacing=1.0,
                 bbox={
@@ -332,7 +338,7 @@ def render_trees(
             )
 
         checkpoint_line = f"checkpoint {seed}\n" if show_checkpoint else ""
-        info = checkpoint_line + rf"$\Xi$ = {tree.phi_value:.3f} bits"
+        info = checkpoint_line + rf"$\Xi$ = {display_scale * tree.phi_value:.3f} {display_unit}"
         if show_tree_metrics:
             metrics = _tree_metrics(tree)
             info += (
@@ -354,7 +360,7 @@ def render_trees(
     scalar.set_array([])
     if show_colorbar:
         colorbar = figure.colorbar(scalar, ax=list(axes_array), location="right", shrink=0.55, pad=0.02)
-        colorbar.set_label("Local hierarchy Syn (bits)")
+        colorbar.set_label(f"Local hierarchy Syn ({display_unit})")
     if canvas is not None:
         return
     objective_label = (

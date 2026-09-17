@@ -3123,7 +3123,7 @@ def _plot_ode_future_state_combined(
         xlabel="Kuramoto coupling kappa",
         label=f"Kuramoto future state tau={float(systems['kuramoto']['tau']):g}",
     )
-    axes[0].set_ylabel("Synergy / Interaction")
+    axes[0].set_ylabel("Information (nats)\n/ SHAP native")
     _plot_panel(
         axes[1],
         systems["wilson_cowan"]["summary"],
@@ -3623,10 +3623,11 @@ def _plot_large_kuramoto_n64_ei_decomposition(payload: Mapping[str, object], pat
     couplings = np.asarray([float(row["coupling"]) for row in summary], dtype=float)
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.0), constrained_layout=True)
 
-    joint_mean = np.asarray([float(row["oracle_joint_ei_mean"]) for row in summary], dtype=float)
-    joint_sem = np.asarray([float(row.get("oracle_joint_ei_sem", 0.0)) for row in summary], dtype=float)
-    singleton_mean = np.asarray([float(row["oracle_singleton_ei_sum_mean"]) for row in summary], dtype=float)
-    singleton_sem = np.asarray([float(row.get("oracle_singleton_ei_sum_sem", 0.0)) for row in summary], dtype=float)
+    nats_per_bit = np.log(2.0)
+    joint_mean = nats_per_bit * np.asarray([float(row["oracle_joint_ei_mean"]) for row in summary], dtype=float)
+    joint_sem = nats_per_bit * np.asarray([float(row.get("oracle_joint_ei_sem", 0.0)) for row in summary], dtype=float)
+    singleton_mean = nats_per_bit * np.asarray([float(row["oracle_singleton_ei_sum_mean"]) for row in summary], dtype=float)
+    singleton_sem = nats_per_bit * np.asarray([float(row.get("oracle_singleton_ei_sum_sem", 0.0)) for row in summary], dtype=float)
     axes[0].plot(couplings, joint_mean, color="#4C78A8", marker="o", linewidth=2.0, markersize=4.6, label=r"$EI(all;Y)$")
     axes[0].fill_between(couplings, joint_mean - joint_sem, joint_mean + joint_sem, color="#4C78A8", alpha=0.14, linewidth=0)
     axes[0].plot(
@@ -3646,16 +3647,16 @@ def _plot_large_kuramoto_n64_ei_decomposition(payload: Mapping[str, object], pat
         alpha=0.14,
         linewidth=0,
     )
-    axes[0].set_ylabel("Effective information (bits)")
+    axes[0].set_ylabel("Effective information (nats)")
     axes[0].set_title("a  Oracle EI components", loc="left", fontweight="bold")
 
-    phi_mean = np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
-    phi_sem = np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
+    phi_mean = nats_per_bit * np.asarray([float(row["oracle_phi_mean"]) for row in summary], dtype=float)
+    phi_sem = nats_per_bit * np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
     order_mean = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
     order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
     axes[1].plot(couplings, phi_mean, color="#2F7D5A", marker="o", linewidth=2.0, markersize=4.6, label=r"$\Phi^{EID}$")
     axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color="#2F7D5A", alpha=0.14, linewidth=0)
-    axes[1].set_ylabel(r"$\Phi^{EID}$ (bits)")
+    axes[1].set_ylabel(r"$\Phi^{EID}$ (nats)")
     axes[1].set_title("b  Difference and synchronization", loc="left", fontweight="bold")
 
     order_axis = axes[1].twinx()
@@ -5664,6 +5665,9 @@ def _plot_panel(
         plot_axis = surd_axis if separate_surd_axis and key == "surd_synergy" else axis
         mean = np.asarray([float(row[f"{key}_mean"]) for row in summary], dtype=float)
         std = np.asarray([float(row[f"{key}_std"]) for row in summary], dtype=float)
+        if key != "shap_interaction":
+            mean = np.log(2.0) * mean
+            std = np.log(2.0) * std
         plot_axis.plot(
             x_values,
             mean,
@@ -5693,7 +5697,7 @@ def _plot_panel(
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
     if separate_surd_axis:
-        surd_axis.set_ylabel("SURD synergy (bits)", color="#6F757A")
+        surd_axis.set_ylabel("SURD synergy (nats)", color="#6F757A")
         surd_axis.tick_params(axis="y", colors="#6F757A")
         surd_axis.spines["top"].set_visible(False)
         surd_axis.spines["right"].set_color("#6F757A")
@@ -5869,7 +5873,7 @@ def run_part1_combined_synergy_figure(
         title_fontsize=title_font_size,
         annotation_fontsize=0.88 * font_size,
     )
-    axes[0].set_ylabel("Synergy / Interaction")
+    axes[0].set_ylabel("Information (nats)\n/ SHAP native")
     _plot_panel(
         axes[1],
         wilson_cowan_refractory_summary,
@@ -5901,7 +5905,7 @@ def run_part1_combined_synergy_figure(
         title_fontsize=title_font_size,
         annotation_fontsize=0.88 * font_size,
     )
-    axes[3].set_ylabel("Synergy / Interaction")
+    axes[3].set_ylabel("Information (nats)\n/ SHAP native")
     _plot_panel(
         axes[4],
         ikeda_summary,

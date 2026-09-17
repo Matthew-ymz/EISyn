@@ -105,6 +105,7 @@ SOURCE_SHARE_MODE_ORDER = (
     "TNA",
     "WWV",
 )
+NATS_PER_BIT = np.log(2.0)
 
 BLUE = "#3F6F9F"
 TEAL = "#2A9D8F"
@@ -733,6 +734,8 @@ def plot_runge_figure(
     )
     add_panel_label(ax_f, "f", x=-0.18, y=1.02)
 
+    trends = trends.copy()
+    trends["delta2_tm"] = NATS_PER_BIT * trends["delta2_tm"].astype(float)
     ax_g = fig.add_subplot(grid[2, 2:6])
     colors = {
         "0+6->32": BLUE,
@@ -763,7 +766,7 @@ def plot_runge_figure(
         )
     ax_g.axhline(0, color="#555555", linewidth=0.65)
     ax_g.set_xlim(0.5, 69)
-    ax_g.set_ylim(-0.0004, 0.0215)
+    ax_g.set_ylim(NATS_PER_BIT * -0.0004, NATS_PER_BIT * 0.0215)
     ax_g.ticklabel_format(
         axis="y",
         style="sci",
@@ -771,7 +774,7 @@ def plot_runge_figure(
         useMathText=True,
     )
     ax_g.set_xlabel(r"Prediction lead, $\ell$ (weeks)")
-    ax_g.set_ylabel(r"TM estimate of $Syn^{\mathrm{EID}}$ (bits)")
+    ax_g.set_ylabel(r"TM estimate of $Syn^{\mathrm{EID}}$ (nats)")
     ax_g.grid(axis="y", color=LIGHT_GREY, linewidth=0.55)
     add_panel_label(ax_g, "g", x=-0.085, y=1.02)
 
@@ -857,6 +860,8 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
             core_label_fontsize=9.2,
             root_info_fontsize=7.8,
             compact_node_labels=True,
+            display_scale=NATS_PER_BIT,
+            display_unit="nats",
         )
     for axis, label in zip(tree_canvas.axes[:3], "def", strict=True):
         add_panel_label(axis, label, x=-0.06, y=1.02)
@@ -880,7 +885,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     ax_d_colorbar = fig.add_subplot(heatmap_grid[0, 1])
     from scripts.compute_unicm_spt_order_mass import load_spt_order_mass
     selected_order_cache = spt_order_cache if spt_order_cache is not None else UNICM_SPT_ORDER_MASS
-    order_values = load_spt_order_mass(selected_order_cache)["mean_mass_bits"]
+    order_values = NATS_PER_BIT * load_spt_order_mass(selected_order_cache)["mean_mass_bits"]
     image = ax_d.imshow(
         order_values, aspect="auto", interpolation="nearest", cmap="viridis",
         norm=mpl.colors.Normalize(vmin=0.0, vmax=float(order_values.max())),
@@ -891,7 +896,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     ax_d.set_xlabel(r"Prediction lead, $\ell$ (months)")
     ax_d.set_ylabel("SPT node order")
     colorbar = fig.colorbar(image, cax=ax_d_colorbar)
-    colorbar.set_label("SPT order mass (bits)")
+    colorbar.set_label("SPT order mass (nats)")
     ax_d.text(1.0, 1.02, "Tree-wise order sum | 3-checkpoint mean | n = 16,384", transform=ax_d.transAxes,
               ha="right", va="bottom", fontsize=5.4, color="#444444")
     add_panel_label(ax_d, "g", x=-0.13, y=1.02)

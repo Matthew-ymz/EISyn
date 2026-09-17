@@ -120,7 +120,9 @@ def add_synergy_flow_panel(
 ) -> None:
     """Compare temporal coupling against regional inflow and outflow activity."""
     selected_ids, state_values = mean_zone_values(finite)
-    temporal_synergy = np.mean(np.vstack([state_values[state] for state in STATES]), axis=0)
+    temporal_synergy = NATS_PER_BIT * np.mean(
+        np.vstack([state_values[state] for state in STATES]), axis=0
+    )
     mean_by_channel = {
         channel: {
             int(location_id): float(flow[:, index, channel].mean())
@@ -161,7 +163,7 @@ def add_synergy_flow_panel(
     ax.set_xticks([0, 50, 100, 150])
     ax.set_yticks([0.0, 0.2, 0.4])
     ax.set_xlabel("Mean flow (rides per hour)")
-    ax.set_ylabel("Time-scale synergy (bits)")
+    ax.set_ylabel("Time-scale synergy (nats)")
     panel_label(ax, panel, -0.20)
 
 
@@ -222,6 +224,10 @@ def add_map_panels(fig, spec, finite: dict, *, panel: str = "e") -> None:
     x_pad = 0.05 * (x_max - x_min)
     y_pad = 0.018 * (y_max - y_min)
 
+    state_values = {
+        state: NATS_PER_BIT * np.asarray(values, dtype=float)
+        for state, values in state_values.items()
+    }
     all_values = np.concatenate([state_values[state] for state in STATES])
     cmap = mpl.colors.LinearSegmentedColormap.from_list(
         "time_synergy", ["#F0F2EE", "#C9E1DB", "#78AFA6", "#2F6F69"]
@@ -265,7 +271,7 @@ def add_map_panels(fig, spec, finite: dict, *, panel: str = "e") -> None:
         mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes,
         fraction=0.018, pad=0.012, aspect=28,
     )
-    colorbar.set_label("Time-scale synergy (bits)")
+    colorbar.set_label("Time-scale synergy (nats)")
     colorbar.outline.set_linewidth(0.6)
 
 
@@ -344,3 +350,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+NATS_PER_BIT = np.log(2.0)
