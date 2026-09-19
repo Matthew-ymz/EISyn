@@ -57,11 +57,14 @@ UNICM_SHAPLEY_SUMMARY = (
 UNICM_CALIBRATION_SUMMARY = (
     ROOT
     / "results"
-    / "unicm_synergy_regularized_forecast_extended_1980_2018"
+    / "unicm_synergy_regularized_forecast_normfit_1980_2003"
     / "summary.json"
 )
 UNICM_TARGET_XI_CALIBRATION_SUMMARY = (
-    ROOT / "results" / "unicm_target_xi_shapley_prior" / "summary.json"
+    ROOT
+    / "results"
+    / "unicm_target_xi_shapley_prior_normfit_1980_2003_n16384"
+    / "summary.json"
 )
 UNICM_SPT_UNIFORM_SUMMARY = (
     ROOT
@@ -959,7 +962,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         "Frozen",
         "Univariate",
         "Uniform ridge",
-        r"$\Xi$-Shapley prior",
+        "Xi-Shapley prior",
     )
     method_values = np.asarray(
         [
@@ -1084,9 +1087,9 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     )
     ax_g.set_yticks(
         (1.0, 0.0),
-        (r"Shuffled $\Xi$ priors", r"$\Xi$-Shapley prior"),
+        ("Shuffled Xi priors", "Xi-Shapley prior"),
     )
-    ax_g.set_xlim(display_min, max(0.047, xi_gain + 0.004))
+    ax_g.set_xlim(display_min, max(0.032, xi_gain + 0.004))
     ax_g.set_ylim(-0.42, 1.42)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     ax_g.set_xlabel("Normalized RMSE gain over uniform ridge")

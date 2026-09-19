@@ -376,6 +376,7 @@ def run(args: argparse.Namespace) -> int:
         history = data["history"].astype(np.float64)
         target = data["targets"].astype(np.float64)
         mode_names = data["mode_names"].astype(str).tolist()
+        input_metadata = json.loads(str(data["metadata"]))
     with np.load(
         args.input_dir / "modeformer_predictions.npz", allow_pickle=False
     ) as data:
@@ -560,6 +561,19 @@ def run(args: argparse.Namespace) -> int:
     report = {
         "status": "completed",
         "question": "Can target-resolved source-pair Syn improve all-mode forecast calibration as a regularization prior?",
+        "input_preprocessing": {
+            "source": input_metadata["source"],
+            "data_period": input_metadata["period"],
+            "normalization": input_metadata["normalization"],
+            "normalization_fit_period": input_metadata.get(
+                "normalization_fit_period", input_metadata["period"]
+            ),
+            "normalization_reference": input_metadata.get(
+                "normalization_reference"
+            ),
+            "sst_std": input_metadata["sst_std"],
+            "so20chgt_std": input_metadata["so20chgt_std"],
+        },
         "mode_names": mode_names,
         "samples": {
             "fit": len(split.fit),

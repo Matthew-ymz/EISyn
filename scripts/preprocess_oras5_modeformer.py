@@ -258,6 +258,15 @@ def main() -> None:
     parser.add_argument("--start-year", type=int, default=1980)
     parser.add_argument("--end-year", type=int, default=2014)
     parser.add_argument(
+        "--normalization-fit-end-year",
+        type=int,
+        help=(
+            "Fit calendar-month climatologies and field-wide anomaly scales "
+            "only through this year, then apply them unchanged to the full "
+            "requested period."
+        ),
+    )
+    parser.add_argument(
         "--normalization-reference",
         type=Path,
         help=(
@@ -282,9 +291,40 @@ def main() -> None:
 
     normalization_reference = None
     if args.normalization_reference is None:
-        sst_anom, sst_norm, sst_clim, sst_std = code_style_anomalies(sst)
-        depth_anom, depth_norm, depth_clim, depth_std = code_style_anomalies(depth20)
+        normalization_fit_end_year = (
+            args.end_year
+            if args.normalization_fit_end_year is None
+            else args.normalization_fit_end_year
+        )
+        if not args.start_year <= normalization_fit_end_year <= args.end_year:
+            raise ValueError(
+                "normalization-fit-end-year must lie within the requested "
+                f"period {args.start_year}--{args.end_year}."
+            )
+        normalization_months = (
+            normalization_fit_end_year - args.start_year + 1
+        ) * 12
+        _, _, sst_clim, sst_std = code_style_anomalies(
+            sst[:normalization_months]
+        )
+        _, _, depth_clim, depth_std = code_style_anomalies(
+            depth20[:normalization_months]
+        )
+        sst_anom, sst_norm, sst_clim, sst_std = reference_style_anomalies(
+            sst, sst_clim, sst_std
+        )
+        depth_anom, depth_norm, depth_clim, depth_std = reference_style_anomalies(
+            depth20, depth_clim, depth_std
+        )
+        normalization_fit_period = (
+            f"{args.start_year}-01/{normalization_fit_end_year}-12"
+        )
     else:
+        if args.normalization_fit_end_year is not None:
+            raise ValueError(
+                "normalization-fit-end-year and normalization-reference are "
+                "mutually exclusive."
+            )
         with np.load(args.normalization_reference, allow_pickle=False) as reference:
             reference_metadata = json.loads(str(reference["metadata"]))
             sst_clim = reference["sst_monthly_climatology"].astype(np.float32)
@@ -298,6 +338,9 @@ def main() -> None:
             depth20, depth_clim, depth_std
         )
         normalization_reference = str(args.normalization_reference.resolve())
+        normalization_fit_period = reference_metadata.get(
+            "normalization_fit_period", reference_metadata["period"]
+        )
     modes_normalized = extract_modes(sst_norm, depth_norm, lat, lon)
     modes_physical = extract_modes(sst_anom, depth_anom, lat, lon)
     month_ids = np.asarray([int(date[-2:]) - 1 for date in dates], dtype=np.int64)
@@ -322,6 +365,7 @@ def main() -> None:
         "sst_std": sst_std,
         "so20chgt_std": depth_std,
         "normalization_reference": normalization_reference,
+        "normalization_fit_period": normalization_fit_period,
     }
     np.savez_compressed(
         args.output,

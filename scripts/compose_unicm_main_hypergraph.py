@@ -2,12 +2,18 @@
 from pathlib import Path
 import json
 import hashlib
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import sys
 import numpy as np
 
 ROOT=Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.plot_earth_system_main_figures import (
+    configure_matplotlib,
+    plot_unicm_figure,
+)
+
 OUT=ROOT/'docs/reports/assets/unicm_main_with_hypergraph.png'
 
 def main():
@@ -44,35 +50,22 @@ def main():
         tree=dict(n_samples=tree['n_samples'],sampling_seed=tree['sampling_seed'],checkpoint_displayed=2,algorithm=tree['estimator']),
         shapley=shap['method'],
         target_definitions=dict(hypergraph='one scalar future mode',spt_order_shapley='all 11 future modes jointly'),
-        forecast_validation=dict(kind='observational held-out prediction evaluation',fit_samples=253,validation_samples=36,test_samples=96,note='Not an intervention-sample experiment; its real-data split is intentionally not forced to n=16,384.'),
+        forecast_validation=dict(
+            kind='observational held-out prediction evaluation',
+            fit_samples=253,
+            validation_samples=36,
+            test_samples=96,
+            data_period='1980-01/2018-12',
+            normalization_fit_period='1980-01/2003-12',
+            prior='target- and lead-specific exact Xi-Shapley generalized-ridge weights',
+            intervention_samples=16384,
+            summary='results/unicm_target_xi_shapley_prior_normfit_1980_2003_n16384/summary.json',
+            note='Climatology and scaling are fitted only on raw months covered by the calibration-fit issue dates and targets, then frozen for validation and test. The Xi-Shapley prior uses 16,384 independent intervention histories; the observational split retains its native sample count.'),
         action='SPT, SPT-selected order mass, exact Shapley, and pair hypergraphs share the corrected estimator and identical intervention samples.')
     audit=ROOT/'results/unicm_pair_hypergraph_independent/composite_provenance_audit.json'
     audit.write_text(json.dumps(report,indent=2)+'\n')
-    main_image=plt.imread(ROOT/'fig/earth_unicm_hierarchical_ei.png')
-    maps=plt.imread(ROOT/'docs/reports/assets/unicm_pair_hypergraph_leads.png')
-    main_image=main_image.copy()
-    ih,iw=main_image.shape[:2]
-    main_image=main_image[int(.055*ih):]
-    maps=maps[int(.075*maps.shape[0]):int(.705*maps.shape[0])]
-    w=13.
-    hm=w*main_image.shape[0]/main_image.shape[1]
-    hg=2.25
-    height=hm+hg+.32
-    fig=plt.figure(figsize=(w,height),facecolor='white')
-    ax=fig.add_axes([0,0,1,hm/height]);ax.imshow(main_image);ax.axis('off')
-    panel_lefts=(.09,.37,.65)
-    for i,(lead,left,label) in enumerate(zip((1,8,24), panel_lefts, ('a','b','c'), strict=True)):
-        panel=maps[:,int(i*maps.shape[1]/3):int((i+1)*maps.shape[1]/3)]
-        ax=fig.add_axes([left,(hm+.03)/height,.28,hg/height]);ax.imshow(panel);ax.axis('off')
-        fig.text(left+.14,(hm+hg+.18)/height,
-                 f'$\\ell = {lead}$ '+('month' if lead==1 else 'months'),
-                 fontsize=10,ha='center',va='center')
-        fig.text(left-.025,(hm+hg-.1)/height,label,fontsize=10,weight='bold')
-    # The three SPTs occupy the lower composite row in the same left-to-right order.
-    for left,label in zip(panel_lefts, ('d','e','f'), strict=True):
-        fig.text(left-.025,.79*hm/height,label,fontsize=10,weight='bold')
-    fig.savefig(OUT,dpi=240,bbox_inches='tight',pad_inches=.05)
-    plt.close(fig)
+    configure_matplotlib()
+    plot_unicm_figure(OUT.with_suffix(""))
     print(OUT)
 
 if __name__=='__main__': main()

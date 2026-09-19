@@ -44,12 +44,18 @@ from scripts.unicm_peid_syn_analysis import (
 )
 
 
-DEFAULT_INPUT = ROOT / "data" / "ORAS5" / "modeformer_1980_2018"
-DEFAULT_CACHE = ROOT / "results" / "unicm_overall_ei_cpu_bound4_n8192" / "cache"
-DEFAULT_CALIBRATION = (
-    ROOT / "results" / "unicm_synergy_regularized_forecast_extended_1980_2018"
+DEFAULT_INPUT = (
+    ROOT / "data" / "ORAS5" / "modeformer_1980_2018_normfit_1980_2003"
 )
-DEFAULT_OUTPUT = ROOT / "results" / "unicm_target_xi_shapley_prior"
+DEFAULT_CACHE = ROOT / "results" / "unicm_xi_hierarchy_uniform_n16384" / "cache"
+DEFAULT_CALIBRATION = (
+    ROOT / "results" / "unicm_synergy_regularized_forecast_normfit_1980_2003"
+)
+DEFAULT_OUTPUT = (
+    ROOT
+    / "results"
+    / "unicm_target_xi_shapley_prior_normfit_1980_2003_n16384"
+)
 XI_TOLERANCE_BITS = 1e-8
 CLOSURE_TOLERANCE_BITS = 1e-10
 
@@ -62,7 +68,20 @@ def prediction_cache_path(cache_dir: Path, seed: int, args: argparse.Namespace) 
         start_month=args.start_month,
         device="cpu",
     )
-    return overall_prediction_cache_path(cache_dir, seed=seed, args=cache_args)
+    released_name = overall_prediction_cache_path(
+        cache_dir, seed=seed, args=cache_args
+    )
+    hierarchy_name = cache_dir / (
+        f"checkpoint{seed}_samples{args.n_samples}_sampling{args.sampling_seed}_"
+        f"bound{args.intervention_bound:g}_fullhist12_start{args.start_month}_cpu.npz"
+    )
+    for candidate in (released_name, hierarchy_name):
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "No compatible intervention prediction cache found. Tried: "
+        f"{released_name}, {hierarchy_name}"
+    )
 
 
 def target_xi_shapley_centrality(
@@ -353,12 +372,41 @@ def run(args: argparse.Namespace) -> int:
     calibration = json.loads(
         (args.calibration_dir / "summary.json").read_text(encoding="utf-8")
     )
-    centrality, centrality_audit = target_xi_shapley_centrality(args)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    centrality_cache = args.output_dir / "target_xi_shapley_centrality.npz"
+    centrality_config = {
+        "n_samples": args.n_samples,
+        "sampling_seed": args.sampling_seed,
+        "intervention_bound": args.intervention_bound,
+        "start_month": args.start_month,
+        "checkpoint_seeds": args.checkpoint_seeds,
+        "covariance_ridge": args.covariance_ridge,
+    }
+    if centrality_cache.exists():
+        with np.load(centrality_cache, allow_pickle=False) as archive:
+            cached_config = json.loads(str(archive["config"]))
+            if cached_config != centrality_config:
+                raise ValueError(
+                    "Existing Xi-Shapley centrality cache has incompatible settings."
+                )
+            centrality = archive["centrality"].astype(np.float64)
+            centrality_audit = json.loads(str(archive["audit"]))
+        print(f"Reused Xi-Shapley centrality cache: {centrality_cache}", flush=True)
+    else:
+        centrality, centrality_audit = target_xi_shapley_centrality(args)
+        np.savez_compressed(
+            centrality_cache,
+            centrality=centrality.astype(np.float64),
+            config=json.dumps(centrality_config, sort_keys=True),
+            audit=json.dumps(centrality_audit, sort_keys=True),
+        )
+        print(f"Saved Xi-Shapley centrality cache: {centrality_cache}", flush=True)
 
     with np.load(args.input_dir / "model_inputs.npz", allow_pickle=False) as archive:
         history = archive["history"].astype(np.float64)
         target = archive["targets"].astype(np.float64)
         mode_names = archive["mode_names"].astype(str).tolist()
+        input_metadata = json.loads(str(archive["metadata"]))
     with np.load(
         args.input_dir / "modeformer_predictions.npz", allow_pickle=False
     ) as archive:
@@ -489,6 +537,33 @@ def run(args: argparse.Namespace) -> int:
     result = {
         "status": "completed",
         "definition": "Target- and lead-specific exact Shapley allocation of Xi(S)=EI(S->Y_jl)-sum singleton EI",
+        "input_preprocessing": {
+            "source": input_metadata["source"],
+            "data_period": input_metadata["period"],
+            "normalization": input_metadata["normalization"],
+            "normalization_fit_period": input_metadata.get(
+                "normalization_fit_period", input_metadata["period"]
+            ),
+            "normalization_reference": input_metadata.get(
+                "normalization_reference"
+            ),
+            "sst_std": input_metadata["sst_std"],
+            "so20chgt_std": input_metadata["so20chgt_std"],
+        },
+        "intervention": {
+            "n_samples": args.n_samples,
+            "sampling_seed": args.sampling_seed,
+            "intervention_bound": args.intervention_bound,
+            "start_month": args.start_month,
+            "checkpoint_seeds": args.checkpoint_seeds,
+            "cache_dir": str(args.cache_dir),
+        },
+        "samples": {
+            "fit": len(split.fit),
+            "validation": len(split.validation),
+            "test": len(split.test),
+        },
+        "chronological_split": calibration["chronological_split"],
         "centrality_audit": centrality_audit,
         "selected_hyperparameters": {"alpha": alpha, "gamma": gamma},
         "validation_nrmse": float(min(tuning.values())),
@@ -530,7 +605,6 @@ def run(args: argparse.Namespace) -> int:
         },
         "output": str(output),
     }
-    args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "summary.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -554,8 +628,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--calibration-dir", type=Path, default=DEFAULT_CALIBRATION)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--checkpoint-seeds", type=int, nargs="+", default=[1, 2, 3])
-    parser.add_argument("--n-samples", type=int, default=8192)
-    parser.add_argument("--sampling-seed", type=int, default=20260619)
+    parser.add_argument("--n-samples", type=int, default=16384)
+    parser.add_argument("--sampling-seed", type=int, default=20260901)
     parser.add_argument("--intervention-bound", type=float, default=4.0)
     parser.add_argument("--start-month", type=int, default=0)
     parser.add_argument("--covariance-ridge", type=float, default=1e-6)
