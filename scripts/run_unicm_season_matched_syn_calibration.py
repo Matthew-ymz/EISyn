@@ -88,6 +88,32 @@ def prediction_cache_path(
     return matches[0]
 
 
+def checkpoint_mean_syn(
+    raw_syn: np.ndarray,
+    *,
+    n_checkpoints: int,
+    zero_tolerance: float,
+) -> tuple[np.ndarray, int, float]:
+    """Average checkpoint estimates before applying the downstream Syn audit."""
+
+    shaped = np.asarray(raw_syn, dtype=np.float64).reshape(
+        int(n_checkpoints), 24, len(MODE_NAMES)
+    )
+    mean_syn = shaped.mean(axis=0).T
+    minimum = float(mean_syn.min())
+    violations = mean_syn < -float(zero_tolerance)
+    if np.any(violations):
+        raise RuntimeError(
+            "Significant checkpoint-mean Syn nonnegativity violation: "
+            f"minimum={minimum:.8g} bit, tolerance={zero_tolerance:g} bit, "
+            f"count={int(np.count_nonzero(violations))}."
+        )
+    numerical = (mean_syn < 0) & ~violations
+    adjusted = mean_syn.copy()
+    adjusted[numerical] = 0.0
+    return adjusted, int(np.count_nonzero(numerical)), minimum
+
+
 def compute_monthly_centrality(args: argparse.Namespace) -> tuple[np.ndarray, dict[str, object]]:
     history = sample_full_history_mode_inputs(
         n_samples=args.n_samples,
@@ -144,10 +170,6 @@ def compute_monthly_centrality(args: argparse.Namespace) -> tuple[np.ndarray, di
                 jitter=args.jitter,
             )
 
-        by_seed = np.zeros(
-            (len(args.checkpoint_seeds), len(MODE_NAMES), 24, len(MODE_NAMES)),
-            dtype=np.float64,
-        )
         for left in range(len(MODE_NAMES)):
             for right in range(left + 1, len(MODE_NAMES)):
                 columns = np.concatenate((source_columns(left), source_columns(right)))
@@ -157,25 +179,15 @@ def compute_monthly_centrality(args: argparse.Namespace) -> tuple[np.ndarray, di
                     target_variance,
                     jitter=args.jitter,
                 )
-                raw_syn = joint - singleton[left] - singleton[right]
-                minimum_raw_syn = min(minimum_raw_syn, float(raw_syn.min()))
-                violations = raw_syn < -args.syn_zero_tolerance
-                if np.any(violations):
-                    raise RuntimeError(
-                        "Significant Syn nonnegativity violation: "
-                        f"minimum={float(raw_syn.min()):.8g} bit, "
-                        f"tolerance={args.syn_zero_tolerance:g} bit, "
-                        f"count={int(np.count_nonzero(violations))}."
-                    )
-                numerical = (raw_syn < 0) & ~violations
-                numerical_zero_count += int(np.count_nonzero(numerical))
-                syn = raw_syn.copy()
-                syn[numerical] = 0.0
-                shaped = syn.reshape(len(args.checkpoint_seeds), 24, len(MODE_NAMES))
-                shaped = shaped.transpose(0, 2, 1)
-                by_seed[:, :, :, left] += shaped
-                by_seed[:, :, :, right] += shaped
-        monthly[month] = by_seed.mean(axis=0)
+                syn, numerical_count, minimum = checkpoint_mean_syn(
+                    joint - singleton[left] - singleton[right],
+                    n_checkpoints=len(args.checkpoint_seeds),
+                    zero_tolerance=args.syn_zero_tolerance,
+                )
+                minimum_raw_syn = min(minimum_raw_syn, minimum)
+                numerical_zero_count += numerical_count
+                monthly[month, :, :, left] += syn
+                monthly[month, :, :, right] += syn
         print(f"Computed target-specific Syn centrality for month {month + 1}/12", flush=True)
 
     if np.any(monthly.sum(axis=-1) <= 0):
