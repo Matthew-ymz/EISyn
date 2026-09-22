@@ -33,6 +33,7 @@ from scripts.run_unicm_synergy_guided_forecast import (
     target_scaling,
 )
 from scripts.run_unicm_synergy_regularized_calibration import (
+    predict_generalized_ridge,
     prepare_designs,
     shuffled_centrality,
     tune_prior,
@@ -458,20 +459,18 @@ def run(args: argparse.Namespace) -> int:
         mininterval=1.0,
     ):
         null_centrality = shuffled_centrality(centrality, rng)
-        null_alpha, null_gamma, _, _, null_test = tune_prior(
+        _, null_test = predict_generalized_ridge(
             designs,
             null_centrality,
-            target[split.validation],
-            target_scale,
-            alphas=alphas,
-            gammas=gammas,
+            alpha=alpha,
+            gamma=gamma,
             floor_fraction=args.floor_fraction,
         )
         random_scores.append(
             mean_cell_nrmse(null_test, test_target, target_scale)
         )
         random_hyperparameters.append(
-            {"repeat": repeat, "alpha": null_alpha, "gamma": null_gamma}
+            {"repeat": repeat, "alpha": alpha, "gamma": gamma}
         )
     random_scores_array = np.asarray(random_scores, dtype=np.float64)
     xi_score = mean_cell_nrmse(test_xi, test_target, target_scale)
@@ -601,7 +600,9 @@ def run(args: argparse.Namespace) -> int:
             "hyperparameters": random_hyperparameters,
             "null_preserves": "each target-lead Xi-Shapley centrality value distribution",
             "null_destroys": "assignment of Xi-Shapley centrality to source-mode labels",
-            "each_null_retuned_on_validation": True,
+            "each_null_retuned_on_validation": False,
+            "fixed_hyperparameters": {"alpha": alpha, "gamma": gamma},
+            "hyperparameter_reference": "target_xi_shapley validation optimum",
         },
         "output": str(output),
     }

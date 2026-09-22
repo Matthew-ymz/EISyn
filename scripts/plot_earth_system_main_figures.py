@@ -1016,21 +1016,18 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     add_panel_label(ax_f, "i", x=-0.18, y=1.04)
 
     ax_g = fig.add_subplot(bottom_grid[0, 1])
-    uniform_score = float(metrics["uniform"]["mean_cell_nrmse"])
-    xi_gain = uniform_score - float(
-        xi_calibration["test_nrmse"]["target_xi_shapley_prior"]
-    )
+    frozen_score = float(metrics["frozen"]["mean_cell_nrmse"])
+    xi_score = float(xi_calibration["test_nrmse"]["target_xi_shapley_prior"])
+    xi_reduction_pct = (frozen_score - xi_score) / frozen_score * 100.0
     random_scores = np.asarray(
         xi_calibration["shuffled_xi_control"]["scores"],
         dtype=float,
     )
-    random_repeats = int(xi_calibration["shuffled_xi_control"]["repeats"])
     random_p = float(
         xi_calibration["shuffled_xi_control"]["fraction_null_at_least_as_good"]
     )
-    null_gains = uniform_score - random_scores
-    display_min = -0.006
-    visible_null = null_gains[null_gains >= display_min]
+    null_reductions_pct = (frozen_score - random_scores) / frozen_score * 100.0
+    visible_null = null_reductions_pct
     rng = np.random.default_rng(20260728)
     null_y = 1.0 + rng.uniform(-0.18, 0.18, size=len(visible_null))
     ax_g.axvline(0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
@@ -1047,7 +1044,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         zorder=2,
     )
     ax_g.scatter(
-        [xi_gain],
+        [xi_reduction_pct],
         [0.0],
         s=32,
         marker="o",
@@ -1055,16 +1052,6 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         edgecolor="white",
         linewidth=0.5,
         zorder=3,
-    )
-    ax_g.text(
-        0.02,
-        0.92,
-        rf"{len(visible_null)}/{random_repeats} null draws shown",
-        transform=ax_g.transAxes,
-        ha="left",
-        va="top",
-        fontsize=5.5,
-        color="#657080",
     )
     ax_g.text(
         0.98,
@@ -1077,9 +1064,9 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         color=INK,
     )
     ax_g.text(
-        xi_gain - 0.001,
+        xi_reduction_pct - 0.10,
         0.13,
-        f"{xi_gain:+.3f}",
+        f"{xi_reduction_pct:.2f}",
         ha="right",
         va="bottom",
         fontsize=5.5,
@@ -1089,10 +1076,10 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         (1.0, 0.0),
         ("Shuffled Xi priors", "Xi-Shapley prior"),
     )
-    ax_g.set_xlim(display_min, max(0.032, xi_gain + 0.004))
+    ax_g.set_xlim(0.0, max(11.0, xi_reduction_pct + 0.5))
     ax_g.set_ylim(-0.42, 1.42)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    ax_g.set_xlabel("Normalized RMSE gain over uniform ridge")
+    ax_g.set_xlabel("Test RMSE reduction vs frozen ensemble (%)")
     add_panel_label(ax_g, "j", x=-0.18, y=1.04)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
