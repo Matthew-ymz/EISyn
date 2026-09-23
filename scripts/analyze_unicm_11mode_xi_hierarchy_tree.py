@@ -227,6 +227,7 @@ def render_trees(
     compact_core_annotation: bool = False,
     show_checkpoint: bool = True,
     show_tree_metrics: bool = True,
+    show_root_info: bool = True,
     core_highlights: Sequence[bool] | None = None,
     node_label_fontsize: float = 6.5,
     terminal_label_fontsize: float = 7.5,
@@ -346,12 +347,13 @@ def render_trees(
                 f"spine {metrics['dominant_spine_fraction']:.0%}  |  "
                 f"imbalance {metrics['normalized_colless_imbalance']:.2f}"
             )
-        axis.text(
-            0.02, 0.98,
-            info,
-            transform=axis.transAxes, ha="left", va="top",
-            fontsize=root_info_fontsize, color=INK, linespacing=1.35,
-        )
+        if show_root_info:
+            axis.text(
+                0.02, 0.98,
+                info,
+                transform=axis.transAxes, ha="left", va="top",
+                fontsize=root_info_fontsize, color=INK, linespacing=1.35,
+            )
         axis.set_xlim(-1.0, max(point[0] for point in positions.values()) + 0.7)
         axis.set_ylim(-2.8, maximum_depth + 1.5)
         axis.axis("off")

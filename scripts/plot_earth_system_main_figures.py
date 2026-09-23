@@ -857,6 +857,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
             compact_core_annotation=True,
             show_checkpoint=False,
             show_tree_metrics=False,
+            show_root_info=False,
             core_highlights=(False, True, False),
             node_label_fontsize=7.6,
             terminal_label_fontsize=8.3,
