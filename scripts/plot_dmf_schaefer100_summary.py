@@ -586,13 +586,13 @@ def plot_summary(args: argparse.Namespace) -> None:
         np.testing.assert_allclose(tree.xi_bits, yeo["fine_phi"][si, gi], atol=1e-8, rtol=0)
         print(json.dumps({"seed": int(hierarchy["seed"]), "G": float(hierarchy["coupling_g"]), **audit}), flush=True)
 
-    figure = plt.figure(figsize=(16.0, 11.4))
+    figure = plt.figure(figsize=(16.0, 10.0))
     outer = GridSpec(
-        2, 1, figure=figure, height_ratios=(5.3, 3.7),
-        hspace=0.35, left=0.065, right=0.985, top=0.89, bottom=0.07,
+        2, 1, figure=figure, height_ratios=(5.1, 3.9),
+        hspace=0.22, left=0.065, right=0.985, top=0.92, bottom=0.07,
     )
     top = GridSpecFromSubplotSpec(
-        1, 3, subplot_spec=outer[0], width_ratios=(4.4, 1.35, 9.25),
+        1, 3, subplot_spec=outer[0], width_ratios=(4.4, 0.60, 10.0),
         wspace=0,
     )
     panel_a_grid = GridSpecFromSubplotSpec(
@@ -602,7 +602,7 @@ def plot_summary(args: argparse.Namespace) -> None:
     ax_a_wms = figure.add_subplot(panel_a_grid[1], sharex=ax_a)
     ax_tree = figure.add_subplot(top[2])
     bottom = GridSpecFromSubplotSpec(
-        1, 5, subplot_spec=outer[1], width_ratios=(4.4, 1.1, 4.4, 0.8, 4.3),
+        1, 5, subplot_spec=outer[1], width_ratios=(4.6, 0.55, 4.6, 0.50, 4.75),
         wspace=0,
     )
     ax_e = figure.add_subplot(bottom[0])

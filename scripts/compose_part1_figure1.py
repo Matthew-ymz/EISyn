@@ -9,7 +9,8 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Polygon
+from matplotlib.path import Path as MplPath
+from matplotlib.patches import Ellipse, FancyArrowPatch, Polygon, Rectangle
 from PIL import Image, ImageChops, ImageDraw
 
 
@@ -18,7 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 FIGURE_DIR = ROOT / "fig" / "part1_synergy_comparison"
 SOURCE_DIR = FIGURE_DIR / "figure1_sources"
-OUTPUT_STEM = FIGURE_DIR / "figure1_integrated_hierarchy_draft"
+OUTPUT_STEM = ROOT / "paper_assets" / "figure1_integrated_hierarchy_spt_clean"
 if os.environ.get("EISYN_NATS_REVIEW_DIR"):
     OUTPUT_STEM = Path(os.environ["EISYN_NATS_REVIEW_DIR"]) / "figure1_integrated_hierarchy_spt_clean"
 NATS_PER_BIT = np.log(2.0)
@@ -33,7 +34,7 @@ CONFOUNDER_BENCHMARK = (
     / "sine_beta_original_neighborhood_one_decimal_all_methods.png"
 )
 SYSTEM_BENCHMARK_LARGE_TEXT = SOURCE_DIR / "six_system_large_text.png"
-CONFOUNDER_BENCHMARK_LARGE_TEXT = SOURCE_DIR / "confounder_large_text.png"
+CONFOUNDER_BENCHMARK_LARGE_TEXT = SOURCE_DIR / "confounder_mlp_peid_focus.png"
 CONFOUNDER_RESULT = (
     ROOT
     / "results"
@@ -144,6 +145,78 @@ def panel_letter(
     fig.text(x, y, letter, fontsize=9.2, fontweight="bold", va="top", ha="left")
 
 
+def panel_border(fig: plt.Figure, bounds: tuple[float, float, float, float]) -> None:
+    fig.add_artist(Rectangle(
+        (bounds[0], bounds[1]), bounds[2], bounds[3],
+        transform=fig.transFigure, fill=False, edgecolor="#D9DEE3", lw=0.45,
+    ))
+
+
+def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, float]) -> None:
+    """Redraw the existing causal schematic at the size used in the composite."""
+    ax = fig.add_axes(bounds)
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    ax.axis("off")
+    blue, red, ink = "#315F9E", "#C9574A", "#303841"
+
+    def arrow(start, end, color, *, dashed=False, rad=0, width=1.35, zorder=1):
+        ax.add_patch(FancyArrowPatch(
+            start, end, arrowstyle="-|>", mutation_scale=7.3,
+            connectionstyle=f"arc3,rad={rad}", lw=width, color=color,
+            linestyle=(0, (3, 2)) if dashed else "solid", zorder=zorder,
+        ))
+
+    w, x, y, h, z = (0.12, .50), (.38, .79), (.38, .21), (.68, .50), (.91, .50)
+    # The three dashed paths encode the original common-driver coefficients.
+    arrow((.155, .54), (.349, .765), blue, dashed=True)
+    arrow((.155, .46), (.349, .235), blue, dashed=True)
+    # Route w -> z above x; it must not pass through x or its noise arrow.
+    confounder_path = MplPath(
+        [( .12, .60), (.16, .94), (.39, .97), (.53, .96),
+         (.76, .94), (.85, .73), (.88, .57)],
+        [MplPath.MOVETO] + [MplPath.CURVE4] * 6,
+    )
+    ax.add_patch(FancyArrowPatch(
+        path=confounder_path, arrowstyle="-|>", mutation_scale=7.3,
+        lw=1.35, color=blue, linestyle=(0, (3, 2)), zorder=1,
+    ))
+    ax.text(.245, .54, r"$0.8\beta$", color=blue, fontsize=7.2, ha="center")
+    ax.text(.245, .18, r"$0.8\beta$", color=blue, fontsize=7.2, ha="center")
+    ax.text(.70, .82, r"$0.1\beta$", color=blue, fontsize=7.2, ha="center")
+
+    # The red links retain the joint x,y -> sin(xy) -> z hyperedge semantics.
+    arrow((.410, .77), (.628, .55), red, rad=-.28, width=1.65)
+    arrow((.410, .23), (.628, .45), red, rad=.28, width=1.65)
+    arrow((.742, .50), (.877, .50), red, width=1.65)
+    for start, end in [((.49, .88), (.43, .845)), ((.26, .02), (.345, .135)),
+                       ((.995, .88), (.94, .585)), ((.005, .91), (.085, .59))]:
+        arrow(start, end, ink, width=1.05, zorder=4)
+
+    for point, label, face, edge in [
+        (w, r"$w$", "#DCE8F7", blue),
+        (x, r"$x$", "#E6EEF8", ink),
+        (y, r"$y$", "#E6EEF8", ink),
+        (z, r"$z$", "#EFF1F3", ink),
+    ]:
+        ax.scatter(*point, s=540, marker="o", facecolor=face, edgecolor=edge,
+                   linewidth=1.45, transform=ax.transAxes, zorder=3)
+        ax.text(*point, label, ha="center", va="center", fontsize=9.3,
+                weight="bold", color=ink, transform=ax.transAxes, zorder=4)
+    ax.add_patch(Ellipse(h, .135, .25, transform=ax.transAxes,
+                         facecolor="#FBE7E4", edgecolor=red, lw=1.5,
+                         linestyle=(0, (3, 2)), zorder=3))
+    ax.text(*h, r"$\sin(xy)$", ha="center", va="center", color="#9D382F",
+            fontsize=8.1, weight="bold", transform=ax.transAxes, zorder=4)
+    for px, py, label in [(.54, .84, r"$\eta^x$"), (.23, .035, r"$\eta^y$"),
+                          (.965, .93, r"$\eta^z$"), (.015, .94, r"$\eta^w$")]:
+        ax.text(px, py, label, fontsize=7.1, color=ink, ha="center", va="center",
+                transform=ax.transAxes)
+    ax.plot([.55, .61], [.09, .09], color=blue, lw=1.35, ls=(0, (3, 2)))
+    ax.text(.625, .09, "Confounder", fontsize=6.8, va="center", color=ink)
+    ax.plot([.55, .61], [.025, .025], color=red, lw=1.65)
+    ax.text(.625, .025, "Causal hyperedge", fontsize=6.8, va="center", color=ink)
+
+
 def prepare_large_text_sources() -> None:
     """Re-render cached numerical results with fonts sized for the final panel."""
     from scripts.classic_network_dynamics_benchmark import run_part1_combined_synergy_figure
@@ -168,11 +241,13 @@ def prepare_large_text_sources() -> None:
         stem=CONFOUNDER_BENCHMARK_LARGE_TEXT.stem,
         include_oracle=False,
         font_scale=2.65,
-        figure_size=(9.2, 6.1),
+        figure_size=(10.4, 5.8),
         include_panel_labels=False,
-        legend_columns=3,
+        legend_columns=4,
         compact_text=True,
         reserve_legend_band=True,
+        highlight_mlp_peid=True,
+        png_only=True,
     )
 
 
@@ -255,11 +330,10 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
 
 
 def build_figure() -> plt.Figure:
-    # Explicit three-band layout: mechanism, benchmark evidence, complete SPTs.
-    fig = plt.figure(figsize=(183 / 25.4, 165 / 25.4), facecolor="white")
+    # The common-driver schematic and its beta sweep share panel b.
+    fig = plt.figure(figsize=(183 / 25.4, 180 / 25.4), facecolor="white")
 
     intervention = trim_white(load_rgb(INTERVENTION_DIAGRAM), tolerance=10, pad=4)
-    hyperedge = trim_white(load_rgb(HYPEREDGE_DIAGRAM), tolerance=10, pad=8)
     systems = trim_white(load_rgb(SYSTEM_BENCHMARK_LARGE_TEXT), tolerance=8, pad=4)
 
     # Retain both original panels: pairwise readouts above and interaction /
@@ -268,16 +342,20 @@ def build_figure() -> plt.Figure:
     hierarchy_sweep = json.loads(
         KURAMOTO_HIERARCHY_RESULT.read_text(encoding="utf-8")
     )
-    panel_letter(fig, x=0.022, y=0.985, letter="a")
-    panel_letter(fig, x=0.589, y=0.985, letter="b")
-    image_panel(fig, (0.022, 0.752, 0.535, 0.233), intervention)
-    image_panel(fig, (0.589, 0.750, 0.390, 0.233), hyperedge)
+    for bounds in ((.022, .727, .490, .259), (.532, .727, .448, .259),
+                   (.022, .425, .958, .289), (.022, .014, .958, .401)):
+        panel_border(fig, bounds)
+    panel_letter(fig, x=.030, y=.980, letter="a")
+    image_panel(fig, (.037, .744, .461, .222), intervention)
 
-    panel_letter(fig, x=0.022, y=0.738, letter="c")
-    image_panel(fig, (0.022, 0.409, 0.543, 0.320), systems)
-    image_panel(fig, (0.589, 0.409, 0.390, 0.320), confounder)
+    panel_letter(fig, x=.030, y=.707, letter="b")
+    draw_hyperedge_panel(fig, (.047, .446, .435, .250))
+    image_panel(fig, (.514, .436, .452, .267), confounder)
 
-    panel_letter(fig, x=0.022, y=0.382, letter="d")
+    panel_letter(fig, x=.540, y=.980, letter="c")
+    image_panel(fig, (.546, .741, .422, .226), systems)
+
+    panel_letter(fig, x=.030, y=.406, letter="d")
     draw_kuramoto_hierarchy_panel(fig, payload=hierarchy_sweep)
 
     return fig
