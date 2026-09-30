@@ -48,6 +48,8 @@
 
 PhiID 使用同两段 450 点 PC1 序列；每半先逐网络标准化，再以滞后 $\tau=1$ 的 Gaussian-MMI 双变量分解计算 21 条边的 redundancy→redundancy（PhiID Red）和 synergy→synergy（PhiID Syn）原子。两种 PhiID 原子均使用相同的 Gaussian 互信息估计、不作偏差校正或截断。计算公式按 [HOI 的 PhiID 实现](https://github.com/brainets/hoi/blob/4db2fbd701d40d33fe2375f3df5a4a4dc94c6b83/hoi/metrics/phiid_atoms.py)；在一名被试的 21 条边上与该实现逐边核对，Red、Syn 最大绝对差分别为 $8.8\times10^{-7}$、$8.8\times10^{-6}$ bits。
 
+新增 O-information 与 PED 直接复用上述两段 450 点 PC1 序列，分别对七网络的全部 $\binom{7}{3}=35$ 个三元组计算特征。O-information 保留正负号，使用 Gaussian-copula 熵及有限样本偏差校正。PED 分为 Red 和 Syn 两个 35 维向量：每个网络在该半段内标准化并以 0 二值化，再用 shared-exclusion 部分熵分解计算三元原子；定义和估计器与[现有 PED/O-information 复现](hcp_57_ped_oinfo_replication.md)一致。三网络指标与 21 维成对指标的坐标数及数学含义不同，识别率比较只描述各表征在当前任务上的效果。
+
 主分析直接比较原始特征向量。敏感性分析分别减去前、后半在 57 人中的各坐标均值；此处理对所有特征相同，但使用了整个候选队列的无标签分布信息。准确率差的不确定性由固定 57 人候选库、对被试的双向正确率配对重采样 5000 次得到；区间只反映**给定此候选库时的被试抽样变化**。
 
 ### 识别结果
@@ -63,9 +65,25 @@ PhiID 使用同两段 450 点 PC1 序列；每半先逐网络标准化，再以�
 
 保留的符号敏感性参照中，绝对值 FC 21 为 12.28%；PEID Syn 21 相对它多识别正确 12 个方向性查询（26/114 对 14/114），差值 **+10.53 个百分点**，区间 **[−0.88, 22.81]**。此前的 120 维 PEID Syn 为 16.67%；它不是本次四种等维度特征图的组成部分。
 
-![57 人静息态分半四种 21 维脑指纹特征](../../results/hcp_57_rest_split_fingerprint/fc_syn_phiid_comparison.png)
+### 群体中心化后的七指标比较
 
-**图 2｜同一次静息态扫描分半的四种等维度特征。** 左侧实心点为原始识别率，空心点为群体中心化敏感性结果，虚线为 1/57 的随机水平；右侧显示三种信息指标相对保留符号 FC 21 的原始配对准确率差及固定候选库的 95% 重采样区间。所有区间都跨过 0；图中不包含作为附加参照的绝对值 FC。
+下图只展示每半分别减去 57 人各坐标均值后的识别率。所有指标仍用各自前后半向量的 Pearson 相似度、57 人候选库与双向 Top-1 决策。前四项为 21 维成对特征，后三项为 35 维三网络特征。
+
+| 特征 | 前半→后半 | 后半→前半 | 双向平均 Top-1 |
+| --- | ---: | ---: | ---: |
+| FC 21，保留符号 | 9/57 | 9/57 | 15.79% |
+| PEID Syn 21 | 15/57 | 15/57 | **26.32%** |
+| PhiID Red 21 | 6/57 | 8/57 | 12.28% |
+| PhiID Syn 21 | 7/57 | 8/57 | 13.16% |
+| O-information 35，保留符号 | 5/57 | 7/57 | 10.53% |
+| PED Red 35 | 4/57 | 10/57 | 12.28% |
+| PED Syn 35 | 5/57 | 4/57 | 7.89% |
+
+![57 人静息态分半七种脑指纹特征](../../results/hcp_57_rest_split_fingerprint/rest_split_group_centered_comparison.png)
+
+**图 2｜同一次静息态扫描分半的七种特征。** 点为群体中心化后的双向平均 Top-1 识别率，数字直接标出准确率；虚线为 $1/57=1.75\%$ 的随机水平。图内未标注预处理步骤，也不再附加差值面板。
+
+相对带符号 FC 21，PEID Syn 21 高 10.53 个百分点，O-information 35、PED Red 35、PED Syn 35 分别低 5.26、3.51、7.89 个百分点。固定候选库、按被试配对重采样的 PEID Syn 差值 95% 区间为 [−1.75, 22.81] 个百分点；新增三网络方法的区间依次为 [−14.04, 2.63]、[−14.04, 6.14]、[−18.42, 2.63]，均包含 0。由于特征维度和估计器同时改变，这些差值不能单独归因于高阶阶数或协同/冗余性质。
 
 PhiID Syn 的原始 Idiff 为四者中最高（21.08），Top-1 却最低（10.53%）；21 维 PEID Syn 与绝对值 FC 的原始 Idiff 也几乎相同（19.55 对 19.53），而 Top-1 不同。这再次说明平均相似度分离不能代替逐人最近邻决策。群体中心化后 PEID Syn 的识别率升至 26.32%，但 PhiID Red 降至 12.28%；该处理的效果不是所有高阶指标共有的。
 
@@ -75,6 +93,8 @@ PhiID Syn 的原始 Idiff 为四者中最高（21.08），Top-1 却最低（10.5
 
 新增 PhiID Red/Syn 各有 2394 个值（两半 × 57 人 × 21 边），均有限；最小值分别为 $2.76\times10^{-8}$ 与 0.0232 bits，本次均无负值。PhiID MMI 原子在一般情形下可以有符号，因此程序没有对它们施加 PEID 的非负容差或裁剪。
 
+新增 O-information、PED Red 和 PED Syn 各有 3990 个有限特征值（两半 × 57 人 × 35 三元组）。PED 部分原子的最小值为 $-2.22\times10^{-16}$ bits；以 $10^{-10}$ bits 为非负容差，20 个负值全部处于容差内，显著违规为 0，未作裁剪。
+
 两半虽无重叠时间点，却仍来自同一次扫描，可能共享当次扫描的生理状态、仪器条件和预处理特征。57 人候选库较小，且本实验改用 Schaefer-1000，而跨任务实验使用 MMP360；因此 22.81% 与 0.309% 的差距不能解释为“静息态比任务态更适合脑指纹”。要检验跨扫描的个体稳定性，仍需同一批被试的独立静息态 run 或另一采集日，并保持图谱与匹配规则一致。
 
 四指标比较固定了被试、时间窗、网络对数量和匹配规则，但指标定义仍不同：PEID Syn 来源于三阶历史线性动力学下的 EI 联盟残差；PhiID Red/Syn 则是观测时间序列上滞后 1 点的双变量时序信息原子。因此识别率排序是**表征性能比较**，不能仅凭此归因于冗余与协同的机制差别，也不是原论文 116 区域静息态跨扫描结果的直接复现。
@@ -83,5 +103,6 @@ PhiID Syn 的原始 Idiff 为四者中最高（21.08），Top-1 却最低（10.5
 
 - 跨任务：`scripts/run_hcp_1002_cross_task_fingerprint.py`；逐任务对结果为 `results/hcp_1002_cross_task_fingerprint/summary.json`。
 - 静息态分半：`scripts/run_hcp_57_rest_split_fingerprint.py`；基础特征缓存和统计摘要为 `results/hcp_57_rest_split_fingerprint/features.npz`、`summary.json`。脚本默认复用已核验缓存，传入 `--recompute` 可重新拟合。
-- 四指标比较：`scripts/run_hcp_57_rest_split_phiid_comparison.py` 调用 `scripts/phiid_gaussian_mmi.py`；PhiID 缓存、比较摘要与图为 `results/hcp_57_rest_split_fingerprint/phiid_features.npz`、`phiid_comparison_summary.json` 和 `fc_syn_phiid_comparison.png`。
+- 原四指标计算：`scripts/run_hcp_57_rest_split_phiid_comparison.py` 调用 `scripts/phiid_gaussian_mmi.py`；PhiID 缓存与原始匹配摘要为 `results/hcp_57_rest_split_fingerprint/phiid_features.npz` 和 `phiid_comparison_summary.json`。
+- 七指标群体中心化比较：`scripts/run_hcp_57_rest_split_group_centered_comparison.py` 调用已有三元 O-information/PED 估计器；新增特征缓存、摘要和图分别为 `results/hcp_57_rest_split_fingerprint/oinfo_ped_features.npz`、`group_centered_comparison_summary.json` 和 `rest_split_group_centered_comparison.png`。
 - 跨任务、静息态分半和四指标扩展的固定比较口径记录在相应结果目录的 `experiment_contract.json` 或 `phiid_comparison_contract.json`。
