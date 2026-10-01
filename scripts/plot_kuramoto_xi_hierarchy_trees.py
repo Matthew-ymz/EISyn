@@ -62,6 +62,8 @@ def render_condition(
     *,
     tree=None,
     syn_scale_max: float | None = None,
+    layout: str = "squarified",
+    syn_tolerance: float = 1.0e-10,
     dpi: int = 600,
 ) -> Path:
     hierarchy = _tree(row) if tree is None else tree
@@ -72,11 +74,14 @@ def render_condition(
         source_labels=labels,
         decimals=3,
         syn_scale_max=syn_scale_max,
+        layout=layout,
+        syn_tolerance=syn_tolerance,
         dpi=dpi,
     )
 
 
-def render_all(summary_path: Path, output_dir: Path, *, seed: int = 0, dpi: int = 600) -> list[Path]:
+def render_all(summary_path: Path, output_dir: Path, *, seed: int = 0, dpi: int = 600,
+               layout: str = "squarified", syn_tolerance: float = 1.0e-10) -> list[Path]:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     rows = _condition_rows(summary, seed=seed)
     if len(rows) != len(DEFAULT_CROSS_COUPLINGS):
@@ -90,6 +95,8 @@ def render_all(summary_path: Path, output_dir: Path, *, seed: int = 0, dpi: int 
             output_dir / f"kuramoto_xi_tree_{_condition_name(float(row['cross_coupling']))}.png",
             tree=tree,
             syn_scale_max=shared_syn_scale,
+            layout=layout,
+            syn_tolerance=syn_tolerance,
             dpi=dpi,
         )
         for row, tree in zip(rows, trees, strict=True)
@@ -101,12 +108,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--layout", choices=("squarified", "node_link"), default="squarified")
+    parser.add_argument("--syn-tolerance", type=float, default=1.0e-10, help="Numerical zero tolerance in bits")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    render_all(args.summary, args.output_dir, seed=args.seed)
+    render_all(args.summary, args.output_dir, seed=args.seed,
+               layout=args.layout, syn_tolerance=args.syn_tolerance)
 
 
 if __name__ == "__main__":

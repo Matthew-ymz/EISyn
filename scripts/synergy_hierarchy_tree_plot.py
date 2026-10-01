@@ -1,4 +1,4 @@
-"""Minimal, reusable rendering for an explicit PEID synergy hierarchy tree."""
+"""Reusable SPT renderer: squarified areas, with the legacy node-link option."""
 
 from __future__ import annotations
 
@@ -88,9 +88,25 @@ def plot_synergy_hierarchy_tree(
     decimals: int = 2,
     show_root_total: bool = True,
     syn_scale_max: float | None = None,
+    layout: str = "squarified",
+    syn_tolerance: float = 1.0e-10,
     dpi: int = 600,
 ) -> Path:
-    """Render only the synergy hierarchy tree and save one opaque PNG."""
+    """Save one PNG; use ``layout='node_link'`` for the original tree.
+
+    Squarified tiles encode local Syn area and retain raw atoms in a ledger.
+    ``syn_tolerance`` is in bits; numerical zero counts are recorded in PNG.
+    """
+    if layout == "squarified":
+        from scripts.synergy_hierarchy_treemap import plot_synergy_treemap
+
+        return plot_synergy_treemap(
+            tree, output_path, source_labels=source_labels, decimals=decimals,
+            show_root_total=show_root_total, syn_scale_max=syn_scale_max,
+            syn_tolerance=syn_tolerance, dpi=dpi,
+        )
+    if layout != "node_link":
+        raise ValueError("layout must be 'squarified' or 'node_link'")
     output = Path(output_path)
     if output.suffix.lower() != ".png":
         raise ValueError("The default reusable renderer writes one .png figure")
