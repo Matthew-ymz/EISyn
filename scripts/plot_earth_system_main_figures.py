@@ -66,6 +66,30 @@ UNICM_TARGET_XI_CALIBRATION_SUMMARY = (
     / "unicm_target_xi_shapley_prior_normfit_1980_2003_n16384"
     / "summary.json"
 )
+UNICM_INFORMATION_PRIOR_SUMMARY = (
+    ROOT / "results" / "unicm_observational_prior_comparison_fit253_surd_allorders" / "summary.json"
+)
+# EI-Shapley remains in the complete comparison cache and appendix figure.
+UNICM_SHAP_PRIOR_SUMMARY = ROOT / "results/unicm_frozen_shap_prior_fit253_pilot/summary.json"
+UNICM_MAIN_PRIOR_METHODS = (
+    "xi_shapley", "shap", "phi_r", "phi_wms", "phi_si", "causal_density", "surd",
+)
+UNICM_MAIN_METHOD_KEYS = (
+    "frozen", "xi_shapley", "shap", "univariate", "uniform", *UNICM_MAIN_PRIOR_METHODS[2:],
+)
+# Estimation scope and data-source qualifiers are explained in earth.md appendix B.
+UNICM_MAIN_METHOD_LABELS = {
+    "frozen": "Frozen",
+    "xi_shapley": r"$\Xi$-Shapley",
+    "shap": "SHAP",
+    "univariate": "Univariate",
+    "uniform": "Uniform ridge",
+    "phi_r": r"$\Phi^R$",
+    "phi_wms": r"$\Phi^{\mathrm{WMS}}$",
+    "phi_si": r"$\Phi_{\mathrm{SI}}$",
+    "causal_density": "Causal density",
+    "surd": "Gaussian SURD",
+}
 UNICM_SPT_UNIFORM_SUMMARY = (
     ROOT
     / "results"
@@ -824,6 +848,59 @@ def plot_runge_figure(
     return outputs
 
 
+def plot_unicm_rmse_display_comparison(output_base: Path) -> list[Path]:
+    """Compare baseline-relative nRMSE with RMSE in cached model-index units.
+
+    The latter removes evaluation target scaling, not the field normalization
+    used upstream. It weights high-variance modes more heavily.
+    """
+    from scripts.run_unicm_information_prior_comparison import COLORS
+
+    comparison = json.loads(UNICM_INFORMATION_PRIOR_SUMMARY.read_text())
+    shap = json.loads(UNICM_SHAP_PRIOR_SUMMARY.read_text())
+    entries = {**comparison["methods"], "shap": shap["methods"]["shap"]}
+    labels = UNICM_MAIN_METHOD_LABELS
+    keys = UNICM_MAIN_METHOD_KEYS
+    nrmse = np.asarray([entries[k]["test_nrmse"] for k in keys])
+    reductions = 100.0 * (1.0 - nrmse / entries["frozen"]["test_nrmse"])
+    with np.load(UNICM_SHAP_PRIOR_SUMMARY.parent / "evaluation_arrays.npz") as cache:
+        raw = np.asarray([
+            np.sqrt(np.mean((cache[f"prediction_{k}"] - cache["test_target"]) ** 2, axis=0)).mean()
+            for k in keys
+        ])
+        cached_nrmse = np.asarray([
+            (np.sqrt(np.mean((cache[f"prediction_{k}"] - cache["test_target"]) ** 2, axis=0))
+             / cache["target_scale"].reshape(11, 1)).mean()
+            for k in keys
+        ])
+    if not np.allclose(cached_nrmse, nrmse, rtol=0, atol=1e-9):
+        raise ValueError("Display comparison cache differs from the main comparison.")
+    palette = {**COLORS, "shap": "#BE6B32"}
+    y = np.arange(len(keys))[::-1]
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.5), sharey=True, constrained_layout=True)
+    for ax, values, percent in zip(axes, (reductions, raw), (True, False), strict=True):
+        span = float(np.ptp(values))
+        ax.scatter(values, y, s=36, c=[palette[k] for k in keys], edgecolors="white", linewidths=0.5, zorder=3)
+        for value, row in zip(values, y, strict=True):
+            ax.text(value + 0.018 * span, row, f"{value:.2f}%" if percent else f"{value:.4f}",
+                    fontsize=8, va="center", color=INK)
+        ax.set_xlim(float(values.min()) - 0.12 * span, float(values.max()) + 0.26 * span)
+        ax.set_ylim(-0.55, len(keys) - 0.45)
+        ax.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
+        ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(5))
+        ax.set_xlabel("nRMSE reduction vs Frozen (%) · higher is better" if percent
+                      else "RMSE in model-index units · lower is better", fontsize=8)
+    axes[0].axvline(0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
+    axes[0].set_yticks(y, [labels[k] for k in keys], fontsize=8)
+    add_panel_label(axes[0], "a", x=-0.48, y=1.04)
+    add_panel_label(axes[1], "b", x=-0.06, y=1.04)
+    output = output_base.with_suffix(".png")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return [output]
+
+
 def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None) -> list[Path]:
     trees, syn_tolerance = load_unicm_checkpoint2_lead_trees()
     shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
@@ -831,11 +908,47 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     xi_calibration = json.loads(
         UNICM_TARGET_XI_CALIBRATION_SUMMARY.read_text(encoding="utf-8")
     )
-    fig = plt.figure(figsize=(12.8, 10.8), layout="constrained")
+    from scripts.run_unicm_information_prior_comparison import COLORS
+    methods = ("xi_shapley", "phi_r", "ei_shapley", "phi_wms", "phi_si", "causal_density", "surd")
+    prior_comparison = json.loads(UNICM_INFORMATION_PRIOR_SUMMARY.read_text(encoding="utf-8"))
+    if prior_comparison["parameter_mode"] != "fixed_xi":
+        raise ValueError("Main panel j requires fixed Xi-selected parameters.")
+    if prior_comparison["shared_hyperparameters"] != {"alpha": 30000.0, "gamma": 3.0}:
+        raise ValueError("Main panel j must use the original Xi-selected alpha and gamma.")
+    if prior_comparison["included_methods"] != list(methods):
+        raise ValueError("Main panel j information-prior scope differs from the active comparison.")
+    if prior_comparison["samples"] != {"fit": 253, "validation": 36, "test": 96}:
+        raise ValueError("Main panel j chronological sample counts differ from the declared experiment.")
+    for key in methods:
+        expected_distribution = ("independent_uniform_intervention_history_and_frozen_output"
+                                 if key in ("xi_shapley", "ei_shapley") else
+                                 "fit_only_natural_history_and_actual_future")
+        if prior_comparison["prior_distributions"][key] != expected_distribution:
+            raise ValueError(f"Main panel j prior distribution mismatch: {key}.")
+    if prior_comparison["prior_data_audit"]["uses_model_predictions_for_observational_prior"]:
+        raise ValueError("Observational priors must use actual future targets.")
+    reference_scores = {
+        **{key: calibration["test_metrics"][key]["mean_cell_nrmse"]
+           for key in ("frozen", "univariate")},
+        "xi_shapley": xi_calibration["test_nrmse"]["target_xi_shapley_prior"],
+    }
+    for key, score in reference_scores.items():
+        if not np.isclose(prior_comparison["methods"][key]["test_nrmse"], score, rtol=0, atol=1e-9):
+            raise ValueError(f"Main panel j reference score mismatch: {key}.")
+    shap_prior = json.loads(UNICM_SHAP_PRIOR_SUMMARY.read_text(encoding="utf-8"))
+    if (shap_prior["parameter_mode"] != "fixed_xi"
+            or shap_prior["shared_hyperparameters"] != prior_comparison["shared_hyperparameters"]
+            or shap_prior["samples"] != prior_comparison["samples"]
+            or not shap_prior["identity"]["fit_only_prior"]):
+        raise ValueError("Main SHAP comparison must preserve fixed parameters and fit-only priors.")
+    for key, entry in prior_comparison["methods"].items():
+        if not np.isclose(shap_prior["methods"][key]["test_nrmse"], entry["test_nrmse"], rtol=0, atol=1e-9):
+            raise ValueError(f"Main SHAP reference score mismatch: {key}.")
+    fig = plt.figure(figsize=(12.8, 12.0), layout="constrained")
     grid = fig.add_gridspec(
         4,
         6,
-        height_ratios=[1.65, 2.95, 2.25, 1.35],
+        height_ratios=[1.65, 2.95, 2.25, 2.4],
         hspace=0.045,
     )
 
@@ -879,14 +992,12 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
         color=MID_GREY,
     )
 
-    heatmap_grid = grid[2, :].subgridspec(
-        1,
-        5,
-        width_ratios=[1.0, 0.035, 0.10, 1.0, 0.035],
-        wspace=0.06,
-    )
-    ax_d = fig.add_subplot(heatmap_grid[0, 0])
-    ax_d_colorbar = fig.add_subplot(heatmap_grid[0, 1])
+    middle_grid = grid[2, :].subgridspec(1, 2, width_ratios=[1.0, 1.0], wspace=0.10)
+    bottom_grid = grid[3, :].subgridspec(1, 2, width_ratios=[1.0, 1.3], wspace=0.10)
+    order_grid = middle_grid[0, 0].subgridspec(1, 2, width_ratios=[1.0, 0.035], wspace=0.06)
+    share_grid = middle_grid[0, 1].subgridspec(1, 2, width_ratios=[1.0, 0.035], wspace=0.06)
+    ax_d = fig.add_subplot(order_grid[0, 0])
+    ax_d_colorbar = fig.add_subplot(order_grid[0, 1])
     from scripts.compute_unicm_spt_order_mass import load_spt_order_mass
     selected_order_cache = spt_order_cache if spt_order_cache is not None else UNICM_SPT_ORDER_MASS
     order_values = NATS_PER_BIT * load_spt_order_mass(selected_order_cache)["mean_mass_bits"]
@@ -905,8 +1016,8 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
               ha="right", va="bottom", fontsize=5.4, color="#444444")
     add_panel_label(ax_d, "g", x=-0.13, y=1.02)
 
-    ax_e = fig.add_subplot(heatmap_grid[0, 3])
-    ax_e_colorbar = fig.add_subplot(heatmap_grid[0, 4])
+    ax_e = fig.add_subplot(share_grid[0, 0])
+    ax_e_colorbar = fig.add_subplot(share_grid[0, 1])
     shapley_leads = np.asarray(
         [int(record["lead"]) for record in shapley["lead_summary"]]
     )
@@ -958,31 +1069,23 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     add_panel_label(ax_e, "h", x=-0.13, y=1.02)
 
     metrics = calibration["test_metrics"]
-    method_keys = ("frozen", "univariate", "uniform", "target_xi_shapley")
-    method_labels = (
-        "Frozen",
-        "Univariate",
-        "Uniform ridge",
-        "Xi-Shapley prior",
-    )
-    method_values = np.asarray(
-        [
-            float(metrics["frozen"]["mean_cell_nrmse"]),
-            float(metrics["univariate"]["mean_cell_nrmse"]),
-            float(metrics["uniform"]["mean_cell_nrmse"]),
-            float(xi_calibration["test_nrmse"]["target_xi_shapley_prior"]),
-        ]
-    )
-    xi_color = "#287D76"
-    method_colors = (MID_GREY, "#91A7CF", BLUE, xi_color)
+    method_keys = UNICM_MAIN_METHOD_KEYS
+    comparison_entries = {**prior_comparison["methods"], "shap": shap_prior["methods"]["shap"]}
+    for key in ("uniform", *UNICM_MAIN_PRIOR_METHODS):
+        entry = comparison_entries[key]
+        if entry["alpha"] != 30000.0 or entry["gamma"] != 3.0 or len(entry["validation_scores"]) != 1:
+            raise ValueError(f"Main panel j has searched or mismatched parameters: {key}.")
+    current_labels = UNICM_MAIN_METHOD_LABELS
+    method_labels = [current_labels[key] for key in method_keys]
+    method_nrmse = np.asarray([comparison_entries[key]["test_nrmse"] for key in method_keys])
+    # Re-express the same aggregate scores against Frozen; preserve ranking and
+    # equal target/lead weighting rather than change the evaluation metric.
+    method_values = 100.0 * (1.0 - method_nrmse / comparison_entries["frozen"]["test_nrmse"])
+    xi_color = COLORS["xi_shapley"]
+    method_palette = {**COLORS, "shap": "#BE6B32"}
+    method_colors = [method_palette[key] for key in method_keys]
 
-    bottom_grid = grid[3, :].subgridspec(
-        1,
-        2,
-        width_ratios=[1.0, 1.15],
-        wspace=0.10,
-    )
-    ax_f = fig.add_subplot(bottom_grid[0, 0])
+    ax_f = fig.add_subplot(bottom_grid[0, 1])
     method_y = np.arange(len(method_keys))[::-1]
     ax_f.scatter(
         method_values,
@@ -995,28 +1098,32 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     )
     for value, y_value in zip(method_values, method_y):
         ax_f.text(
-            value + 0.0021,
+            value + 0.18,
             y_value,
-            f"{value:.3f}",
+            f"{value:.2f}%",
             va="center",
             ha="left",
-            fontsize=5.4,
+            fontsize=6.0,
             color=INK,
         )
     ax_f.set_yticks(method_y, method_labels)
-    ax_f.set_xlabel("Test normalized RMSE")
+    ax_f.tick_params(axis="y", labelsize=6.5)
+    ax_f.set_xlabel("Test nRMSE reduction vs Frozen (%) · higher is better")
+    ax_f.axvline(0.0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
+    ax_f.text(1.0, 1.02, r"Shared $\Xi$ settings: $\alpha=30000$, $\gamma=3$", transform=ax_f.transAxes,
+              ha="right", va="bottom", fontsize=5.8, color=MID_GREY)
     score_span = float(method_values.max() - method_values.min())
-    score_pad = max(0.012, 0.15 * score_span)
+    score_pad = max(1.0, 0.15 * score_span)
     ax_f.set_xlim(
         float(method_values.min()) - score_pad,
         float(method_values.max()) + score_pad,
     )
     ax_f.xaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
-    ax_f.set_ylim(-0.55, 3.55)
+    ax_f.set_ylim(-0.55, len(method_keys) - 0.45)
     ax_f.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    add_panel_label(ax_f, "i", x=-0.18, y=1.04)
+    add_panel_label(ax_f, "j", x=-0.38, y=1.04)
 
-    ax_g = fig.add_subplot(bottom_grid[0, 1])
+    ax_g = fig.add_subplot(bottom_grid[0, 0])
     frozen_score = float(metrics["frozen"]["mean_cell_nrmse"])
     xi_score = float(xi_calibration["test_nrmse"]["target_xi_shapley_prior"])
     xi_reduction_pct = (frozen_score - xi_score) / frozen_score * 100.0
@@ -1081,7 +1188,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     ax_g.set_ylim(-0.42, 1.42)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
     ax_g.set_xlabel("Test RMSE reduction vs frozen ensemble (%)")
-    add_panel_label(ax_g, "j", x=-0.18, y=1.04)
+    add_panel_label(ax_g, "i", x=-0.18, y=1.04)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, bbox_inches="tight")
