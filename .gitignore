@@ -52,6 +52,10 @@ tests/
 tests/*
 !tests/test_spt_core.py
 !tests/test_dmf_unconstrained_spt.py
+!tests/test_dmf_response_benchmark.py
+!tests/test_dmf_joint_readout.py
+!tests/test_dmf_subject_consistency.py
+!tests/test_dmf_subject_curves.py
 !tests/test_classic_network_dynamics_benchmark.py
 !tests/test_pcmci_peid_synergy_comparison.py
 !tests/test_pcmci_peid_synergy_notebook.py
@@ -60,6 +64,8 @@ tests/*
 !tests/test_henon_mmi_pid_vs_mlp_peid.py
 !tests/test_runge_t2m_daily_weekmean.py
 !tests/test_unicm_shap_surrogate.py
+!tests/test_unicm_information_prior_comparison.py
+!tests/test_unicm_observational_information.py
 !tests/test_hcp_lausanne_phi_eid_pilot.py
 !tests/test_hcp_ped_oinfo_57.py
 !tests/test_brain_surface_plot.py

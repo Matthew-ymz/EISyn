@@ -19,7 +19,7 @@ EISyn 是一个围绕 **Partial Effective Information Decomposition (PEID)**、e
 ```text
 EISyn/
 ├── README.md              # 仓库入口说明
-├── AGENTS.md              # 协作、绘图、长实验缓存和 PEID 文献规则
+├── AGENTS.md              # 协作、绘图、长实验缓存和最新论文与代码一致性规则
 ├── utils.py               # 离散 EI/PID、TPM、benchmark、绘图等通用工具
 ├── density_benchmark.py   # density / transport-map benchmark 支持代码
 ├── yrd/                   # 长三角空气质量实验 Python 包
@@ -217,7 +217,7 @@ python scripts/export_research_framework_pdf.py
 - 实验图例不要遮挡线、点、柱或置信区间；密集图优先把 legend 放在轴外右侧。
 - 实验结果默认先产出可直接查看的 PNG；除非文档构建或用户明确要求，不默认导出 PDF / SVG / TIFF 伴随文件。
 - 长实验仅在重算成本高或用户要求时持久化机器可读缓存。
-- PEID 理论相关任务应优先使用 Zotero 检索本地 PEID 文献；不可用时需明确说明。
+- PEID、EI/Syn、SPT 相关任务应先通过 Zotero 阅读《Emergent hierarchical organization of causal interactions in complex systems》的最新相关稿件，并核对论文方法与代码行为的一致性；文献或全文不可用时需明确说明。
 
 ## 数据说明
 
