@@ -13,7 +13,7 @@ from typing import Iterable, Sequence
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import to_hex, to_rgb
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_hex, to_rgb
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.transforms import blended_transform_factory
@@ -136,7 +136,11 @@ def render_tree(
     dpi: int,
     axis: plt.Axes | None = None,
     network_colors: Sequence[str] = NETWORK_COLORS,
+    information_unit: str = "bits",
 ) -> None:
+    if information_unit not in {"bits", "nats"}:
+        raise ValueError("Tree information unit must be bits or nats")
+    display_scale = math.log(2.0) if information_unit == "nats" else 1.0
     standalone = axis is None
     mpl.rcParams.update(
         {
@@ -168,7 +172,17 @@ def render_tree(
         return point
 
     position(root)
-    max_syn = max(float(node.syn_bits) for node in internal)
+    syn_values = np.asarray([node.syn_bits for node in internal], dtype=float)
+    if not np.isfinite(syn_values).all():
+        raise ValueError("Tree contains nonfinite local split Syn values")
+    violations = syn_values < -SYN_NONNEGATIVE_TOLERANCE_BITS
+    if violations.any():
+        raise RuntimeError(
+            f"Tree Syn nonnegativity violation: minimum={syn_values.min():.12g} bits, "
+            f"threshold={-SYN_NONNEGATIVE_TOLERANCE_BITS:.12g} bits, "
+            f"affected_count={int(violations.sum())}"
+        )
+    max_syn = max(float(value) for value in syn_values)
     if standalone:
         if output is None:
             raise ValueError("A standalone tree requires an output path")
@@ -210,7 +224,7 @@ def render_tree(
         edge = _blend_with_white(SPLIT_COLOR, 0.55 + 0.45 * relative)
         if node.indices in labeled:
             axis.text(
-                x_value, y_value, f"n={node.size}\n$\\Xi$ {node.xi_bits:.2f}",
+                x_value, y_value, f"n={node.size}\nSyn {display_scale * syn:.2f}",
                 ha="center", va="center", fontsize=5.5, color=INK, linespacing=1.12,
                 bbox={"boxstyle": "round,pad=0.27", "facecolor": face, "edgecolor": edge,
                       "linewidth": 0.8 + 1.7 * relative}, zorder=4,
@@ -245,16 +259,39 @@ def render_tree(
     strip_label_transform = blended_transform_factory(axis.transAxes, axis.transData)
     axis.text(
         -0.006 if standalone else 0.0,
-        strip_y + strip_height / 2.0 if standalone else -0.21, "Yeo-7 network",
+        strip_y + strip_height / 2.0 if standalone else -0.21,
+        "Yeo-7 network (post hoc)",
         transform=strip_label_transform, ha="right" if standalone else "left", va="center",
         fontsize=5.8, color=INK, clip_on=False,
     )
 
     metrics = _tree_metrics(root)
+    # The guide uses the same linear face-color mapping as every split node.
+    syn_cmap = LinearSegmentedColormap.from_list(
+        "local_split_syn",
+        [_blend_with_white(SPLIT_COLOR, 0.12), _blend_with_white(SPLIT_COLOR, 0.74)],
+    )
+    syn_max_display = display_scale * max_syn
+    color_axis = axis.inset_axes(
+        [1.015, 0.14, 0.20, 0.018] if standalone else [0.79, 1.115, 0.20, 0.018]
+    )
+    colorbar = figure.colorbar(
+        mpl.cm.ScalarMappable(
+            norm=Normalize(vmin=0.0, vmax=syn_max_display if syn_max_display > 0.0 else 1.0),
+            cmap=syn_cmap,
+        ),
+        cax=color_axis, orientation="horizontal",
+        ticks=[0.0, syn_max_display] if syn_max_display > 0.0 else [0.0],
+        format="%.2f",
+    )
+    colorbar.set_label(f"Local split Syn ({information_unit})", fontsize=5.8, labelpad=2)
+    color_axis.xaxis.set_label_position("top")
+    color_axis.tick_params(labelsize=5.5, length=2, pad=1)
+    colorbar.outline.set_linewidth(0.4)
     if not standalone:
         axis.text(
             0.5, 1.015,
-            rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={root.xi_bits:.2f}$ bits",
+            rf"$G={coupling_g:g}$, seed {seed}  |  $\Xi={display_scale * root.xi_bits:.2f}$ {information_unit}",
             transform=axis.transAxes, ha="center", va="bottom", fontsize=7, color=INK,
         )
         axis.set_xlim(-1.0, root.size)
@@ -264,7 +301,7 @@ def render_tree(
     root_x, _ = positions[root.indices]
     axis.text(
         root_x, 1.115,
-        rf"Overall $\Xi$ = {root.xi_bits:.2f} bits",
+        rf"Overall $\Xi$ = {display_scale * root.xi_bits:.2f} {information_unit}",
         ha="center", va="center", fontsize=9.0, color=INK,
     )
     axis.text(

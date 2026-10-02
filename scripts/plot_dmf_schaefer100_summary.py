@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tree-summary", type=Path, default=ROOT / "results/dmf_schaefer100/xi_hierarchy_tree/summary.json")
     parser.add_argument("--legacy-layout", action="store_true", help="Render the original a–g summary instead of the five-panel composition.")
     parser.add_argument("--yeo-prior", action="store_true", help="Constrain the root to Yeo-7 and search within each network; use a separate output stem.")
-    parser.add_argument("--roi-shapley", type=Path, help="Validated overall-Xi ROI Shapley cache for panel e; required with --yeo-prior.")
+    parser.add_argument("--roi-shapley", type=Path, help="Validated overall-Xi ROI Shapley cache for panel e, independent of the displayed tree; required with --yeo-prior.")
     return parser.parse_args()
 
 
@@ -702,7 +702,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_e.tick_params(axis="y", pad=1)
-    ax_e.set_xlabel(r"Network $\Xi$ (nats)")
+    ax_e.set_xlabel(r"Yeo network $\Xi$ (nats)")
     ax_e.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_e, "c")
 
@@ -720,7 +720,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_f.tick_params(axis="y", pad=1)
-    ax_f.set_xlabel(r"Between-network Shapley $\Xi$ (nats)")
+    ax_f.set_xlabel(r"Between-Yeo Shapley $\Xi$ (nats)")
     ax_f.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_f, "d")
 
@@ -759,10 +759,6 @@ def plot_summary(args: argparse.Namespace) -> None:
             network_order=order[::-1].tolist(), seed=int(hierarchy["seed"]),
             coupling_g=float(hierarchy["coupling_g"]),
         )
-        ax_e.text(0.5, 1.035, "8 seeds × 3 G values; mean ± seed SD", transform=ax_e.transAxes,
-                  ha="center", va="bottom", fontsize=5.7, color="0.35")
-        ax_f.text(0.5, 1.035, "8 seeds × 3 G values; mean ± seed SD", transform=ax_f.transAxes,
-                  ha="center", va="bottom", fontsize=5.7, color="0.35")
     else:
         render_tree(
             tree, None,
@@ -772,14 +768,18 @@ def plot_summary(args: argparse.Namespace) -> None:
             seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
             dpi=450, axis=ax_tree,
             network_colors=[network_color(name) for name in network_names],
+            information_unit="nats",
         )
+    for axis in (ax_e, ax_f):
+        axis.text(0.5, 1.035, "Fixed Yeo groups; 8 seeds × 3 G; mean ± seed SD", transform=axis.transAxes,
+                  ha="center", va="bottom", fontsize=5.7, color="0.35")
     ax_tree.text(
         -0.015, 1.015, "b", transform=ax_tree.transAxes,
         fontsize=10, fontweight="bold", va="bottom",
     )
     ax_tree.legend(
         handles=[Patch(facecolor=network_color(name), label=name) for name in network_names],
-        loc="lower center", bbox_to_anchor=(0.5, 1.075), ncol=4,
+        loc="lower center", bbox_to_anchor=(0.40 if not yeo_prior else 0.5, 1.075), ncol=4,
         fontsize=6.3, handlelength=1, labelspacing=0.65, columnspacing=1.1,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
