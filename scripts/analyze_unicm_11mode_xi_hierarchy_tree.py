@@ -176,15 +176,18 @@ def _node_record(tree: PhiTreeNode) -> dict[str, object]:
 
 
 def _coalition_label(
-    node: PhiTreeNode, *, compact: bool = False, display_scale: float = 1.0
+    node: PhiTreeNode, *, compact: bool = False, display_scale: float = 1.0,
+    percentage: bool = False,
 ) -> str:
+    value = (f"{display_scale * node.residual:.1f}%" if percentage
+             else f"{display_scale * node.residual:.3f}")
     if compact:
-        return f"{display_scale * node.residual:.3f}"
+        return value
     if frozenset(node.sources) == CORE_MODES:
         members = "5-mode core"
     else:
         members = f"{node.order} modes"
-    return f"{members}\nSyn {display_scale * node.residual:.3f}"
+    return f"{members}\nSyn {value}"
 
 
 def _positions(tree: PhiTreeNode) -> tuple[dict[int, tuple[float, float]], list[PhiTreeNode]]:
@@ -236,9 +239,31 @@ def render_trees(
     compact_node_labels: bool = False,
     display_scale: float = 1.0,
     display_unit: str = "bits",
+    node_value_mode: str = "absolute",
 ) -> None:
+    """Display local Syn, optionally as percent of each tree's root Xi.
+
+    Root-share labels are local residuals, not cumulative coalition Xi. A complete
+    singleton-terminated tree therefore has unrounded shares summing to 100%.
+    Both node labels and the shared color scale use the selected quantity.
+    """
     trees = [_expand_pair_leaves(tree) for tree in trees]
     _validate_syn(trees, syn_tolerance)
+    if node_value_mode not in ("absolute", "root_share"):
+        raise ValueError(f"Unknown node value mode: {node_value_mode}")
+    percentage = node_value_mode == "root_share"
+    node_scales = []
+    for tree in trees:
+        if percentage:
+            if not np.isfinite(tree.phi_value) or tree.phi_value <= 0:
+                raise ValueError("Root-share display requires finite, positive root Xi")
+            if any(node.order != 1 for node in _terminal_order(tree)):
+                raise ValueError("Root-share display requires singleton-terminated trees")
+            closure = sum(node.residual for node in _flatten(tree) if node.children) - tree.phi_value
+            if abs(closure) > syn_tolerance:
+                raise ValueError(f"SPT root-share closure failed: error={closure:.12g} bits, "
+                                 f"tolerance={syn_tolerance:.12g} bits")
+        node_scales.append(100.0 / tree.phi_value if percentage else display_scale)
     mpl.rcParams.update(
         {
             "font.family": "sans-serif",
@@ -250,8 +275,9 @@ def render_trees(
             "savefig.facecolor": "white",
         }
     )
-    all_internal = [node for tree in trees for node in _flatten(tree) if node.children]
-    maximum_syn = display_scale * max(float(node.residual) for node in all_internal)
+    maximum_syn = max(scale * float(node.residual)
+                      for tree, scale in zip(trees, node_scales, strict=True)
+                      for node in _flatten(tree) if node.children)
     norm = Normalize(vmin=0.0, vmax=maximum_syn if maximum_syn > 0 else 1.0)
     cmap = mpl.colors.LinearSegmentedColormap.from_list("syn", ["#F1F7F5", SYN_COLOR])
     if canvas is None:
@@ -265,8 +291,8 @@ def render_trees(
         raise ValueError("core_highlights must match the number of trees")
     maximum_depth = max(node.depth for tree in trees for node in _terminal_order(tree))
 
-    for axis, tree, seed, highlight_core in zip(
-        axes_array, trees, seeds, core_highlights, strict=True
+    for axis, tree, seed, highlight_core, node_scale in zip(
+        axes_array, trees, seeds, core_highlights, node_scales, strict=True
     ):
         positions, terminals = _positions(tree)
         internal = [node for node in _flatten(tree) if node.children]
@@ -309,12 +335,13 @@ def render_trees(
 
         for node in internal:
             x_value, y_value = positions[id(node)]
-            syn = display_scale * float(node.residual)
+            syn = node_scale * float(node.residual)
             # Only validated numerical negatives are displayed as zero; raw values stay intact.
             relative = float(norm(0.0 if syn < 0 else syn))
             axis.text(
                 x_value, y_value, _coalition_label(
-                    node, compact=compact_node_labels, display_scale=display_scale
+                    node, compact=compact_node_labels, display_scale=node_scale,
+                    percentage=percentage,
                 ),
                 ha="center", va="center", fontsize=node_label_fontsize,
                 color="white" if relative > 0.65 else INK, linespacing=1.0,
@@ -362,7 +389,8 @@ def render_trees(
     scalar.set_array([])
     if show_colorbar:
         colorbar = figure.colorbar(scalar, ax=list(axes_array), location="right", shrink=0.55, pad=0.02)
-        colorbar.set_label(f"Local hierarchy Syn ({display_unit})")
+        colorbar.set_label(r"Local Syn / root $\Xi$ (%)" if percentage
+                           else f"Local hierarchy Syn ({display_unit})")
     if canvas is not None:
         return
     objective_label = (
@@ -371,8 +399,9 @@ def render_trees(
         else "raw-residual split selection"
     )
     figure.text(0.5, -0.02,
-                f"Lead {lead}  |  {objective_label}  |  ENSO = nino  |  "
-                "Shading marks core membership; node fill shows local Syn.",
+                f"Lead {lead}  |  {objective_label}  |  ENSO = nino  |  " +
+                ("Shading marks core membership; node labels and fill show local Syn / root Xi (%)."
+                 if percentage else "Shading marks core membership; node fill shows local Syn."),
                 ha="center", va="top", fontsize=8, color=INK)
     output.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output, dpi=int(dpi), bbox_inches="tight", facecolor="white")

@@ -12,6 +12,7 @@ from scipy.stats import spearmanr
 
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
 from scripts.dmf_response_benchmark import LABELS, METHODS
+from scripts.report_sections import write_report_section
 BASE=ROOT/'results/dmf_schaefer100/response_benchmark_pilot'
 FIG=ROOT/'fig/dmf_response_benchmark'
 COLORS=['#0072B2','#E69F00','#009E73','#CC79A7','#D55E00','#56B4E9','#3C3C3C',
@@ -264,9 +265,9 @@ G=1.3；刺激 ROI {contract['sites'][0]+1}（左半球低 SC 强度层）、{co
 - 重绘已有缓存：`/opt/anaconda3/envs/py311/bin/python scripts/plot_dmf_response_benchmark.py`。
 - 正确性验证：`python -m pytest tests/test_dmf_response_benchmark.py -q`，16 项通过。
 - 配置、输入哈希、候选、原始分数、响应轨迹、种子、数值诊断和计时：`results/dmf_schaefer100/response_benchmark_pilot/`，NPZ/JSON。
-- 本地 Zotero 已搜索 PEID 并阅读 MYATYWAJ（26 页全文）、P7L7F9FT（12 页全文）、26Q48H8Y（正文 12 页、SI 10 页）。定义与引用沿用[实验计划](brain_dmf_response_benchmark_plan.md)；LU 扩展及 tonic 控制仍为本实验操作性选择。
+- 本地 Zotero 已搜索 PEID 并阅读 MYATYWAJ（26 页全文）、P7L7F9FT（12 页全文）、26Q48H8Y（正文 12 页、SI 10 页）。定义与引用沿用[实验计划](brain.md#dmf-retired-contract)；LU 扩展及 tonic 控制仍为本实验操作性选择。
 '''
-    (ROOT/'docs/reports/brain_dmf_response_benchmark_pilot.md').write_text(text)
+    write_report_section(ROOT/'docs/reports/brain.md', 'dmf-response-pilot', text)
     return cost
 
 

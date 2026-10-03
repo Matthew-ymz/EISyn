@@ -137,9 +137,22 @@ def render_tree(
     axis: plt.Axes | None = None,
     network_colors: Sequence[str] = NETWORK_COLORS,
     information_unit: str = "bits",
+    node_value_mode: str = "absolute",
+    syn_color_max: float | None = None,
+    show_colorbar: bool = True,
+    show_roi_labels: bool = True,
+    show_network_strip_label: bool = True,
+    node_label_limit: int = 12,
 ) -> None:
+    """Render local split Syn, optionally as percent of overall root Xi.
+
+    ROI leaves retain their within-ROI E/I increments. Internal-node shares
+    therefore close with leaf shares, rather than summing to 100% on their own.
+    """
     if information_unit not in {"bits", "nats"}:
         raise ValueError("Tree information unit must be bits or nats")
+    if node_value_mode not in {"absolute", "root_share"}:
+        raise ValueError("Tree node values must be absolute or root_share")
     display_scale = math.log(2.0) if information_unit == "nats" else 1.0
     standalone = axis is None
     mpl.rcParams.update(
@@ -182,7 +195,29 @@ def render_tree(
             f"threshold={-SYN_NONNEGATIVE_TOLERANCE_BITS:.12g} bits, "
             f"affected_count={int(violations.sum())}"
         )
+    percentage = node_value_mode == "root_share"
+    if percentage:
+        if not np.isfinite(root.xi_bits) or root.xi_bits <= 0:
+            raise ValueError("Root-share display requires finite, positive overall Xi")
+        leaves = [node for node in all_nodes if not node.children]
+        leaf_values = np.asarray([node.xi_bits for node in leaves], dtype=float)
+        if not np.isfinite(leaf_values).all() or np.any(leaf_values < -SYN_NONNEGATIVE_TOLERANCE_BITS):
+            raise ValueError("Root-share display requires valid nonnegative leaf Xi")
+        closure = float(syn_values.sum() + leaf_values.sum() - root.xi_bits)
+        if abs(closure) > SYN_NONNEGATIVE_TOLERANCE_BITS:
+            raise ValueError(f"Tree share closure failed: error={closure:.12g} bits, "
+                             f"tolerance={SYN_NONNEGATIVE_TOLERANCE_BITS:.12g} bits")
+    node_scale = 100.0 / root.xi_bits if percentage else display_scale
     max_syn = max(float(value) for value in syn_values)
+    local_max_display = node_scale * max_syn
+    color_max_display = local_max_display if syn_color_max is None else float(syn_color_max)
+    if syn_color_max is not None and (
+        not np.isfinite(color_max_display) or color_max_display <= 0.0
+        or color_max_display < local_max_display - 1.0e-10
+    ):
+        raise ValueError("Shared Syn color maximum must be finite, positive, and cover every node")
+    if node_label_limit < 0:
+        raise ValueError("Node label limit must be nonnegative")
     if standalone:
         if output is None:
             raise ValueError("A standalone tree requires an output path")
@@ -210,21 +245,23 @@ def render_tree(
     labeled: set[tuple[int, ...]] = set()
     label_points: list[tuple[float, float]] = []
     for node in ranked:
+        if len(labeled) >= node_label_limit:
+            break
         x_value, y_value = positions[node.indices]
         if all(abs(x_value - old_x) >= 4.0 or abs(y_value - old_y) >= 0.075 for old_x, old_y in label_points):
             labeled.add(node.indices)
             label_points.append((x_value, y_value))
-        if len(labeled) >= 12:
-            break
     for node in internal:
         x_value, y_value = positions[node.indices]
         syn = 0.0 if -SYN_NONNEGATIVE_TOLERANCE_BITS <= node.syn_bits < 0.0 else float(node.syn_bits)
-        relative = min(1.0, syn / max_syn) if max_syn > 0.0 else 0.0
+        relative = node_scale * syn / color_max_display if color_max_display > 0.0 else 0.0
         face = _blend_with_white(SPLIT_COLOR, 0.12 + 0.62 * relative)
         edge = _blend_with_white(SPLIT_COLOR, 0.55 + 0.45 * relative)
         if node.indices in labeled:
+            value_label = (f"{node_scale * syn:.2f}%" if percentage
+                           else f"Syn {node_scale * syn:.2f}")
             axis.text(
-                x_value, y_value, f"n={node.size}\nSyn {display_scale * syn:.2f}",
+                x_value, y_value, f"n={node.size}\n{value_label}",
                 ha="center", va="center", fontsize=5.5, color=INK, linespacing=1.12,
                 bbox={"boxstyle": "round,pad=0.27", "facecolor": face, "edgecolor": edge,
                       "linewidth": 0.8 + 1.7 * relative}, zorder=4,
@@ -251,19 +288,21 @@ def render_tree(
                 zorder=4, clip_on=False,
             )
         )
-        axis.text(
-            x_value, -0.042, _short_roi_label(labels[index]), rotation=90,
-            ha="right", va="top", fontsize=3.7, color="#55616D", clip_on=False,
-        )
+        if show_roi_labels:
+            axis.text(
+                x_value, -0.042, _short_roi_label(labels[index]), rotation=90,
+                ha="right", va="top", fontsize=3.7, color="#55616D", clip_on=False,
+            )
 
     strip_label_transform = blended_transform_factory(axis.transAxes, axis.transData)
-    axis.text(
-        -0.006 if standalone else 0.0,
-        strip_y + strip_height / 2.0 if standalone else -0.21,
-        "Yeo-7 network (post hoc)",
-        transform=strip_label_transform, ha="right" if standalone else "left", va="center",
-        fontsize=5.8, color=INK, clip_on=False,
-    )
+    if show_network_strip_label:
+        axis.text(
+            -0.006 if standalone else 0.0,
+            strip_y + strip_height / 2.0 if standalone else -0.21,
+            "Yeo-7 network (post hoc)",
+            transform=strip_label_transform, ha="right" if standalone else "left", va="center",
+            fontsize=5.8, color=INK, clip_on=False,
+        )
 
     metrics = _tree_metrics(root)
     # The guide uses the same linear face-color mapping as every split node.
@@ -271,23 +310,24 @@ def render_tree(
         "local_split_syn",
         [_blend_with_white(SPLIT_COLOR, 0.12), _blend_with_white(SPLIT_COLOR, 0.74)],
     )
-    syn_max_display = display_scale * max_syn
-    color_axis = axis.inset_axes(
-        [1.015, 0.14, 0.20, 0.018] if standalone else [0.79, 1.115, 0.20, 0.018]
-    )
-    colorbar = figure.colorbar(
-        mpl.cm.ScalarMappable(
-            norm=Normalize(vmin=0.0, vmax=syn_max_display if syn_max_display > 0.0 else 1.0),
-            cmap=syn_cmap,
-        ),
-        cax=color_axis, orientation="horizontal",
-        ticks=[0.0, syn_max_display] if syn_max_display > 0.0 else [0.0],
-        format="%.2f",
-    )
-    colorbar.set_label(f"Local split Syn ({information_unit})", fontsize=5.8, labelpad=2)
-    color_axis.xaxis.set_label_position("top")
-    color_axis.tick_params(labelsize=5.5, length=2, pad=1)
-    colorbar.outline.set_linewidth(0.4)
+    if show_colorbar:
+        color_axis = axis.inset_axes(
+            [1.015, 0.14, 0.20, 0.018] if standalone else [0.79, 1.115, 0.20, 0.018]
+        )
+        colorbar = figure.colorbar(
+            mpl.cm.ScalarMappable(
+                norm=Normalize(vmin=0.0, vmax=color_max_display if color_max_display > 0.0 else 1.0),
+                cmap=syn_cmap,
+            ),
+            cax=color_axis, orientation="horizontal",
+            ticks=[0.0, color_max_display] if color_max_display > 0.0 else [0.0],
+            format="%.2f",
+        )
+        colorbar.set_label(r"Local Syn / overall $\Xi$ (%)" if percentage
+                           else f"Local split Syn ({information_unit})", fontsize=5.8, labelpad=2)
+        color_axis.xaxis.set_label_position("top")
+        color_axis.tick_params(labelsize=5.5, length=2, pad=1)
+        colorbar.outline.set_linewidth(0.4)
     if not standalone:
         axis.text(
             0.5, 1.015,

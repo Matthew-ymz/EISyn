@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render and report the frozen joint-readout smoke test, including negative results."""
 from pathlib import Path
+import sys
 import json
 import numpy as np
 import matplotlib
@@ -8,9 +9,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from scripts.report_sections import write_report_section
 BASE=ROOT/'results/dmf_schaefer100/joint_readout_pilot'
 FIG=ROOT/'fig/dmf_joint_readout'
-REPORT=ROOT/'docs/reports/brain_dmf_joint_readout_pilot.md'
+REPORT=ROOT/'docs/reports/brain.md'
 COLORS=dict(factorized='#0072B2',conditional_pairwise='#E69F00',joint='#009E73')
 LABELS=dict(factorized='Factorized',conditional_pairwise='Conditional pairwise',joint='Joint')
 
@@ -70,7 +73,7 @@ def main():
         '',
         '**新计划的小规模预实验已执行。预算和数值检查通过；当前解码配置没有显示联合读取优势，因此尚不进入正式比较。**',
         '',
-        '执行日期：2026-10-02。对应[全脑方案](brain_dmf_global_integration_plan.md)第 6 节的下一步：固定 G、k＝2/4 读取烟测。',
+        '执行日期：2026-10-02。对应[旧实验合同](brain.md#dmf-retired-contract)中的一次小规模检验：固定 G、k＝2/4 读取烟测。',
         '',
         '## 已执行的合同',
         '',
@@ -145,7 +148,7 @@ def main():
         '- 验证：`/opt/anaconda3/envs/py311/bin/python -m pytest tests/test_dmf_joint_readout.py tests/test_dmf_response_benchmark.py -q`。',
         '- 原生输出：`results/dmf_schaefer100/joint_readout_pilot/` 中 JSON 合同、评分、审计与 NPZ 轨迹／后验；不生成 CSV。',
         '']
-    REPORT.write_text('\n'.join(lines))
+    write_report_section(REPORT, 'dmf-joint-pilot', '\n'.join(lines))
     print(REPORT)
 
 

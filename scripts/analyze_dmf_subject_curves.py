@@ -21,6 +21,9 @@ sys.path.insert(0, str(ROOT))
 from scripts.analyze_dmf_subject_consistency import load
 from scripts.dmf_subject_consistency import transition_interval
 from scripts.run_dmf_subject_consistency import BASE, atomic_json
+from scripts.dmf_ei_curve_decomposition import decompose, draw_components, write_report as decomposition_report
+from scripts.dmf_curve_shape import analyze_shapes, draw_order_comparison, draw_shape_diagnostics, shape_report
+from scripts.report_sections import write_report_section
 
 LABELS = {'xi': 'Interventional $\\Xi$', 'whole_ei': 'Whole EI',
           'phi_r': 'BOLD-like pairwise $\\Phi^R$', 'wms': 'Observational source WMS'}
@@ -80,8 +83,8 @@ def repeatability(curves):
 
 def analyze(d, baseline_path):
     ids=d['ids'][:8]; g=d['g']
-    curves={'xi':d['metrics']['xi_nats'][:8], 'whole_ei':d['metrics']['whole_ei_nats'][:8]}
-    reference={'xi':d['metrics']['xi_nats'][8], 'whole_ei':d['metrics']['whole_ei_nats'][8]}
+    curves={'xi':d['metrics']['xi_nats'][:8]}
+    reference={'xi':d['metrics']['xi_nats'][8]}
     baseline_contract=None;baseline_audit=None
     if baseline_path.exists():
         with np.load(baseline_path) as a:
@@ -150,32 +153,17 @@ def analyze(d, baseline_path):
 
 def draw(d,s,curves,aligned,selected,path):
     names=list(curves);n=len(names);subject_colors=plt.cm.viridis(np.linspace(.08,.9,8))
-    fig,axes=plt.subplots(3,n,figsize=(4*n,9.2),layout='constrained',squeeze=False)
+    fig,axes=plt.subplots(1,n,figsize=(4*n,3.8),layout='constrained',squeeze=False)
     for col,name in enumerate(names):
         values=curves[name]
         for i in range(8):
             mean=values[i].mean(0)
             style=dict(color=subject_colors[i],lw=1.25,marker=SUBJECT_MARKERS[i],ms=3)
             axes[0,col].plot(d['g'],mean,label=d['ids'][i],**style)
-            axes[1,col].plot(d['g'],standard_curve(mean),**style)
-        for row,i in enumerate(selected):
-            mean=aligned[name][row].mean(0)
-            axes[2,col].plot(s['aligned_state_grid'],standard_curve(mean),
-                            color=subject_colors[i],lw=1.25,marker=SUBJECT_MARKERS[i],ms=3)
         ref=np.mean(s['group_mean_reference'][name],axis=0)
         axes[0,col].plot(d['g'],ref,color='#222222',ls='--',lw=1.3,label='Mean SC (93)')
-        axes[1,col].plot(d['g'],standard_curve(ref),color='#222222',ls='--',lw=1.3)
-        t=s['group_mean_transition']
-        if t['located']:
-            z=(d['g']-t['midpoint'])/t['midpoint']
-            grid=np.asarray(s['aligned_state_grid'])
-            if grid.min()<z.min()-1e-12 or grid.max()>z.max()+1e-12:
-                raise ValueError('Mean-SC reference cannot cover the common state grid')
-            axes[2,col].plot(grid,standard_curve(np.interp(grid,z,ref)),color='#222222',ls='--',lw=1.3)
         axes[0,col].set_title(LABELS[name],fontsize=10)
         axes[0,col].set(xlabel='$G$',ylabel='Information (nats)')
-        axes[1,col].set(xlabel='$G$',ylabel='Standardized curve (z score)')
-        axes[2,col].set(xlabel='$(G-G_c)/G_c$',ylabel='Standardized curve (z score)')
     for letter,ax in zip('abcdefghijkl',axes.ravel()):
         ax.text(-.14,1.04,letter,transform=ax.transAxes,fontweight='bold',fontsize=11)
     fig.legend(*axes[0,0].get_legend_handles_labels(),loc='outside upper center',ncol=3,frameon=False,fontsize=8)
@@ -241,8 +229,7 @@ def report(s,path):
     if not s['missing_native_baselines']:
         shape=[s['metrics'][k]['aligned_state7']['pearson_mean'] for k in ['xi','phi_r','wms']]
         interpretation=(f"Ξ、ΦR、WMS在独立状态对齐后均达到较高的曲线相似度（Pearson {min(shape):.3f}–{max(shape):.3f}）。"
-            "这一维度没有显示Ξ明显占优；三者的均值次序也随是否对齐改变。whole EI的形状最一致，但主要表现为随G下降，"
-            "不能据此将它视作最好的内部转折标记。8人开发样本及原生协议差别限定了这项描述性排名。")
+            "这一维度没有显示Ξ明显占优；三者的均值次序也随是否对齐改变。8人开发样本及原生协议差别限定了这项描述性排名。")
         peak_interpretation=(f"ΦR的峰与WMS的谷在8人均值曲线上位于相同格点，中间6人均为G=1，"
             f"原G位置SD均为{s['metrics']['phi_r']['landmark_G_sd_all8']:.3f}，小于Ξ的{s['metrics']['xi']['landmark_G_sd_all8']:.3f}。"
             f"相对于独立转折区间，Ξ有{s['metrics']['xi']['landmark_in_transition_interval_count']}/7命中，"
@@ -267,11 +254,51 @@ def report(s,path):
             "这不是2048段独立自然轨迹；高维 Gaussian 拟合和短记录均是本次原生比较的限制。")
     native_text=('原生 ΦR＋WMS 已完成同一8人×7 G×3 seed，并补算平均SC参照，共189条件。平均SC只作虚线参照，不进入被试一致性训练或统计。'
                  if not s['missing_native_baselines'] else '当前仅完成已有 Ξ/EI 缓存分析；原生 ΦR/WMS 未完整，未纳入结果。')
-    text='''# DMF 跨个体曲线：Ξ、ΦR 与 WMS
+    text='''# DMF 指标与个体动力学转折：Ξ、ΦR 与 WMS
 
-2026-10-02。@NATIVE@ 本比较检验曲线随耦合 G 变化时的跨个体一致性，同时区分随机重复、峰/谷位置与转折标记。8个体依据原生SC谱半径等距秩选取，属于开发样本；均值±SD是描述性结果，不作人口推断。
+2026-10-03更新；原模拟完成于2026-10-02。@NATIVE@ 主比较改为：指标极值是否对应各人的独立序参量转折，以及曲线是否有额外回摆。峰的存在或跨人峰位接近不直接代表正确；跨被试一致性作为补充维度保留。8个体依据原生SC谱半径等距秩选取，属于开发样本；均值±SD是描述性结果，不作人口推断。whole EI单独见[整体EI与部分EI之和的峰值分解](brain.md#dmf-ei-components)。本轮只复用原缓存，无新增模拟、参数调整或平滑。
 
-## 1. 整条曲线是否一致
+## 1. 三项指标与每人的序参量
+
+![三项指标的原始曲线](assets/dmf_subject_consistency/metric_curves.png)
+
+**图1。** 主图仅保留A、B、C三个原始nats面板，依次为Ξ、ΦR、WMS，每人曲线为3seed均值。颜色/标记固定对应个体；虚线是93人平均SC的独立模拟参照，不是8人的曲线均值。WMS有符号，谷值方向保留。
+
+![每人的独立序参量与指标曲线](assets/dmf_subject_consistency/order_parameter_curves.png)
+
+**图2。** 每人一格，上部是独立5s模拟最后2s、100ROI平均兴奋性发放率（Hz），下部是三项指标的同人形状。灰带由独立发放率最大正斜率区间确定；斜线灰带为边界、尚无法定位。为了同轴查看各指标形状，下部仅按各自3seed均值曲线的跨G均值/SD作z标准化，未按峰位对齐、翻转WMS或对G插值。细带为3seed SD，上部用Hz，下部用同一个固定标准化尺度换算；不是置信区间。下部统一显示范围，先检查所有均值±SD均被保留。
+
+## 2. 峰/谷是否对应各人的序参量转折
+
+个体顺序固定为sub-10377、sub-10249、sub-10321、sub-10274、sub-10631、sub-10565、sub-10325、sub-10228，SC谱半径递增。沿用原生DMF比较的极值方向：Ξ、ΦR主报最大值，WMS主报最小值；同时给出所有指标的最大值和最小值。位置在原观测格点上查找，未用插值找峰。格点极值不能认定为连续G的真实峰/谷；边界极值可能是单调趋势或扫描不足。独立发放率在内部出现最大正斜率，只标为转折候选，不能在有限尺寸模型的7点扫描中证明相变；“无法定位”也不等于“没有相变”。
+
+本次8人中7人有内部转折候选，sub-10377最大正斜率位于G=2.2→3边界。它的Ξ仍向扫描末端上升，ΦR在G=2.2达峰、WMS在同处达谷；这些是边界附近的候选关系，不能直接计作虚假峰。当前没有独立确认无转变的对照，所以不能估计“无相变却报峰”的假阳性率。不同被试的转折区间本来就不同，共同G下峰位不一致本身不构成错误。
+
+| 指标 | 主参照 | 8人均值曲线极值G，依上述顺序 | 极值G的SD | 扫描内部 | 落在独立转折区间 |
+|---|---|---|---:|---:|---:|
+@PEAKS@
+
+**表1。** 极值G的SD使用全部8人；转折区间命中只计7个可定位人，含区间端点。共同G的极值集中与相对于自身动力学转折的位置一致是不同问题，JSON保留每人到独立转折中点的偏移和3个seed的峰/谷位置。
+
+![各指标原格点极值与独立发放率转折区间](assets/dmf_subject_consistency/curve_extrema.png)
+
+**图3。** 小标记显示各seed的极值G，空心菱形是3seed均值曲线的极值；灰条为独立发放率最大变化区间。无法定位的sub-10377不画灰条，仍保留其观测极值。WMS列采用谷的位置。
+
+| 指标 | 8人最大值G | 8人最小值G |
+|---|---|---|
+@BOTH@
+
+**表2。** 保留两种方向的极值，WMS评价对应的是谷的位置。
+
+@PEAK_INTERPRETATION@
+
+Ξ的两个SC尺度极端在共同G下峰位错开，因此还需对照同一7人的独立状态对齐结果。对原生ΦR/WMS，一致性分数只说明各自观测和估计协议下的曲线表现，不能把它们与Ξ的差别完全归因于指标公式，也不能据8人的均值排名宣布全面优势。
+
+## 3. 单峰偏离与折线粗糙程度
+
+@SHAPE@
+
+## 4. 跨被试一致性：补充比较
 
 @RANKING@
 
@@ -283,47 +310,21 @@ def report(s,path):
 |---|---:|---:|---:|
 @AGREEMENT@
 
-**表1。** 独立seed留一人形状Pearson的个体均值±SD。状态参照来自独立发放率诊断：最大变化区间的中点Gc。sub-10377处于扫描边界，不能定位；7人是同一组，故原G的7人结果提供对齐前参照。共同状态支持为−1至0.579，取7个等距点，对原7个G观测线性插值，不外推。截短区间与插值会改变比较问题，相关提高不能全部归因于状态差异消除。
+**表6。** 独立seed留一人形状Pearson的个体均值±SD。状态参照来自独立发放率诊断：最大变化区间的中点Gc。sub-10377处于扫描边界，不能定位；7人是同一组，故原G的7人结果提供对齐前参照。共同状态支持为−1至0.579，取7个等距点，对原7个G观测线性插值，不外推。截短区间与插值会改变比较问题，相关提高不能全部归因于状态差异消除。
 
 | 指标 | 原G8人 Spearman | 原G7人 Spearman | 对齐7人 Spearman | 同人不同seed Pearson，8人均值±SD |
 |---|---:|---:|---:|---:|
 @RANKS@
 
-**表2。** Spearman沿用表1的留一人计算。同人重复性则先平均每人的3对seed相关，再汇总8人；这与跨个体一致性是不同端点。原始幅度共识的敏感性结果及每人分数保留在JSON中，未将seed、28个被试对或4950个ROI对当作独立被试。
-
-![各指标原始量级、原G形状与独立状态对齐形状](assets/dmf_subject_consistency/metric_curves.png)
-
-**图1。** 每种指标一列，依次为3seed均值的原始nats、原G下标准化形状、共同状态区间的标准化形状。颜色固定对应个体，虚线为93人平均SC的独立模拟参照；它不是8条曲线的均值。图中每人先平均seed再标准化，表1每个seed先独立标准化后评估，不能以图替代表中计算。第三行仅含7个可定位个体及可定位的平均SC参照，连线/插值没有增加独立观测。
+**表7。** Spearman沿用表6的留一人计算。同人重复性则先平均每人的3对seed相关，再汇总8人；这与跨个体一致性是不同端点。原始幅度共识的敏感性结果及每人分数保留在JSON中，未将seed、28个被试对或4950个ROI对当作独立被试。
 
 ![跨个体独立seed相关比较](assets/dmf_subject_consistency/curve_agreement.png)
 
-**图2。** Pearson与Spearman使用相同评估和人群。点为个体均值，误差棒为个体SD，不是置信区间；均值±SD可能超出相关的合法范围，误差棒不截断。原G7人与对齐7人使用相同个体，横轴支持和采样点不同。
+**图5。** Pearson与Spearman使用相同评估和人群。点为个体均值，误差棒为个体SD，不是置信区间；均值±SD可能超出相关的合法范围，误差棒不截断。原G7人与对齐7人使用相同个体，横轴支持和采样点不同。
 
-## 2. 峰/谷位置与独立转折
+## 5. 原生协议与数值审计
 
-个体顺序固定为sub-10377、sub-10249、sub-10321、sub-10274、sub-10631、sub-10565、sub-10325、sub-10228，SC谱半径递增。沿用原生DMF比较的极值方向：Ξ、ΦR、whole EI主报最大值，WMS主报最小值；同时给出所有指标的最大值和最小值。位置在原观测格点上查找，未用插值找峰。格点极值不能认定为连续G的真实峰/谷；边界极值可能是单调趋势或扫描不足。
-
-| 指标 | 主参照 | 8人均值曲线极值G，依上述顺序 | 极值G的SD | 扫描内部 | 落在独立转折区间 |
-|---|---|---|---:|---:|---:|
-@PEAKS@
-
-**表3。** 极值G的SD使用全部8人；转折区间命中只计7个可定位人，含区间端点。共同G的极值集中与相对于自身动力学转折的位置一致是不同问题，JSON保留每人到独立转折中点的偏移和3个seed的峰/谷位置。
-
-![各指标原格点极值与独立发放率转折区间](assets/dmf_subject_consistency/curve_extrema.png)
-
-**图3。** 小标记显示各seed的极值G，空心菱形是3seed均值曲线的极值；灰条为独立发放率最大变化区间。无法定位的sub-10377不画灰条，仍保留其观测极值。WMS列采用谷的位置。
-
-| 指标 | 8人最大值G | 8人最小值G |
-|---|---|---|
-@BOTH@
-
-@PEAK_INTERPRETATION@
-
-whole EI主要单调下降，其高一致性和边界最大值不能说明它更适合标记内部转折。Ξ的两个SC尺度极端在共同G下峰位错开，因此还需对照同一7人的独立状态对齐结果。对原生ΦR/WMS，一致性分数只说明各自观测和估计协议下的曲线表现，不能把它们与Ξ的差别完全归因于指标公式，也不能据8人的均值排名宣布全面优势。
-
-## 3. 原生协议与数值审计
-
-沿用冻结的个体SC、平均SC参照及93人平均图在G=1校准的固定JFIC，不归一化个体SC，也不为各指标重新调参。G为0、0.5、1、1.3、1.6、2.2、3；名义seed为3、4、5。新观测基线每个名义seed使用62000+seed的自然轨迹、63000+seed的时间采样和64000+seed的未来噪声，跨人/跨G成对，三条流互异且与Ξ及独立诊断分离。G=0同seed输出在个体间相同；表1采用不同seed评价，不作G=0背景扣除。
+沿用冻结的个体SC、平均SC参照及93人平均图在G=1校准的固定JFIC，不归一化个体SC，也不为各指标重新调参。G为0、0.5、1、1.3、1.6、2.2、3；名义seed为3、4、5。新观测基线每个名义seed使用62000+seed的自然轨迹、63000+seed的时间采样和64000+seed的未来噪声，跨人/跨G成对，三条流互异且与Ξ及独立诊断分离。G=0同seed输出在个体间相同；表6采用不同seed评价，不作G=0背景扣除。
 
 - **ΦR：** 自然DMF记录1.5s，burn-in至少0.3s；稳定判据窗口0.05s、发放率漂移阈值0.15Hz、连续2窗口。将尾部E发放率转换为Balloon–Windkessel BOLD-like信号，Gaussian-MMI ΦR对全部4950个ROI对取均值，延迟1步即1ms。原生Gaussian估计保留10⁻¹⁰协方差特征值/相关分母下限及MI非负投影；逐对ΦR在[−10⁻¹⁰,0) bits视作数值零并记录，低于−10⁻¹⁰ bits显式失败。短BOLD-like记录、1ms延迟和数值下限限制其生理解释。
 - **WMS：** 从自然轨迹尾部有放回抽2048个完整200维E/I源状态，以无状态裁剪的同模型预测300ms后的完整200维未来。保留相关的经验源先验，用仓库原生Gaussian线性拟合估计整体MI减200个标量源对完整未来的MI之和；继承10⁻⁶ ridge及10⁻¹²特征值下限。WMS有符号，负值不属于PEID Syn非负违反，未取绝对值或作非负投影。
@@ -335,9 +336,9 @@ whole EI主要单调下降，其高一致性和边界最大值不能说明它更
 
 本轮重新核对Zotero P6UJCVG8（*Emergent hierarchical organization of causal interactions in complex systems*），正文附件DXGC7JEA，19页，读取Brain/Fig.2、Methods式（4）–（8）。附件没有明确稿件版本/日期，元数据编辑不能确定新版本；补充附录不可用。正文把两项观测对照并列描述为BOLD-like，而仓库原生WMS实际使用自然态完整E/I状态，只有ΦR使用BOLD-like。本轮保留已获批准的仓库原生实现，记录这一正文/代码差别，未声称完全核验最新稿件一致性。
 
-## 4. 复用
+## 6. 复用
 
-[分析汇总](../../results/dmf_schaefer100/subject_consistency_pilot/curve_comparison_summary.json)、[原生冻结协议](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_contract.json)、[原生数值审计](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_audit.json)、[原开发预实验](brain_dmf_subject_consistency_pilot.md)。
+[分析汇总](../../results/dmf_schaefer100/subject_consistency_pilot/curve_comparison_summary.json)、[原生冻结协议](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_contract.json)、[原生数值审计](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_audit.json)、[原开发预实验](brain.md#dmf-subject-pilot)。
 
 [原生计算与断点复用](../../scripts/run_dmf_subject_curve_baselines.py)、[分析与绘图](../../scripts/analyze_dmf_subject_curves.py)。昂贵模拟保存为189个轻量NPZ条件与完整curve_baselines.npz，分析只读匹配协议的完整缓存，无需重算，不创建CSV。
 
@@ -347,9 +348,9 @@ whole EI主要单调下降，其高一致性和边界最大值不能说明它更
 '''
     for key,value in {'@NATIVE@':native_text,'@RANKING@':'\n\n'.join(ranking),'@AGREEMENT@':'\n'.join(rows),
                       '@RANKS@':'\n'.join(ranks),'@PEAKS@':'\n'.join(peaks),'@BOTH@':'\n'.join(both),
-                      '@AUDIT@':audit_text,'@INTERPRETATION@':interpretation,'@PEAK_INTERPRETATION@':peak_interpretation}.items():
+                      '@AUDIT@':audit_text,'@SHAPE@':shape_report(s['curve_shape']),'@INTERPRETATION@':interpretation,'@PEAK_INTERPRETATION@':peak_interpretation}.items():
         text=text.replace(key,value)
-    path.write_text(text)
+    write_report_section(path, "dmf-subject-curves", text)
 
 
 def main():
@@ -358,11 +359,19 @@ def main():
     with threadpool_limits(limits=1):
         d=load(args.base,organization=False)
         s,curves,aligned,selected=analyze(d,args.base/'curve_baselines.npz')
+        component_summary,component_values=decompose(args.base,d)
+        s['ei_decomposition']=component_summary
+        s['curve_shape']=analyze_shapes(d,s,curves,args.base)
         atomic_json(args.base/'curve_comparison_summary.json',s)
         out=ROOT/'docs/reports/assets/dmf_subject_consistency'
         with plt.rc_context({'font.family':'sans-serif','font.size':9,'axes.spines.top':False,'axes.spines.right':False}):
             draw(d,s,curves,aligned,selected,out/'metric_curves.png')
-        report_path=ROOT/'docs/reports/brain_dmf_subject_curve_comparison.md'
+            draw_components(d,component_values,out,SUBJECT_MARKERS)
+            draw_order_comparison(d,s,curves,out/'order_parameter_curves.png')
+            draw_shape_diagnostics(d,s['curve_shape'],out/'curve_shape_diagnostics.png')
+        decomposition_path=ROOT/'docs/reports/brain.md'
+        decomposition_report(component_summary,decomposition_path)
+        report_path=ROOT/'docs/reports/brain.md'
         report(s,report_path)
         if not s['missing_native_baselines']:
             digest=lambda path:hashlib.sha256(path.read_bytes()).hexdigest()
@@ -370,8 +379,13 @@ def main():
                 condition_count=189,baseline_sha256=digest(args.base/'curve_baselines.npz'),
                 summary_sha256=digest(args.base/'curve_comparison_summary.json'),
                 report_sha256=digest(report_path),analysis_sha256=s['implementation_sha256'],
+                decomposition_report_sha256=digest(decomposition_path),
+                decomposition_implementation_sha256=component_summary['implementation_sha256'],
+                shape_implementation_sha256=s['curve_shape']['implementation_sha256'],
                 figures_sha256={name:digest(out/name) for name in
-                               ['metric_curves.png','curve_agreement.png','curve_extrema.png']}))
+                               ['metric_curves.png','curve_agreement.png','curve_extrema.png',
+                                'ei_decomposition_curves.png','ei_decomposition_rates.png',
+                                'order_parameter_curves.png','curve_shape_diagnostics.png']}))
         print(json.dumps({k:{axis:v[axis] for axis in ['raw_G_all8','raw_G_located7','aligned_state7']} for k,v in s['metrics'].items()},indent=2))
 
 

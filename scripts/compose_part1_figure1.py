@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import sys
@@ -41,6 +42,20 @@ CONFOUNDER_RESULT = (
     / "granger_peid_mlp_comparison"
     / "sine_beta_original_neighborhood_one_decimal.json"
 )
+CONFOUNDER_READOUT_RESULT = (
+    ROOT
+    / "results"
+    / "granger_peid_mlp_comparison"
+    / "sine_beta_intervention_sample_robustness.json"
+)
+SYSTEM_RESULT_PATHS = {
+    "standard_result_path": ROOT / "results/coupled_standard_map_method_comparison/part1_four_method_synergy.json",
+    "wilson_cowan_refractory_result_path": ROOT / "results/discrete_iteration_dynamics_benchmark/wilson_cowan_refractory_synergy_sweep.json",
+    "kuramoto_result_path": ROOT / "results/classic_network_dynamics_benchmark/kuramoto_coupling_synergy_sweep.json",
+    "controlled_henon_result_path": ROOT / "results/henon_unique_five_method_synergy/summary.json",
+    "ikeda_result_path": ROOT / "results/discrete_iteration_dynamics_benchmark/ikeda_y_tau_synergy_sweep.json",
+    "nicholson_bailey_result_path": ROOT / "results/discrete_iteration_dynamics_benchmark/nicholson_bailey_synergy_sweep.json",
+}
 KURAMOTO_HIERARCHY_RESULT = (
     ROOT / "results" / "mixed_order_kuramoto_kout_main" / "summary.json"
 )
@@ -217,13 +232,63 @@ def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, flo
     ax.text(.625, .025, "Causal hyperedge", fontsize=6.8, va="center", color=ink)
 
 
+def confounder_result_in_nats() -> tuple[dict, dict]:
+    """Use the final 5,120-sample readout and convert only information scores."""
+    base = json.loads(CONFOUNDER_RESULT.read_text(encoding="utf-8"))
+    readout = json.loads(CONFOUNDER_READOUT_RESULT.read_text(encoding="utf-8"))
+    result = copy.deepcopy(readout["updated_full_result"])
+    if result["config"]["intervention_samples"] != 5120:
+        raise ValueError("Figure 1b requires the documented 5,120-sample readout.")
+    # This display audit declares a strict tolerance; it does not retrospectively
+    # change the estimator or silently project cached values onto zero.
+    tolerance_nats = 0.0
+    values = NATS_PER_BIT * np.asarray(
+        [row["mlp_peid_xy_synergy"] for row in result["runs"]], dtype=float
+    )
+    violations = values < -tolerance_nats
+    if violations.any():
+        raise ValueError(f"Syn minimum={values.min():.6g} nats; threshold="
+                         f"{-tolerance_nats:g}; affected count={violations.sum()}")
+    print(f"Figure 1b Syn display audit: tolerance={tolerance_nats:g} nats; "
+          f"minimum={values.min():.6g}; numerical-zero-band count=0; "
+          "significant violation count=0; no clipping")
+    information_prefixes = (
+        "observational_", "mmi_pid_", "mlp_peid_", "oracle_peid_",
+        "surd_", "peid_", "tm_peid_",
+    )
+    for row in result["summary"]:
+        for key, value in row.items():
+            if key.startswith(information_prefixes) and key.endswith(("_mean", "_std")):
+                row[key] = NATS_PER_BIT * float(value)
+    # SHAP, PCMCI, Neural Granger and Liang flow retain their native scores.
+    return result, base["liang_result"]
+
+
 def prepare_large_text_sources() -> None:
     """Re-render cached numerical results with fonts sized for the final panel."""
     from scripts.classic_network_dynamics_benchmark import run_part1_combined_synergy_figure
     from scripts.compare_granger_peid_mlp import _plot_sine_beta_combined_readout_sweep
 
     SOURCE_DIR.mkdir(parents=True, exist_ok=True)
+    # Display-only audit of existing caches; no retrospective experiment tolerance.
+    tolerance_bits = 0.0
+    for name, path in SYSTEM_RESULT_PATHS.items():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("runs", payload.get("rows", []))
+        values = np.asarray([
+            row.get("raw_peid_synergy", row["peid_synergy"]) for row in rows
+        ], dtype=float)
+        violations = values < -tolerance_bits
+        if not values.size or not np.isfinite(values).all():
+            raise ValueError(f"{name}: missing or non-finite cached Syn values")
+        if violations.any():
+            raise ValueError(f"{name}: Syn minimum={values.min():.6g} bits; "
+                             f"threshold={-tolerance_bits:g}; affected count={violations.sum()}")
+        print(f"Figure 1c {name}: tolerance={tolerance_bits:g} bits; "
+              f"minimum={values.min():.6g}; count={values.size}; "
+              "numerical-zero-band count=0; significant violation count=0; no clipping")
     run_part1_combined_synergy_figure(
+        **SYSTEM_RESULT_PATHS,
         figure_path=SYSTEM_BENCHMARK_LARGE_TEXT,
         font_size=18.0,
         title_font_size=19.0,
@@ -233,11 +298,11 @@ def prepare_large_text_sources() -> None:
         compact_xlabels=True,
         legend_position="top",
     )
-    payload = json.loads(CONFOUNDER_RESULT.read_text(encoding="utf-8"))
+    confounder, liang = confounder_result_in_nats()
     _plot_sine_beta_combined_readout_sweep(
-        payload["full_result"],
+        confounder,
         SOURCE_DIR,
-        liang_result=payload["liang_result"],
+        liang_result=liang,
         stem=CONFOUNDER_BENCHMARK_LARGE_TEXT.stem,
         include_oracle=False,
         font_scale=2.65,
@@ -252,7 +317,7 @@ def prepare_large_text_sources() -> None:
 
 
 def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
-    """Draw all three cached networks and complete trees at a common text size."""
+    """Draw cached complete trees with local Syn as a share of each root Xi."""
     from scripts.run_mixed_order_kuramoto_kout_main import (
         NAMES, NETWORK_POSITIONS, WITHIN_COUPLING, pairwise_ring_weights,
         tree_from_record,
@@ -262,16 +327,33 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
     records = payload["conditions"]
     tolerance = float(payload["experiment_contract"]["syn_nonnegative_tolerance_bits"])
     values = np.array([atom["value_bits"] for row in records for atom in row["atoms"]])
+    if not values.size or not np.isfinite(values).all():
+        raise ValueError("SPT requires finite cached Syn values")
     violations = values < -tolerance
     if violations.any():
         raise ValueError(f"Syn minimum={values.min():.6g} bits; threshold={-tolerance:g}; "
                          f"affected count={violations.sum()}")
     print(f"SPT Syn tolerance={tolerance:g} bits; numerical-zero-band count="
           f"{((values < 0) & (values >= -tolerance)).sum()}; values displayed without clipping")
-    scale = float(values.max())
+    shares = []
+    for record in records:
+        root_xi = float(record["root_xi_bits"])
+        if not np.isfinite(root_xi) or root_xi <= 0:
+            raise ValueError("SPT percentage display requires finite, positive root Xi")
+        closure = sum(float(atom["value_bits"]) for atom in record["atoms"]) - root_xi
+        if abs(closure) > tolerance:
+            raise ValueError(f"SPT share closure failed: error={closure:.12g} bits; "
+                             f"tolerance={tolerance:g} bits")
+        # Bits cancel: normalize the unrounded local residual by its own tree's
+        # total Xi, not by the cumulative Xi of the node or the node maximum.
+        shares.extend(100.0 * float(atom["value_bits"]) / root_xi
+                      for atom in record["atoms"])
+    scale = max(shares)
     positions = np.array([NETWORK_POSITIONS[name] for name in NAMES])
     weights = pairwise_ring_weights(float(payload["experiment_contract"]["pairwise_asymmetry"]))
     fig.text(.066, .382, "Mixed-order Kuramoto: complete SPT", fontsize=7, weight="bold", va="top")
+    fig.text(.955, .382, r"Node values: $\mathrm{Syn}/\Xi_{\mathrm{total}}$ (%)",
+             fontsize=5.8, ha="right", va="top")
     # Label the two planted communities once, on opposite sides of the first
     # reference network, without repeating the annotations across conditions.
     fig.text(.097, .292, "pairwise\ntriangle", ha="right", va="center",
@@ -302,6 +384,7 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
         network.set(xlim=(-1.42, 1.42), ylim=(-.95, .92), aspect="equal")
         network.axis("off")
         tree = tree_from_record(record)
+        node_scale = 100.0 / float(record["root_xi_bits"])
         axis = fig.add_axes((left, .022, width, .198))
         layout = _layout(tree)
         max_depth = max(-y for x, y in layout.values())
@@ -315,8 +398,8 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
             internal = bool(node.children)
             label = ",".join(name.removeprefix("theta") for name in node.sources)
             if internal:
-                    label = "{" + label + "}" + f"\nSyn {NATS_PER_BIT * node.residual:.2f}"
-            strength = abs(float(node.residual))/scale if internal else 0
+                label = "{" + label + "}" + f"\nSyn {node_scale * node.residual:.1f}%"
+            strength = abs(node_scale * float(node.residual))/scale if internal else 0
             axis.text(x, y, label, ha="center", va="center", fontsize=5.1,
                       linespacing=1.12, color="#24313C", zorder=3,
                       bbox=dict(boxstyle="round,pad=.24", lw=.55+.6*strength,

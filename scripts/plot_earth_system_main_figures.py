@@ -901,7 +901,11 @@ def plot_unicm_rmse_display_comparison(output_base: Path) -> list[Path]:
     return [output]
 
 
-def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None) -> list[Path]:
+def plot_unicm_figure(
+    output_base: Path, *, spt_order_cache: Path | None = None,
+    spt_node_value_mode: str = "absolute",
+    spt_preview_output: Path | None = None,
+) -> list[Path]:
     trees, syn_tolerance = load_unicm_checkpoint2_lead_trees()
     shapley = json.loads(UNICM_SHAPLEY_SUMMARY.read_text(encoding="utf-8"))
     calibration = json.loads(UNICM_CALIBRATION_SUMMARY.read_text(encoding="utf-8"))
@@ -970,7 +974,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
             compact_core_annotation=True,
             show_checkpoint=False,
             show_tree_metrics=False,
-            show_root_info=False,
+            show_root_info=spt_node_value_mode == "root_share",
             core_highlights=(False, True, False),
             node_label_fontsize=7.6,
             terminal_label_fontsize=8.3,
@@ -979,6 +983,7 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
             compact_node_labels=True,
             display_scale=NATS_PER_BIT,
             display_unit="nats",
+            node_value_mode=spt_node_value_mode,
         )
     for axis, label in zip(tree_canvas.axes[:3], "def", strict=True):
         add_panel_label(axis, label, x=-0.06, y=1.02)
@@ -1192,8 +1197,12 @@ def plot_unicm_figure(output_base: Path, *, spt_order_cache: Path | None = None)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=600, bbox_inches="tight")
+    if spt_preview_output is not None:
+        spt_preview_output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(spt_preview_output, dpi=600,
+                    bbox_inches=tree_canvas.bbox.transformed(fig.dpi_scale_trans.inverted()))
     plt.close(fig)
-    return [output]
+    return [output] if spt_preview_output is None else [output, spt_preview_output]
 
 
 def main() -> int:
@@ -1210,6 +1219,8 @@ def main() -> int:
     parser.add_argument("--runge-focal-pair", default="0,1")
     parser.add_argument("--skip-unicm", action="store_true")
     parser.add_argument("--skip-runge", action="store_true")
+    parser.add_argument("--spt-node-values", choices=("absolute", "root_share"),
+                        default="absolute", help="SPT node values and color: local Syn or percent of root Xi.")
     args = parser.parse_args()
     configure_matplotlib()
     focal_pair = tuple(int(value) for value in str(args.runge_focal_pair).split(","))
@@ -1223,7 +1234,8 @@ def main() -> int:
         focal_pair=(min(focal_pair), max(focal_pair)),
     )
     unicm_outputs = [] if args.skip_unicm else plot_unicm_figure(
-        Path(args.output_dir) / "earth_unicm_hierarchy_overview"
+        Path(args.output_dir) / "earth_unicm_hierarchy_overview",
+        spt_node_value_mode=args.spt_node_values,
     )
     print(
         json.dumps(

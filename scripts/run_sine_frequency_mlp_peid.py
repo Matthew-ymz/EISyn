@@ -30,9 +30,11 @@ from scripts.compare_granger_peid_mlp import (  # noqa: E402
     train_mlp_transition_model,
 )
 
+from scripts.report_sections import write_report_section
+
 DEFAULT_RESULT_PATH = DEFAULT_RESULT_DIR / "sine_frequency_mlp_peid_sweep.json"
 DEFAULT_FIGURE_PATH = DEFAULT_FIGURE_DIR / "sine_frequency_mlp_peid_sweep.png"
-DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "Sine_Frequency_MLP_PEID.md"
+DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "exploration.md"
 DEFAULT_STATUS_PATH = ROOT / "docs" / "log" / "sine_frequency_mlp_peid_progress.json"
 VARIABLES = ("x", "y", "z")
 SYN_NONNEGATIVE_TOLERANCE_BITS = 1e-2
@@ -786,7 +788,7 @@ $$
 
 “Known dynamics” 是在已知条件均值函数上运行相同 TM 估计器所得的机制基准，不是解析真值。Learned 与 known-dynamics 曲线的差异同时反映有限轨迹学习误差与有限样本 TM 误差。只有在固定支持 $R^2$ 保持良好时，才可把 Syn 随 $k$ 的变化主要解释为对响应面几何的敏感性；若二者同时下降，则应解释为 surrogate 分辨率边界。
 """
-    report_path.write_text(text.rstrip() + "\n", encoding="utf-8")
+    write_report_section(report_path, "sine-frequency", text)
     return report_path
 
 

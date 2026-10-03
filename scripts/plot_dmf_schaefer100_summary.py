@@ -12,6 +12,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.patches import Patch
+from matplotlib.transforms import Bbox
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +61,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--legacy-layout", action="store_true", help="Render the original a–g summary instead of the five-panel composition.")
     parser.add_argument("--yeo-prior", action="store_true", help="Constrain the root to Yeo-7 and search within each network; use a separate output stem.")
     parser.add_argument("--roi-shapley", type=Path, help="Validated overall-Xi ROI Shapley cache for panel e, independent of the displayed tree; required with --yeo-prior.")
+    parser.add_argument("--tree-node-values", choices=("absolute", "root_share"), default="absolute",
+                        help="Unconstrained SPT node labels and color: local Syn or percent of overall Xi.")
+    parser.add_argument("--tree-preview-output", type=Path, help="Optional PNG of panel b exported from the complete composition.")
+    parser.add_argument("--network-values", choices=("absolute", "root_share"), default="absolute",
+                        help="Panels c/d: absolute Xi or percent of the same condition's full-system Xi.")
+    parser.add_argument("--network-preview-output", type=Path, help="Optional PNG of panels c/d exported together.")
     return parser.parse_args()
 
 
@@ -548,6 +555,9 @@ def plot_summary(args: argparse.Namespace) -> None:
     if not np.array_equal(topology["region_labels"], yeo["region_labels"]):
         raise ValueError("Surface and hierarchy ROI labels must use the same order")
     yeo_prior = getattr(args, "yeo_prior", False)
+    tree_node_values = getattr(args, "tree_node_values", "absolute")
+    if yeo_prior and tree_node_values != "absolute":
+        raise ValueError("Root-share display currently applies to the unconstrained binary SPT")
     roi_shapley_path = getattr(args, "roi_shapley", None)
     if yeo_prior and roi_shapley_path is None:
         raise ValueError("The current Yeo-prior figure requires an overall-Xi ROI Shapley cache")
@@ -677,9 +687,36 @@ def plot_summary(args: argparse.Namespace) -> None:
     panel_label(ax_a, "a", y=1.04)
 
 
-    network_xi_by_seed = network_xi.mean(axis=1)
-    network_values = NATS_PER_BIT * network_xi_by_seed.mean(axis=0)
-    network_errors = NATS_PER_BIT * sd(network_xi_by_seed, axis=0)
+    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
+    full_xi = np.asarray(yeo["fine_phi"], dtype=float)
+    tolerance_bits = 1e-8
+    components = np.concatenate((network_xi.ravel(), between_shapley.ravel()))
+    if not np.isfinite(components).all():
+        raise ValueError("Network panels require finite Xi and Shapley contributions")
+    violations = components < -tolerance_bits
+    if violations.any():
+        raise ValueError(f"Network Syn nonnegativity violation: minimum={components.min():.12g} bits; "
+                         f"threshold={-tolerance_bits:g} bits; affected count={violations.sum()}")
+    closure_bits = network_xi.sum(axis=-1) + between_shapley.sum(axis=-1) - full_xi
+    np.testing.assert_allclose(closure_bits, 0.0, atol=tolerance_bits, rtol=0)
+    print(f"Network panels: tolerance={tolerance_bits:g} bits; minimum={components.min():.12g} bits; "
+          f"numerical-zero-band count={((components < 0) & ~violations).sum()}; "
+          f"significant violation count={violations.sum()}; no clipping; "
+          f"maximum closure error={np.abs(closure_bits).max():.12g} bits", flush=True)
+    network_percentage = getattr(args, "network_values", "absolute") == "root_share"
+    if network_percentage:
+        if not np.isfinite(full_xi).all() or np.any(full_xi <= 0):
+            raise ValueError("Network percentage display requires finite, positive full-system Xi")
+        # Normalize each seed/G condition before averaging over G and seeds.
+        # The same full-system denominator makes all fourteen bars sum to 100%.
+        network_display = 100.0 * network_xi / full_xi[..., None]
+        between_display = 100.0 * between_shapley / full_xi[..., None]
+    else:
+        network_display = NATS_PER_BIT * network_xi
+        between_display = NATS_PER_BIT * between_shapley
+    network_xi_by_seed = network_display.mean(axis=1)
+    network_values = network_xi_by_seed.mean(axis=0)
+    network_errors = sd(network_xi_by_seed, axis=0)
     network_names = [str(value) for value in yeo["network_names"]]
     network_sizes = np.asarray(yeo["network_sizes"], dtype=int)
     order = np.argsort(network_values)
@@ -702,14 +739,14 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_e.tick_params(axis="y", pad=1)
-    ax_e.set_xlabel(r"Yeo network $\Xi$ (nats)")
+    ax_e.set_xlabel(r"Within-network $\Xi$ share (%)" if network_percentage
+                    else r"Within-network $\Xi$ (nats)")
     ax_e.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_e, "c")
 
-    between_shapley = np.asarray(yeo["between_group_shapley"], dtype=float)
-    between_shapley_by_seed = between_shapley.mean(axis=1)
-    shapley_values = NATS_PER_BIT * between_shapley_by_seed.mean(axis=0)
-    shapley_errors = NATS_PER_BIT * sd(between_shapley_by_seed, axis=0)
+    between_shapley_by_seed = between_display.mean(axis=1)
+    shapley_values = between_shapley_by_seed.mean(axis=0)
+    shapley_errors = sd(between_shapley_by_seed, axis=0)
     ax_f.barh(
         ypos, shapley_values[order], xerr=shapley_errors[order],
         color=[network_color(network_names[index]) for index in order], capsize=2,
@@ -720,9 +757,23 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.7,
     )
     ax_f.tick_params(axis="y", pad=1)
-    ax_f.set_xlabel(r"Between-Yeo Shapley $\Xi$ (nats)")
+    ax_f.set_xlabel(r"Between-network $\Xi$ share (%)" if network_percentage
+                    else r"Between-network $\Xi$ (nats)")
     ax_f.grid(True, axis="x", color="0.90", lw=0.5)
     panel_label(ax_f, "d")
+    if network_percentage:
+        upper = 5.0 * np.ceil(max(np.max(network_values + network_errors),
+                                 np.max(shapley_values + shapley_errors)) * 1.05 / 5.0)
+        for axis, total in ((ax_e, network_values.sum()), (ax_f, shapley_values.sum())):
+            axis.set_xlim(0, upper)
+            axis.set_xticks(np.arange(0, upper + 0.1, 5.0))
+            axis.text(0.98, 0.02, f"Panel total: {total:.2f}%", transform=axis.transAxes,
+                      ha="right", va="bottom", fontsize=6.3, color="0.35")
+        np.testing.assert_allclose(network_values.sum() + shapley_values.sum(), 100.0,
+                                   atol=1e-8, rtol=0)
+        print(f"Network percentage totals: within={network_values.sum():.8f}%; "
+              f"between={shapley_values.sum():.8f}%; combined="
+              f"{network_values.sum() + shapley_values.sum():.8f}%", flush=True)
 
 
     cross = NATS_PER_BIT * np.asarray(topology["roi_cross_leverage"], dtype=float).mean(axis=(0, 1))
@@ -769,6 +820,7 @@ def plot_summary(args: argparse.Namespace) -> None:
             dpi=450, axis=ax_tree,
             network_colors=[network_color(name) for name in network_names],
             information_unit="nats",
+            node_value_mode=tree_node_values,
         )
     for axis in (ax_e, ax_f):
         axis.text(0.5, 1.035, "Fixed Yeo groups; 8 seeds × 3 G; mean ± seed SD", transform=axis.transAxes,
@@ -784,6 +836,29 @@ def plot_summary(args: argparse.Namespace) -> None:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(args.output.with_suffix(".png"), dpi=450, bbox_inches="tight", facecolor="white")
+    network_preview = getattr(args, "network_preview_output", None)
+    if network_preview is not None:
+        network_preview.parent.mkdir(parents=True, exist_ok=True)
+        network_bbox = Bbox.union([axis.get_tightbbox(figure.canvas.get_renderer())
+                                  for axis in (ax_e, ax_f)])
+        visibility = [axis.get_visible() for axis in figure.axes]
+        for preview_axis in figure.axes:
+            preview_axis.set_visible(preview_axis in (ax_e, ax_f))
+        figure.savefig(network_preview, dpi=450,
+                       bbox_inches=network_bbox.transformed(figure.dpi_scale_trans.inverted()).expanded(1.02, 1.04),
+                       facecolor="white")
+        for preview_axis, visible in zip(figure.axes, visibility, strict=True):
+            preview_axis.set_visible(visible)
+    tree_preview = getattr(args, "tree_preview_output", None)
+    if tree_preview is not None:
+        tree_preview.parent.mkdir(parents=True, exist_ok=True)
+        tree_bbox = ax_tree.get_tightbbox(figure.canvas.get_renderer())
+        for preview_axis in figure.axes:
+            if preview_axis is not ax_tree and preview_axis not in ax_tree.child_axes:
+                preview_axis.set_visible(False)
+        figure.savefig(tree_preview, dpi=450,
+                       bbox_inches=tree_bbox.transformed(figure.dpi_scale_trans.inverted()).expanded(1.02, 1.04),
+                       facecolor="white")
     plt.close(figure)
 
 

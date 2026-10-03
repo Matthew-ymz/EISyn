@@ -5,6 +5,8 @@ The heatmap is the observed maximum across all eight seeds, not an average
 of maxima. Panel b compares low- and high-order peak strengths per seed. These are selected-path
 hierarchical synergies, not exhaustive coalition maxima or pure-order PID atoms.
 No dynamics, estimator fits, or partition searches are run.
+Absent orders are assigned zero in the heatmap at the user's request;
+the source node statistics retain their occurrence information.
 """
 from __future__ import annotations
 
@@ -30,6 +32,7 @@ from scripts.analyze_dmf_spt_order_distribution import (
 )
 
 FIGURE = ROOT / "fig/dmf_schaefer100/dmf_spt_max_syn_by_order.png"
+HEATMAP = ROOT / "fig/dmf_schaefer100/dmf_spt_max_syn_heatmap.png"
 SUMMARY = ROOT / "results/dmf_schaefer100/spt_order_distribution/max_syn_summary.json"
 REFERENCE = ROOT / "results/dmf_schaefer100/xi_hierarchy_tree/summary.json"
 NATS_PER_BIT = np.log(2.0)
@@ -160,6 +163,34 @@ def outside_key(ax, **kwargs):
               frameon=False, fontsize=8, **kwargs)
 
 
+def draw_order_heatmap(fig, ax, data, statistics):
+    """Assign absent order/G cells to zero, sharing the original linear scale."""
+    envelope = statistics["envelope"]
+    if np.isinf(envelope).any():
+        raise ValueError("Infinite heatmap Syn values")
+    values = np.where(np.isnan(envelope), 0.0, envelope) * NATS_PER_BIT
+    heat = ax.pcolormesh(bin_edges(data["G"]), np.arange(1.5, 101.5), values.T,
+                         cmap="viridis", vmin=0,
+                         vmax=float(statistics["peak"].max() * NATS_PER_BIT),
+                         shading="flat", rasterized=True)
+    setup_G_axis(ax, data["G"])
+    ax.set(ylim=(1.5, 100.5), ylabel="Synergy order (ROI count)", yticks=[2, 20, 40, 60, 80, 100])
+    panel_title(ax, "a  Maximum node Syn at each order", pad=23)
+    ax.text(0, 1.025, "Maximum across 8 seeds; absolute values; absent order = 0",
+            transform=ax.transAxes, fontsize=8, color="#444444")
+    colorbar = fig.colorbar(heat, ax=ax, fraction=.035, pad=.02)
+    colorbar.set_label("Maximum node Syn (nats)")
+
+
+def plot_heatmap(data, statistics, output):
+    with mpl.rc_context(STYLE):
+        fig, ax = plt.subplots(figsize=(10, 4.6), layout="constrained")
+        draw_order_heatmap(fig, ax, data, statistics)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output, dpi=320, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+
+
 def plot(data, statistics, reference, output):
     gs = data["G"]
     si = int(np.flatnonzero(SEEDS == reference["seed"])[0])
@@ -170,18 +201,7 @@ def plot(data, statistics, reference, output):
         fig = plt.figure(figsize=(12.8, 7.6), layout="constrained")
         grid = fig.add_gridspec(2, 2, width_ratios=(1.8, 1), height_ratios=(1.2, 1))
         ax = fig.add_subplot(grid[0, 0])
-        cmap = mpl.colormaps["viridis"].copy()
-        cmap.set_bad("#E5E7E9")
-        heat = ax.pcolormesh(bin_edges(gs), np.arange(1.5, 101.5),
-                             np.ma.masked_invalid(statistics["envelope"].T * NATS_PER_BIT),
-                             cmap=cmap, vmin=0, vmax=float(peak.max()), shading="flat", rasterized=True)
-        setup_G_axis(ax, gs)
-        ax.set(ylim=(1.5, 100.5), ylabel="Synergy order (ROI count)", yticks=[2, 20, 40, 60, 80, 100])
-        panel_title(ax, "a  Maximum node Syn at each order", pad=23)
-        ax.text(0, 1.025, "Maximum across 8 seeds; absolute values; gray = absent order",
-                transform=ax.transAxes, fontsize=8, color="#444444")
-        colorbar = fig.colorbar(heat, ax=ax, fraction=.035, pad=.02)
-        colorbar.set_label("Maximum node Syn (nats)")
+        draw_order_heatmap(fig, ax, data, statistics)
 
         ax = fig.add_subplot(grid[1, 0])
         dominance = low_order_dominance(statistics["maxima"])
@@ -240,6 +260,7 @@ def main():
     parser.add_argument("--input-dir", type=Path, default=INPUT)
     parser.add_argument("--reference", type=Path, default=REFERENCE)
     parser.add_argument("--figure", type=Path, default=FIGURE)
+    parser.add_argument("--heatmap", type=Path, default=HEATMAP)
     parser.add_argument("--summary", type=Path, default=SUMMARY)
     args = parser.parse_args()
     data = load_analysis(args.input_dir)
@@ -247,6 +268,7 @@ def main():
     reference = load_reference(args.reference)
     dominance = low_order_dominance(statistics["maxima"])
     plot(data, statistics, reference, args.figure)
+    plot_heatmap(data, statistics, args.heatmap)
     peak, orders = statistics["peak"], statistics["orders"]
     mean = peak.mean(axis=0)
     si, gi = np.unravel_index(np.argmax(peak), peak.shape)
@@ -256,7 +278,9 @@ def main():
         figure=str(args.figure.relative_to(ROOT)) if args.figure.is_relative_to(ROOT) else str(args.figure),
         unit="nats", order_definition="Number of ROI source blocks; each block contains its E/I pair",
         within_tree_definition="Maximum selected local split Syn at each order; absent orders remain missing",
-        heatmap_definition="Maximum over all selected nodes of an order in all 8 seeds; no weights or normalization",
+        heatmap_definition="Maximum over all selected nodes of an order in all 8 seeds; absent orders assigned zero; no weights or normalization",
+        heatmap_absent_order_value_nats=0.0,
+        heatmap_figure=str(args.heatmap.relative_to(ROOT)) if args.heatmap.is_relative_to(ROOT) else str(args.heatmap),
         winner_definition="Maximize within each tree before reporting its winning order; never maximize a seed-averaged profile",
         magnitude_definition="Equal-seed mean and sample SD of each tree's maximum; SD is not a confidence interval",
         tie_rule="Exact equality; smallest order, then smallest seed for displayed winner",
