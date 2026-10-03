@@ -20,7 +20,7 @@ $G$ 表示全局耦合强度，ROI 表示图谱脑区。联合预测优势 $\Xi$
 
 ## 阅读导航
 
-新增任务验证见[全脑联合扰动读取预实验](brain_dmf_joint_readout_pilot.md)：预算与数值检查通过，当前小样本解码未显示联合读取优势。这与下面的连续信息量结果是不同终点。
+最新开发结果集中于[8 个体协同组织](#dmf-subject-pilot)、[Ξ／ΦR／WMS 曲线比较](#dmf-subject-curves)及[EI 两项分解](#dmf-ei-components)。多源核在同人重复性上有增量，尚未支持统一跨个体核或全面预测优势；[两条未通过用途门槛的预实验](#dmf-retired)保留失败诊断。
 
 1. [联合预测优势何时最强、由哪些层级承担？](#dmf-main)——系统扫描、网络分解与 ROI 归因。
 2. [哪些具体组合保留信息、能否重复找到？](#dmf-spt-main)——成员重组、留出验证与阶数分布；[最强单节点在哪一阶？](#dmf-spt-max-syn)
@@ -28,6 +28,8 @@ $G$ 表示全局耦合强度，ROI 表示图谱脑区。联合预测优势 $\Xi$
 4. [参考文献](#dmf-references)。
 
 补充材料：[A：动力学诊断与结构 null](#appendix-a) · [B：数据、方程与信息分解](#appendix-b) · [C：83/100 ROI 比较](#appendix-c) · [D：DMF 复现文件](#appendix-d) · [E：HCP 57 人验证](#appendix-e) · [F：HCP 状态与空间结果](#appendix-f) · [G：MMP360 大样本探索](#appendix-g) · [H：HCP 结论与边界](#appendix-h)。
+
+新增补充：[I：8 个体开发结果](#dmf-subject-pilot) · [J：指标曲线](#dmf-subject-curves) · [K：EI 分解](#dmf-ei-components) · [L：个体协议与预检](#dmf-subject-plan) · [M：已停止路线及失败原因](#dmf-retired) · [N：PED／O-information](#hcp-ped-oinfo) · [O：脑指纹](#hcp-fingerprinting) · [P：93 人细扫描进度](#dmf-subject-dense)。
 
 <a id="dmf-main"></a>
 
@@ -84,15 +86,15 @@ EI 使用 ridge 为 $10^{-6}$ 的 Gaussian 条件协方差估计，以保持与�
 
 $\Phi^R$ 与 $\Xi$ 因而支持 **$G=1.2$–1.3 的共同峰带**。二者都早于发放率最大变化点，却具有不同的 observable、维度、干预口径和预测时距；这里的对齐只构成同模型内的交叉指标一致性。
 
-![Schaefer100 DMF unconstrained SPT and ROI Shapley](../../fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley.png)
+![Schaefer100 DMF SPT 与网络贡献占整体 Xi 的百分比及 ROI Shapley](../../fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share.png)
 
 历史图版及其指标差异见[附录 A.5](#appendix-a-5)。
 
-*图 1｜系统扫描、无先验 SPT、固定网络归因与 ROI Shapley。图内信息量统一为 nats。*
+*图 1｜系统扫描、无先验 SPT、固定网络归因与 ROI Shapley。<span style="color: red;">绝对信息量以 nats 显示；b 的节点数值及色标、c/d 的柱长均为占全系统整体 $\Xi$ 的百分比。c 和 d 分别标为 Within-network 与 Between-network，使用相同的 0–15% 横轴；两图全部柱子的均值合计为 100%。</span>*
 
 - **a，系统扫描：** 上部为平均发放率与 full-state interventional $\Xi$；下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全部 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$。曲线为八个 seed 的均值，阴影为 SD。三种指标的 observable、维度和时距不同，双轴用于比较峰形与峰位。
-- **b，无先验树：** $G=1.3$、seed 4 的二叉 SPT，每个叶块保留 ROI 的 E/I 对。节点标注 $n$ 为子树 ROI 数，Syn 为该节点的局部二分协同量；内部节点大小、青绿色深浅和边框粗细均按 Syn 映射，色标给出 nats。上方 $\Xi$ 为全系统整体量，高度按 ROI 数对数归一化。Yeo 叶颜色只作事后标识。
-- **c、d，固定网络汇总：** c 为各 Yeo 网络的整体 $\Xi$，d 为网络间增量的精确七网络 Shapley。两者独立于 b 的分支；先在每个 seed 内平均 $G\in\{1.2,1.3,1.4\}$，再报告跨八个 seed 的均值和 SD。标签斜杠后的数字为 ROI 数，配色与 b 一致。
+- **b，无先验树：** $G=1.3$、seed 4 的二叉 SPT，每个叶块保留 ROI 的 E/I 对。<span style="color: red;">节点方块第一行的 $n$ 为子树 ROI 数，第二行的百分比为该节点局部二分协同量除以全系统整体 $\Xi$ 再乘 100%；内部节点大小、青绿色深浅和边框粗细均映射这一份额，共用百分比色标。分母包含 ROI 内 E/I 增量，内部节点合计占 88.20%，叶块内增量占其余 11.80%。</span>上方 $\Xi$ 为全系统整体量，高度按 ROI 数对数归一化。Yeo 叶颜色只作事后标识。
+- **c、d，固定网络汇总：** c 为各 Yeo 网络的整体 $\Xi$，包含 ROI 内 E/I 增量；d 为网络间增量的精确七网络 Shapley。<span style="color: red;">每个 seed、每个 $G$ 下，两图各项均除以同条件的全系统整体 $\Xi$ 并乘 100%，再在 seed 内平均 $G\in\{1.2,1.3,1.4\}$，最后报告跨八个 seed 的均值和 SD；误差条单位为百分点。c 合计 33.73%，d 合计 66.27%，共同组成 100%。</span>两者独立于 b 的分支，归一化分母对应各自条件，不能统一除以 b 的单条件根。标签斜杠后的数字为 ROI 数，配色与 b 一致。[c/d 比例版局部预览](assets/dmf_network_xi_share_preview.png)。
 - **e，ROI 贡献：** 100 个 ROI 对整体 $\Xi$ 的普通 Shapley 在 24 条件上的均值，使用连续色标。随机排列与反向排列配对抽样，target 和条件协方差固定；MC 抽样误差单独记录。加入顺序不受 Yeo 标签约束，贡献也不按 SPT 节点分摊。
 
 <a id="dmf-horizon"></a>
@@ -130,7 +132,7 @@ ROI 内量是每个 ROI 的 E/I 联合 EI 超出两个单变量 EI 的部分；�
 
 后两项合计为跨 ROI 量 22.773 bits（88.00%）。24/24 个条件均为跨 ROI 大于 ROI 内、网络间大于网络内；ROI 内/跨 ROI 比例的跨 seed SD 均为 0.20 个百分点。式（3）最大闭合误差为 $1.6\times10^{-13}$ bits。
 
-**网络内部联合量与跨网络归因呈现不同排序。** 图 1c 直接计算七个 Yeo 网络各自的整体 $\Xi$，包含 ROI 内 E/I 量。图 1d 对全部 $2^7=128$ 个网络联盟精确计算 Shapley，将网络间增量分给七个网络。对网络集合 $\mathcal{N}$ 的子集 $S$，$v(S)$ 是联合 EI 超出成员网络 EI 之和的部分，空集和单网络值均为 0；网络 $i$ 的份额为
+**网络内部联合量与跨网络归因呈现不同排序。** 图 1c 直接计算七个 Yeo 网络各自的整体 $\Xi$，包含 ROI 内 E/I 量。图 1d 对全部 $2^7=128$ 个网络联盟精确计算 Shapley，将网络间增量分给七个网络。两图目前均显示各项占全系统整体 $\Xi$ 的百分比，以下保留其原始 bits 值以便复核。对网络集合 $\mathcal{N}$ 的子集 $S$，$v(S)$ 是联合 EI 超出成员网络 EI 之和的部分，空集和单网络值均为 0；网络 $i$ 的份额为
 
 $$
 \psi_i=\sum_{S\subseteq\mathcal{N}\setminus\{i\}}\frac{|S|!(7-|S|-1)!}{7!}\left[v(S\cup\{i\})-v(S)\right]. \tag{5}
@@ -138,7 +140,7 @@ $$
 
 $\sum_i\psi_i=\Xi_{\mathrm{between\ networks}}$，逐条件最大闭合误差为 $3.6\times10^{-15}$ bits。$\psi_i$ 是当前联盟价值下的对称归因，不能直接解释为成对网络边或唯一的生物学因果归属。
 
-| 网络（ROI 数） | 图 1c 网络整体 $\Xi$ / bits | 网络内跨 ROI 分量 / bits | 图 1d 网络间 Shapley / bits |
+| 网络（ROI 数） | c 的原始网络整体 $\Xi$ / bits | 网络内跨 ROI 分量 / bits | d 的原始网络间 Shapley / bits |
 |---|---:|---:|---:|
 | Visual（17） | 2.712 | 2.288 | 1.539 |
 | Somatomotor（14） | 1.960 | 1.677 | 2.587 |
@@ -149,7 +151,7 @@ $\sum_i\psi_i=\Xi_{\mathrm{between\ networks}}$，逐条件最大闭合误差为
 | Default mode（24） | 1.550 | 0.577 | 3.541 |
 | 总和 | **8.727** | **5.622** | **17.151** |
 
-图 1c 与 d 的总和为 8.727 + 17.151 = 25.878 bits；表中网络内跨 ROI 列与 d 合计为 22.773 bits。Visual 和 Somatomotor 的网络内部量较高，Default mode、Salience/ventral attention、Dorsal attention 与 Frontoparietal control 的跨网络份额更突出。按每 ROI 或跨网络连接机会数归一化后，前三名均为 Salience/ventral attention、Frontoparietal control、Dorsal attention，主要排序并非仅由网络规模造成。
+图 1c 与 d 的原始总和为 8.727 + 17.151 = 25.878 bits；表中网络内跨 ROI 列与 d 合计为 22.773 bits。<span style="color: red;">比例版先逐条件归一化再汇总，c 合计 33.7295%，d 合计 66.2705%，两者合计 100%；不会把 c 和 d 各自归一化成 100%。</span>Visual 和 Somatomotor 的网络内部量较高，Default mode、Salience/ventral attention、Dorsal attention 与 Frontoparietal control 的跨网络份额更突出。按每 ROI 或跨网络连接机会数归一化后，前三名均为 Salience/ventral attention、Frontoparietal control、Dorsal attention，主要排序并非仅由网络规模造成。
 
 b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独立计算：Yeo 标签不约束自然树或 ROI 加入顺序，同一网络内 ROI 的普通 Shapley 之和也不自动等于 c、d 中该网络两项之和。独立性复核见[附录 B.6](#dmf-attribution-checks)。
 
@@ -157,17 +159,139 @@ b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独�
 
 ### 1.5 无先验树呈现嵌套的核心—外围结构
 
-图 1b 选取整体 $\Xi$ 最接近八个 seed 均值的 seed 4。树从 100 个 ROI 递归搜索二分，叶节点保留 E/I 配对，Yeo 颜色只作事后标识。每个子树报告全部 E/I 标量源的整体 $\Xi$。
+图 1b 选取整体 $\Xi$ 最接近八个 seed 均值的 seed 4。树从 100 个 ROI 递归搜索二分，叶节点保留 E/I 配对，Yeo 颜色只作事后标识。<span style="color: red;">每个子树的整体 $\Xi$ 仍按其全部 E/I 标量源计算；图中节点标签显示局部 Syn 占全系统整体 $\Xi$ 的百分比，不是该子树累计信息的占比。</span>
 
 树包含 99 个内部节点，最大深度为 81；主干覆盖 81 次划分（81.8%），归一化 Colless 不平衡度为 0.894。它呈现**主干占优、带局部分支的嵌套核心—外围结构**，不同 Yeo 网络成员在主干和侧枝交错。
 
 根的整体 $\Xi$ 为 26.102 bits（18.093 nats）。首次切分为 99 ROI 与一个 ROI，局部二分 Syn 为 0.134 bits（0.093 nats），多数信息继续保留在大子树中。内部节点 Syn 合计 23.021 bits，加上叶块 E/I 增量 3.081 bits，闭合到根，误差为 $-1.07\times10^{-14}$ bits。该单条件根部二分量，与图 1d 的 24 条件网络间均值 17.151 bits 对应不同的划分和汇总口径。
+
+<span style="color: red;">比例版使用同一棵缓存树，只改变显示单位。首次切分占整体 $\Xi$ 的 0.51%；最强局部节点含 85 个 ROI，其 0.452 nats 占整体 $\Xi$ 的 2.50%。全部 99 个内部节点的未舍入占比合计为 88.1957%，100 个叶块保留的 E/I 增量合计为 11.8043%，两者相加为 100%。因此，图上少量标注节点的百分比不能单独相加为系统总量，也不等同于图 1e 的 ROI Shapley 贡献。百分比保留两位小数。非负容差仍为 $10^{-8}$ bits，99 个所选内部节点与 100 个叶块均无容差内负值或显著非负性违反；本轮未重跑动力学、拟合 EI 或改变搜索范围。</span>
 
 大联盟采用谱候选划分，至多八个 ROI 时精确搜索；共评估 25,982 个候选划分、37,597 个联盟。树反映这一预算下的搜索结果。预设非负容差为 $10^{-8}$ bits，pair 和候选切分的容差内归零数、显著违反数均为 0。旧独立树见[附录 A.5.4](#appendix-a-5-4)。
 
 **新旧无先验树的形状差异来自候选搜索范围变化。** 旧版在谱排序、平均链接聚类排序与原始 ROI 排序的连续切分之外，还补齐每个 ROI 单独分出的 $1+(n-1)$ 候选；新版公共搜索器仅保留这些排序形成的切分，遗漏了单 ROI 候选补齐。两版均不使用 Yeo 先验，小联盟精确枚举上限也同为八个 ROI。新版虽将 ROI 内 E/I 分量加回整体 $\Xi$，但该逐 ROI 可加项在 $\operatorname{Syn}(A;L,R)=\Xi(A)-\Xi(L)-\Xi(R)$ 中抵消，因此信息预算变化本身不应改变同一候选划分的 Syn。
 
 在同一 $G=1.3$、seed 4 的条件协方差上，保持新版整体 $\Xi$ 预算、仅补回旧版单 ROI 候选，即恢复旧图的最大深度 76、主干比例 76.8% 和 Colless 不平衡度 0.877，候选数也恢复为 29,124。同一划分用整体量或跨 ROI 量计算的 Syn 最大差异仅为 $4.51\times10^{-14}$ bits。具体地，当前 99-ROI 节点遗漏了“单独分出 `RH_Default_Temp_1`（零基索引 90）”的候选：其 Syn 为 0.133400 bits，低于当前所选切分的 0.135452 bits。这说明当前树与旧树使用了不同的近似搜索范围，形状差异应归于实现变化，不能解释为模型动力学或脑网络组织改变。第 2 节的 440 条件扫描另使用至多十个 ROI 精确搜索及随机候选补充，其搜索口径也应单独区分。
+
+<a id="dmf-tree-examples"></a>
+
+#### 1.5.1 大跨度 G 对照：0、1.3、3
+
+将耦合间隔拉大到 $G\in\{0,1.3,3\}$，仍取 seed 3、4、5，共九棵树。条件预先按这个小网格选定，没有按树形筛选。本轮直接读取已有配对协方差：同一 seed 的三个 G 共用 2,048 个均匀干预初态及逐步噪声；SC、固定 JFIC、300-step 时距、Gaussian 近似与树搜索均保持一致，没有重跑模拟或拟合 EI。新图中 $G=1.3$ 也使用配对缓存，其随机样本与原图 1b 的独立采样不同；因此中央树不是原图的简单重绘。
+
+![G 为 0、1.3、3 时三个 seed 的无先验 SPT 对照](../../fig/dmf_schaefer100/tree_examples/wide/tree_examples_G000_130_300_seeds03_04_05.png)
+
+*图 1b 补充 A｜行依次为 seed 3、4、5，列依次为 G=0、1.3、3。同一行比较配对的 G 变化，同一列比较随机种子变化。九图共用高度规则与 0–3% 的节点色标、大小及边框映射；节点数值为局部二分 Syn 占同条件整体 $\Xi$ 的百分比，顶部整体量为 nats。每棵树独立排列叶子，颜色为事后 Yeo 标签。完整 ROI 名称与更多节点标注见下方单图。*
+
+| 单图：G / seed | 整体 $\Xi$ / nats | 最大深度 | 主干占比 | Colless | 最大局部 Syn / nats |
+|---|---:|---:|---:|---:|---:|
+| [0 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed03.png) | 5.774 | 99 | 100.0% | 1.000 | 0.082 |
+| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed03.png) | 18.080 | 79 | 79.8% | 0.867 | 0.444 |
+| [3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed03.png) | 4.470 | 85 | 85.9% | 0.949 | 0.115 |
+| [0 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed04.png) | 5.911 | 99 | 100.0% | 1.000 | 0.082 |
+| [1.3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed04.png) | 17.990 | 79 | 79.8% | 0.873 | 0.429 |
+| [3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed04.png) | 4.394 | 87 | 87.9% | 0.959 | 0.101 |
+| [0 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed05.png) | 5.821 | 99 | 100.0% | 1.000 | 0.083 |
+| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed05.png) | 18.000 | 83 | 83.8% | 0.876 | 0.412 |
+| [3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed05.png) | 4.388 | 89 | 89.9% | 0.962 | 0.112 |
+
+**在这组例子中，跨 G 的形态和信息量差异大于跨 seed 的差异。** $G=0$ 的三棵树均为纯链；$G=1.3$ 的侧枝更多、主干缩短；$G=3$ 又更接近链形。以下先对同 G 的三个 seed 对、或同 seed 的三个配对 G 对分别计算差异，再报告均值；这些比较共享原始树，只是描述性汇总，不是独立重复的显著性检验。
+
+| 比较（各 3 对） | 深度绝对差均值 | Colless 绝对差均值 | 整体 $\Xi$ 绝对差均值 / nats | ROI 对共同祖先大小的秩相关均值 |
+|---|---:|---:|---:|---:|
+| 固定 G=0，换 seed | 0.00 | 0.0000 | 0.091 | −0.062 |
+| 固定 G=1.3，换 seed | 2.67 | 0.0059 | 0.060 | 0.614 |
+| 固定 G=3，换 seed | 2.67 | 0.0084 | 0.055 | 0.767 |
+| 固定 seed，G=0 对 1.3 | 18.67 | 0.1276 | 12.188 | 0.043 |
+| 固定 seed，G=1.3 对 3 | 6.67 | 0.0842 | 13.606 | −0.206 |
+
+逐 seed 看，0 对 1.3 的深度差为 16–20，1.3 对 3 为 6–8，均超过固定 G 跨 seed 的最大深度差 4。Colless 的跨 G 差也与跨 seed 差清楚分开。共同祖先比较固定相同的 4,950 个 ROI 对，取每对 ROI 最小共同子树的大小，再比较其 Spearman 秩相关；它不受绘制顺序影响。1.3 和 3 各自在 seed 间的相关较高，而同 seed 的 1.3 对 3 相关为负，支持具体嵌套成员随 G 重组。三个配对 seed 在任意两种 G 之间均不共享非根内部子树（0 / 98），同 G=1.3 的 seed 对共享 13–17 / 98，G=3 为 12–14 / 98；仍不能把同一 G 的具体完整树当作固定不变的成员划分。
+
+**G=0 的形态一致不等于其成员稳定。** 三个纯链的 ROI 退出次序不同，跨 seed 的共同祖先相关约为 0，且不共享非根内部子树。此时模型关闭了长程耦合，但 ROI 内 E/I 耦合仍存在；全系统跨 ROI 估计量还有高维有限样本／拟合背景（见第 2 节）。因此 G=0 的正节点值与纯链排序不能解释为真实长程协同机制。本节支持当前 Gaussian 估计及搜索口径下的大跨度差异，不建立动力学相变或估计器无关的组织规律。
+
+九棵树仍使用图 1b 的谱候选、至多八个 ROI 精确枚举，不补齐全部单 ROI 候选或加入随机候选；没有沿用原宽扫描树的另一搜索预算。预设非负容差为 $10^{-8}$ bits，891 个内部 Syn 和 900 个叶块 $\Xi$ 的容差内负值与显著违反数均为 0；最大全树闭合误差为 $7.11\times10^{-15}$ bits。缓存单变量行列式与原公式的小／大联盟核对差异为 0。本轮重新经 Zotero 核验主稿父条目 `P6UJCVG8` 与当前唯一正文附件 `DXGC7JEA`（19 页，2026-10-02 入库），读取 Brain／Fig. 2（第 6–7 页）及 Methods 式（5）–（12）（第 15–17 页）；正文无明确修订号／稿件日期，所引补充附录仍缺失。Yeo 约束稿件图与仓库无先验 ROI 块树、ROI 内 E/I 叶增量及既有高维 Gaussian 近似保持区分。
+
+入口为 `scripts/plot_dmf_schaefer100_tree_examples.py --wide`，逐条件缓存、输入指纹、数值审计与差异汇总保存在 `results/dmf_schaefer100/xi_hierarchy_tree/examples/wide/`。原先的小间隔例子保留在[第 1.5.3 节](#dmf-tree-examples-near)，不能把两个采样协议的树混作同一组比较。
+
+<a id="dmf-smaller-child-sizes"></a>
+
+#### 1.5.2 沿较大子集主干剥离的团簇尺寸分布
+
+**将每个 ROI 只计入一个团簇后，中等耦合条件仍呈现更丰富的尺寸分布。** 本节按修正口径替换原先的全节点统计：从上一节每棵树的根开始，每次记录较小子集，将它作为一个完整团簇退出统计，只沿较大子集继续；最后剩下的单个 ROI 也计为一个团簇。已退出团簇的内部切分不再计数。等大时固定沿排序后 ROI 索引字典序较小的一侧继续，另一侧退出；该规则不依赖图中的左右绘制顺序。
+
+这样得到互不重叠、覆盖全部 ROI 的团簇集合 $\mathcal{C}$。设尺寸为 $k$ 的团簇数为 $n(k)$，则每棵树都满足
+
+$$
+\sum_k k\,n(k)=\sum_{C\in\mathcal{C}}|C|=100.
+$$
+
+这里守恒的是“尺寸 × 频次”的总和；柱高之和 $M=\sum_k n(k)$ 是团簇数，会随树形变化。统计单位仍为 ROI 块，每块含一对 E/I 状态；若按 E/I 标量变量计，尺寸翻倍，守恒总数为 200。完整 SPT 的构树规则保持原样，本节只改变统计时沿树的遍历方式，不按 Syn 加权。
+
+![九棵配对 SPT 沿较大子集主干剥离的团簇尺寸分布](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_size_distributions_G000_130_300_seeds03_04_05.png)
+
+*图 1b 补充 B｜行依次为 seed 3、4、5，列依次为 G=0、1.3、3，与补充 A 的树逐一对应。横轴为剥离团簇的 ROI 数，纵轴为原始团簇次数，包含最后剩余的单个 ROI。灰色为单点团簇，绿色为多点团簇；插图放大尺寸 $k\geq2$ 的原始次数，共用 0–5 范围，没有对尾部归一化。理论尺寸支持为 1–50，九图均未出现大于 12 的尺寸，其余计数为零；没有平滑或合并分箱。各图注明尺寸与频次乘积之和为 100。*
+
+用 $p(k)=n(k)/M$ 计算尺寸分布的 Shannon 熵 $H=-\sum_{k:p(k)>0}p(k)\log_2p(k)$，单位为 bits；它是团簇尺寸的多样性指标，不是 EI、Syn 或整体 $\Xi$。另统计多点团簇覆盖的 ROI 数 $\sum_{k\geq2}k\,n(k)$，以固定的 100 个 ROI 为分母。
+
+| 分布单图：G / seed | 团簇数 $M$ | 单点团簇数 $n(1)$ | 多点团簇覆盖的 ROI / 100 | 分布熵 $H$ / bits |
+|---|---:|---:|---:|---:|
+| [0 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed03.png) | 100 | 100 | 0 | 0.000 |
+| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed03.png) | 80 | 75 | 25 | 0.432 |
+| [3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed03.png) | 86 | 82 | 18 | 0.309 |
+| [0 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed04.png) | 100 | 100 | 0 | 0.000 |
+| [1.3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed04.png) | 80 | 73 | 27 | 0.624 |
+| [3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed04.png) | 88 | 84 | 16 | 0.335 |
+| [0 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed05.png) | 100 | 100 | 0 | 0.000 |
+| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed05.png) | 84 | 76 | 24 | 0.597 |
+| [3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed05.png) | 90 | 86 | 14 | 0.298 |
+
+例如 $G=1.3$、seed 4 的尺寸与次数满足 $1\times73+2\times2+3\times1+4\times2+5\times1+7\times1=100$，而团簇总数为 $73+2+1+2+1+1=80$。$G=0$ 则为 100 个互不重叠的单点团簇，$n(1)=100$。
+
+| G | 团簇数 $M$ | 多点团簇覆盖的 ROI 比例 | 分布熵 $H$ / bits |
+|---|---:|---:|---:|
+| 0 | 100.00 ± 0.00 | 0.00% ± 0.00% | 0.000 ± 0.000 |
+| 1.3 | 81.33 ± 2.31 | 25.33% ± 1.53% | 0.551 ± 0.104 |
+| 3 | 88.00 ± 2.00 | 16.00% ± 2.00% | 0.314 ± 0.019 |
+
+表中为固定等大规则下三个 seed 的均值 ± 样本 SD；百分比的 SD 以百分点计。三个配对 seed 下，$G=1.3$ 的分布熵和多点团簇覆盖比例均高于 $G=3$。中等耦合下有 24–27 个 ROI 被记录在多点团簇中，强耦合下为 14–18 个，零耦合下为 0。中等耦合仍保留 73–76 个单点团簇，尚未接近均匀分布；强耦合的最大剥离团簇可更大，因此尺寸多样性增加不等于最大团簇更大。
+
+**等大切分带来可记录的选择差异。** seed 3 的 $G=1.3$ 与 $G=3$ 分别出现 11+11、12+12 的非末端等分。枚举两侧延续选择后，前者的 $H$ 为 0.432–0.544 bits、多点覆盖为 25–29 ROI；后者的 $H$ 为 0.309–0.365 bits、多点覆盖为 18–20 ROI。其余七棵树仅有末端 1+1 等分，尺寸分布不受选择影响。所有备选分布仍满足逐 ROI 唯一覆盖及总数 100；任一等大选择下，三个配对 seed 的中等耦合熵与多点覆盖都高于强耦合。
+
+这个指标刻画沿主干剥离得到的团簇尺寸，不识别稳定成员或信息强度。来自同一棵树的团簇也不能当作独立重复，比较的重复单位仍为三个 seed。本节支持当前缓存及搜索口径下中等耦合的尺寸多样性增加，**不能单独确立临界相变**，也不消除 $G=0$ 的有限样本估计背景或候选搜索范围的影响。
+
+本轮只读取既有树，未重跑动力学、估计 EI/Syn 或构树。全部 891 个内部 Syn 与 900 个叶块 $\Xi$ 仍按 $10^{-8}$ bits 非负容差核验，容差内负值和显著违反数均为零。用链形、平衡二分树及等大但结构不同的两侧核对终点计数、唯一覆盖、尺寸守恒和绘图左右顺序不变性。经 Zotero 重新查询的主稿仍为父条目 `P6UJCVG8`、正文附件 `DXGC7JEA`（19 页，2026-10-02 入库；无明确稿件日期／修订号，补充附录缺失），本轮重新阅读 Brain／Fig. 2（第 6–7 页）及 Methods 式（5）–（12）（第 15–17 页）。正文 Yeo 约束树与此处无先验 ROI 块树的区别沿用上一节说明；主干剥离分布是新增的形态统计。
+
+分布图入口仍为 `scripts/plot_dmf_spt_smaller_child_distribution.py`。统计记录、完整 1–50 频次、各团簇 ROI 成员、等大选择的备选结果与输入指纹保存在 `results/dmf_schaefer100/xi_hierarchy_tree/examples/wide/smaller_child_size_summary.json`，本节图表已全部替换为新口径。
+
+<a id="dmf-tree-examples-near"></a>
+
+#### 1.5.3 近峰小间隔对照留存
+
+为检查图 1b 是否只是单个条件的偶然形态，固定其搜索规则，补画 $G\in\{1.2,1.3,1.4\}$、seed $\in\{3,4,5\}$ 的九个例子。条件按这个小网格选定，没有按树形筛选；中间面板为原来的 $G=1.3$、seed 4。本轮直接读取既有条件协方差，复用原图树、只补建八棵树，没有重跑动力学或拟合 EI，也未遍历全部 G 或 seed。
+
+![不同 G 与 seed 的九棵无先验 SPT 对照](../../fig/dmf_schaefer100/tree_examples/tree_examples_G120_130_140_seeds03_04_05.png)
+
+*图 1b 补充 C｜行依次为 seed 3、4、5，列依次为 G=1.2、1.3、1.4。所有树均有 100 个 E/I 配对 ROI 叶块，高度采用相同的 ROI 数对数归一化；顶部为整体 $\Xi$（nats），节点百分比为局部二分 Syn 除以同条件整体 $\Xi$。九图共用 0–3% 色标，节点大小及边框也共用这一映射。Yeo 颜色仅为事后标签，不约束构树；每棵树独立排列叶子，因此横向位置不是固定 ROI 坐标。总览省略 ROI 名称，下面的单图保留完整名称及更多节点标注。*
+
+| 单图：G / seed | 整体 $\Xi$ / nats | 最大深度 | 主干划分占比 | Colless 不平衡度 | 与原图一致的非根内部子树 |
+|---|---:|---:|---:|---:|---:|
+| [1.2 / 3](../../fig/dmf_schaefer100/tree_examples/tree_G120_seed03.png) | 17.807 | 75 | 75.8% | 0.868 | 13 / 98 |
+| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/tree_G130_seed03.png) | 17.920 | 79 | 79.8% | 0.899 | 9 / 98 |
+| [1.4 / 3](../../fig/dmf_schaefer100/tree_examples/tree_G140_seed03.png) | 17.880 | 72 | 72.7% | 0.842 | 10 / 98 |
+| [1.2 / 4](../../fig/dmf_schaefer100/tree_examples/tree_G120_seed04.png) | 17.745 | 79 | 79.8% | 0.910 | 11 / 98 |
+| [1.3 / 4（原图条件）](../../fig/dmf_schaefer100/tree_examples/tree_G130_seed04.png) | 18.093 | 81 | 81.8% | 0.894 | 98 / 98（自身参照） |
+| [1.4 / 4](../../fig/dmf_schaefer100/tree_examples/tree_G140_seed04.png) | 17.914 | 86 | 86.9% | 0.893 | 9 / 98 |
+| [1.2 / 5](../../fig/dmf_schaefer100/tree_examples/tree_G120_seed05.png) | 17.650 | 78 | 78.8% | 0.871 | 12 / 98 |
+| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/tree_G130_seed05.png) | 18.210 | 80 | 80.8% | 0.904 | 7 / 98 |
+| [1.4 / 5](../../fig/dmf_schaefer100/tree_examples/tree_G140_seed05.png) | 17.923 | 80 | 80.8% | 0.873 | 8 / 98 |
+
+**原图可以代表这些近峰条件的主干占优形态，但不能代表固定的 ROI 划分。** 九棵树均保留长主干和少量侧枝：最大深度为 72–86，主干占比为 72.7%–86.9%，Colless 为 0.842–0.910。具体成员则明显变化。最后一列按 ROI 集合精确匹配子树，排除必然一致的根和单叶，不受左右翻转或叶子绘制顺序影响；原图之外八棵树只与原图共享 7–13 个这样的节点（7.1%–13.3%）。固定 G 比较 seed，共享节点为 7–18 / 98；固定 seed 比较 G，为 6–16 / 98。主干上少数 ROI 的退出次序变化就会改变许多嵌套子树，因此低重合率不能直接推断所有局部核均不稳定；但外形相似也不足以证明具体成员稳定。
+
+这一结论仅限固定平均 SC、300-step 时距、2,048 个样本及当前估计／搜索口径的三个近峰 G 与三个 seed。旧缓存在不同 seed–G 条件独立抽取干预与噪声，跨 G 未配对复用，因此 G 对照同时含抽样波动。大于八个 ROI 使用与图 1b 相同的谱候选搜索，不补齐全部单 ROI 切分、不加入随机候选；不能与第 2 节的另一搜索口径混作同一组稳定性证据。
+
+数值容差为 $10^{-8}$ bits；九树共 891 个内部 Syn 与 900 个叶块 $\Xi$ 均无容差内负值或显著违反，最大全树闭合误差为 $3.55\times10^{-15}$ bits。加速仅缓存重复的单变量行列式；在新建条件的小／大联盟上与原公式核对，差异为 0。输入指纹、逐条件树、审计及描述性 ROI 对共同祖先比较保存在 `results/dmf_schaefer100/xi_hierarchy_tree/examples/`，入口为 `scripts/plot_dmf_schaefer100_tree_examples.py`；再次运行会复用匹配缓存。
+
+本轮重新经 Zotero 核验父条目 `P6UJCVG8` 的题名 *Emergent hierarchical organization of causal interactions in complex systems*，重新查询附件后仍仅有正文 `DXGC7JEA`（19 页，2026-10-02 入库）；读取 Brain／Fig. 2（第 6–7 页）及 Methods 式（5）–（12）（第 15–17 页）。正文没有明确修订号或稿件日期，入库时间不能确立版本先后，所引补充附录仍不可用。正文图 2b 使用 Yeo 首层约束树，本节延续仓库无先验 ROI 块树，闭合中保留叶块内 E/I 增量；节点 Syn 是依赖路径的层级残差。既有高维 Gaussian 近似沿用第 1.1 节所述 TM 计算代价例外，本轮未验证精确均匀干预 EI 或缺失附录。
 
 ### 1.6 ROI Shapley 给出可相加的整体贡献
 
@@ -246,7 +370,7 @@ $$
 
 <a id="dmf-spt-subject-preview"></a>
 
-**跨被试试图：图形可以沿用，平均 SC 的跨 seed 稳定性却不能直接推广为个体共同核。** 先复用[个体 SC 开发预实验](brain_dmf_subject_consistency_pilot.md)中的 8 人缓存，按固定 seed 4 给每个人、每个 $G$ 提取一个实际 $C_{10}$，每人只投一票。该开发样本按 SC 谱半径的八个等距秩选取，覆盖结构尺度，尚不是全部 93 人或随机人群样本。
+**跨被试试图：图形可以沿用，平均 SC 的跨 seed 稳定性却不能直接推广为个体共同核。** 先复用[个体 SC 开发预实验](brain.md#dmf-subject-pilot)中的 8 人缓存，按固定 seed 4 给每个人、每个 $G$ 提取一个实际 $C_{10}$，每人只投一票。该开发样本按 SC 谱半径的八个等距秩选取，覆盖结构尺度，尚不是全部 93 人或随机人群样本。
 
 ![平均 SC 的跨 seed 与个体 SC 的跨被试入核频率比较](../../fig/brain_dmf_spt_subject_membership_preview.png)
 
@@ -417,11 +541,11 @@ S^{\max}_s(G)=\max_{k:\,n_{k,s}(G)>0}S^{\max}_{k,s}(G),\qquad
 k^*_s(G)\in\operatorname*{arg\,max}_{k:\,n_{k,s}(G)>0}S^{\max}_{k,s}(G).
 $$
 
-没有选中该阶节点时，$S^{\max}_{k,s}(G)$ 保留为缺失，不补零。图 6a 的每格进一步取八个 seed 中已出现节点的最大值 $\max_s S^{\max}_{k,s}(G)$，**不求和、不按节点数加权、不除以整体 $\Xi$**。逐树最大值阶数仍保留在下表和计算汇总中；图 6b 改用统一的低阶优势 $D_{10}$，定义见第 2.9 节。图 6b、d 均先计算每棵树的指标，再报告等权均值和样本 SD。最大值与平均的运算顺序不同，不能用跨 seed 平均曲线的最高阶替代逐树最大值阶数。
+图 6a 按用户指定，将未出现阶数的图示值定义为 0；每格取八个 seed 中已出现节点的最大值 $\max_s S^{\max}_{k,s}(G)$，八个 seed 均未出现时为 0。**不求和、不按节点数加权、不除以整体 $\Xi$**。逐树最大值阶数仍保留在下表和计算汇总中；图 6b 改用统一的低阶优势 $D_{10}$，定义见第 2.9 节。图 6b、d 均先计算每棵树的指标，再报告等权均值和样本 SD。最大值与平均的运算顺序不同，不能用跨 seed 平均曲线的最高阶替代逐树最大值阶数。
 
 ![DMF 每阶最大局部 Syn、最大值阶数与树口径对照](../../fig/dmf_schaefer100/dmf_spt_max_syn_by_order.png)
 
-*图 6｜最强 SPT 节点的阶数、低阶优势与强度。a：同一 $G$、同一阶在八棵扫描树中观测到的最大局部 Syn，线性色标、nats，灰色表示八个 seed 均未选中该阶。b：统一的 $D_{10}=(L-H)/(L+H)$，正值表示 2–10 阶最强节点超过 11–100 阶最强节点；灰线为八个 seed，蓝线及阴影为均值 ± SD，灰色竖带标出所讨论的 $G=0.5$–0.6 区间，不是置信区间。c：$G=1.3$、seed 4 的图 1b 树与配对扫描树的每阶最大值对照，星号标记各树最大值；两组缓存同时改变样本和候选搜索，不能视为仅改变搜索的控制实验。d：每棵扫描树先取全部阶数的最大值或二阶最大值，再报告八个 seed 的均值 ± SD。连线仅连接实际采样位置，不平滑或插值；所有图例均位于数据区域外。*
+*图 6｜最强 SPT 节点的阶数、低阶优势与强度。a：同一 $G$、同一阶在八棵扫描树中观测到的最大局部 Syn，线性色标、nats；八个 seed 均未选中该阶时按 0 着色。b：统一的 $D_{10}=(L-H)/(L+H)$，正值表示 2–10 阶最强节点超过 11–100 阶最强节点；灰线为八个 seed，蓝线及阴影为均值 ± SD，灰色竖带标出所讨论的 $G=0.5$–0.6 区间，不是置信区间。c：$G=1.3$、seed 4 的图 1b 树与配对扫描树的每阶最大值对照，星号标记各树最大值；两组缓存同时改变样本和候选搜索，不能视为仅改变搜索的控制实验。d：每棵扫描树先取全部阶数的最大值或二阶最大值，再报告八个 seed 的均值 ± SD。连线仅连接实际采样位置，不平滑或插值；所有图例均位于数据区域外。*
 
 | $G$ | 八个 seed 的最大值所在阶数范围 | 单棵树最大 Syn（均值 ± SD）/ nats |
 |---|---:|---:|
@@ -440,7 +564,7 @@ $$
 
 **图 1b 与扫描树必须区分。** 图 1b 在 $G=1.3$、seed 4 的最大值为 **85 阶、0.4524 nats**，二阶最大值为 0.2485 nats；图 6 的配对扫描树在同一参数和 seed 编号下则为 **12 阶、0.2419 nats**。前者精确搜索上限为八个 ROI，且谱候选未补齐全部单 ROI 切分；后者精确搜索到十个 ROI，补齐单 ROI 切分并增加 256 个固定随机候选。二者的条件协方差样本也不同：原缓存跨 ROI $\Xi$ 为 23.0211 bits，配对扫描为 22.8226 bits。因此这组对照不能把差异全部归因于加权或搜索，亦不能用扫描曲线声称复现了图 1b 搜索器随 $G$ 的变化。同一划分中 ROI 内 E/I 可加项会在式（7）中抵消，见第 1.5 节。
 
-本分析仅重读既有树缓存，不重跑动力学、EI 估计或划分搜索。扫描的 43,560 个选中节点和对照树的 99 个内部节点均采用 $10^{-8}$ bits（约 $6.93\times10^{-9}$ nats）的非负容差；容差内负值、显著违反数均为 0。缺失阶数不等于零协同；最大值只覆盖当前树上选中的节点，不能解释为全部同阶联盟的全局最大值。
+本分析仅重读既有树缓存，不重跑动力学、EI 估计或划分搜索。扫描的 43,560 个选中节点和对照树的 99 个内部节点均采用 $10^{-8}$ bits（约 $6.93\times10^{-9}$ nats）的非负容差；容差内负值、显著违反数均为 0。未出现阶数按 0 绘制是本图的约定；最大值覆盖当前树上选中的节点。
 
 方法定义于本次任务重新通过 Zotero 核对：父条目 `P6UJCVG8`，题名 *Emergent hierarchical organization of causal interactions in complex systems*；当前唯一 PDF 附件为 `DXGC7JEA`，共 19 页，PDF 生成日期为 2026-09-30，入库日期为 2026-10-02。附件无显式修订号，入库时间本身不建立新版本。本次读取正文 Methods 第 15–17 页、式（5）–（12）及脑应用第 6–7 页；所引用的补充证明与应用附录未随该附件提供。手稿明确将 SPT 阶数定义为父集合大小，并将节点 Syn 解释为依赖分解路径的层级协同，而非 Möbius 反演的纯阶 PID 原子。手稿图 2b 仍为 Yeo-7 约束树，本节是仓库现有无先验 ROI 树的扩展；Gaussian 近似与大集合候选搜索沿用既有实现，不据此宣称已核验全部手稿与代码一致性。
 
@@ -506,6 +630,63 @@ $$
 
 分析窗口与指标是在观察扫描后提出，固定 seed 检查是探索性的模拟重复验证，没有新增独立样本。$G=0$ 的真实跨 ROI 耦合关闭后仍有高维有限样本背景；高阶峰值背景因而可能抬高交叉阈值。要将此交叉定位为物理临界点，还需加密 $G=0.4$–0.7、改变样本量/正则化、独立动力学诊断，并验证搜索及估计器敏感性。当前最稳妥的结论是：**稳定的后部低阶强峰在弱耦合区越过高阶估计背景，而全系统信息预算仍主要分散在其他节点中。**
 
+<a id="dmf-spt-peak-core-evolution"></a>
+
+### 2.10 只显示最大 Syn 位于十阶以内时的完整节点，并追踪其成员变化
+
+**按最大节点的阶数筛选，低阶核会出现、扩展、更换成员，也会暂时退出显示。** 对每个 seed、每个 $G$，在该树全部 99 个内部节点中取局部 Syn 最大者；其父集合包含 2–10 个 ROI 时显示完整成员，超过 10 阶时留空。完全相同的最大 Syn 并列时先取较小阶数，再按排序后的成员索引确定节点。该规则与图 6 的逐树最大值完全一致，区别于第 2.1 节沿较大 $\Xi$ 子枝追踪得到的 $C_{10}$；不先截取 $C_{10}$，也不在最大节点超过十阶时改画另一低阶节点。
+
+![按最大 Syn 阶数筛选的协同核及其成员随 G 变化](../../fig/dmf_schaefer100/dmf_spt_peak_core_evolution.png)
+
+*图 8｜最大 Syn 节点满足 ≤10 阶门槛时的阶数与完整成员。a：八个 seed 分别显示实际最大节点的阶数；白色表示最大阶数超过 10。b：每个 ROI 被显示节点包含的 seed 数，分母始终是 8；未满足门槛的 seed 不贡献成员票。仅列出扫描中至少出现一次的 53 个 ROI，另 47 个 ROI 的频数始终为 0。色标为重复频数，行标签颜色对应 Yeo 网络。两面板以红色空心框标出 $G=1.18$ 的整列，横轴对应刻度也用红色加粗；这是逐树取全部阶数的最大 Syn 后，再对八个 seed 等权平均的峰位（0.2808 nats），筛选显示门槛之前确定。框线沿实际单列边界绘制，不改变颜色数值；其所标峰位与整体 $\Xi$ 的 $G=1.3$ 峰不同。两面板均保留 55 个实际采样 $G$ 的非均匀间距，无插值、无平滑。频数图是完整节点成员的逐 ROI 汇总，不将跨 seed 并集或交集另定义为一个核。*
+
+脑表面变化可在[交互图中逐步查看并切换 seeds 3–10](../../fig/dmf_schaefer100/dmf_spt_peak_core_evolution.html)，也可播放[固定 seed 4 的动画](../../fig/dmf_schaefer100/dmf_spt_peak_core_evolution.gif)。交互图提供每个条件的最大 Syn（nats）、完整成员、该节点所选二分的两个子组，以及八个 seed 的阶数和成员频数。动画逐帧展示实际 $G$，播放时间不是动力学时间。相同完整节点只渲染一次，再复用于各条件；皮层四视图使用相同镜头和 Yeo 颜色，未满足门槛时不画脑表面核。
+
+| $G$ | 满足门槛的 seed 数 | seed 4 的显示情况 |
+|---|---:|---|
+| 0.0–0.4 | 0/8 | 留空；最大节点为高阶集合 |
+| 0.5 | 1/8 | 留空；seed 4 最大节点为 98 阶 |
+| 0.6 | 8/8 | 2 ROI：`LH_Vis_6`、`LH_Default_pCunPCC_1` |
+| 0.9 | 8/8 | 4 ROI：`RH_Vis_6`、`RH_Cont_pCun_1`、`RH_Default_pCunPCC_1/2` |
+| 1.18 | 8/8 | 6 ROI：`RH_Vis_5/6/8`、`RH_Cont_pCun_1`、`RH_Default_pCunPCC_1/2`；该完整节点在 6/8 个 seed 中相同 |
+| 1.3 | 7/8 | 留空；seed 4 最大节点为 12 阶 |
+| 1.32 | 8/8 | 3 ROI：`RH_SomMot_1/2/3`；八个 seed 的完整最大节点分为四种组合，见下节 |
+| 1.62 | 8/8 | 6 ROI：`LH_SomMot_1/2/3`、`LH_SalVentAttn_FrOperIns_1/2`、`LH_Default_PFC_1` |
+| 1.9 | 0/8 | 留空；seed 4 最大节点为 47 阶 |
+| 2.3 | 8/8 | 9 ROI，包含左侧额盖/岛叶、眶额、控制及默认前额叶组合 |
+| 2.6 | 0/8 | 留空；seed 4 最大节点为 11 阶 |
+| 2.8 | 8/8 | 2 ROI：`LH_Default_PFC_3/4` |
+| 3.0 | 8/8 | 4 ROI：`RH_Limbic_OFC_1`、`RH_Cont_PFCl_1`、`RH_Default_PFCv_1`、`RH_Default_PFCdPFCm_1` |
+
+**留空表示没有满足本次显示门槛的最大节点，不等于系统没有协同，也不自动证明协同均匀。** 本图按用户给定的十阶门槛筛选，没有额外加入均匀性、绝对强度或统计显著性阈值；尤其 11 阶与 10 阶之间的显示切换是门槛效果。弱耦合区“出现低阶最大节点”的规律在 $G=0.6$ 达到 8/8，但半球与完整成员并不始终一致；后续换核和退出显示应结合图 6 的低/高阶峰值强度读取。
+
+本次重新查询 Zotero 父条目 `P6UJCVG8` 并核验题名，唯一可用正文附件仍为 `DXGC7JEA`（入库日期 2026-10-02，无明确修订号），重新取得 19 页全文并读取 Methods 第 15–17 页、式（5）–（12）。版本歧义和缺失补充附录保持第 2.8–2.9 节所述边界。此处只读取原有 440 棵树，不重拟合 EI 或改变搜索方法；阶数按手稿定义为父集合的 ROI 数，节点 Syn 是依赖路径的层级协同。非负容差仍为 $10^{-8}$ bits，43,560 个所选节点的容差内负值及显著违反计数均为 0；各条件的最大值及阶数已逐一核对图 6 的统计结果，图谱行序仍采用 inferred 对应。
+
+<a id="dmf-core-g132"></a>
+
+#### 2.10.1 将功能解释对象设为 $G=1.32$：整体联合优势峰附近的不同局部组合
+
+**本节以 $G=1.32$ 为协同核的功能解释对象。此时八个 seed 都有十阶以内的最大 Syn 节点，但完整成员分为四种组合。** 加密动力学扫描中，全系统 $\Xi$ 在 8/8 个 seed 的峰位均为 1.32；最大单节点 Syn 的跨 seed 均值峰仍在 1.18，两种峰位对应不同问题。图 8 的红框保留其“最大单节点均值峰”的统计含义，功能讨论则读取 1.32 的实际结果，不把原来右侧视觉—楔前叶/后扣带六脑区核的成员或解释移植到这里。
+
+| 最大节点的完整成员（省略 `7Networks_` 前缀） | ROI 阶数 | seed | 可讨论的组织层次 |
+|---|---:|---|---|
+| `RH_SalVentAttn_Med_2`、`RH_Cont_PFCmp_1` | 2 | 3、8、9（3/8） | 右侧内侧显著性/腹侧注意分区与内侧前额叶控制分区的联合 |
+| `LH_SomMot_1/2/3`、`LH_SalVentAttn_FrOperIns_1/2`、`LH_Default_PFC_1` | 6 | 5、10（2/8） | 左侧感觉运动—额盖/岛叶—默认网络前额叶的跨网络组合 |
+| `LH_SomMot_1/2/3` | 3 | 6、7（2/8） | 左侧感觉运动网络内部的联合 |
+| `RH_SomMot_1/2/3` | 3 | 4（1/8） | 右侧感觉运动网络内部的联合；对应现有动画的示例 seed |
+
+八个 seed 的最大节点 Syn 为 $0.2428\pm0.0064$ nats（均值 ± 样本 SD）。左侧感觉运动三成员在 4/8 个 seed 的最大节点中出现，右侧感觉运动三成员在 1/8 出现；另 3/8 的最大节点是右侧显著性/注意—控制二成员组合。成员频数不另定义一个共同核：两侧感觉运动组及右侧二成员组之间没有所有 seed 共有的 ROI，也不能称为统一的右脑核。种子使用同一群体平均 SC，差异反映模拟采样、噪声及所选树路径下的最大节点身份变化，尚未区分真实组织差异与估计/搜索敏感性。
+
+**针对 seed 4，最直接的解释是感觉运动网络内部的联合预测增量。** 其所选二分为 `RH_SomMot_1/2` 与 `RH_SomMot_3`，节点 Syn 为 0.2400 nats：这两个子组联合提供的全系统未来状态信息超出分开读取的 EI 之和。它不包含原解释中的 Visual、Default 或 Control 成员，因此“视觉—内部情景表征—目标组织”的后内侧跨网络故事不适用于这个示例。当前标签只支持网络层次定位，不能仅凭编号把三个分区指定为某种肢体、具体动作或任务。
+
+**左侧六成员组合则提出感觉运动信息与显著性选择、内部表征相结合的候选机制。** 在 seed 5、10 中，节点恰好分成感觉运动三成员与“额盖/岛叶两成员＋默认前额叶一成员”两个子组。Menon 与 Uddin 的网络模型将前岛叶与显著事件检测、跨网络切换和行为响应联系起来，可为感觉运动—显著性系统的联合提供功能背景；对右侧内侧显著性/注意—控制二成员组合，也可以提出显著性处理与控制协调的假说。该文不能直接证明本实验这些具体分区承担相同功能，也没有验证本次 PEID 节点。[Menon & Uddin, 2010；摘要及 PubMed 图注](https://pubmed.ncbi.nlm.nih.gov/20512370/)
+
+Luppi 等的观察性 $\Phi$ID 结果也限制了类比：其感觉运动、显著性和多数视觉区域更偏冗余，关联皮层中的默认与控制网络更偏协同。当前 seed 4 的感觉运动最大节点并非该“关联皮层协同核”的直接复现；本实验在独立干预初态、全 E/I 未来 target、300-step 时距和所选 SPT 路径下计算局部残差，两项研究的指标与条件不同。[Luppi et al., 2022；全文，Zotero `TJTW8IU5` / `HTRHEWFL`，期刊第 772 页、图 2](https://doi.org/10.1038/s41593-022-01070-0)
+
+因此，$G=1.32$ 的科学意义应表述为：**全系统联合预测优势达峰时，最强局部增量可落在感觉运动网络内部，也可落在显著性/注意、控制和默认相关的跨网络组合；总量峰与唯一稳定核的出现没有必然对应关系。** 当前 susceptibility、metastability 和 Jacobian 诊断未共同定位于 1.32（附录 A.1），故使用“联合优势峰附近”，不将其认定为已确认的物理临界点。数据仍来自 93 人群体平均结构矩阵与固定 JFIC 的背景动力学，缺少采集状态说明、任务输入和配套功能数据，不能据此识别被试处于运动准备、注意切换、走神或某种静息认知状态。
+
+本次逐一核对 $G=1.32$ 的八棵原始树、792 个内部节点及其最大节点，与现有成员缓存一致；未重跑动力学、拟合 EI 或改变树搜索。非负容差为 $10^{-8}$ bits，原始节点 Syn 最小值为 0.07962274 bits，容差内负值及显著违反数均为 0。重新查询 Zotero 父条目 `P6UJCVG8`，题名一致，当前唯一正文附件为 `DXGC7JEA`（19 页，附件入库日期 2026-10-02，无显式修订号），并重新读取 Methods 第 15–17 页、式（5）–（12）；唯一可用附件不证明不存在更新稿，引用的补充附录仍缺失。按手稿口径，节点 Syn 是依赖二分路径的层级协同，不能解释为纯三阶或六阶 PID 原子；此处阶数沿用现有 ROI 块口径，每个 ROI 包含 E/I 状态。手稿脑应用正文使用“转变窗”的表述，而仓库补充动力学诊断尚未完成共同临界定位，故此处保持上述较窄解释。Gaussian 近似、图谱行序 inferred 状态及数据来源限制均沿用原报告。
+
 <a id="discussion"></a>
 
 <a id="dmf-insights"></a>
@@ -534,13 +715,13 @@ $$
 | 峰位与动力学 | 50–500 steps 的时距检查未建立连续时间或渐近极限。$\Phi^{WMS}$、$\Phi^R$ 与 $\Xi$ 共享模型和 SC；$\Phi^R$ 使用 1 ms BOLD-like 样本的一步滞后，尚未检验下采样和 hemodynamic 参数敏感性。确定性轨迹的负增长指数只约束已测轨迹。 |
 | 候选核 | $C_{10}$ 是人为固定的停止尺度，大集合搜索为近似搜索；八点候选预算复核、40 条件样本量复核不覆盖全扫描。单 ROI 的 300 项检验未通过 BH。冻结验证为探索后追加，未匹配结构强度或空间距离，连接必要性和人体功能侧化尚待验证。 |
 
-当前尚未检验个体 SC、方向性连接、其他图谱分辨率或不同干预分布。正文支持当前模型中的机制性发现，其推广范围应由这些比较确定。
+正文的主要结论仍限定于群体平均 SC。个体 SC 已完成 8 人开发验证（附录 I–K），93 人细扫描正在运行（附录 P）；方向性连接、其他图谱分辨率与独立功能用途尚未获得本报告中的确认结果。
 
 ### 3.3 后续验证优先级
 
 1. **检验连接必要性：** 削弱候选核相关连接，与连接数量、总权重及空间分布匹配的随机扰动比较信息损失。
 2. **区分真实换核与估计误差：** 在换核邻域增加独立样本和搜索预算，在可计算子系统中使用 TM 复核。
-3. **检验结构推广：** 使用个体 SC 及多张独立结构 null，区分群体平均结构上的模拟重复性与跨结构稳健性。
+3. **检验结构推广：** 承接附录 I–K 的 8 人开发结果与附录 P 的 93 人细扫描，补充多张独立结构 null；区分固定群体 JFIC 下的组织比较与完全独立的个体模型泛化。
 
 受体谱调制局部增益、时间常数或 E/I 参数可作为后续机制延伸，但应只改变受体调制项并使用空间自相关保持 null（Hansen et al., 2022）。HCP 的观察性结果与统计边界保留在附录 E–H。
 
@@ -1215,7 +1396,9 @@ $$
 
 为核对这一点，复用原条件协方差，对 seed 3–10 和 $G=1.2,1.3,1.4$ 的全部 24 个条件重新计算 c、d。重算后的网络排序、均值和跨 seed SD 与原图一致，d 相对缓存的最大绝对差为 0；逐条件 $\sum c+\sum d-\Xi$ 的最大绝对闭合误差为 $2.56\times10^{-13}$ bits。非负容差仍为 $10^{-8}$ bits（$6.93\times10^{-9}$ nats），c、d 容差内负值数与显著违反数均为 0。
 
-c 合计 8.727 bits（6.049 nats），d 合计 17.151 bits（11.888 nats）；其总量为 17.937 nats。b 的单条件根为 26.102 bits（18.093 nats）。图内信息量统一用 nats，正文及缓存使用 bits，换算为 $1\ \mathrm{bit}=\ln 2\ \mathrm{nats}$。若改用自然分支定义归因，参与集合和 Shapley 游戏都会改变，应另作分支级分析。
+c 的原始量合计 8.727 bits（6.049 nats），d 合计 17.151 bits（11.888 nats）；其总量为 17.937 nats。b 的单条件根为 26.102 bits（18.093 nats）。<span style="color: red;">图内绝对信息量用 nats，b 的节点与色标、c/d 的柱长用占整体 $\Xi$ 的百分比。c/d 先按每个 seed/G 的整体量归一化，再按原来的顺序平均 G 和 seed，误差条重算为八个 seed 比例的 SD；逐条件占比闭合到 100% 的最大误差为 $9.67\times10^{-13}$ 个百分点。原生非负容差仍为 $10^{-8}$ bits，c/d 原值最小为 0.256485 bits，容差内负值与显著违反数均为 0，无裁剪。</span>正文及缓存使用 bits，换算为 $1\ \mathrm{bit}=\ln 2\ \mathrm{nats}$。若改用自然分支定义归因，参与集合和 Shapley 游戏都会改变，应另作分支级分析。
+
+本轮比例图重新检索 Zotero 父条目 `P6UJCVG8` 并核验题名，当前仍只有 PDF 附件 `DXGC7JEA`（19 页，2026-10-02 入库，无明确修订号）；重新读取脑应用及图 2c/d 说明（第 6–7 页）和 Methods 的层级可加性、式（9）（第 16 页）。比例换算使用现有 Gaussian 近似结果，固定 source、全系统未来 target、时距和联盟价值；不重跑动力学或改变估计器。手稿图 2b 的 Yeo 约束树与仓库无先验 ROI 树仍是不同图版；本轮不声称已核验缺失的补充附录。
 
 24 个条件各使用 32,768 个排列，即 16,384 对随机排列及其反向排列；24 个条件共享排列，以便配对比较。平均脑图的最大 Monte Carlo 标准误为 0.000848 bits，单条件最大标准误为 0.001012 bits。前后两半抽样的 ROI 排名 Spearman 相关为 0.999856，前十名完全一致，最大贡献差为 0.003734 bits，达到预先设定的精度与稳定性门槛。这些是抽样收敛诊断，不是人群置信区间，也不表示相近 ROI 的精细名次已被确定。
 
@@ -1266,7 +1449,8 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 | Pairwise BOLD-like $\Phi^R$ | `results/dmf_schaefer100/full/observational_phi_r.npz`、`results/dmf_schaefer100/full/observational_phi_r_summary.json` |
 | 拓扑/层级分解 | `results/dmf_schaefer100/full/critical_topology.npz`、`results/dmf_schaefer100/full/topology_summary.json` |
 | Yeo-7 分解 | `results/dmf_schaefer100/full/critical_yeo7.npz`、`results/dmf_schaefer100/full/yeo7_summary.json` |
-| 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley.png` |
+| 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share.png`；b 节点与色标、c/d 柱长均为占整体 $\Xi$ 的百分比；树图单独预览为 `docs/reports/assets/dmf_tree_root_share.png`，c/d 单独预览为 `docs/reports/assets/dmf_network_xi_share_preview.png` |
+| c/d 绝对量对照版 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_root_share.png`；b 使用比例，c/d 保留 nats |
 | 先验树与相同 ROI Shapley 的对照图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_yeo_prior_shapley.png`；对应图 A5e |
 | 历史主图与无约束树归档 | `fig/dmf_schaefer100/archive/`；对应附录 A.5 的图 A5a–A5d |
 | 整体 $\Xi$ 的 ROI Shapley 缓存及抽样诊断 | `results/dmf_schaefer100/roi_shapley/full_xi_results.npz` |
@@ -1281,15 +1465,16 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 | 无先验 SPT 成员矩阵与汇总 | `results/dmf_schaefer100/unconstrained_spt_wide/{membership.npz,membership_summary.json}` |
 | 2–100 阶 SPT 均值与完整分布统计 | `scripts/analyze_dmf_spt_order_distribution.py`；`results/dmf_schaefer100/spt_order_distribution/{order_statistics.npz,summary.json}` |
 | 协同阶数分布与平均阶数 | `scripts/plot_dmf_spt_mean_order.py`；`fig/dmf_schaefer100/dmf_spt_order_distribution_mean_order.png`；`results/dmf_schaefer100/spt_order_distribution/mean_order_summary.json`；对应图 5 |
-| 各阶最大局部 Syn 与最大值阶数 | `scripts/plot_dmf_spt_max_syn.py`；`fig/dmf_schaefer100/dmf_spt_max_syn_by_order.png`；`results/dmf_schaefer100/spt_order_distribution/max_syn_summary.json`；复用 440 棵扫描树及 `xi_hierarchy_tree/summary.json`，对应图 6 |
+| 各阶最大局部 Syn 与最大值阶数 | `scripts/plot_dmf_spt_max_syn.py`；`fig/dmf_schaefer100/dmf_spt_max_syn_by_order.png`；`results/dmf_schaefer100/spt_order_distribution/max_syn_summary.json`；复用 440 棵扫描树及 `xi_hierarchy_tree/summary.json`，对应图 6；A 图单独导出为 `fig/dmf_schaefer100/dmf_spt_max_syn_heatmap.png` |
 | 弱耦合低阶优势与固定 ROI 对定位 | `scripts/analyze_dmf_spt_low_order_onset.py`；`fig/dmf_schaefer100/dmf_spt_low_order_onset.png`；`results/dmf_schaefer100/spt_order_distribution/low_order_onset_summary.json`；复用相同树与 `shards/seeds*/covariance/`，对应图 7 |
+| 按最大 Syn 阶数筛选的核演化 | `scripts/plot_dmf_spt_peak_core_evolution.py`；`fig/dmf_schaefer100/dmf_spt_peak_core_evolution.{png,gif,html}`；`results/dmf_schaefer100/spt_order_distribution/peak_core_evolution_summary.json`；复用 440 棵树，完整最大节点 ≤10 阶时才显示，对应图 8 |
 | 各阶质量、节点均值与 Syn 数值分布补充图 | `fig/dmf_schaefer100/dmf_spt_order_summary.png`、`fig/dmf_schaefer100/dmf_spt_syn_distribution_by_G.png`；对应图 A8a–A8b |
 | 无先验 SPT 搜索、样本量与动力学复核 | `results/dmf_schaefer100/unconstrained_spt_wide/{search_validation,sample_validation,dynamics}/` |
 | 具名成员、跨 seed 差异与冻结核对照 | `fig/brain_dmf_spt_{roi_membership_vertical,between_seed_differences,core_size_control}.png` |
 | 冻结核随机/构成匹配对照入口 | `scripts/check_dmf_spt_size_control.py`；使用既有条件协方差即时重算，不重跑 DMF |
 | 实验契约与进度 | `docs/log/dmf_schaefer100_experiment_contract.md`、`docs/log/dmf_schaefer100_progress.json`、`docs/log/dmf_schaefer100_phi_r_contract.md`、`docs/log/dmf_schaefer100_phi_r_progress.json`、`docs/log/dmf_schaefer100_structural_null_contract.md`、`docs/log/dmf_schaefer100_structural_nulls_progress.json` |
 
-以下流程复用已有模拟缓存。绘图脚本的 `--tree-summary` 指定代表性 seed/G 与无约束整体量树缓存，`--roi-shapley` 指定已通过收敛检查的 ROI 贡献缓存。当前主图不传 `--yeo-prior`；该开关仅在复现图 A5e 时用于重建七个网络子树，并应指定另一个输出文件名。若仅需原七面板布局，可传入 `--legacy-layout`。新版组合图仅导出 PNG，历史 SVG/PDF 不代表当前排版。
+以下流程复用已有模拟缓存。绘图脚本的 `--tree-summary` 指定代表性 seed/G 与无约束整体量树缓存，`--roi-shapley` 指定已通过收敛检查的 ROI 贡献缓存。<span style="color: red;">`--tree-node-values root_share` 以全系统整体 $\Xi$ 归一化节点与色标；`--network-values root_share` 将 c/d 每个条件的网络内量和网络间 Shapley 除以同条件的整体 $\Xi$ 后汇总，两图使用共同百分比横轴。两开关默认 `absolute`，可复现相应的绝对量显示。</span>当前主图不传 `--yeo-prior`；该开关仅在复现图 A5e 时用于重建七个网络子树，并应指定另一个输出文件名。若仅需原七面板布局，可传入 `--legacy-layout`。新版组合图仅导出 PNG，历史 SVG/PDF 不代表当前排版。
 
 在已有冻结树缓存的基础上，完整流程可复现为：
 
@@ -1325,7 +1510,11 @@ python scripts/plot_dmf_schaefer100_summary.py \
   --prep results/dmf_schaefer100/group_mean_native.npz \
   --tree-summary results/dmf_schaefer100/xi_hierarchy_tree/summary.json \
   --roi-shapley results/dmf_schaefer100/roi_shapley/full_xi_results.npz \
-  --output fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley
+  --tree-node-values root_share \
+  --network-values root_share \
+  --tree-preview-output docs/reports/assets/dmf_tree_root_share.png \
+  --network-preview-output docs/reports/assets/dmf_network_xi_share_preview.png \
+  --output fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share
 ```
 
 单线程 BLAS 用于避免小型线性代数在多线程调度下显著变慢，不改变统计定义或随机种子。
@@ -1341,6 +1530,7 @@ python scripts/analyze_dmf_spt_order_distribution.py
 python scripts/plot_dmf_spt_mean_order.py
 python scripts/plot_dmf_spt_max_syn.py
 python scripts/analyze_dmf_spt_low_order_onset.py
+python scripts/plot_dmf_spt_peak_core_evolution.py
 ```
 
 正式全扫描的完成证据是四个 shard 的 110 条件 summary 加上 `membership_summary.json` 的 440 条件 complete 状态；根目录 `summary.json` 只含三条件冒烟结果，不能用它代替正式扫描。
@@ -1952,3 +2142,1416 @@ MOTOR 最强十项中九项包含 DMN，但全部 63 个含 DMN 组合的逐人�
 | 非负性审计 | `results/hcp_schaefer1000_57_validation_suite/nonnegativity_audit.json` |
 | MMP360 1002 人单端点初筛 | `results/hcp_mmp360_behavior_main_validation_1002/{summary.json,coalition_synergy_1002.npz,hcp_mmp360_exploratory_winners_scatter_1002.png}` |
 | MMP360 1002 人七任务同任务评分联合筛查 | `results/hcp_mmp360_same_task_score_screen_1002/{summary.json,coalition_synergy_all7_1002.npz,same_task_score_coalition_screen_1002.png,run.log}`；`scripts/screen_hcp_mmp360_same_task_scores_1002.py` |
+
+
+整理核对（2026-10-03）：经 Zotero 本地 API 重新核对父条目 `P6UJCVG8` 的标题 *Emergent hierarchical organization of causal interactions in complex systems*，重新查询附件后仅取得 `DXGC7JEA` 的 19/19 页正文；读取 Brain／Fig. 2（第 6–7 页）、Earth／Fig. 4（第 9–11 页）及 Methods 式（5）–（12）（第 15–17 页）。正文没有明确版本或稿件日期，2026-10-02 的入库时间不能建立版本先后；所引补充附录未附带。本次只整理已有报告，不新增估计或推导。手稿将脑应用两项观测基线均写为 BOLD-like，而仓库 WMS 使用自然 E/I 状态；Yeo 首层约束树与无先验 ROI 树、Gaussian／affine-TM 近似及历史单位保持分开。这些差异继续保留，不声称完整稿件／代码一致性已核验。
+
+<a id="dmf-subject-pilot"></a>
+
+## 附录 I：8 个体 SC＋DMF 协同组织开发结果
+
+2026-10-02。按用户批准的推荐规模，完成 **8 个体×7 G×3 seed**，另加 93 人平均 SC 的同布局参照。全部 189 个信息估计条件、9 组独立动力学诊断、108 个组织条件完成；本报告对应[实验方案](brain.md#dmf-subject-plan)的开发预实验，尚未扩展到全部 93 个体。
+
+**网络分工在个体模型中复现，多源方法的优势集中在中等耦合下的同一个体核重复性及小幅空间排名迁移增量。实验没有支持统一的跨个体协同核，也没有支持多源方法全面优于成对代理、whole EI 或结构强度。** 在固定 G=1.3，多源 C₁₀ 的同人跨 seed Jaccard 为 0.703，成对代理为 0.433；多源跨人独立 seed 重叠为 0.052，与匹配机会参照 0.051 接近。
+
+### I.1 实际执行的协议
+
+| 项目 | 本轮设置 |
+|---|---|
+| 个体选择 | 按原尺度 SC 谱半径排序取 8 个等距秩；覆盖开发样本，非随机群体抽样 |
+| SC | 100×100，保留原权重尺度；全部 93 个输入审计为有限、非负、对称 |
+| 模型 | 每 ROI 的 E/I 两坐标，共 200 维；93 人平均 SC 在 G=1 校准的 JFIC 全程冻结 |
+| G / 估计 seed | 0、0.5、1、1.3、1.6、2.2、3 / 3、4、5 |
+| 干预与未来 | 2,048 个独立均匀初态，U(0.30,0.70)²⁰⁰；固定完整 200 维未来目标，300 ms |
+| 积分与噪声 | dt=1 ms，噪声幅度 0.01；未施加状态截断；跨 G、跨个体复用同 seed 的实际初态和逐步噪声 |
+| 估计器 | 单一全系统 affine-TM 联合密度；ridge=10⁻⁶，所有子集取同一密度的边缘 |
+| 独立状态诊断 | seed 103、104、105；每 G 模拟 5 s，烧入 3 s，以平均 E 发放率最大正割线斜率定位粗转折区间 |
+| 组织比较 | 冻结 G=0、1、1.3、2.2；100 ROI 归因、同预算多源/成对 SPT；C₁₀ 与固定 top-8 成员原型 |
+| 不确定性 | 先在个体内汇总 seed，再报告 8 个体均值及 SD；SD 不是群体置信区间 |
+
+**实际模拟先验与密度近似必须区分。** 样本来自均匀盒；affine-TM 使用均匀先验解析方差构造矩匹配的对角 Gaussian 源密度，并将转移与残差作线性/Gaussian 近似。因此这是当前仓库的 affine-TM 估计，不能称为精确均匀干预 EI 或非线性 TM。与同样本旧经验 Gaussian 后端的 Ξ 最大差为 0.0334 nats。这个桥接差很小，不消除高维有限样本偏差。
+
+本轮重新核对 Zotero 父条目 `P6UJCVG8`，题名为 *Emergent hierarchical organization of causal interactions in complex systems*；重新查询后正文附件为 `DXGC7JEA`，全文 19/19 页。方法依据为 Brain/Fig. 2、Methods 式（4）–（12）。可用正文没有明确稿件版本号或日期，2026-10-02 的条目元数据不能证明新版本；补充附录不可用。下述定义与可见正文核对，DMF 参数和估计器近似依据仓库实现，不能声称已验证缺失附录。
+
+#### 信息对象与公平比较
+
+记完整未来为 B，ROI 集合 S 的 E/I 坐标并集为 A(S)，E(A)=EI(A→B)，单个 ROI 的坐标块为 Aᵢ。统一使用 nats：
+
+- 全脑 Ξ：E(V) − ΣⱼE({j})，微观求和对象是 200 个标量坐标。
+- 跨 ROI 博弈 u(S)：E(A(S)) − Σᵢ∈S E(Aᵢ)。全脑 Ξ 等于 u(全部 ROI) 加各 ROI 内部 E/I 的 Ξ。
+- 七网络内部量 wₕ：网络坐标整体的 Ξ。跨网络博弈 z(T)：所选网络并集的 EI 减各网络整体 EI；七网络 Shapley 精确枚举，Σₕwₕ+z(全部网络)=全脑 Ξ。
+- 成对代理 u₂(S)：Σᵢ<ⱼ∈S u({i,j})，其节点 Shapley 为 ½Σⱼ≠ᵢu({i,j})。u−u₂ 可有符号，不解释为纯高阶 Syn。
+
+ROI 多源归因使用 256 对正向/反向随机排列估计整体 Ξ-Shapley，再减 ROI 内 E/I 量得到跨 ROI Shapley；whole EI Shapley 使用同一排列的 EI 边际量。SPT 二分最小化父块减两子块的残差。两种目标都使用同一成对亲和矩阵的谱候选、全部单 ROI 切分、256 个随机候选，块规模≤10 时精确枚举；各树路径分叉后候选集合会随当前块改变。C₁₀ 沿保留量较大的子枝首次到达 2–10 ROI 停止。SPT 层级依赖搜索与路径，不是唯一纯 n 阶 PID 原子。
+
+whole EI 与 Ξ 的子块和切分目标只差父块内固定的单变量项，不能当作两个独立 SPT 对手；whole EI 本轮作为归因排名基线。top-8 是固定大小的排名成员原型，未必是树节点。
+
+### I.2 零耦合对照暴露了共享噪声的一致性伪象
+
+G=0 关闭长程 SC 耦合，因子化输入下的真实跨 ROI 量应为零。本轮估计跨 ROI 残差却平均为 **4.426 nats**。这反映高维有限样本拟合背景；不能解释为真实长程协同，也没有据此减去背景或重定义 Syn。
+
+相同 seed 的初态、噪声完全相同，而 G=0 时 SC 不再影响转移，所以所有个体的估计结果和树输出完全相同。同 seed 的跨个体排名相关和核重叠等于 1，是实验配对方式造成的伪象。
+
+观察到该问题后，保留原共享 seed 汇总供诊断，**追加缓存上的独立 seed 分析，作为最终主比较**，不追加模拟、不改计算参数：每次留出 1 人的 1 个 seed，训练共识只使用其余 7 人的另 2 个 seed；轮换 3 次后先在留出个体内平均。C₁₀ 跨人比较固定主 seed=4 的核对其余 7 人 seed=3/5 的核。该分析调整发生在采集后，已记录到 provenance，属于探索性修正。
+
+独立 seed 下，G=0 的多源/成对留一人排名相关分别为 −0.111/−0.145，跨人 C₁₀ Jaccard 均为 0.053；同人跨 seed 核重叠分别为 0.035/0.053。零耦合没有可重复跨 ROI 组织。图中的 G=0 方法差不作为优势证据。whole EI 在此仍可重复，因为局部 ROI 响应仍存在。
+
+### I.3 整合峰复现，但相同 G 对应不同个体状态
+
+7/8 个体在扫描内部出现 Ξ 峰，其中 5/8 的均值峰位于 G=1.3。最大尺度个体在 G=0.5 达峰，最小尺度个体在 G=3 的边界仍上升；后者转折未定位，保留在原 G/结构尺度图中，不强制状态对齐。
+
+| 模型 | SC 谱半径 | Ξ 均值峰 G | 峰 Ξ / nats | 独立发放率最大变化区间 |
+|---|---:|---:|---:|---|
+| sub-10377 | 0.344 | 3（边界） | 19.358 | 2.2–3（边界，未定位） |
+| sub-10249 | 0.666 | 1 | 15.676 | 1–1.3 |
+| sub-10321 | 0.729 | 1.3 | 18.350 | 1.6–2.2 |
+| sub-10274 | 0.784 | 1.3 | 18.791 | 1.3–1.6 |
+| sub-10631 | 0.826 | 1.3 | 17.716 | 1.3–1.6 |
+| sub-10565 | 0.875 | 1.3 | 16.270 | 1.6–2.2 |
+| sub-10325 | 0.933 | 1.3 | 17.243 | 1.3–1.6 |
+| sub-10228 | 1.297 | 0.5 | 18.554 | 0.5–1 |
+| group_mean_93 | 0.701 | 1.3 | 18.013 | 1.3–1.6 |
+
+7 个可定位个体的 Ξ 峰均早于粗发放率转折区间的中点。发放率斜率提供独立的状态参照，但粗网格区间不证明严格临界点；未实施临界慢化或系统扰动验证。sub-10325 的 seed 峰为 1.3、1.3、1.0，提示相邻格点近似竞争，不能把单个峰位置看成精确参数。
+
+![个体整合曲线、独立发放率与重复误差](assets/dmf_subject_consistency/curves.png)
+
+**图 1。** a：原 G 的全脑 Ξ；b：G×SC 谱半径；c：独立诊断的平均 E 发放率；d：按粗转折中点对齐，边界未定位个体不进入该面板；e：Ξ 峰格点与独立转折区间，三角形表示边界峰；f：个体内 seed RMS SD 除跨 G 均值响应幅度。曲线为 3 seed 均值，连线只连接观测格点，不是额外采样。Ξ 的误差/幅度比为 0.0030–0.0064，whole EI 约为 0.0007–0.0032，后者更稳定。黑线为平均 SC 参照，未计入 8 个体统计。
+
+SC 谱半径不能完全消除曲线差异，相同 G 也不能保证状态等价。高 G 的排名迁移与核重复性没有单调提升，整合量也下降；本轮不支持“耦合越强，协同核越一致”的单调结论。
+
+### I.4 网络分工复现，DMN 第一受网络规模影响
+
+固定 G=1.3 时，7/8 个体的最大网络内部 Ξ 来自 Visual 或 SomMot。例外 sub-10228 已越过自己的早期整合峰；其全脑 Ξ 仅约 0.845 nats。为区分状态差异，缓存上另做描述性对齐：取独立发放率转折区间中点最近的已采样 G，数值等距时选较低 G，不按 Ξ 极值选择；未定位者不进入此敏感性分析。
+
+| 个体 | 对齐采样 G | 内部 Ξ 第一 | 内部 Ξ/ROI 第一 | 原始跨网络 Shapley 第一 | /连接机会数后第一 |
+|---|---:|---|---|---|---|
+| sub-10249 | 1 | SomMot | SomMot | DMN | SVAN |
+| sub-10321 | 1.6 | SomMot | SomMot | DMN | SVAN |
+| sub-10274 | 1.3 | Visual | Visual | DMN | SVAN |
+| sub-10631 | 1.3 | SomMot | SomMot | DMN | SVAN |
+| sub-10565 | 1.6 | SomMot | SomMot | SVAN | SVAN |
+| sub-10325 | 1.3 | Visual | SomMot | SVAN | SVAN |
+| sub-10228 | 0.5 | Visual | Visual | DMN | Limbic |
+
+7/7 可定位个体的内部量由 Visual/SomMot 领先；原始跨网络量由 DMN/SVAN 领先（DMN 5、SVAN 2）。调整网络连接机会数 nₕ(100−nₕ) 后，6/7 由 SVAN 领先，极端尺度个体由 Limbic 领先。因此“感知网络内部整合突出、联合网络跨网络贡献突出”可在此模型中逐人复现；“DMN 必须第一”不稳健。
+
+![固定 G=1.3 的七网络比较](assets/dmf_subject_consistency/networks.png)
+
+**图 2。** 固定 G=1.3，a/b 为网络整体 Ξ 及按 ROI 数调整值；c/d 为精确七网络 Shapley 及按连接机会数调整值。彩点先平均各个体 3 seed，黑色菱形和误差棒为 8 个体均值±SD。
+
+![按独立转折粗对齐的七网络比较](assets/dmf_subject_consistency/networks_state_matched.png)
+
+**图 3。** 与图 2 相同的量，使用表中各个体的对齐 G；7 个体均值±SD。Yeo-7 网络 ROI 数依次为 Visual 17、SomMot 14、DAN 15、SVAN 12、Limbic 5、Control 13、DMN 24。调整只是规模敏感性分析，不是消除结构混杂。
+
+固定 G=1.3 的跨网络 Shapley 与相应网络间 SC 权重排名平均相关为 0.875，机会数调整后为 0.893。结构约束提供了强解释，本轮没有结构保持 null 模拟，尚不能证明网络分工超出共同解剖与共享局部模型。ROI 标签沿用准备流程推断的 Schaefer 顺序，未取得原始数据逐 ROI 身份保证。
+
+### I.5 多源增量取决于端点：核重复性优于成对代理，统一成员并未出现
+
+#### 连续归因与留一人比较
+
+以下为独立 seed 留一人共识的 Spearman 排名相关，先在个体内平均轮换，再给出 8 个体均值±SD。共享 JFIC 和群体参考仍包含这些个体，因此这里只验证固定参考模型下的组织迁移，不是完全独立的模型训练泛化。
+
+| 归因/基线 | G=1 | G=1.3 | G=2.2 |
+|---|---:|---:|---:|
+| 多源跨 ROI Shapley | 0.691 ± 0.291 | 0.673 ± 0.295 | 0.346 ± 0.401 |
+| 成对可加代理 Shapley | 0.655 ± 0.274 | 0.612 ± 0.279 | 0.354 ± 0.429 |
+| whole EI Shapley | 0.795 ± 0.333 | 0.760 ± 0.351 | 0.662 ± 0.309 |
+| SC 节点强度 | 0.796 ± 0.260 | 0.796 ± 0.260 | 0.796 ± 0.260 |
+
+多源相对成对代理的个体配对平均增量为 G=1 的 +0.036（7/8 同向）、G=1.3 的 +0.061（8/8 同向）、G=2.2 的 −0.009（2/8 同向）。两种方法自身空间排名仍很相似：G=1、1.3、2.2 的相关分别约 0.980、0.950、0.973，增量不是完全不同的空间组织。
+
+固定 top-8 成员原型的独立 seed 留一人 Jaccard，多源/成对代理分别为 G=1 的 0.327/0.239、G=1.3 的 0.373/0.391、G=2.2 的 0.164/0.133。G=1.3 的全排名改善没有转化为 top-8 成员改善。whole EI 和 SC 强度的排名迁移均高于多源；SC 强度跨 G 完全不变，说明稳定性本身不能衡量状态敏感性或功能价值。
+
+#### 同一个体重复与跨个体协同核
+
+同人重复：每人计算 3 对 seed 核 Jaccard 后平均。跨人：每人 seed4 主核与其他 7 人 seed3/5 核的 14 次重叠先平均，再汇总 8 人。匹配机会参照每次抽 512 个随机集合，保留主核大小、半球/Yeo 构成、个体 SC 强度三分位的联合格计数；小格的强制入选保留，不放宽规则。它是成员重叠参照，不是重连 SC 后重新运行 DMF 的结构 null。
+
+| G | 方法 | 同人跨 seed C₁₀ Jaccard | 跨人独立 seed C₁₀ Jaccard | 匹配机会均值 |
+|---|---|---:|---:|---:|
+| 1 | 多源 | 0.640 ± 0.346 | 0.179 ± 0.121 | 0.149 |
+| 1 | 成对代理 | 0.526 ± 0.340 | 0.161 ± 0.113 | 0.112 |
+| 1.3 | 多源 | 0.703 ± 0.261 | 0.052 ± 0.027 | 0.051 |
+| 1.3 | 成对代理 | 0.433 ± 0.225 | 0.096 ± 0.067 | 0.067 |
+| 2.2 | 多源 | 0.509 ± 0.399 | 0.150 ± 0.153 | 0.078 |
+| 2.2 | 成对代理 | 0.499 ± 0.324 | 0.091 ± 0.064 | 0.060 |
+
+G=1.3 的同人核重复性配对差为 +0.269（个体差 SD=0.281，7 人提高、1 人持平）；这是本轮最明确的描述性多源增量。G=1 的差为 +0.115，但个体差 SD=0.541；G=2.2 的差仅 +0.010，不能视为广泛稳定优势。固定预算 Shapley 排列误差与模拟 seed 差异分开记录，SPT 搜索重复敏感性没有另行测试。
+
+G=1.3 的多源跨人重叠为 0.052，机会参照为 0.051；成对代理为 0.096，机会参照为 0.067。固定主 seed4 时，两方法在每个正 G 都产生 8 个不同的完整核，任何完整核最多只出现于 1/8 个体。G=1.3 的核规模为 8–10 ROI。这些结果支持“同一个体内可重复、不同个体成员分化”，不支持“所有个体共享一个完整协同核”。其他 G 的机会以上重叠仅作描述，未计算人口推断的显著性。
+
+![归因迁移、个体重复及核成员](assets/dmf_subject_consistency/organization.png)
+
+**图 4。** a：独立 seed 留一人排名相关；b：同人跨 seed 排名相关；c：同人 C₁₀ 核重复；d：跨人独立 seed 核重叠，虚线为匹配机会均值；e：留一人 top-8 成员原型重叠；f：多源减成对代理的排名相关差，灰线为每名个体，红线为均值；g/h：G=1.3、seed4 的核成员，ROI 索引为 0–99。a–e 误差棒为个体汇总的 SD，未截断到指标合法区间，因此误差棒可超出 0–1。G=0 的共享样本伪象已用独立 seed 比较隔离，不解释为真实组织或方法优势。
+
+#### 平均 SC 参照
+
+平均 SC 在 G=1.3 的 Ξ 为 18.013 nats，跨 ROI Shapley 与个体排名的平均相关为 0.675；其 9 ROI 核为索引 {5,8,14,19,28,35,36,48,49}，与个体 seed4 核的平均 Jaccard 为 0.211。这里使用同 seed 和包含开发个体的 93 人均值，只是描述性参照。平均结构的核不能直接称为群体共享核。
+
+### I.6 数值有效性与结论范围
+
+本轮 Syn 非负容差为 **10⁻⁸ nats**。未使用静默截零；容差内负数计数、低于阈值的显著违反均为 0，状态越界计数为 0，完成缓存未发现 NaN/Inf。模拟基本审计最小值为 6.25×10⁻¹² nats，树候选最小 Syn 为 3.78×10⁻⁴ nats。全脑预算、网络预算、树闭合最大误差分别为 5.68×10⁻¹⁴、4.26×10⁻¹⁴、7.11×10⁻¹⁵ nats。
+
+256 对排列的最大 ROI Shapley MC SE 为 0.00571 nats；整体 Ξ-Shapley 两半排列的最小排名相关为 0.9972，top-10 最少重合 8/10。这是固定预实验预算的误差诊断，不能替代全部跨 ROI 排名和离散树选择的收敛证明。6 项独立单元核对通过，覆盖解析总体 G=0 跨 ROI 为零、精确小博弈对照、负值显式失败、边界不强制对齐及共享噪声隔离；代码编译检查通过。现有 pytest 全套未运行，当前环境没有 pytest。
+
+本轮已完成批准的开发预实验。方案中的全 93 人扫描、按个体状态对齐的完整组织比较、冻结共同联盟候选池的 k=2/4/8 优化、SPT 搜索重复、训练折均值 SC/JFIC、SURD、非线性 TM、完整结构 null 及独立功能/预测验证均未执行。当前证据可用于呈现网络分工和个体组织重复性；它尚不能建立纯高阶因果原子、人口共同核心或独立功能优势。扩大个体数之前，优先解决 G=0 的估计背景并验证相近状态下的组织比较，比直接宣称共同协同核更符合结果。
+
+### I.7 复用与记录
+
+[冻结协议](../../results/dmf_schaefer100/subject_consistency_pilot/contract.json)、[统计汇总](../../results/dmf_schaefer100/subject_consistency_pilot/summary.json)、[完成记录](../../results/dmf_schaefer100/subject_consistency_pilot/completed.json)、[代码版本与分析调整](../../results/dmf_schaefer100/subject_consistency_pilot/implementation_provenance.json)保留可追溯记录。昂贵计算缓存为 `conditions/*.npz`（189）、`dynamics/*.npz`（9）、`organization/*.npz`（108），无需重算；没有另建 CSV。
+
+实现：[计算与断点复用](../../scripts/run_dmf_subject_consistency.py)、[共同密度组织方法](../../scripts/dmf_subject_consistency.py)、[统计与绘图](../../scripts/analyze_dmf_subject_consistency.py)、[单元核对](../../tests/test_dmf_subject_consistency.py)。重用当前完整缓存并生成分析：
+
+```bash
+.venv/bin/python scripts/analyze_dmf_subject_consistency.py
+```
+
+从同一冻结布局执行或续算时使用：
+
+```bash
+.venv/bin/python scripts/run_dmf_subject_consistency.py --phase run
+```
+
+主计算与分片日志保留于 docs/log/dmf_subject_consistency_*.log。先前因计算调度调整产生的 KeyboardInterrupt 和共享配置临时文件冲突已修复；未改科学参数，有效缓存保留并逐个核对协议。所有计算、分析和图表均已完成，临时检查在交付时删除。
+
+
+### 后续：跨个体曲线比较
+
+同一8人×7 G×3 seed布局已补齐原生ΦR与自然态source-WMS，并包含平均SC参照，新增189个有效条件。见[曲线比较报告](brain.md#dmf-subject-curves)及[完整完成记录](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_completed.json)。Ξ、ΦR、WMS的原G8人形状留一人Pearson分别为0.638、0.687、0.616，独立状态对齐7人后分别为0.926、0.917、0.936。曲线一致性没有显示Ξ明显占优。whole EI现已从跨指标比较中移出，单独与部分EI之和作[峰值分解](brain.md#dmf-ei-components)。
+
+ΦR峰与WMS谷的8人均值位置一致，中间6人均在G=1；Ξ多数在G=1.3。相对于独立转折区间，Ξ有5/7命中，ΦR与WMS各2/7。共同G极值集中与动力学转折标记是不同维度。原生协议的观测变量、时距、源分布和数值稳定处理不同；ΦR短BOLD-like轨迹的协方差下限触发，以及WMS部分自然轨迹只有150个不同采样时间点，均限制跨指标的解释。完整图表、极值和审计保存在新报告中。原预实验的协同核/网络结论未因这次曲线补算改变。
+
+<!-- report-section:dmf-subject-curves:start -->
+<a id="dmf-subject-curves"></a>
+
+## 附录 J：个体指标曲线、动力学转折与形状比较
+
+2026-10-03更新；原模拟完成于2026-10-02。原生 ΦR＋WMS 已完成同一8人×7 G×3 seed，并补算平均SC参照，共189条件。平均SC只作虚线参照，不进入被试一致性训练或统计。 主比较改为：指标极值是否对应各人的独立序参量转折，以及曲线是否有额外回摆。峰的存在或跨人峰位接近不直接代表正确；跨被试一致性作为补充维度保留。8个体依据原生SC谱半径等距秩选取，属于开发样本；均值±SD是描述性结果，不作人口推断。whole EI单独见[整体EI与部分EI之和的峰值分解](brain.md#dmf-ei-components)。本轮只复用原缓存，无新增模拟、参数调整或平滑。
+
+### J.1 三项指标与每人的序参量
+
+![三项指标的原始曲线](assets/dmf_subject_consistency/metric_curves.png)
+
+**图1。** 主图仅保留A、B、C三个原始nats面板，依次为Ξ、ΦR、WMS，每人曲线为3seed均值。颜色/标记固定对应个体；虚线是93人平均SC的独立模拟参照，不是8人的曲线均值。WMS有符号，谷值方向保留。
+
+![每人的独立序参量与指标曲线](assets/dmf_subject_consistency/order_parameter_curves.png)
+
+**图2。** 每人一格，上部是独立5s模拟最后2s、100ROI平均兴奋性发放率（Hz），下部是三项指标的同人形状。灰带由独立发放率最大正斜率区间确定；斜线灰带为边界、尚无法定位。为了同轴查看各指标形状，下部仅按各自3seed均值曲线的跨G均值/SD作z标准化，未按峰位对齐、翻转WMS或对G插值。细带为3seed SD，上部用Hz，下部用同一个固定标准化尺度换算；不是置信区间。下部统一显示范围，先检查所有均值±SD均被保留。
+
+### J.2 峰/谷是否对应各人的序参量转折
+
+个体顺序固定为sub-10377、sub-10249、sub-10321、sub-10274、sub-10631、sub-10565、sub-10325、sub-10228，SC谱半径递增。沿用原生DMF比较的极值方向：Ξ、ΦR主报最大值，WMS主报最小值；同时给出所有指标的最大值和最小值。位置在原观测格点上查找，未用插值找峰。格点极值不能认定为连续G的真实峰/谷；边界极值可能是单调趋势或扫描不足。独立发放率在内部出现最大正斜率，只标为转折候选，不能在有限尺寸模型的7点扫描中证明相变；“无法定位”也不等于“没有相变”。
+
+本次8人中7人有内部转折候选，sub-10377最大正斜率位于G=2.2→3边界。它的Ξ仍向扫描末端上升，ΦR在G=2.2达峰、WMS在同处达谷；这些是边界附近的候选关系，不能直接计作虚假峰。当前没有独立确认无转变的对照，所以不能估计“无相变却报峰”的假阳性率。不同被试的转折区间本来就不同，共同G下峰位不一致本身不构成错误。
+
+| 指标 | 主参照 | 8人均值曲线极值G，依上述顺序 | 极值G的SD | 扫描内部 | 落在独立转折区间 |
+|---|---|---|---:|---:|---:|
+| 干预 Ξ | 最大值 | 3、1、1.3、1.3、1.3、1.3、1.3、0.5 | 0.715 | 7/8 | 5/7 |
+| BOLD-like ΦR | 最大值 | 2.2、1、1、1、1、1、1、0.5 | 0.482 | 8/8 | 2/7 |
+| 自然态 source-WMS | 最小值 | 2.2、1、1、1、1、1、1、0.5 | 0.482 | 8/8 | 2/7 |
+
+**表1。** 极值G的SD使用全部8人；转折区间命中只计7个可定位人，含区间端点。共同G的极值集中与相对于自身动力学转折的位置一致是不同问题，JSON保留每人到独立转折中点的偏移和3个seed的峰/谷位置。
+
+![各指标原格点极值与独立发放率转折区间](assets/dmf_subject_consistency/curve_extrema.png)
+
+**图3。** 小标记显示各seed的极值G，空心菱形是3seed均值曲线的极值；灰条为独立发放率最大变化区间。无法定位的sub-10377不画灰条，仍保留其观测极值。WMS列采用谷的位置。
+
+| 指标 | 8人最大值G | 8人最小值G |
+|---|---|---|
+| 干预 Ξ | 3、1、1.3、1.3、1.3、1.3、1.3、0.5 | 0、3、3、3、3、3、3、3 |
+| BOLD-like ΦR | 2.2、1、1、1、1、1、1、0.5 | 0、3、0、0、0、0、3、1.6 |
+| 自然态 source-WMS | 0、2.2、0、3、3、0、3、1.6 | 2.2、1、1、1、1、1、1、0.5 |
+
+**表2。** 保留两种方向的极值，WMS评价对应的是谷的位置。
+
+ΦR的峰与WMS的谷在8人均值曲线上位于相同格点，中间6人均为G=1，原G位置SD均为0.482，小于Ξ的0.715。相对于独立转折区间，Ξ有5/7命中，ΦR与WMS各2/7。因此，极值更集中与更靠近各人的动力学转折给出了不同排序。这里只比较粗格点，不据此证明真实相变点或机制优势。
+
+Ξ的两个SC尺度极端在共同G下峰位错开，因此还需对照同一7人的独立状态对齐结果。对原生ΦR/WMS，一致性分数只说明各自观测和估计协议下的曲线表现，不能把它们与Ξ的差别完全归因于指标公式，也不能据8人的均值排名宣布全面优势。
+
+### J.3 单峰偏离与折线粗糙程度
+
+令 $y_j$ 为某人的3seed均值曲线，$m=7$为格点数，$\Delta y_j=y_{j+1}-y_j$。Ξ、ΦR取原值；WMS仅在本节形状计算中取 $y_j=-WMS_j$，把单谷转为单峰，图中保留WMS原始符号。令 $k$ 是全局最大值的首个格点，$A=\max y-\min y$。对非平坦曲线，定义
+
+$$
+U=\frac{\sum_{j<k}[-\Delta y_j]_++\sum_{j\ge k}[\Delta y_j]_+}{A}
+=\frac{\sum_j|\Delta y_j|-(y_k-y_0)-(y_k-y_{m-1})}{2A},\qquad [a]_+=\max(a,0).
+$$
+
+**U是单峰偏离量。** 分子累加主峰前的下降与主峰后的回升；除以该曲线的完整幅度，避免不同nats量级直接比较。弱单峰（先不降、后不升）、单调曲线和峰顶平台均为0；偏离越大，反向运动越大。这里的正部运算是描述量的定义，不是对Ξ/Syn做裁剪。相对形状零阈值为10⁻¹⁰；平坦曲线（幅度≤10⁻¹²×max(1,最大绝对值)）没有可识别极值，U/Q不定义，不算作理想单峰。
+
+为单独描述折线的粗糙程度，把 $x_j=(G_j-G_0)/(G_{m-1}-G_0)$、$z_j=(y_j-\min y)/A$，定义
+
+$$
+Q=\sum_{j=0}^{m-3}\left|\frac{z_{j+2}-z_{j+1}}{x_{j+2}-x_{j+1}}-\frac{z_{j+1}-z_j}{x_{j+1}-x_j}\right|.
+$$
+
+**Q是归一化区间斜率的总变差。** 它使用真实不等距G格点，对幅度和平移不敏感。Q较大既可能来自锯齿，也可能来自真实的陡峭单峰，因此不给Q设置“正确/错误”阈值，更不将较小Q直接当作指标优势。7点只能描述观测折线，无法证明连续曲线平滑。
+
+| 指标 | 弱单峰或单调 U≈0 | 主极值在内部 | 恰有1个显著内部峰/谷 | U个体均值±SD | Q个体均值±SD |
+|---|---:|---:|---:|---:|---:|
+| Ξ | 8/8 | 7/8 | 7/8 | 0.000 ± 0.000% | 9.007 ± 2.716 |
+| ΦR | 6/8 | 8/8 | 7/8 | 3.967 ± 10.809% | 13.145 ± 7.548 |
+| WMS（单谷） | 6/8 | 8/8 | 8/8 | 0.047 ± 0.130% | 17.382 ± 4.307 |
+
+**表3。** 8人为统计单位，先平均3seed再计算形状。显著内部峰由格点prominence≥整条曲线幅度的5%定义，并保留0%、1%、5%敏感性结果；这是看过曲线后设定的探索性描述规则。局部prominence依赖扫描支持，边界不算内部峰，故恰有1个显著峰与U=0不能互相替代。Ξ的7个内部峰加1条边界单调上升曲线均有U=0。
+
+![单峰偏离量与斜率总变差](assets/dmf_subject_consistency/curve_shape_diagnostics.png)
+
+**图4。** 每个点是一人的3seed均值曲线。左为U×100%，右为Q；零值保留。WMS按单谷评价。量纲归一化只用于描述形状，没有重拟合、平滑或改动任何指标原值。
+
+| 指标 | 被试 | 反向运动总量（nats） | U | 内部峰/谷数：0% / 1% / 5% |
+|---|---|---:|---:|---:|
+| ΦR | sub-10274 | 0.617760 | 30.7025% | 2 / 2 / 2 |
+| ΦR | sub-10228 | 0.027379 | 1.0331% | 1 / 1 / 1 |
+| WMS（单谷） | sub-10249 | 0.967767 | 0.3703% | 1 / 1 / 1 |
+| WMS（单谷） | sub-10228 | 0.026138 | 0.0094% | 2 / 1 / 1 |
+
+**表4。** 所有非单峰均值曲线，不按结果选择案例。ΦR在sub-10274的峰后回升约0.618 nats，U约30.7%，且在5%prominence规则下仍有2峰；这是明确的观测回弹。ΦR在sub-10228以及WMS的两个尾部回摆较小，不能把所有回摆都写成“强波动”。小幅回摆是否可重复还需对照seed；短自然轨迹、估计正则化和动力学差异也可能造成形状差异，本轮不能据此证明指标公式本身失效。
+
+至少一个seed有回摆的全部被试如下（seed 3 / 4 / 5）；其余被试的各seed U均为0。完整逐seed U/Q、峰数、极值方向和边界分类保留在分析汇总curve_shape字段。Ξ的sub-10228在seed 4仍有0.0154%的小回摆，不能把8条均值曲线无回摆写成所有随机重复都严格单峰。
+
+| 指标 | 被试 | 各seed U |
+|---|---|---|
+| Ξ | sub-10228 | 0.0000% / 0.0154% / 0.0000% |
+| ΦR | sub-10321 | 0.0000% / 0.0000% / 1.9893% |
+| ΦR | sub-10274 | 41.4819% / 20.9189% / 27.1681% |
+| ΦR | sub-10228 | 1.4744% / 5.0846% / 1.1204% |
+| WMS（单谷） | sub-10249 | 0.5069% / 0.5596% / 0.0476% |
+| WMS（单谷） | sub-10321 | 0.0000% / 0.0000% / 1.0281% |
+| WMS（单谷） | sub-10228 | 0.0667% / 0.0040% / 0.0423% |
+
+**表5。** 每人每seed独立描述，不把24个seed当作24个被试。
+
+
+### J.4 跨被试一致性：补充比较
+
+原 G、8人：BOLD-like ΦR（0.687） > 干预 Ξ（0.638） > 自然态 source-WMS（0.616）。
+
+状态对齐、7人：自然态 source-WMS（0.936） > 干预 Ξ（0.926） > BOLD-like ΦR（0.917）。
+
+Ξ、ΦR、WMS在独立状态对齐后均达到较高的曲线相似度（Pearson 0.917–0.936）。这一维度没有显示Ξ明显占优；三者的均值次序也随是否对齐改变。8人开发样本及原生协议差别限定了这项描述性排名。
+
+每次留出1人的1个seed，训练共识使用其他人的另2个seed，3次轮换先在个体内平均。训练曲线各自按跨G均值/SD标准化后等权平均；不取绝对值、不翻转、不按自身峰对齐。Pearson评价形状，Spearman评价排序。不同指标原始量级不直接比较。
+
+| 指标 | 原始G，全部8人 | 原始G，可定位7人 | 独立状态对齐，可定位7人 |
+|---|---:|---:|---:|
+| 干预 Ξ | 0.638 ± 0.595 | 0.799 ± 0.403 | 0.926 ± 0.071 |
+| BOLD-like ΦR | 0.687 ± 0.422 | 0.775 ± 0.358 | 0.917 ± 0.047 |
+| 自然态 source-WMS | 0.616 ± 0.560 | 0.764 ± 0.426 | 0.936 ± 0.062 |
+
+**表6。** 独立seed留一人形状Pearson的个体均值±SD。状态参照来自独立发放率诊断：最大变化区间的中点Gc。sub-10377处于扫描边界，不能定位；7人是同一组，故原G的7人结果提供对齐前参照。共同状态支持为−1至0.579，取7个等距点，对原7个G观测线性插值，不外推。截短区间与插值会改变比较问题，相关提高不能全部归因于状态差异消除。
+
+| 指标 | 原G8人 Spearman | 原G7人 Spearman | 对齐7人 Spearman | 同人不同seed Pearson，8人均值±SD |
+|---|---:|---:|---:|---:|
+| 干预 Ξ | 0.696 | 0.855 | 0.898 | 0.999888 ± 0.000053 |
+| BOLD-like ΦR | 0.728 | 0.777 | 0.881 | 0.970357 ± 0.022223 |
+| 自然态 source-WMS | 0.635 | 0.779 | 0.930 | 0.997002 ± 0.004293 |
+
+**表7。** Spearman沿用表6的留一人计算。同人重复性则先平均每人的3对seed相关，再汇总8人；这与跨个体一致性是不同端点。原始幅度共识的敏感性结果及每人分数保留在JSON中，未将seed、28个被试对或4950个ROI对当作独立被试。
+
+![跨个体独立seed相关比较](assets/dmf_subject_consistency/curve_agreement.png)
+
+**图5。** Pearson与Spearman使用相同评估和人群。点为个体均值，误差棒为个体SD，不是置信区间；均值±SD可能超出相关的合法范围，误差棒不截断。原G7人与对齐7人使用相同个体，横轴支持和采样点不同。
+
+### J.5 原生协议与数值审计
+
+沿用冻结的个体SC、平均SC参照及93人平均图在G=1校准的固定JFIC，不归一化个体SC，也不为各指标重新调参。G为0、0.5、1、1.3、1.6、2.2、3；名义seed为3、4、5。新观测基线每个名义seed使用62000+seed的自然轨迹、63000+seed的时间采样和64000+seed的未来噪声，跨人/跨G成对，三条流互异且与Ξ及独立诊断分离。G=0同seed输出在个体间相同；表6采用不同seed评价，不作G=0背景扣除。
+
+- **ΦR：** 自然DMF记录1.5s，burn-in至少0.3s；稳定判据窗口0.05s、发放率漂移阈值0.15Hz、连续2窗口。将尾部E发放率转换为Balloon–Windkessel BOLD-like信号，Gaussian-MMI ΦR对全部4950个ROI对取均值，延迟1步即1ms。原生Gaussian估计保留10⁻¹⁰协方差特征值/相关分母下限及MI非负投影；逐对ΦR在[−10⁻¹⁰,0) bits视作数值零并记录，低于−10⁻¹⁰ bits显式失败。短BOLD-like记录、1ms延迟和数值下限限制其生理解释。
+- **WMS：** 从自然轨迹尾部有放回抽2048个完整200维E/I源状态，以无状态裁剪的同模型预测300ms后的完整200维未来。保留相关的经验源先验，用仓库原生Gaussian线性拟合估计整体MI减200个标量源对完整未来的MI之和；继承10⁻⁶ ridge及10⁻¹²特征值下限。WMS有符号，负值不属于PEID Syn非负违反，未取绝对值或作非负投影。
+- **Ξ及whole EI：** 复用原预实验的独立均匀干预[0.3,0.7]、2048样本、300ms未来、统一affine-TM密度、矩匹配对角Gaussian源先验及10⁻⁸ nats Syn容差。其源分布、观测变量、目标维数、时距及正则化与ΦR/WMS并不全部相同。本轮是原生协议下的曲线比较，不是只改变指标公式的受控消融。若在Ξ的同一因子化共同密度上直接求source whole-minus-sum，按定义等于Ξ，不构成独立WMS基线。
+
+观测自然轨迹继承[0,1]硬裁剪，所有记录步骤及最终状态均审计；未来预测不裁剪，状态越界或异常发放率显式失败。原生输出bits统一乘ln2后作nats曲线，保留原始逐对值、极值、数值零计数和估计器下限审计。
+
+189个条件均给出有限的 ΦR/WMS；ΦR 原始逐对最小值为 0.00139428 bits，落入非负数值零容差的对数为 0。自然轨迹边界命中共 0 次，未裁剪未来的越界次数为 0；稳定判据在 189/189 条件检测到，未检测到时沿用0.3s burn-in，而非宣称达到稳态。
+
+ΦR 协方差特征值下限被触发 54837/7484400 次，涉及 170/189 条件；单变量相关分母下限被触发 0 次；WMS 协方差特征值下限被触发 0 次。计数是所有条件、所有估计子查询中低于下限的特征值/分母总数，不是异常被试数。ΦR 的高自相关和短 BOLD-like 记录使这一数值稳定处理影响解释，本轮保留原生估计器，未据结果调下限。
+
+WMS 的最大源/残差条件数分别为 1.1e+08、6.79e+03；2048次有放回采样中，最少只有 150 个不同时间点。这不是2048段独立自然轨迹；高维 Gaussian 拟合和短记录均是本次原生比较的限制。
+
+本轮重新核对Zotero P6UJCVG8（*Emergent hierarchical organization of causal interactions in complex systems*），正文附件DXGC7JEA，19页，读取Brain/Fig.2、Methods式（4）–（8）。附件没有明确稿件版本/日期，元数据编辑不能确定新版本；补充附录不可用。正文把两项观测对照并列描述为BOLD-like，而仓库原生WMS实际使用自然态完整E/I状态，只有ΦR使用BOLD-like。本轮保留已获批准的仓库原生实现，记录这一正文/代码差别，未声称完全核验最新稿件一致性。
+
+### J.6 复用
+
+[分析汇总](../../results/dmf_schaefer100/subject_consistency_pilot/curve_comparison_summary.json)、[原生冻结协议](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_contract.json)、[原生数值审计](../../results/dmf_schaefer100/subject_consistency_pilot/curve_native_audit.json)、[原开发预实验](brain.md#dmf-subject-pilot)。
+
+[原生计算与断点复用](../../scripts/run_dmf_subject_curve_baselines.py)、[分析与绘图](../../scripts/analyze_dmf_subject_curves.py)。昂贵模拟保存为189个轻量NPZ条件与完整curve_baselines.npz，分析只读匹配协议的完整缓存，无需重算，不创建CSV。
+
+```bash
+.venv/bin/python scripts/analyze_dmf_subject_curves.py
+```
+<!-- report-section:dmf-subject-curves:end -->
+
+<!-- report-section:dmf-ei-components:start -->
+<a id="dmf-ei-components"></a>
+
+## 附录 K：整体 EI、部分 EI 之和与整合峰
+
+2026-10-03。整体EI从跨指标一致性比较中移出，在同一冻结8人×7 G×3 seed及平均SC参照中单独分析。只读取原有affine-TM缓存，无新增模拟。
+
+### 定义和口径
+
+令 $E(G)=EI_{300}(V\to V)$ 为整体EI，$S(G)=\sum_{i\in V}EI_{300}(\{i\}\to V)$ 为各标量源的部分EI之和。这里 $V$ 包含100脑区的200个E/I标量变量，所有部分EI都使用相同完整200维未来、同一干预密度和300ms时距。当前整合有效信息满足
+
+$$
+\Xi(G)=E(G)-S(G),\qquad E(G)=S(G)+\Xi(G).
+$$
+
+本图分解的是相减得到的差值。若按100个ROI的E/I二元块求和，得到的是另一个“跨ROI残差”，不能替代当前Ξ的200标量源分解。$S$直接从缓存密度的200个单变量MI求和，并独立核对 $E-S=\Xi$；未仅以 $E-\Xi$反推后宣称核验。
+
+![整体EI、部分EI之和及差值Ξ](assets/dmf_subject_consistency/ei_decomposition_curves.png)
+
+**图1。** 三列依次为整体EI、部分EI之和及差值Ξ，均为原始nats，未分别标准化后相减。每人曲线为3seed均值，颜色/标记对应同一人；虚线为93人平均SC独立模拟参照。前两列共用0–160 nats范围，差值列使用0–21 nats范围。平均SC参照不等于8条个体曲线的平均。
+
+### 两项是否单调下降
+
+平均SC参照的整体EI和部分EI之和都在全部7个观测G点下降。8个体中，整体EI有 6/8 在观测格点不增，部分EI之和有 7/8 不增；中间6人两项均下降。端点例外为：sub-10377 的整体EI在G=0→0.5回升0.474570 nats；sub-10228 的整体EI在G=2.2→3回升0.003383 nats；sub-10228 的部分EI之和在G=2.2→3回升0.003575 nats。这些回升保留原值，不能把“总体下降”写成所有被试严格单调，也不能以Syn数值零容差抹去它们。各区间发生回升的seed数量与跨seed SD保留在分析汇总。
+
+### 为什么两个下降量的差会有峰
+
+定义每个观测区间的平均下降速度 $R_E=-\Delta E/\Delta G$、$R_S=-\Delta S/\Delta G$，则
+
+$$
+\frac{\Delta\Xi}{\Delta G}=R_S-R_E.
+$$
+
+当部分EI之和降得更快，差值Ξ增大；当整体EI降得更快，差值Ξ减小。峰对应两项相对下降速度交换的附近，并不要求整体EI增加。这是对曲线的数学分解，尚不单独解释动力学机制或证明纯高阶相互作用增强。
+
+![平均SC上的两项、差值与区间下降速度](assets/dmf_subject_consistency/ei_decomposition_rates.png)
+
+**图2。** 平均SC参照，3seed均值。左图蓝/金曲线分别为 $E$/$S$，浅红色两线之间的间隙为Ξ；蓝/金细带为跨seed SD。中图单独显示Ξ及跨seed SD。右图保持同一颜色：蓝/金阶梯为 $R_E$/$R_S$，红色虚线为 $\Delta\Xi/\Delta G=R_S-R_E$。阶梯是各真实G区间的平均变化率，不是连续导数，也未插值定位斜率交点。
+
+| G区间 | 整体EI下降速度 $R_E$ | 部分EI之和下降速度 $R_S$ | Ξ变化速度 $R_S-R_E$ |
+|---|---:|---:|---:|
+| 0–0.5 | 0.222 | 5.188 | +4.965 |
+| 0.5–1 | 21.162 | 36.440 | +15.278 |
+| 1–1.3 | 62.443 | 69.281 | +6.838 |
+| 1.3–1.6 | 79.492 | 75.425 | -4.067 |
+| 1.6–2.2 | 65.825 | 54.641 | -11.184 |
+| 2.2–3 | 31.750 | 24.673 | -7.077 |
+
+**表1。** 单位nats/G。平均SC在G=1→1.3时，部分EI之和下降更快，Ξ从15.961升到18.013 nats；在G=1.3→1.6时，整体EI下降更快，Ξ降到16.793 nats，形成观测格点上的G=1.3峰。8人中7人的Ξ有扫描内部极值；最低SC尺度个体仍在扫描末端G=3达到最大值，当前范围未观察到其下降支，不能强行认定所有人都发生速度交换。
+
+### 估计与核验边界
+
+保持原干预支持[0.3,0.7]、2048样本、300步未来、无状态裁剪、固定JFIC与共同affine-TM近似：线性转移、Gaussian残差、矩匹配对角源先验及原ridge。所有分量来自同一拟合密度，未重拟合或对分量另作正则化。Ξ/Syn非负容差为10⁻⁸ nats；本次189条件的分解最大闭合误差为 0 nats，Ξ容差负值计数 0，显著负值计数 0。原G=0拟合背景保留，未扣除。
+
+本次重新定位Zotero主稿 *Emergent hierarchical organization of causal interactions in complex systems*，父条目P6UJCVG8、当前唯一正文附件DXGC7JEA（19页），读取Methods式（5）、（7）、（8）（第15–16页）及Brain/Fig.2。正文没有明确稿件版本/日期；Zotero版本号/编辑时间不是稿件版本证据，补充附录不可用。上述分解依照正文式（7），代码使用既有affine-TM Gaussian近似，未把它称为已验证的非线性高阶PID原子。
+
+[跨指标曲线报告](brain.md#dmf-subject-curves)现仅比较Ξ、ΦR、WMS。[完整分析汇总](../../results/dmf_schaefer100/subject_consistency_pilot/curve_comparison_summary.json)的ei_decomposition字段保留逐人曲线、seed SD、单调性例外及区间速度。
+<!-- report-section:dmf-ei-components:end -->
+
+<a id="dmf-subject-plan"></a>
+
+## 附录 L：个体验证协议与实施范围
+
+**主问题：群体平均 SC 上观察到的整合峰、协同核与网络分工，是否能在个体 SC 驱动的同一 DMF 中复现？多源组织是否在估计重复、跨被试迁移和动力学状态区分之间取得更好的表现？**
+
+协议制定于 2026-10-02；8 人开发预实验及原生曲线比较已完成，执行结果见附录 I–K，93 人细扫描的独立执行协议及进度见附录 P。下文保留设计时的检验范围，尚未实施的正式训练折泛化、结构 null 与独立功能用途仍是计划。主路线继续使用现有 SC＋DMF，人工混合阶系统保留为方法阳性对照。[联合符号读取负结果](brain.md#dmf-joint-pilot)保留，不再承担主比较。
+
+### L.1 已有证据与待检验问题
+
+| 已有实验 | 支持的结论 | 个体实验新增检验 |
+|---|---|---|
+| 93 人平均 SC 的 G 扫描 | Ξ 在中等耦合达峰，邻近宏观动力学转折；多指标响应形状不同 | 峰带与转折的关系能否推广到个体，是否受 SC 尺度影响 |
+| 随 G 构建 SPT、追踪候选核 | 存在稳定区间与成员重组；冻结核在留出 seed 中保留信息优势 | 共同成员、完整组合与层级是否跨个体保留 |
+| 网络整体 Ξ 与跨网络 Shapley | Visual/Somatomotor 内部整合较突出，DMN 等网络的跨网络贡献较突出 | 这种分工是否逐人复现，是否超出网络规模和结构强度的解释 |
+
+群体平均主扫描的重复单位是模拟 seed；个体开发结果已另见附录 I，不能将其覆盖样本扩大为 93 个体的完成结果。协同核一致性也不随 G 单调增加：已有扫描存在稳定区间、突然换核与多组竞争。将“高 G 更一致”作为待检验趋势，并报告信息强度，不能预设为必须得到的结果。高耦合下 Ξ 已下降，组织一致不等于联合信息更多。
+
+这批数据只包含个体 SC；新结果首先支持结构约束模型的跨个体推广，不等同于个体实测脑活动、认知表现或人体因果验证。
+
+### L.2 固定模型与信息对象
+
+用 $\mathbf C^{(m)}\in\mathbb R^{100\times100}$ 表示被试 $m=1,\ldots,93$ 的 SC。每个 ROI 保留 E/I 两个微观坐标，总状态为 $\mathbf x_t\in\mathbb R^{200}$，微观索引集 $V=\{1,\ldots,200\}$；ROI 玩家集为 $\mathcal R=\{1,\ldots,100\}$，ROI $i$ 的坐标块为 $A_i$，$A(S)=\bigcup_{i\in S}A_i$。
+
+沿用主稿的共同因子化干预、固定未来目标 $B=V$ 和时距 $\ell$。与已有主扫描连接时，初态支持仍为 $U(0.30,0.70)^{200}$，积分步 1 ms、未来 300 ms、噪声幅度 0.01；不改成失败读取试验的局部小盒。每个个体和 G 有自己的转移核，记共同联合分布为 $q_\ell^{(m,G)}$：
+
+$$
+\begin{aligned}
+EI_\ell^{(m,G)}(A\to B)
+&=I_{q_\ell^{(m,G)}}(\mathbf x_t^A;\mathbf x_{t+\ell}^B),\\
+\Xi_\ell^{(m,G)}(A\to B)
+&=EI_\ell^{(m,G)}(A\to B)
+-\sum_{j\in A}EI_\ell^{(m,G)}(\{j\}\to B),\\
+u_{m,G}(S)
+&=EI_\ell^{(m,G)}(A(S)\to B)
+-\sum_{i\in S}EI_\ell^{(m,G)}(A_i\to B).
+\end{aligned}\tag{L.1}
+$$
+
+式（L.1）的全脑 Ξ 含 ROI 内 E/I 量，$u$ 专门衡量跨 ROI 整合；源之外的坐标始终在同一干预下边缘化。信息量统一为 nats，历史 bits 乘 $\ln2$；不将 ROI 块数与微观标量阶数混用。
+
+探索性个体扫描优先固定已有群体 JFIC，使 SC 与 G 承担变化；先核对发放率、状态有效性和共同支持。逐人校准 JFIC 是另一项模型协议，只可在单独声明的稳健性分析中使用，并在各自参考 G 校准后固定。若共同 JFIC 导致大量无效工作点，应重新冻结协议，不能静默逐人调参或删除失败个体。
+
+### L.3 同时比较相同 G 与相近动力学状态
+
+原始 SC 保持原权重尺度。现有审计显示个体谱半径为 0.344–1.297，因此相同 G 不保证相同有效耦合或相近状态。报告三个横轴，前两个是结构尺度描述，第三个才是按个体转折对齐：
+
+$$
+G,\qquad
+\eta_m=G\rho(\mathbf C^{(m)}),\qquad
+\zeta_m=\frac{G-G_c^{(m)}}{G_c^{(m)}}.
+\tag{L.2}
+$$
+
+$\rho$ 为谱半径；$\eta_m$ 不被假定为完整的 DMF 状态等价关系。$G_c^{(m)}>0$ 由独立动力学诊断确定，不能用 Ξ、$\Phi_R$ 或其他待比较指标的极值定义。首选固定扫描与有限差分规则下的平均发放率最大变化点，并以慢化/扰动易感性等独立诊断核对；诊断不一致时称动力学转折，保留其区间，不直接宣布严格临界点。扫描边界或无明确转折的个体记为未定位，不强行对齐。
+
+主比较同时给出原始 G 和状态对齐结果，回答两个不同问题：同一外部耦合条件下个体是否相似，以及处于相近动力学状态时是否存在共同组织。不能根据哪一种图更一致而事后选择横轴。独立动力学诊断与指标估计使用分开的模拟重复；若共享模拟作探索分析，另作标记。
+
+### L.4 实验一：整合曲线的跨被试推广
+
+不以“93 人分数方差最小”为成功标准。一个常数指标也可以极稳定；个体间的真实结构差异不应被当作误差。
+
+每个指标分别报告：
+
+- **同一个体的估计重复性：** 独立初态/噪声、密度拟合重复和搜索随机性分别计量；跨 seed 波动与跨 G 响应幅度同时呈现。近零均值或带符号指标不以 CV 作主比较。
+- **跨个体曲线形状：** 状态对齐后与训练被试共识曲线的相关、预先定义的弱/转折邻近/强耦合对比是否逐人同向；保留原始幅度，标准化曲线只用于形状比较。
+- **转折相关性：** 指标的预声明极值/折点与独立 $G_c^{(m)}$ 的偏移及不确定性。已有 Ξ 峰早于发放率最大变化点，不强迫所有指标在 $G_c$ 精确取峰。
+- **状态辨识：** 如加入分类，训练被试上学习指标到动力学状态的映射，整名被试留出；所有方法同模型容量与调参预算，禁止把 G 直接作为预测特征。
+
+主张应是“保留状态敏感性的同时降低估计噪声、改善个体外推广”。可比较曲线稳定性，但不能据此宣称个体识别能力；ICC 类分析仅回答个体差异能否在模拟重复中保留，不能替代共同模式检验或真实重测可靠性。
+
+### L.5 实验二：协同核与归因的跨被试一致性
+
+优先同时评估连续空间归因和离散组合。连续归因用于判断整体空间模式，离散核用于判断具体成员及阶数；一个树节点改变不应自动被解释为整体组织崩溃。
+
+#### L.5.1 连续归因
+
+每个个体、状态计算整体 ROI Ξ-Shapley，并区分 ROI 内 E/I 与跨 ROI 份额；与成对协同的节点汇总、whole EI 归因和 SC 节点强度等共同输出 100 ROI 排名。比较留出个体对训练共识的秩相关、前 k 名保留率及模拟重复误差。需要比例时，同时报告绝对量，预算低于预声明的可检测阈值时不解释归一化份额。
+
+#### L.5.2 离散协同核
+
+保留已有 $C_{10}$：沿跨 ROI $u$ 较大的 SPT 子枝下降，首次到达 2–10 ROI 停止；无候选核时保留缺失状态。另设固定 k 的共同候选比较，例如 $k=2,4,8$，使成对方法和多源方法选择相同大小的集合。候选池由训练个体、各方法等额提名与固定随机候选共同生成，在查看留出个体输出前冻结。
+
+集合相似度为
+
+$$
+J(C,C')=\frac{|C\cap C'|}{|C\cup C'|}.
+\tag{L.3}
+$$
+
+空核不赋予 $J=1$；另报无核频率。原始 Jaccard、成员入选频率、完整核相同率与网络组成分别报告。用集合大小、半球/Yeo 构成及结构强度分层匹配的随机集合校准机会重叠；对变长 $C_{10}$ 尤其如此。节点归属与多成员共同出现分别检验，不能把各自高频的 ROI 自动称为一个稳定联合核。
+
+SPT 比较固定候选搜索、单 ROI 切分补齐、精确枚举上限、停止粒度和预算；不加跨被试一致性正则后再把一致性当作胜利。完整树拓扑作为次要端点，允许近似最优的等价分支；同步记录最佳/次佳切分间隔和搜索重复，区分动力学重组与离散选择跳变。
+
+#### L.5.3 群体组织能否迁移到未见个体
+
+按被试做外层划分，从训练被试提取共识成员或核，在留出被试上核对匹配大小的重叠与归因模式。共识 top-k 若不是某棵原树的节点，称成员原型，不直接命名为 SPT 协同核。训练均值 SC 的核与训练个体的共识核分别评估。
+
+正式迁移中，训练均值 SC、JFIC 校准、状态边界、候选池和超参数都只由训练折确定。若使用已有全 93 人均值的 JFIC，则结果只能表述为固定参考模型下的留出组织比较，不能称完全独立的个体模型泛化。用留出个体自己的 Ξ 核对同一 Ξ 排名只验证信息重复性，不构成独立功能价值。
+
+### L.6 实验三：网络内专门化与跨网络整合是否逐人复现
+
+沿用固定 Yeo-7 分区，网络 $h$ 的 ROI 集合为 $R_h$。分别计算网络整体 Ξ 和七网络之间的残差博弈；为简洁省略被试/G 上标：
+
+$$
+\begin{aligned}
+w_h&=\Xi_\ell(A(R_h)\to B),\\
+z(T)&=EI_\ell\left(A\!\left(\bigcup_{h\in T}R_h\right)\to B\right)
+-\sum_{h\in T}EI_\ell(A(R_h)\to B),\\
+\sum_h w_h+z(\{1,\ldots,7\})&=\Xi_\ell(V\to B).
+\end{aligned}\tag{L.4}
+$$
+
+对 $z$ 做精确七网络 Shapley，记跨网络份额 $\psi_h^{\mathrm{between}}$，其和为式（L.4）的网络间残差。普通 ROI Shapley 按网络相加，不替代这个七网络博弈。
+
+预声明检验 Visual/Somatomotor 的网络内部排名，以及 DMN、SVAN、DAN、Control 的跨网络份额模式；报告 93 人的同向比例、排名分布、配对对比和区间，不把 DMN 必须第一当作成功条件。绝对量、预算份额、按 ROI 数和连接机会数调整的结果并列，避免网络大小制造差异。
+
+加入 SC 强度、网络间结构权重等强基线；结构保持 null 分别检验节点强度与 Yeo 块结构的解释，不假定一种 null 同时精确保留所有约束。个体 SC 原本高度相似、所有模型又共享局部参数，必须检验结果是否超出共同解剖和模型协议本身造成的一致性。
+
+### L.7 补充检验：群体平均是否制造了共同组织
+
+对于任一非线性指标或树输出 $F$，一般有
+
+$$
+F(\overline{\mathbf C},G)
+\ne\frac1{93}\sum_{m=1}^{93}F(\mathbf C^{(m)},G).
+\tag{L.5}
+$$
+
+比较平均 SC 的曲线/核与个体结果的分布，而非假定平均后结果代表典型个人。原均值 SC 的非对角密度为 96.18%，明显高于许多个体；聚合会改变弱边支持和拓扑。若群体平均核只在平均图中出现，应限定其为平均结构模型的组织；若它在留出个体中持续出现，才支持共同骨架。这项检验直接连接已有平均 SC 实验与新的个体实验。
+
+### L.8 多源优势与基线的公平比较
+
+分开共同输入/目标的指标比较与原生协议的整套方法比较。前者固定式（L.1）的源、未来、时间和共同密度；后者允许 $\Phi_R$ 的 BOLD-like 观测、对应未来等原生设置，但显式列出差别，不能把差别都归因于指标公式。SURD 作为多源强基线，只在已核验同目标实现与预算可行的粒度上比较，例如七网络或冻结小联盟；不要求它先输出 100 ROI 的完整分解才能参与。
+
+以同一共同密度的两 ROI 协同构造强成对代理博弈：
+
+$$
+u_2(S)=\sum_{\{i,j\}\subseteq S}u(\{i,j\}),\qquad
+\psi_i^{(2)}=\frac12\sum_{j\ne i}u(\{i,j\}).
+\tag{L.6}
+$$
+
+式（L.6）是成对可加代理，其 Shapley 恰为第二式；用同一 SPT 搜索和停止规则构树，检验多源目标是否增加稳定组织与迁移信息。$u$ 与 $u_2$ 的差可有符号，不是纯高阶 Syn，不裁剪。原生最强一对只参加 $k=2$ 比较；较大核须用成对汇总或成对代理树提供同大小候选。
+
+先核对指标的代数等价：同一源/目标下，以子节点 EI 之和或子节点 Ξ 之和选 SPT 二分，只差父节点固定的单变量 EI 总和，因而得到相同最优切分；不能把二者当成独立树对手。whole EI 保留为直接联盟排名/归因强基线。其他同值指标也不计作额外独立支持。
+
+**任意多源优势的检验是：相比成对代理，在 k≥3 的成员、层级或个体外迁移上提供可重复增量，并且该增量不是搜索规则、规模、SC 强度或估计噪声造成。** 全脑 Ξ、完整阶数质量与归因共同呈现；SPT 阶数是树路径上的 ROI 块规模，不能称唯一纯 n 阶 PID 原子。若成对方法同样稳定而且同样有用，应保留结论，不以更大组合或更平滑曲线自动判胜。
+
+### L.9 分析、估计与实施顺序
+
+- 被试是跨个体推断单位，seed/轨迹/排列嵌套其中。93 人形成的 4,278 对相似度不是 4,278 个独立样本；按整名被试重采样并重建共识，方法差配对评估。若后续获得家系/采集批次信息，调整划分与重采样单位。
+- 预先限定曲线、核与网络分工的主端点；逐 ROI、逐 G 或逐联盟搜索作次要分析并校正，不能事后挑最一致的 G。群体平均探索与个体确认分开标记。
+- 连续 EI 优先 TM，所有子集查询同一全系统拟合密度。先在平均 SC 上衔接旧 Gaussian 扫描与新 TM 后端；affine Gaussian 的先验矩匹配、残差近似及高阶矩局限明确记录。不能用后端变化解释个体组织变化；非线性 TM 尚有历史一致性/非负审计问题，需通过验证再进入比较。
+- 新 Syn/Ξ 查询容差为 $10^{-8}$ nats，保留原值与容差内负值数；低于负容差显式失败并报告最小值、阈值和数量。旧 bit 审计不改写。低信息预算的份额、核或归因另报可检测性，不把有限样本背景当稳定高阶结构。在独立初态、各 ROI 独立噪声且 $G=0$ 关闭长程耦合时，跨 ROI/跨网络残差应为零，ROI 内 E/I 整合不要求为零；不能仅因算法仍输出相同核而称组织稳定。
+- 先做平均 SC 与少量个体的协议/成本核对；例如按 SC 尺度选定 8 个代表个体、7 个粗 G、3 个独立 seed，共 168 个个体条件，仅作开发。全 93 人同布局为 1,953 个条件；若转折不在扫描域内，报告未定位，再单独决定扩域，不按 Ξ 结果加密。
+- 个体主扫描先计算标量曲线与固定七网络分布；SPT、ROI Shapley 和状态对齐加密只在预冻结代表状态执行，避免直接复制 93×55×8 的平均 SC 搜索。测得模拟、密度、归因和树成本后再确定正式预算；本稿不授权启动长实验。
+
+成功标准分层报告：估计重复性、群体共同组织、状态重组敏感性、多源相对二阶增量。跨被试一致性支持共同模型组织；若后续要主张功能关键性，再冻结各方法的核，用独立模拟重复上的刺激/连接操作或独立预测任务比较。干预同时匹配集合大小、输入位置和局部连接损伤预算；响应终点不能直接使用 Ξ 自身。高一致性本身不证明这种独立用途。
+
+### L.10 依据与核对范围
+
+本轮经 Zotero 按标题重新定位 *Emergent hierarchical organization of causal interactions in complex systems*，父条目 `P6UJCVG8`，唯一可用正文附件 `DXGC7JEA`，19/19 页索引；读取 Brain 与 Methods 式（5）—（12）。正文无明确版本号/稿件日期，2026-10-02 入库与元数据修改不建立新稿版本；所引补充附录仍不可用。本方案据可用正文对齐记号与定义，不声称完整附录/后端已核验。
+
+当前主稿 Fig. 2 使用 Yeo 约束的首层分解，仓库另有无网络先验的自然树与不同候选搜索。个体自然核比较和固定 Yeo 预算检验分开冻结，不把树实现差异当成生物学差异。
+
+仓库依据：[Brain 主结果与附录 B.3](brain.md#dmf-data)、`results/dmf_schaefer100/preparation_summary.json` 与 `data/neuromodulator_receptor_sc_100/CON_SC_1mio/sub-*.csv`。本轮轻量读取确认恰有 93 个 100×100、有限非负且对称的矩阵；谱尺度、密度与 ROI 顺序限制取自已有审计。ROI 身份仍为 inferred，SC 来源、单位、采集及家系信息未完整提供。
+
+
+### 2026-10-02 执行状态
+
+用户已批准推荐的 8 个体×7 G×3 seed 开发预实验。189 个信息估计条件（含平均 SC 参照）、9 组动力学诊断、108 个组织条件及分析图表均已完成；完整结果见[开发预实验报告](brain.md#dmf-subject-pilot)。网络分工复现，多源增量集中在中等耦合下的同人核重复性及小幅排名迁移；没有证据支持统一跨个体核。零耦合共享随机样本伪象已用独立 seed 的缓存分析隔离，仍保留 4.426 nats 的估计背景。本段记录 2026-10-02 的 8 人完成状态；截至整理日，全 93 人细扫描已启动，尚无完整结果，见附录 P；复杂基线与独立功能用途仍未执行。
+
+<a id="dmf-subject-preflight"></a>
+
+### L.11 执行前估计器桥接与零耦合背景
+
+
+
+仅做群体平均 SC 的两个成本/协议条件；下表是个体扫描前的历史计时。每条件 2,048 样本，seed 3，跨 G 复用实际初态和逐步 E/I 噪声；单线程 BLAS。本轮使用仓库已有 `fit_affine_joint` 和 `CommonTargetGame`：先拟合全系统线性转移和残差，以均匀干预的解析方差构造对角源先验，再建立共同 affine-TM 联合密度。子集查询只取这一密度的边缘。
+
+实际样本仍来自均匀盒，但 affine-TM 的源密度为矩匹配 Gaussian，转移和残差也作 Gaussian 近似；这不是精确均匀先验 EI 或非线性高阶分解。ridge=10⁻⁶ 只在构建密度时加入。旧扫描采用经验 Gaussian 条件协方差，与本后端并不完全相同，桥接结果不得直接视为个体效应。
+
+| G | 模拟＋拟合＋基本审计 / s | 全脑 Ξ / nats | 跨 ROI 残差 / nats | ROI 内 E/I 总量 / nats | 同样本旧后端 Ξ / nats |
+|---|---:|---:|---:|---:|---:|
+| 0 | 4.851 | 5.764580 | 4.402858 | 1.361721 | 5.774076 |
+| 1.3 | 5.087 | 18.054415 | 15.978419 | 2.075996 | 18.079601 |
+
+两个条件的闭合误差不超过 3.02×10⁻¹⁴ nats。每条件审计 302 项，Ξ/Syn 容差 10⁻⁸ nats，容差内负数与显著违反均为零；不截零。逐步状态越界计数和异常发放率计数均为零。
+
+**G=0 关闭长程耦合，真实跨 ROI 残差应为零；估计值却有 4.40 nats。** 这揭示高维有限样本/模型拟合背景，不能将其解释为真实长程协同。个体实验必须保留这个条件、绝对量和背景敏感性；不能用零耦合仍稳定输出核作为指标优势。减去 G=0 的曲线差是背景参照，不是重新定义或裁剪 Syn。
+
+<a id="dmf-retired"></a>
+
+## 附录 M：未通过用途门槛的路线与保留诊断
+
+刺激响应 A–C、全脑联合符号读取已经完成，但均未支持预期的方法用途优势；旧正式 D 和扩展读取方案不再作为当前主实验。下文保留实际协议、重要负结果、估计失败与复现入口，删除重复的旧计划和未经执行的规模建议。内部—外部读取设计尚未执行，不能归类为已证伪。
+
+<!-- report-section:dmf-response-pilot:start -->
+<a id="dmf-response-pilot"></a>
+
+### M.1 刺激响应 A–C 预实验负结果
+
+状态：**A–C 已执行，正式 D 未启动。当前没有发现 Ξ 的选择效果优势。**
+
+G=1.3；刺激 ROI 40（左半球低 SC 强度层）、77（右半球高强度层）；每池 8 个 k=8 候选，均匀/SC 抽样各半；评分 seeds 901–902，每条件 2 个独立响应初态/噪声重复。ROI 编号在本报告中为 1-based，缓存为 0-based。这不是正式跨 G、跨种子的确认结论，也不能支持非劣性声明。
+
+#### M.1.1 响应检查
+
+![response](../../fig/dmf_response_benchmark/response_mechanism.png)
+
+10 ms 脉冲电流为 i0 的 1%（0.00382）；10 ms 后启动返回输入削弱；每候选移除相同 SC 权重，并补偿初态对应的 tonic input。JFIC 固定，不重新校准；全程无裁剪。晚期为 50–300 ms，读出是全脑发放率 RMS 面积。误差棒是 2 次响应重复的 SEM，点为原始重复；时程阴影为完整模型重复范围或候选均值的范围，均非置信区间。
+
+| 刺激 ROI | 候选损失范围（10⁻⁶ Hz·s） | 最大标签 SEM（10⁻⁶ Hz·s） | sham 背景变化 RMS（Hz） |
+|---|---:|---:|---:|
+| 40 | 5.780 | 0.159 | 0.001968 |
+| 77 | 54.146 | 0.465 | 0.002975 |
+
+两个池均通过探索性“范围 > 2 × 最大标签 SEM”门槛。该门槛不是正式统计检验；仅两次重复，尚未量化 noisy oracle 的选择偏差。所有完整/削弱、pulse/sham 条件均保存，无候选剔除。sham 漂移仍非零，tonic 补偿不能保持所有随机背景轨迹不变。
+
+预设的 2 秒确定性基准未通过稳定门槛（0.1254 Hz 漂移），在任何排名/响应标签生成前延长至 10 秒，末端漂移为 6.23e-10 Hz。评分支持从 0.005/0.01/0.02 中选择无初始及积分状态越界的最大半宽 0.02。这项调整只依据状态有效性；没有按排名调窗口、幅度或候选。
+
+#### M.1.2 功能对比
+
+![comparison](../../fig/dmf_response_benchmark/functional_comparison.png)
+
+| 选择方法 | 平均 NReg（越小越好） | 选中组合晚期损失（10⁻⁶ Hz·s） |
+|---|---:|---:|
+| ROI-block Xi | 1.000 | 14.897 |
+| Pairwise Phi-R | 1.000 | 14.897 |
+| Weakest split Phi-R | 0.976 | 15.326 |
+| Phi-R-LU scalar | 0.994 | 15.222 |
+| Dynamic WMS | 0.994 | 15.222 |
+| Target-augmented O | 1.000 | 14.897 |
+| Whole MI | 0.000 | 44.860 |
+| Return SC | 0.281 | 36.288 |
+| Internal SC | 1.000 | 14.897 |
+| Rest FC | 0.687 | 31.843 |
+| Initial response (tie) | 0.176 | 42.961 |
+| Random expectation | 0.558 | 28.535 |
+
+Ξ 与二阶 Phi-R 在两池、两评分种子均选中损失最小的组合，NReg=1；whole MI 均选中池内最大损失组合，NReg=0。结构/普通信息基线比多个协同指标更好，预实验不支持“协同指标更准确识别该返回输入响应依赖”的假设。此处效果针对指定等预算、tonic 补偿操作，不是 Syn 真值或认知水平。
+
+归一化遗憾先在每个位置/评分种子内计算，再等权汇总。两个评分种子共享同一独立响应标签集，不把 4 个点当作 4 个独立受试者。随机基线为池内均匀选择的精确期望；初始响应基线在固定刺激位置内完全并列，固定选择候选 1，其偶然好结果不具有排序信息。前 10% 向上取整为 1 个候选，因此该预实验里与 top-1 重复。
+
+#### M.1.3 计算成本
+
+![efficiency](../../fig/dmf_response_benchmark/efficiency_comparison.png)
+
+核心图从已拟合共同后端开始，Gaussian/affine-TM 的 Xi conditional-TC 简式与直接 MI 差值已核对，最大误差 6.34e-15 bit。主效率曲线使用该同值简式；直接 MI 路径也计时。Phi-R 主高阶对手采用精确 LU 标量算法；完整 ΦID 仅作为 k≤4 的分解参考。共享 MI 与 logdet 缓存对所有方法开放，每次任务重建 MI 缓存，结构热启动可复用。冷结构建立成本另存在 timing.json 中。
+
+| 算法 | k | 核心 wall time 中位数 [Q1,Q3]（ms） | 唯一 MI 查询 |
+|---|---:|---:|---:|
+| xi | 8 | 0.3086 [0.3063, 0.3168] | 9 |
+| pair_phi_r | 8 | 1.8945 [1.8706, 2.0497] | 92 |
+| weak_phi_r | 8 | 15.3625 [15.0162, 15.6328] | 509 |
+| phi_r_lu | 8 | 2.5089 [2.4638, 2.5403] | 65 |
+| wms | 8 | 0.3342 [0.3306, 0.3413] | 9 |
+| o_increment | 8 | 0.3930 [0.3912, 0.3941] | 9 |
+| whole_mi | 8 | 0.0892 [0.0888, 0.0902] | 1 |
+| xi_fast | 8 | 0.1492 [0.1480, 0.1500] | 0 |
+| phi_full | 4 | 154.3040 [153.7246, 154.6760] | 225 |
+
+每个任务独立进程，统一预热、单线程、随机计时顺序、5 次重复；记录 CPU 时间和 peak RSS。RSS 包含共同运行时、样本与后端，因此不能把几 MiB 波动解释为算法内存优势。超时限制为进程 60 秒，2 GiB 作为实测峰值判据；本轮并非硬内存限额压力测试。原始样本流程计时不包含模拟生成；数据获取成本另列。
+
+选择质量—时间图使用真实逐候选计时及同一访问次序；每池 5 个预设随机顺序，取末个已访问候选后的当前最好分数。允许共享查询缓存，仅计评分/选择时间，不含模拟。访问未开始的时段不画，截止后保留最终选择。时间曲线显示计算更快并不能弥补该预实验里的错误排序。
+
+#### M.1.4 数值和估计器门槛
+
+主后端为全脑 affine triangular TM：用完整独立盒状源拟合线性转移，使用解析独立先验的 Gaussian 矩与残差协方差，再取候选源/目标边际；不把背景 ROI 固定为零。正则化在全局先验及残差各加一次 1e-6（标准化单位），后续查询不增加 ridge，不 floor 特征值，不截 MI。它近似 Gaussian 依赖，不能声称识别一般非线性高阶机制；线性转移与残差在同一评分样本中拟合，有限样本与模型近似偏差尚未完成确认。
+
+主 Ξ 最小值 0.0095849 bit；容差 1e-8 bit；容差内负值计数 0。所有原始值保存，无静默非负投影。各阶段均无状态越界、非有限值或异常发放率（异常门槛 500 Hz）。响应损失、观察性差值和 ΦID 原子不套用 Syn 非负规则。
+
+低维检查使用包含刺激位置的冻结 2-ROI 子集，同一评分数据，1536 样本训练 / 512 留出评估，比较 affine 与二次 triangular TM。该独立拟合密度的估计路径未通过非负性审计，可能受密度不一致和有限样本误差影响。非负审计结果为 **False**，最小值 -0.0198442 bit，阈值 -1e-8 bit，违规 14 个。该路径显式报告失败，未作为 PEID Syn 进入选择比较。它不能作为真实 Syn 为负或存在真实排名翻转的证据；需要共同、稳定的非线性联合密度估计后才能判断 Gaussian 结论是否可迁移。
+
+#### M.1.5 正式阶段预算与下一步
+
+复用完整 pulse/sham 后，原建议 D 配置的实际响应轨迹为 99,840 条（未复用上界 196,608）。按本机 G=1.3 预实验线性外推：响应生成约 19.3 分钟；评分样本与 affine 拟合约 1.8 分钟；全部指标候选评分约 2.3 分钟；合计约 23.4 分钟。其他 G、正式重复数、数值修复、非线性后端和稳健性不在此估计内，不能当作可靠完成时间。
+
+**不建议直接启动 D：先修复低维非线性 TM 的共同密度一致性，确认 estimator 不决定排序；再增加响应重复验证标签稳定性与工作点漂移，最后冻结正式预算。** 按用户本轮批准范围，A–C 到此完成，D 仍需确认。
+
+#### 复现与证据
+
+- 执行：`/opt/anaconda3/envs/py311/bin/python scripts/run_dmf_response_benchmark.py`；仅 A–C。
+- 重绘已有缓存：`/opt/anaconda3/envs/py311/bin/python scripts/plot_dmf_response_benchmark.py`。
+- 正确性验证：`python -m pytest tests/test_dmf_response_benchmark.py -q`，16 项通过。
+- 配置、输入哈希、候选、原始分数、响应轨迹、种子、数值诊断和计时：`results/dmf_schaefer100/response_benchmark_pilot/`，NPZ/JSON。
+- 本地 Zotero 已搜索 PEID 并阅读 MYATYWAJ（26 页全文）、P7L7F9FT（12 页全文）、26Q48H8Y（正文 12 页、SI 10 页）。定义与引用沿用[实验计划](brain.md#dmf-retired-contract)；LU 扩展及 tonic 控制仍为本实验操作性选择。
+<!-- report-section:dmf-response-pilot:end -->
+
+<!-- report-section:dmf-joint-pilot:start -->
+<a id="dmf-joint-pilot"></a>
+
+### M.2 联合符号读取预实验负结果
+
+**新计划的小规模预实验已执行。预算和数值检查通过；当前解码配置没有显示联合读取优势，因此尚不进入正式比较。**
+
+追加诊断已确认训练泛化失败，有限正则化修复尚未产生联合收益。当前主比较优先转向有独立真值的多源组织恢复，再检验脑任务用途；完整符号读取的继续条件见文末追加诊断。
+
+后续设计更新：结合现有 93 人 SC，主实验进一步调整为[个体相变响应与协同组织的跨被试验证](brain.md#dmf-subject-plan)；文末人工机制恢复建议保留为方法阳性对照。
+
+执行日期：2026-10-02。对应[旧实验合同](brain.md#dmf-retired-contract)中的一次小规模检验：固定 G、k＝2/4 读取烟测。
+
+#### 已执行的合同
+
+Schaefer100、200 个 E/I 标量；G＝1.3，固定在 G＝1 校准的 JFIC，1 ms 积分，300 ms 全脑未来目标。围绕确定性参考状态的全系统独立均匀盒，半宽 0.02，噪声 sigma＝0.01。标签是候选 ROI 兴奋性初态偏移的真实正/负符号。此次只运行 sham，未增加电流脉冲或连接削弱。
+
+每个 k 冻结 1024 条训练、512 条验证及 1024 条测试轨迹；每个 k 的八个候选包括四个均匀候选和四个 SC 候选，候选在查看分数前生成。三个数据划分用独立初态和噪声种子，同一划分供所有候选和方法使用。候选重叠不构成独立重复。
+
+评分复用原 G＝1.3 的 seed901 缓存：已核对 SC/JFIC 文件、模拟与估计实现的哈希，重建完全相同的源样本，并重新拟合共同 affine TM 核对协方差。所有本方法查询均边缘化同一全系统密度，目标固定为全脑未来。原生 Phi-R/WMS 保留候选对应未来，因此与共同目标比较存在支持差别。
+
+#### 全脑预算与多源核对
+
+| 量 | nats |
+|---|---:|
+| 全脑 EI | 24.002943 |
+| 标量最细分区全脑 Ξ | 2.735948 |
+| ROI 内 E/I 整合之和 | 0.223494 |
+| 跨 ROI 残差 | 2.512453 |
+
+预算闭合误差 3.11e-15 nats。非负容差为 1e−8 nats，查询审计容差内负值 0 个、显著负值 0 个；各候选精确 SPT 节点和 Shapley 非负审计另存原值与数量。没有裁剪 Ξ、Syn 或任务差值。全部新轨迹状态越界和异常发放率计数为零。
+
+全脑值来自该独立盒＋共同 affine TM 预实验，不能与新稿 Fig. 2 的 18.093 nats 直接等同：当前缺少新稿补充附录，尚无法完整核对其后端、支持和参考状态。该数值差别是剩余协议核对项，不是对稿件结果的复现。
+
+n＝2、3、4、6、8 的离散 XOR 和 10% bit-flip 对照均由完整分布精确计算。n≥3 时成对 Syn 总和为零，全体 Ξ 仍为正；Shapley 和 SPT 闭合。whole EI 同样能识别 XOR，不能据此声称胜过所有信息指标。SPT 阶数是所选树的层级规模。
+
+![独立二元源的无噪声和带噪 XOR 对照](../../fig/dmf_joint_readout/noisy_xor_control.png)
+
+每个 DMF 候选已计算精确 SPT 与跨 ROI Shapley（目标仍为全脑）；它们只归因该候选的残差，没有运行 100 ROI 全脑 SPT 或全脑 Shapley。
+
+#### 留出任务结果
+
+解码器使用训练集标准化的 200 个未来状态和偏置。逐源、条件二阶最大熵、完整联合模型分别使用至 1、2、k 阶的正交 Walsh 标签项，各项系数是未来状态的线性函数。三者共享优化器、收敛规则及正则化候选；只依据验证集负对数似然选正则化。k＝2 时二阶与联合模型完全相同。k＝4 时参数量分别为 804、2010、3015，容量是显式方法差异，当前样本量可能使联合模型受损。二阶基线包含全部二阶标签项，但仍受限于线性未来特征，不能代表所有二阶预测模型。
+
+![各候选的绝对识别率和联合读取差](../../fig/dmf_joint_readout/dmf_readout_smoke.png)
+
+左列为最终测试的全模式准确率，虚线为机会水平；右列为联合模型减逐源／条件二阶模型的准确率差，误差条是同一测试集内配对轨迹的 1 SEM。一个训练/验证/测试划分不提供跨种子稳定性或确认性置信区间。
+
+| k | 候选 | ROI（1-based） | 联合准确率 | 逐源准确率 | 二阶准确率 | Q（百分点） | 联合−二阶（百分点） |
+|---:|---:|---|---:|---:|---:|---:|---:|
+| 2 | 1 | 79, 82 | 38.67% | 40.62% | 38.67% | -1.95 | +0.00 |
+| 2 | 2 | 21, 83 | 37.30% | 38.77% | 37.30% | -1.46 | +0.00 |
+| 2 | 3 | 63, 78 | 36.13% | 38.09% | 36.13% | -1.95 | +0.00 |
+| 2 | 4 | 24, 96 | 35.74% | 37.50% | 35.74% | -1.76 | +0.00 |
+| 2 | 5 | 9, 36 | 26.17% | 25.78% | 26.17% | +0.39 | +0.00 |
+| 2 | 6 | 27, 45 | 40.14% | 42.19% | 40.14% | -2.05 | +0.00 |
+| 2 | 7 | 26, 43 | 36.72% | 39.45% | 36.72% | -2.73 | +0.00 |
+| 2 | 8 | 1, 32 | 35.94% | 35.45% | 35.94% | +0.49 | +0.00 |
+| 4 | 1 | 56, 81, 85, 97 | 9.67% | 13.38% | 12.21% | -3.71 | -2.54 |
+| 4 | 2 | 19, 32, 41, 73 | 11.52% | 14.45% | 12.70% | -2.93 | -1.17 |
+| 4 | 3 | 9, 16, 53, 70 | 8.69% | 10.06% | 9.18% | -1.37 | -0.49 |
+| 4 | 4 | 10, 32, 72, 87 | 9.86% | 10.84% | 9.77% | -0.98 | +0.10 |
+| 4 | 5 | 12, 13, 17, 26 | 12.01% | 13.48% | 10.64% | -1.46 | +1.37 |
+| 4 | 6 | 56, 70, 89, 100 | 6.74% | 7.32% | 7.13% | -0.59 | -0.39 |
+| 4 | 7 | 28, 30, 50, 78 | 10.06% | 12.89% | 11.52% | -2.83 | -1.46 |
+| 4 | 8 | 13, 19, 34, 71 | 11.33% | 12.79% | 10.45% | -1.46 | +0.88 |
+
+k＝4 的全部候选 Q 均为负；只有个别候选联合模型略优于二阶，且差值与轨迹 SEM 同量级。本次没有证明 Ξ 选组或联合读取的实用优势，也不能将这种有限样本、受限解码器的结果解释为理论整合量不存在。
+
+分数选组和验证集 Q 选组均在最终测试预测前冻结。随机基线为八个候选的精确均值。
+
+此候选池中，跨 ROI u 与成对 Syn 总和在 k＝2 和 k＝4 均给出相同排序；k＝2 两者及共同目标 O 增量完全同值。k＝4 的 u 与成对和仍有数值差别（最大约 0.000503 nats），但未产生不同选组，不能宣称本次发现了二阶汇总遗漏的 DMF 组合。
+
+| k | 选择方法 | 候选 | 测试 Q（百分点） |
+|---:|---|---:|---:|
+| 2 | cross_roi_u | 7 | -2.73 |
+| 2 | fine_xi_v | 7 | -2.73 |
+| 2 | pair_syn_sum | 7 | -2.73 |
+| 2 | whole_ei | 6 | -2.05 |
+| 2 | o_increment | 7 | -2.73 |
+| 2 | native_pair_phi_r | 5 | +0.39 |
+| 2 | native_weak_phi_r | 5 | +0.39 |
+| 2 | native_phi_r_lu | 5 | +0.39 |
+| 2 | native_wms | 5 | +0.39 |
+| 2 | internal_sc | 5 | +0.39 |
+| 2 | validation_Q | 8 | +0.49 |
+| 2 | random | 均匀期望 | -1.38 |
+| 4 | cross_roi_u | 8 | -1.46 |
+| 4 | fine_xi_v | 8 | -1.46 |
+| 4 | pair_syn_sum | 8 | -1.46 |
+| 4 | whole_ei | 2 | -2.93 |
+| 4 | o_increment | 5 | -1.46 |
+| 4 | native_pair_phi_r | 5 | -1.46 |
+| 4 | native_weak_phi_r | 5 | -1.46 |
+| 4 | native_phi_r_lu | 5 | -1.46 |
+| 4 | native_wms | 6 | -0.59 |
+| 4 | internal_sc | 6 | -0.59 |
+| 4 | validation_Q | 7 | -2.83 |
+| 4 | random | 均匀期望 | -1.92 |
+
+#### 实测成本与继续门槛
+
+本次总耗时 13.68 s；新轨迹生成合计 5.02 s，共同密度拟合后的评分及候选组织核对 0.02 s，解码拟合合计 5.10 s。单线程、同进程预实验计时；不是隔离、重复的效率基准，不据此外推正式效率优势。
+
+读取具有部分可检测信号，k＝4 个别候选接近机会水平。预实验后的训练诊断与路线决策见下文；旧路线须先通过匹配正对照、标签信息与独立选组差异三项继续门槛。不得依据本次最终测试改候选、支持、时距或排名后再称为确认性结果。正式阶段需新冻结合同、独立最终测试和重复种子。
+
+全脑归因、候选搜索、G/k 扫描、逐行预算方向干预和真实脑数据迁移仍是计划后续阶段，本次未执行。当前 formal_go=False。
+
+#### 方法依据与复现
+
+本轮已重新经 Zotero 查询并核对父条目 `P6UJCVG8` 的标题 *Emergent hierarchical organization of causal interactions in complex systems*，唯一附件 `DXGC7JEA`，19/19 页正文，2026-10-02 入库，无明确稿件版本号／日期且不含 S1–S4/S12 附录。已读取 Methods 式（5）—（12）、Brain 与 Discussion；正文支持共同干预、标量 Ξ、层级分解与闭合，尚不能声称完整后端一致性已验证。旧稿不替代该主稿。
+
+连续评分使用共同 affine TM 的 Gaussian 近似：先验替换为独立盒的 Gaussian 矩，残差为 Gaussian；真实任务继续使用均匀盒。这一近似保证共同密度查询一致，却不证明一般非线性高阶能力。精确离散对照无需 TM。
+
+- 执行：`/opt/anaconda3/envs/py311/bin/python scripts/run_dmf_joint_readout.py`。匹配完整合同的结果可直接复用。
+- 重绘：`/opt/anaconda3/envs/py311/bin/python scripts/plot_dmf_joint_readout.py`。
+- 验证：`/opt/anaconda3/envs/py311/bin/python -m pytest tests/test_dmf_joint_readout.py tests/test_dmf_response_benchmark.py -q`。
+- 原生输出：`results/dmf_schaefer100/joint_readout_pilot/` 中 JSON 合同、评分、审计与 NPZ 轨迹／后验；不生成 CSV。
+<!-- report-section:dmf-joint-pilot:end -->
+
+<a id="dmf-joint-diagnostics"></a>
+
+### M.3 过拟合、标签压缩与继续门槛
+
+
+**当前联合读取方案暂不升级为主比较。** 已确认解码器过拟合；加强正则化能缓解，但当前标签的联合信号很小，多源与成对评分又没有产生不同选组。它不是对任意多源整合能力的有效否定，也不足以支持继续扩大这条实验。原测试结果与 `formal_go=False` 保留。
+
+##### M.3.1 训练泛化失败有直接证据
+
+k＝4 的全部候选、全部解码家族都选中原正则化网格的最强端点 0.1。最终测试联合模型的负对数似然为 4.150–4.764 nats，全部差于均匀猜测的 $\ln16=2.773$ nats；逐源、二阶和联合模型的候选平均值分别为 2.861、3.628、4.368 nats。因此，换成概率损失作为终点也不能挽救原结果。
+
+仅用原训练/验证缓存重拟合第一个预冻结四 ROI 候选，正则化仍为 0.1：
+
+| 解码器 | 参数量 | 训练准确率 | 验证准确率 | 训练损失（nats） | 验证损失（nats） |
+|---|---:|---:|---:|---:|---:|
+| 逐源 | 804 | 32.71% | 16.80% | 2.032 | 2.717 |
+| 二阶 | 2010 | 60.64% | 12.11% | 1.334 | 3.512 |
+| 联合 | 3015 | 85.06% | 10.74% | 0.781 | 4.230 |
+
+优化器收敛不能代替泛化核对。这张训练/验证表仅核对了一个候选；最终测试损失范围和正则化端点来自原八候选记录。
+
+##### M.3.2 一次有限修复尚未产生联合收益
+
+同一候选、同一训练/验证缓存，固定追加三个更强正则化值，没有增加 DMF 轨迹或读取新的测试结果：
+
+| 正则化 | 逐源验证损失 | 二阶验证损失 | 联合验证损失 | 逐源验证准确率 | 联合验证准确率 |
+|---:|---:|---:|---:|---:|---:|
+| 0.3 | 2.605 | 2.972 | 3.281 | 17.19% | 10.74% |
+| 1 | 2.575 | 2.708 | 2.825 | 16.02% | 11.91% |
+| 3 | 2.624 | 2.662 | 2.700 | 15.04% | 11.52% |
+
+损失单位均为 nats。联合模型的验证损失从 4.230 降到 2.700，但每个追加值下仍差于逐源模型。这证明原训练配置可修复一部分，尚不证明修复后有联合优势。此处共 12 次小模型拟合；验证集已用于事后诊断，不能将它重新称为确认性证据。未开展学习曲线、参数搜索或新最终测试。
+
+##### M.3.3 评分源与标签之间丢失了信息
+
+评分使用每个 ROI 的完整 E/I 连续初态，标签只保留 E 初态偏移的一位正负符号；I 初态与连续幅度均未进入标签。全脑整合量较大，不保证任意四 ROI 的符号具有可观的联合读取收益。
+
+在本次拟合的共同 Gaussian 联合密度 $q_\ell^{\mathrm G}$ 内，这个关系可以具体核对。令 $A_E(S)$ 为候选 ROI 的 E 标量索引，$\mathbf b_S$ 为其符号标签，$B$ 为全脑未来目标；定义诊断量 $J^{\mathrm G}(S)$ 为标签给定未来后的条件总相关：
+
+$$
+\begin{aligned}
+J^{\mathrm G}(S)
+&=\operatorname{TC}_{q_\ell^{\mathrm G}}
+  (\mathbf b_S\mid\mathbf x_{t+\ell}^{B})\\
+&\leq \Xi_\ell^{\mathrm G}(A_E(S)\to B)
+\leq u^{\mathrm G}(S).
+\end{aligned}
+\tag{M.3.1}
+$$
+
+独立初态干预使跨 ROI 残差等于完整 ROI 初态给定未来后的条件总相关。对每个 ROI 分别做 E 投影和符号映射，条件总相关的 KL 数据处理不等式给出式（M.3.1）。$J^{\mathrm G}$ 也是理想联合后验相对精确逐源后验乘积的期望对数损失收益；它是机制诊断量，不新增排名指标。
+
+八个四 ROI 候选的跨 ROI $u$ 仅为 0.001548–0.011582 nats；同一密度下 E 标量的 $\Xi_\ell^{\mathrm G}(A_E(S)\to B)$ 为 0.000748–0.008806 nats。后者只重用协方差做查询：最小值 0.000748011 nats，非负容差 $10^{-8}$ nats，8 个值中容差内负值和显著负值均为 0，无裁剪。因此，Gaussian 解释内理想符号联合收益的上界也很小。
+
+**式（M.3.1）不是实际均匀盒 DMF 的严格上界，也不是准确率的上界。** 拟合密度与真实任务分布仍不同；当前证据提示弱信号，不能宣称真实动力学的高阶效应已经被排除。
+
+##### M.3.4 当前设计没有充分检验任意多源的独特性
+
+- k＝2 时二阶与联合解码器相同，本来就不能检验超二阶收益。
+- k＝4 时跨 ROI $u$ 与成对 Syn 汇总在八候选中排序及胜者完全相同。二者最大数值差约 0.000503 nats，但该差不是纯四阶 synergy；一个评分种子也没有给出估计稳定性。
+- affine Gaussian 后端能计算多源条件相关，但只由均值和协方差决定，无法区分二阶矩相同的分布中的高阶差异。精确离散 XOR 对照证明了公式能力，没有验证当前连续后端能恢复这类差异。
+- 完整 Walsh 标签项不等于完整的未来特征表达能力；三种解码器的系数都只使用线性未来特征。无噪声低维 XOR 单元核对不能代替 200 特征、弱信号、有限样本的校准。
+- 本次是 sham 下的初态符号读取，没有检验外部反馈回路依赖、真实刺激响应或行为价值。
+
+因此，“小盒工作点可能接近线性”可以作为待检验解释，不能作为已确认的 DMF 性质。也不能据此断言不存在其他有信息的组合。
+
+##### M.3.5 旧路线的继续门槛
+
+只保留一次有限开发诊断，不先扩大 G/k、候选数或轨迹数：
+
+1. 在匹配维度、噪声和有限样本的已知多源正对照上，证明解码器能泛化；容量、正则化预算与二阶基线公平，并核对概率损失。
+2. 在评分与任务一致的分布下，确认标签确实保留可检测的联合后验信息；先区分后端近似、标签压缩和解码误差。
+3. 在独立冻结的候选池中，确认多源评分会选出成对分析遗漏的组合，并且差异对估计重复稳定。
+
+三项不能满足，完整符号读取不再作为主优势实验。满足后才冻结新合同、重复种子和独立最终测试；不能继续使用已经查看过的最终测试挑设计。
+
+##### M.3.6 主比较转向“组织恢复—独立用途”
+
+| 优先级 | 客观终点 | 方法优势如何受检验 |
+|---|---|---|
+| 首先：有真值的混合阶机制 | 恢复植入的不可约源组合、模块与可识别层级；误检和定位误差 | 任意多源评分、SPT/Shapley 与强二阶、whole EI、其他可行多源方法共享分布与预算 |
+| 随后：脑组织的独立用途 | 在留出主体/条件中预测神经响应、未来活动或脑状态 | 用训练数据得到的归因或组织约束预测；同一预测器和调参预算，与 EI-Shapley、SC/FC、成对方法、均匀及打乱组织比较 |
+| 并行记录：计算代价 | 达到预定恢复质量或预测非劣界的时间、内存、近似误差 | 分开计量密度、整体量、归因和树搜索；比较优化后的标量算法，不强迫对手输出整套 PID 格 |
+
+第一层的真值由生成机制决定，不能把 Ξ 的大小或本方法生成的树当作答案。采用混合阶、冗余、噪声及弱耦合的有限样本机制，不仅做纯 XOR；允许强多源对手成功。SPT 的阶数分布依赖所选树，纯 parity 中可能存在等价树，只评可识别组合或等价层级，不能凭任意二分细节制造恢复优势。给 DMF 人为加入高阶项只能作为阳性对照，不能写成自然脑动力学发现。
+
+第二层让指标对象与动力学用途相连：组织来自共同未来目标的有效信息，随后由独立响应/状态预测或匹配干预验证用途。若继续强调外部反馈，固定靶区并分别操作传入与返回通路，在相同输入、连接预算和观测目标下检验预测的易损组织。个体模型与虚拟通路切断可以参考 [Momi 等的脑刺激模型研究](https://www.nature.com/articles/s41467-025-58187-6)，但该研究不保证 Ξ 排名有效。真实数据还须单列干预先验、观测映射和时距之间的差异，不能把观察预测直接称为 EI 的因果验证。
+
+whole EI 是必须保留的强基线：高整合量不保证高预测价值。仓库 Earth 的现有迁移结果也没有证明 Ξ 对 EI-Shapley 的显著预测优势或整条流水线更快。全脑 Ξ 的 n＋1 个 EI 项是查询结构上的优势；精确全脑 Shapley 和二分搜索仍可能指数增长，不能外推为端到端效率结论。
+
+可成立的主故事是：**任意多源整合量提供闭合预算与组织定位；有真值的恢复和独立脑任务验证其增量价值，二阶分析共同承担机制解释。** 单独在本指标上取得高分不是理解或预测价值的充分证据。所有负结果保留；未通过的用途不纳入成功主张。
+
+##### M.3.7 本轮证据边界
+
+本轮再次经 Zotero 核对主稿父条目 `P6UJCVG8` 与唯一可用全文附件 `DXGC7JEA`，读取 Methods 的共同干预、Ξ、Syn/SPT 定义及 Brain/Discussion。正文未给出明确版本号或稿件日期，附件入库日期不确立稿件版本；所引补充附录仍不可用，完整后端一致性尚未核验。式（M.3.1）是本轮在声明的 Gaussian 近似下推导的诊断关系。
+
+本轮只读原结果、重用训练/验证缓存做小模型诊断和协方差查询；未修改原结果数组、未新增 DMF 轨迹、未运行全脑搜索或真实脑任务。组织恢复与独立用途是建议的新设计，不是已取得的优势。
+
+<a id="dmf-retired-contract"></a>
+
+### M.4 旧计划中仍需保留的方法合同
+
+全脑总量、跨 ROI 残差和局部二块协同必须固定源粒度、共同干预密度、未来目标及预测时距后再比较。全脑 Ξ 含 200 个 E/I 标量的单源扣除；100 个 ROI 二元块的扣除得到跨 ROI 残差，两者不混用。共同目标的二源 WMS 与 target-augmented O 增量在相同密度下同值，不应重复计为独立竞争指标；whole EI 是必须保留的强基线。
+
+原刺激响应的池内归一化遗憾保留为
+
+$$
+\operatorname{NReg}_m=\frac{\max_A L(A)-L(A_m)}{\max_A L(A)-\min_A L(A)}.
+\tag{M.4.1}
+$$
+
+式（M.4.1）越小越好，分母是独立响应标签的池内损失范围；范围无法与噪声区分时报告不可判别。响应损失是完整与削弱连接模型的 sham 校正发放率 RMS 面积之差，单位 Hz·s，可以为负；它不是 Syn 真值或认知能力。高阶 Phi-R-LU 是本实验按局部存储原子并集定义的操作性扩展；计时须使用精确 LU 标量算法，完整 ΦID 只作小规模代数参照，不能以完整分解成本替代对手的标量成本。相应代数与实现保留于 `scripts/dmf_response_benchmark.py` 和 `tests/test_dmf_response_benchmark.py`。
+
+尚未执行的内外机制设计只保留以下问题：固定接收 ROI 集合 A、外部候选 E 与目标 A 的未来，分别计算外部单独 EI、内部—外部块 Syn，以及已知内部状态时的外部条件信息。内部状态辅助解码与只用未来的解码使用同一独立测试目标、架构及调参预算；收益允许有符号。通路操作固定每个接收 ROI 的实际移除权重、tonic 补偿和 JFIC，pulse／sham 配对；分别检验 A→E、E→A 及双方向，单向敏感不足以证明闭环。旧集合级总预算相同不保证刺激位置损伤相同，这是必须控制的混杂。
+
+任意多源用途须先在匹配维度、噪声和有限样本的已知正对照上验证解码泛化，确认标签保留联合信息，再在独立冻结候选中检验相对成对评分的选组增量。先验信息、密度拟合、归因、树搜索、解码及预测生成分别计时；轨迹 SEM 不替代跨 seed 或跨被试的不确定性。Gaussian 近似不能识别所有非线性高阶差异；共同非线性 TM 密度未通过一致性及非负审计之前，不进入正式 Syn 比较。新 nats 审计采用 10⁻⁸ nats，历史 10⁻⁸ bit 的失败阈值不改写。
+
+当前实施路线转向个体 SC 上的曲线、核及网络分工，协议见附录 L。上述用途检验、虚拟断连、真实脑任务与正式训练折泛化继续列为未执行；旧方案里的预算外推及样本量建议不沿用。
+
+<a id="hcp-ped-oinfo"></a>
+
+## 附录 N：HCP 57 人 PED／O-information 补充比较
+
+### 摘要
+
+本报告在同一批 57 名 HCP S1200 被试上，比较 REST 与七个任务态的全部 35 个 Yeo7 三网络组合。PED 与 O-information 均按目标论文公开代码的估计口径实现。
+
+核心结果如下。
+
+1. **PED 不估计连续空间互信息。** 作者先对每个时间序列作 z-score，再以 0 为阈值二值化；随后用离散 shared-exclusion（Hsx/SxPID）对三元联合熵进行 Partial Entropy Decomposition。它不是 Transport Map、KNN 或 KDE。O-information 则使用 HOI 默认的 Gaussian-copula 熵估计与有限样本偏差校正。
+2. **REST 的 PED 冗余最高，但任务态的 PED 协同普遍略高。** 35 个组合等权平均后，REST 的 Red 为 0.443 bits、Syn 为 0.361 bits；任务态 Red 为 0.297--0.405 bits，Syn 为 0.382--0.405 bits。
+3. **PED 的冗余/协同平衡随状态明显重组。** REST 的 35/35 个群体均值组合为 Red > Syn；EMOTION 为 35/35 个 Syn > Red。其余状态中，协同占优组合数为 GAMBLING 29、LANGUAGE 30、MOTOR 33、RELATIONAL 18、SOCIAL 15、WM 32。
+4. **组合定位有清晰分工。** PED 冗余高值主要沿 DAN--VAN--FPN/Visual 骨架分布；PED 协同高值更多涉及 Limbic，并随状态换接 Visual、Somatomotor、DAN、FPN 或 DMN。
+5. **O-information 在群体层面仍全部为正。** 八状态的 35 个组合均没有负的跨被试均值，因此 O-information 支持“冗余占优程度变化”，不支持稳定的群体 O-Syn 三元组。
+
+![PED 与 O-information 状态概览](../../results/hcp_57_ped_oinfo_replication/state_overview.png)
+
+**图 1｜状态层面的三元高阶信息。** 每名被试先对 35 个三元组取平均。a，PED Red；b，PED Syn；c，有符号 O-information。箱线图统计单位为被试，圆点为 57 人均值。O-information 的 0 线区分 redundancy-dominated 与 synergy-dominated。
+
+### N.1 目标论文的估计方法
+
+#### N.1.1 PED：离散 shared-exclusion，而非连续互信息估计
+
+目标论文公开代码的 PED 流程为：
+
+```python
+z_data = zscore(data_sub, axis=1)
+res = compute_PED(discretize(z_data), norm=False)
+```
+
+其中 `discretize` 将正值映射为 1、负值映射为 0。对于每个三元组 $(X_1,X_2,X_3)$，程序由八种二元联合状态的经验频率构造离散概率质量函数，不加伪计数；再把联合状态本身作为确定性目标，调用 SxPID 的 informative shared-exclusion redundancy function。对每个冗余格节点 $\alpha$、随机向量 $\boldsymbol{x}$ 与其实现 $\boldsymbol{a}$，其局部 informative redundancy 为
+
+$$
+i_{\cap}^{+}(\boldsymbol{a};\alpha)
+=-\log_2 P\!\left(\bigcup_{A\in\alpha}\{\boldsymbol{x}_A=\boldsymbol{a}_A\}\right).
+$$
+
+先按经验状态概率求期望，再在 18 节点三变量冗余格上作 Möbius 反演，得到非负的 informative PED 原子。论文代码定义：
+
+$$
+\mathrm{PED\ Red}=H_{\partial}(\{1\}\{2\}\{3\}),
+$$
+
+而 PED Syn 是以下七个高阶原子的和：
+
+$$
+\begin{aligned}
+\mathrm{PED\ Syn}={}&H_{\partial}(\{3\}\{12\})
++H_{\partial}(\{2\}\{13\})
++H_{\partial}(\{1\}\{23\})\\
+&+H_{\partial}(\{12\}\{13\}\{23\})
++H_{\partial}(\{13\}\{23\})
++H_{\partial}(\{12\}\{23\})
++H_{\partial}(\{12\}\{13\}).
+\end{aligned}
+$$
+
+公开代码设置 `norm=False`，所以结果保留原生 bits，不除以联合熵。本复现嵌入作者发布的三变量 18 节点反演矩阵；在随机二元分布上与原 SxPID 输出逐原子核对，最大绝对误差为 $2.78\times10^{-16}$ bits。
+
+这一方法的稳健性来自秩序较低的离散频率估计和幅度无关的符号编码，但代价也很明确：二值化会丢弃幅度信息，阈值附近样本可能翻转；有限样本偏差与时间窗长度仍然存在。它不是“连续空间互信息的稳健估计器”。
+
+#### N.1.2 O-information：Gaussian-copula entropy
+
+目标论文调用 HOI `Oinfo.fit(minsize=3, maxsize=3)`，未覆写默认估计器；对应 `method="gc"`。每个连续变量先经经验秩映射到标准高斯边缘，再通过协方差 Cholesky/log-determinant 估计多元高斯熵，并应用有限样本偏差校正。三变量 O-information 为
+
+$$
+\Omega(X_1,X_2,X_3)
+=\sum_{i=1}^{3}H(X_i)
+-\sum_{1\le i<j\le3}H(X_i,X_j)
++H(X_1,X_2,X_3).
+$$
+
+$\Omega>0$ 表示冗余占优，$\Omega<0$ 表示协同占优。O-information 只给出净平衡，不把冗余与协同分别分解为非负原子。
+
+### N.2 数据与受控实验口径
+
+- 被试：57 人，REST 与七任务完整配对。
+- 状态：REST、EMOTION、GAMBLING、LANGUAGE、MOTOR、RELATIONAL、SOCIAL、WM。
+- 变量：Schaefer-1000 分区先在 Yeo7 网络内提取 PC1，得到 Visual（V）、Somatomotor（SM）、Dorsal attention（DAN）、Salience/ventral attention（VAN）、Limbic（Lim）、Control（FPN）和 Default（DMN）。
+- 组合：固定全部 $\binom{7}{3}=35$ 个无序三元组。
+- 主分析：每个状态使用完整序列；长度依次为 1200、176、253、316、284、232、274、405。
+- 长度敏感性：所有状态统一使用前 176 点，并在该窗口内独立中心化、二值化或 copula 变换。
+- 时间稳定性：每个完整序列的前半与后半独立重估。
+- 群体统计：5,000 次被试 bootstrap 置信区间；任务--REST 使用双侧配对 Wilcoxon，并在七任务内作 BH 校正。
+- 组合稳定性：留一被试重算最高组合。
+- PED 数值审计：非负容差为 $10^{-10}$ bits。四种窗口共检查 1,149,120 个 partial atoms；599 个负值全部在容差内，最小值为 $-7.77\times10^{-16}$ bits，显著违规为 0。未使用静默截断。
+
+这属于“同算法、同队列上的网络级复现”，不是目标论文数据表的逐项复制。目标论文使用 100 名 HCP unrelated subjects 和 116 个皮层/皮层下区域；本报告使用现有 57 人数据与 Yeo7 PC1，因此结论粒度是七网络组合。
+
+### N.3 状态层面结果
+
+| 状态 | PED Red，均值 [95% CI] | PED Syn，均值 [95% CI] | 有符号 O-information，均值 [95% CI] |
+| --- | ---: | ---: | ---: |
+| REST | 0.443 [0.403, 0.489] | 0.361 [0.344, 0.376] | 0.311 [0.238, 0.388] |
+| EMOTION | 0.297 [0.283, 0.311] | 0.405 [0.400, 0.409] | 0.096 [0.065, 0.131] |
+| GAMBLING | 0.350 [0.333, 0.368] | 0.392 [0.384, 0.398] | 0.187 [0.140, 0.252] |
+| LANGUAGE | 0.342 [0.330, 0.353] | 0.399 [0.396, 0.402] | 0.137 [0.110, 0.169] |
+| MOTOR | 0.302 [0.287, 0.319] | 0.387 [0.381, 0.393] | 0.133 [0.102, 0.167] |
+| RELATIONAL | 0.398 [0.379, 0.418] | 0.382 [0.376, 0.387] | 0.217 [0.178, 0.258] |
+| SOCIAL | 0.405 [0.382, 0.428] | 0.381 [0.375, 0.387] | 0.252 [0.207, 0.297] |
+| WM | 0.326 [0.309, 0.347] | 0.399 [0.392, 0.405] | 0.156 [0.118, 0.200] |
+
+相对 REST，EMOTION、GAMBLING、LANGUAGE、MOTOR 和 WM 的 PED Red 显著降低，BH $q\le5.12\times10^{-4}$；RELATIONAL 与 SOCIAL 未通过校正。PED Syn 则在 EMOTION、GAMBLING、LANGUAGE、MOTOR 和 WM 显著升高，BH $q\le0.0133$；RELATIONAL 与 SOCIAL 未通过校正。O-information 的显著变化方向与 PED Red 一致：上述五个任务均低于 REST，RELATIONAL 与 SOCIAL 不显著。
+
+统一到 176 点后，REST 的 PED Red 从 0.443 降到 0.333 bits，PED Syn 从 0.361 升到 0.397 bits，说明 REST 的绝对 Red/Syn 平衡对窗口长度尤其敏感。其他任务因本身更接近 176 点，变化较小。
+
+### N.4 协同和冗余主要分布在哪些组合
+
+![PED Red、PED Syn 与 O-information 的主要组合](../../results/hcp_57_ped_oinfo_replication/top_triplet_heatmaps.png)
+
+**图 2｜跨状态高值三元组。** a，PED Red；b，PED Syn；c，有符号 O-information。PED 面板按跨状态平均值选择前 12 个组合；O-information 面板按绝对群体均值选择前 12 个组合。三个面板使用各自的绝对 bits 色标。
+
+| 状态 | PED Red 第一组合 | PED Syn 第一组合 | O-information 第一冗余组合 | PED 群体平衡（Red / Syn 占优组合数） |
+| --- | --- | --- | --- | ---: |
+| REST | Lim+FPN+DMN，0.506 | V+VAN+Lim，0.376 | SM+DAN+VAN，0.513 | 35 / 0 |
+| EMOTION | V+DAN+FPN，0.368 | V+VAN+Lim，0.412 | SM+DAN+VAN，0.234 | 0 / 35 |
+| GAMBLING | V+DAN+FPN，0.486 | V+Lim+FPN，0.404 | DAN+VAN+FPN，0.510 | 6 / 29 |
+| LANGUAGE | DAN+VAN+FPN，0.543 | V+DAN+Lim，0.415 | DAN+VAN+FPN，0.702 | 5 / 30 |
+| MOTOR | DAN+VAN+FPN，0.419 | DAN+VAN+DMN，0.403 | DAN+VAN+FPN，0.433 | 2 / 33 |
+| RELATIONAL | V+DAN+FPN，0.603 | SM+Lim+FPN，0.401 | V+DAN+FPN，0.721 | 17 / 18 |
+| SOCIAL | V+DAN+VAN，0.542 | SM+DAN+Lim，0.403 | V+DAN+VAN，0.513 | 20 / 15 |
+| WM | V+DAN+FPN，0.461 | SM+Lim+FPN，0.408 | DAN+VAN+FPN，0.460 | 3 / 32 |
+
+#### N.4.1 PED 冗余骨架
+
+任务态冗余的核心是 DAN 与 FPN/VAN/Visual 的组合：`V+DAN+FPN` 在 EMOTION、GAMBLING、RELATIONAL、WM 排名第一；`DAN+VAN+FPN` 在 LANGUAGE、MOTOR 第一；SOCIAL 为 `V+DAN+VAN`。REST 不同，顶部转为 `Lim+FPN+DMN`，但其留一被试第一名稳定度只有 38/57，第二候选 `VAN+FPN+DMN` 为 19/57，表明 REST 顶部两个组合接近。
+
+除 REST 外，PED Red 的状态第一组合基本稳定：六个状态为 57/57 次留一仍第一，WM 为 56/57。
+
+#### N.4.2 PED 协同组合
+
+协同最高组合更频繁包含 Limbic：八个状态的第一组合中有七个包含 Lim，唯一例外是 MOTOR 的 `DAN+VAN+DMN`。其状态性表现为：
+
+- REST 与 EMOTION：`V+VAN+Lim`；
+- GAMBLING：`V+Lim+FPN`；
+- LANGUAGE：`V+DAN+Lim`；
+- RELATIONAL 与 WM：`SM+Lim+FPN`；
+- SOCIAL：`SM+DAN+Lim`。
+
+绝对 Syn 值的组合间跨度比 Red 小，顶部排序应谨慎解释。留一被试下，REST、GAMBLING、LANGUAGE、RELATIONAL、SOCIAL 的第一组合至少稳定 56/57 次；MOTOR 为 53/57，WM 为 54/57；EMOTION 最不确定，第一组合 40/57，`V+Lim+FPN` 为 15/57。
+
+#### N.4.3 PED 与 O-information 的关系
+
+PED Red 与有符号 O-information 的群体组合排序高度一致，各状态 Spearman $\rho=0.722$--0.960。用 PED Red − Syn 构成的净平衡与 O-information 比较，$\rho=0.722$--0.954。这说明两者在“哪些组合更冗余”上收敛，但不应把 O-information 数值当作 PED Red − Syn：两者使用不同分解定义和不同数据表示。
+
+所有状态的 35 个 O-information 群体均值均为正。最接近 0 的是 LANGUAGE 的 `V+Lim+FPN`，均值仍为 0.0063 bits；因此个别被试的负值不能升级为稳定群体 O-Syn 结论。
+
+### N.5 稳定性与鲁棒性
+
+![长度与分半稳健性](../../results/hcp_57_ped_oinfo_replication/robustness.png)
+
+**图 3｜窗口长度与时间分半稳定性。** 每个点表示一个状态中的一个三元组群体均值。上排比较完整序列与统一前 176 点；下排比较前半与后半。虚线为恒等线，状态图例置于数据区外。
+
+| 指标 | 全长 vs 176 点：全部被试值 $\rho$ | 前半 vs 后半：全部被试值 $\rho$ | 群体组合排序：全长 vs 176 点 | 群体组合排序：前半 vs 后半 |
+| --- | ---: | ---: | ---: | ---: |
+| PED Red | 0.825 | 0.637 | 0.749--1.000 | 0.869--0.980 |
+| PED Syn | 0.768 | 0.419 | 0.458--1.000 | 0.688--0.939 |
+| O-information | 0.889 | 0.668 | 0.917--1.000 | 0.834--0.984 |
+
+稳定性结论分两层：
+
+- **群体组合排序较稳。** 除 REST 的 PED Syn 外，多数状态在统一长度和分半后仍保持较高的组合秩相关。
+- **个体 PED Syn 较敏感。** 前后半的全部被试值相关只有 0.419；二值阈值、较短窗口和小幅 Syn 差异都会放大个体排序变化。
+- **REST 的长度效应最明显。** 1200 点 REST 与 176 点任务直接比较，会同时改变离散频率偏差和采样稳定度；因此主报告保留全长复现，但状态差异必须结合统一长度结果解释。
+
+稳健性措施包括：固定相同的 57 人与 35 个组合；每个敏感性窗口独立预处理；显式记录所有 partial atom 的数值非负审计；报告 bootstrap CI、配对检验与 BH 校正；并用留一被试与时间分半检查组合排序。没有用裁剪、伪计数或调参来美化 PED 结果。
+
+### N.6 结论与边界
+
+在当前 57 人 Yeo7 表征下，最稳健的结构结论是：**REST 更偏 PED 冗余；多数任务态更偏 PED 协同。任务冗余主要组织在 DAN--VAN--FPN/Visual 骨架上，而任务协同的顶部组合高度集中于 Limbic 与其他感觉、注意、控制或默认网络的跨系统耦合。**
+
+同时保留三项边界：
+
+1. PED 的二值化提高了对单调缩放与幅度异常值的耐受性，但损失幅度信息，且阈值附近不稳定。
+2. PED Red 与 Syn 都是非负结构量；“协同占优”在本报告中仅指 Syn > Red，不等于 O-information 为负。
+3. 35 个三元组高度重叠，本报告的组合排名是描述性定位。若要宣称某个组合具有任务特异机制，还需要逐组合配对置换、多重比较，以及独立 run 或独立队列复现。
+
+### N.7 可复现产物
+
+- 数值缓存：`results/hcp_57_ped_oinfo_replication/metrics.npz`
+- 统计摘要：`results/hcp_57_ped_oinfo_replication/summary.json`
+- 状态图：`results/hcp_57_ped_oinfo_replication/state_overview.png`
+- 组合热图：`results/hcp_57_ped_oinfo_replication/top_triplet_heatmaps.png`
+- 稳健性图：`results/hcp_57_ped_oinfo_replication/robustness.png`
+- 计算入口：`scripts/analyze_hcp_ped_oinfo_57.py`
+- 方法测试：`tests/test_hcp_ped_oinfo_57.py`
+
+### 参考文献与实现依据
+
+1. Santoro A, Neri M, Poetto S, et al. Charting higher-order models of brain function beyond pairwise interactions. *Nature Communications*. 2026;17:9207. [doi:10.1038/s41467-026-75959-w](https://doi.org/10.1038/s41467-026-75959-w)
+2. Varley TF, Pope M, Puxeddu MG, Faskowitz J, Sporns O. Partial entropy decomposition reveals higher-order information structures in human brain activity. *PNAS*. 2023;120(30):e2300888120. [doi:10.1073/pnas.2300888120](https://doi.org/10.1073/pnas.2300888120)
+3. Santoro et al. analysis code: [nplresearch/HOI_lenses_analysis](https://github.com/nplresearch/HOI_lenses_analysis)
+
+<a id="hcp-fingerprinting"></a>
+
+## 附录 O：HCP 脑指纹探索与不确定性
+
+### 摘要
+
+我们检验七个 Yeo 网络的成对功能连接（FC）与 PEID 联盟协同（Syn）能否识别个体。两项实验回答不同问题：1002 人实验把一个任务的特征用于匹配另一任务；57 人实验把同一次静息态扫描分成两半，并在两半内独立重拟合网络表示和动力学。
+
+- **跨任务识别很弱。** 在 1002 人候选库中，21 维 Syn 的平均 Top-1 识别率为 0.309%，21 维绝对值 FC 为 0.297%，随机水平为 0.100%。Syn 高出 0.012 个百分点，21 个任务对中胜 11 对、负 9 对、平 1 对，不足以支持稳定优势。
+- **静息态分半出现更明显的个体信号。** 在 57 人候选库中，独立重拟合的 21 维 Syn 双向平均识别率为 22.81%，绝对值 FC 为 12.28%，随机水平为 1.75%。配对差值为 10.53 个百分点，但以固定候选库、按被试重采样得到的 95% 区间为 −0.88 至 22.81 个百分点，仍包含 0。
+- **四种等维度特征直接比较。** 同一静息态分半、同一 21 条网络边上，PEID Syn 为 22.81%，保留符号的 FC 与 PhiID Red 均为 14.04%，PhiID Syn 为 10.53%。三项信息指标相对 FC 的配对差值区间均包含 0。
+- **解释边界。** 静息态结果检验的是同次扫描内两个不重叠时间窗的稳定性，并非跨日期或跨扫描的重测脑指纹。两项实验的人数、候选库、图谱和状态不同，不能直接比较其识别率大小。
+
+### O.1 比较口径
+
+每名被试产生两个特征向量。给定第一组中某人的向量，在第二组全部候选人中选取特征坐标间 Pearson 相似度最高者；再交换查询与候选方向。Top-1 识别率是两个方向的正确数除以两倍被试人数。随机水平为候选库人数的倒数。
+
+初始实验的主比较固定为 **21 个两网络联盟的 PEID Syn** 对 **21 条网络间绝对值 FC**。绝对值 FC 是必要参照：每名被试、每段数据的网络 PC1 分别拟合，PC1 符号本身没有固定方向。新增的四指标图按本次比较要求展示保留符号的 FC 21、PEID Syn 21、PhiID Red 21、PhiID Syn 21；绝对值 FC 继续作为符号敏感性参照。差分可识别度（Idiff）定义为同一被试相似度均值减去不同被试相似度均值，再乘以 100；它衡量相似度分离，不等同于 Top-1 正确率。
+
+### O.2 1002 人跨任务识别
+
+#### 数据和方法
+
+1002 人均有七项任务的 LR 扫描，形成 21 个无序任务对。每人每任务使用 MMP360 分区降至七个 Yeo 网络 PC1。Syn 直接读取已完成的 120 联盟缓存；其动力学模型使用三阶历史与 Ridge $\alpha=1$。FC 从相应七网络时间序列计算。每个任务对以全部 1002 人为候选库，两个方向分别匹配，再等权平均。未用身份标签训练模型或选择联盟。
+
+#### 结果
+
+| 特征 | 维度 | 21 个任务对的平均 Top-1 | 平均 Idiff |
+| --- | ---: | ---: | ---: |
+| 保留符号 FC | 21 | 0.178% | 1.05 |
+| 绝对值 FC | 21 | 0.297% | 4.02 |
+| Syn，两网络联盟 | 21 | 0.309% | 4.40 |
+| Syn，全部联盟 | 120 | 0.316% | 0.84 |
+
+随机水平为 0.100%。相对绝对值 FC，21 维 Syn 的任务对平均差值为 **+0.012 个百分点**，21 个任务对中胜 11、负 9、平 1；120 维 Syn 的平均差值为 **+0.019 个百分点**，胜 11、负 8、平 2。各方法都仅略高于随机水平，任务对之间也有明显波动。
+
+![1002 人跨任务识别与逐任务对差值](../../results/hcp_1002_cross_task_fingerprint/cross_task_fingerprint.png)
+
+**图 1｜1002 人跨任务脑指纹。** 左侧每个点为一个任务对的双向平均 Top-1 识别率，空心菱形为 21 对均值，虚线为随机水平；右侧为各任务对 Syn 相对绝对值 FC 的识别率差。正负差值同时存在，群体均值附近的微小优势不能解读为普遍优越。
+
+预先记录的敏感性分析对每项任务的各特征坐标减去该任务的跨被试均值，然后使用相同匹配规则。此时绝对值 FC 为 0.247%，21 维 Syn 为 0.404%，120 维 Syn 为 0.449%。这说明共同的任务特征模式会影响匹配，但群体中心化利用了整组被试的无标签信息，属于探索性、转导式处理。
+
+本实验的主要限制是跨任务状态变化、仅七个网络的低维表示，以及 1002 人的大候选库。还有一项时间支持差异：缓存 Syn 的动力学拟合使用各任务前 75% 的时间点，而本轮 FC 使用完整任务时间序列；两者不能视为严格等时长的估计器比较。Syn 缓存共 841,680 个值，最小值为 0.000145 bits；按 $10^{-9}$ bits 容差检查，容差内负值和显著非负性违规均为 0。
+
+### O.3 57 人静息态同次扫描分半
+
+#### 独立重拟合和识别设计
+
+57 人均有一条 REST1_LR 静息态时间序列，每条含 1200 个 Schaefer-1000 分区时间点。前半为第 0–599 点，后半为第 600–1199 点，互不重叠。每半独立用自身前 450 点拟合七网络 PC1、三阶历史的 delta Ridge 动力学（$\alpha=1$）以及联盟 EI/Syn；其余 150 点只用于预测质量诊断。FC 也从同一半的前 450 个网络 PC1 时间点计算，因此主比较使用相同的时间支持。匹配时，每个方向均有 57 名候选人。
+
+PhiID 使用同两段 450 点 PC1 序列；每半先逐网络标准化，再以滞后 $\tau=1$ 的 Gaussian-MMI 双变量分解计算 21 条边的 redundancy→redundancy（PhiID Red）和 synergy→synergy（PhiID Syn）原子。两种 PhiID 原子均使用相同的 Gaussian 互信息估计、不作偏差校正或截断。计算公式按 [HOI 的 PhiID 实现](https://github.com/brainets/hoi/blob/4db2fbd701d40d33fe2375f3df5a4a4dc94c6b83/hoi/metrics/phiid_atoms.py)；在一名被试的 21 条边上与该实现逐边核对，Red、Syn 最大绝对差分别为 $8.8\times10^{-7}$、$8.8\times10^{-6}$ bits。
+
+新增 O-information 与 PED 直接复用上述两段 450 点 PC1 序列，分别对七网络的全部 $\binom{7}{3}=35$ 个三元组计算特征。O-information 保留正负号，使用 Gaussian-copula 熵及有限样本偏差校正。PED 分为 Red 和 Syn 两个 35 维向量：每个网络在该半段内标准化并以 0 二值化，再用 shared-exclusion 部分熵分解计算三元原子；定义和估计器与[现有 PED/O-information 复现](brain.md#hcp-ped-oinfo)一致。三网络指标与 21 维成对指标的坐标数及数学含义不同，识别率比较只描述各表征在当前任务上的效果。
+
+主分析直接比较原始特征向量。敏感性分析分别减去前、后半在 57 人中的各坐标均值；此处理对所有特征相同，但使用了整个候选队列的无标签分布信息。准确率差的不确定性由固定 57 人候选库、对被试的双向正确率配对重采样 5000 次得到；区间只反映**给定此候选库时的被试抽样变化**。
+
+#### 识别结果
+
+| 21 维特征 | 前半→后半 | 后半→前半 | 双向平均 Top-1 | 平均 Idiff | 群体中心化后 Top-1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| FC 21，保留符号 | 10/57 | 6/57 | 14.04% | 15.71 | 15.79% |
+| PEID Syn 21 | 14/57 | 12/57 | **22.81%** | 19.55 | 26.32% |
+| PhiID Red 21 | 9/57 | 7/57 | 14.04% | 19.69 | 12.28% |
+| PhiID Syn 21 | 6/57 | 6/57 | 10.53% | 21.08 | 13.16% |
+
+随机水平为 **1/57 = 1.75%**。相对表中的 FC 21，PEID Syn 21 的原始识别率高 **8.77 个百分点**，固定候选库的配对重采样 95% 区间为 **[−3.51, 21.05]**；PhiID Red 21 的差值为 **0.00**，区间 **[−7.89, 8.77]**；PhiID Syn 21 的差值为 **−3.51**，区间 **[−12.28, 5.26]**。三个区间都跨过 0。PhiID Red 和 FC 的总正确数同为 16/114，但命中的具体方向及被试并不完全相同。
+
+保留的符号敏感性参照中，绝对值 FC 21 为 12.28%；PEID Syn 21 相对它多识别正确 12 个方向性查询（26/114 对 14/114），差值 **+10.53 个百分点**，区间 **[−0.88, 22.81]**。此前的 120 维 PEID Syn 为 16.67%；它不是本次四种等维度特征图的组成部分。
+
+#### 群体中心化后的七指标比较
+
+下图只展示每半分别减去 57 人各坐标均值后的识别率。所有指标仍用各自前后半向量的 Pearson 相似度、57 人候选库与双向 Top-1 决策。前四项为 21 维成对特征，后三项为 35 维三网络特征。
+
+| 特征 | 前半→后半 | 后半→前半 | 双向平均 Top-1 |
+| --- | ---: | ---: | ---: |
+| FC 21，保留符号 | 9/57 | 9/57 | 15.79% |
+| PEID Syn 21 | 15/57 | 15/57 | **26.32%** |
+| PhiID Red 21 | 6/57 | 8/57 | 12.28% |
+| PhiID Syn 21 | 7/57 | 8/57 | 13.16% |
+| O-information 35，保留符号 | 5/57 | 7/57 | 10.53% |
+| PED Red 35 | 4/57 | 10/57 | 12.28% |
+| PED Syn 35 | 5/57 | 4/57 | 7.89% |
+
+![57 人静息态分半七种脑指纹特征](../../results/hcp_57_rest_split_fingerprint/rest_split_group_centered_comparison.png)
+
+**图 2｜同一次静息态扫描分半的七种特征。** 点为群体中心化后的双向平均 Top-1 识别率，数字直接标出准确率；虚线为 $1/57=1.75\%$ 的随机水平。图内未标注预处理步骤，也不再附加差值面板。
+
+相对带符号 FC 21，PEID Syn 21 高 10.53 个百分点，O-information 35、PED Red 35、PED Syn 35 分别低 5.26、3.51、7.89 个百分点。固定候选库、按被试配对重采样的 PEID Syn 差值 95% 区间为 [−1.75, 22.81] 个百分点；新增三网络方法的区间依次为 [−14.04, 2.63]、[−14.04, 6.14]、[−18.42, 2.63]，均包含 0。由于特征维度和估计器同时改变，这些差值不能单独归因于高阶阶数或协同/冗余性质。
+
+PhiID Syn 的原始 Idiff 为四者中最高（21.08），Top-1 却最低（10.53%）；21 维 PEID Syn 与绝对值 FC 的原始 Idiff 也几乎相同（19.55 对 19.53），而 Top-1 不同。这再次说明平均相似度分离不能代替逐人最近邻决策。群体中心化后 PEID Syn 的识别率升至 26.32%，但 PhiID Red 降至 12.28%；该处理的效果不是所有高阶指标共有的。
+
+#### 数值质量与边界
+
+两半共完成 114 次独立拟合，留出预测误差相对持续性模型的平均比值为 0.872，其中 104/114 次低于 1。共检查 13,680 个 Syn 值，最小值为 0.000961 bits；在 $10^{-9}$ bits 容差下，容差内负值和显著非负性违规均为 0，未作静默截断。
+
+新增 PhiID Red/Syn 各有 2394 个值（两半 × 57 人 × 21 边），均有限；最小值分别为 $2.76\times10^{-8}$ 与 0.0232 bits，本次均无负值。PhiID MMI 原子在一般情形下可以有符号，因此程序没有对它们施加 PEID 的非负容差或裁剪。
+
+新增 O-information、PED Red 和 PED Syn 各有 3990 个有限特征值（两半 × 57 人 × 35 三元组）。PED 部分原子的最小值为 $-2.22\times10^{-16}$ bits；以 $10^{-10}$ bits 为非负容差，20 个负值全部处于容差内，显著违规为 0，未作裁剪。
+
+两半虽无重叠时间点，却仍来自同一次扫描，可能共享当次扫描的生理状态、仪器条件和预处理特征。57 人候选库较小，且本实验改用 Schaefer-1000，而跨任务实验使用 MMP360；因此 22.81% 与 0.309% 的差距不能解释为“静息态比任务态更适合脑指纹”。要检验跨扫描的个体稳定性，仍需同一批被试的独立静息态 run 或另一采集日，并保持图谱与匹配规则一致。
+
+四指标比较固定了被试、时间窗、网络对数量和匹配规则，但指标定义仍不同：PEID Syn 来源于三阶历史线性动力学下的 EI 联盟残差；PhiID Red/Syn 则是观测时间序列上滞后 1 点的双变量时序信息原子。因此识别率排序是**表征性能比较**，不能仅凭此归因于冗余与协同的机制差别，也不是原论文 116 区域静息态跨扫描结果的直接复现。
+
+### O.4 可复现文件
+
+- 跨任务：`scripts/run_hcp_1002_cross_task_fingerprint.py`；逐任务对结果为 `results/hcp_1002_cross_task_fingerprint/summary.json`。
+- 静息态分半：`scripts/run_hcp_57_rest_split_fingerprint.py`；基础特征缓存和统计摘要为 `results/hcp_57_rest_split_fingerprint/features.npz`、`summary.json`。脚本默认复用已核验缓存，传入 `--recompute` 可重新拟合。
+- 原四指标计算：`scripts/run_hcp_57_rest_split_phiid_comparison.py` 调用 `scripts/phiid_gaussian_mmi.py`；PhiID 缓存与原始匹配摘要为 `results/hcp_57_rest_split_fingerprint/phiid_features.npz` 和 `phiid_comparison_summary.json`。
+- 七指标群体中心化比较：`scripts/run_hcp_57_rest_split_group_centered_comparison.py` 调用已有三元 O-information/PED 估计器；新增特征缓存、摘要和图分别为 `results/hcp_57_rest_split_fingerprint/oinfo_ped_features.npz`、`group_centered_comparison_summary.json` 和 `rest_split_group_centered_comparison.png`。
+- 跨任务、静息态分半和四指标扩展的固定比较口径记录在相应结果目录的 `experiment_contract.json` 或 `phiid_comparison_contract.json`。
+
+<!-- report-section:dmf-subject-dense:start -->
+<a id="dmf-subject-dense"></a>
+
+## 附录 P：93 人 DMF 细扫描
+
+<!-- dense-final-interpretation:start -->
+### 完成后的比较结论
+
+11,562/11,562 条件及自动分析全部完成。主要新增85人中，0.1细网格的Ξ命中15/85（17.6%），ΦR/WMS各4/85（4.7%）；两项优势均为12.9个百分点，Holm p=0.0009766。**细分辨率下相对优势成立，但绝对定位命中率仍低。** 全部93人分别为18/93、4/93、5/93。Ξ的75/93个峰早于独立转折区间，平均中点偏移−0.258 G；ΦR/WMS分别为89/93、88/93个极值偏早，平均偏移约−0.436、−0.434 G。Ξ更接近转折，并不等于与转折精确重合。
+
+按用户随后提出的粗化方案复用全部数据：0.8粗网格重新定位后，主要85人Ξ达到70/85（82.4%），ΦR为46/85（54.1%）、WMS为55/85（64.7%）；跨本次20项新比较的Holm p分别为1.97×10⁻⁵、0.001221。该结果支持**当前模型与原生协议下，较粗尺度上的转折对应更好**；它是事后分辨率敏感性结果，不能替代原0.1主要检验，也不证明精确相变定位。所有分辨率均在下文报告。
+
+形状优势比精确定位更明显：93条均值Ξ曲线中89条严格满足固定弱单峰容差，余下4条最大回摆仅为全曲线幅度的0.00179%；没有任何Ξ曲线出现两个5% prominence明显峰。ΦR/WMS的平均额外回摆为24.13%/16.21%，78/93及58/93人有多个明显峰，Q均值约91.19/92.50，Ξ为15.68。当前协议下Ξ更接近单峰、回摆更少；短轨迹及正则化使我们不能把基线波动直接归为公式本身失效。
+
+估计阶段每条件平均Ξ/ΦR/WMS耗时91.6/26.2/144.4 ms；Ξ比WMS少约36.5%，ΦR最快。计入必需样本生成后分别为5.77/0.133/5.67 s，Ξ没有完整流程成本优势。Ξ与WMS估计同为O(Nd²+d³)，当前100ROI实测没有识别渐近指数。
+<!-- dense-final-interpretation:end -->
+
+
+
+
+
+在主要检验集上，Ξ对两项基线的命中率差均为正，且Holm校正后均显著。
+
+全部93个原生SC及一个93人平均SC参照，G从0到4、步长0.1，每点seed [3, 4, 5]，共11562条件。平均SC不进入统计。已看过的8人单列；新增85人为主要检验集。结果解释条件于固定JFIC、SC队列与同一3seed协议，不是独立生物相变真值或公式单因素比较。
+
+![三项原始指标曲线](assets/dmf_subject_dense/metric_curves.png)
+
+每条细线为一人的3seed均值，颜色对应原生SC谱半径；黑色虚线为平均SC独立模拟。未归一化SC、平滑或按指标峰位对齐。WMS保留原始符号。
+
+![独立序参量曲线](assets/dmf_subject_dense/order_parameter_all93.png)
+
+独立5s模拟最后2s的100ROI平均E发放率。每人的最大正斜率区间按原规则定位，边界最大斜率列为无法定位，而非“无相变”。
+
+![转折命中及配对差异](assets/dmf_subject_dense/transition_correspondence.png)
+
+| 队列 | 指标 | 命中/可定位 | 命中率 | 到转折区间的平均距离G |
+|---|---|---:|---:|---:|
+| 新增85人（主要检验） | xi | 15/85 | 0.176 | 0.21882352941176472 |
+| 新增85人（主要检验） | phi_r | 4/85 | 0.047 | 0.3988235294117648 |
+| 新增85人（主要检验） | wms | 4/85 | 0.047 | 0.39764705882352946 |
+| 全部93人（补充） | xi | 18/93 | 0.194 | 0.20967741935483872 |
+| 全部93人（补充） | phi_r | 4/93 | 0.043 | 0.3860215053763442 |
+| 全部93人（补充） | wms | 5/93 | 0.054 | 0.3838709677419356 |
+| 已看过8人（开发） | xi | 3/8 | 0.375 | 0.11249999999999996 |
+| 已看过8人（开发） | phi_r | 0/8 | 0.000 | 0.24999999999999994 |
+| 已看过8人（开发） | wms | 1/8 | 0.125 | 0.23749999999999996 |
+
+只按独立序参量决定可定位集合，三项指标共享同一分母。Ξ/ΦR取全局最大值、WMS取全局最小值；内部极值落在区间才算命中，指标边界极值和平坦曲线算未命中。区间含端点；相同极值取首格点，未按离转折最近的位置选峰。
+
+| 队列 | 比较 | Ξ单独命中 / 基线单独命中 | 配对命中率差 | 95%配对bootstrap CI | Holm p |
+|---|---|---:|---:|---:|---:|
+| 新增85人（主要检验） | Ξ vs phi_r | 11 / 0 | 0.129 | [0.059, 0.200] | 0.000976562 |
+| 新增85人（主要检验） | Ξ vs wms | 11 / 0 | 0.129 | [0.059, 0.200] | 0.000976562 |
+| 全部93人（补充） | Ξ vs phi_r | 14 / 0 | 0.151 | [0.086, 0.226] | 0.00012207 |
+| 全部93人（补充） | Ξ vs wms | 13 / 0 | 0.140 | [0.075, 0.215] | 0.00012207 |
+| 已看过8人（开发） | Ξ vs phi_r | 3 / 0 | 0.375 | [0.000, 0.750] | 0.25 |
+| 已看过8人（开发） | Ξ vs wms | 2 / 0 | 0.250 | [0.000, 0.625] | 0.25 |
+
+单侧精确McNemar在不一致被试上用[二项检验](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.binomtest.html)实现，备择是Ξ命中率更高；两项比较作[Holm校正](https://www.statsmodels.org/stable/generated/statsmodels.stats.multitest.multipletests.html)，阈值0.05。CI为按被试共同重采样10000次的双侧95%百分位区间，未作多重校正；主要成功判据以校正p值和正效应为准，不以CI筛选。seed/G/4950 ROI对不是额外独立被试。全部93人与开发8人的检验是补充结果，不替代主要85人检验。
+
+### 逐人对照与形状
+
+- [逐人对照第1页](assets/dmf_subject_dense/subject_order_curves_01.png)
+- [逐人对照第2页](assets/dmf_subject_dense/subject_order_curves_02.png)
+- [逐人对照第3页](assets/dmf_subject_dense/subject_order_curves_03.png)
+- [逐人对照第4页](assets/dmf_subject_dense/subject_order_curves_04.png)
+- [逐人对照第5页](assets/dmf_subject_dense/subject_order_curves_05.png)
+- [逐人对照第6页](assets/dmf_subject_dense/subject_order_curves_06.png)
+- [逐人对照第7页](assets/dmf_subject_dense/subject_order_curves_07.png)
+- [逐人对照第8页](assets/dmf_subject_dense/subject_order_curves_08.png)
+- [逐人对照第9页](assets/dmf_subject_dense/subject_order_curves_09.png)
+- [逐人对照第10页](assets/dmf_subject_dense/subject_order_curves_10.png)
+- [逐人对照第11页](assets/dmf_subject_dense/subject_order_curves_11.png)
+- [逐人对照第12页](assets/dmf_subject_dense/subject_order_curves_12.png)
+
+每页上部为原始Hz序参量、下部为同人各指标按跨G均值/SD转换的形状；带为3seed SD，不是CI。灰带为独立转折候选，斜线为扫描边界。没有翻转WMS或插值。完整逐人极值、距离、U/Q、prominence敏感性和逐seed端点保存在[分析汇总](../../results/dmf_schaefer100/subject_curves_93_dense/summary.json)。形状描述继续采用[开发阶段固定定义](brain.md#dmf-subject-curves)：U测额外反向变化、Q测归一化相邻斜率总变差；陡峭单峰也可有较高Q。
+
+![额外回摆、峰后回摆和粗糙度](assets/dmf_subject_dense/curve_shape_summary.png)
+
+散点是93个人的3seed平均曲线，箱线表示四分位分布；平坦曲线的形状分数未定义并单列。WMS只在形状诊断中取负，以比较单谷对应的峰前/峰后方向。
+
+| 队列 | 指标 | U≈0 / 非平坦人数 | 平均U | 平均峰后回摆 | 平均Q | >1个明显内部峰人数 |
+|---|---|---:|---:|---:|---:|---:|
+| 新增85人（主要检验） | xi | 82/85 | 1.78e-07 | 1.78e-07 | 15.51 | 0 |
+| 新增85人（主要检验） | phi_r | 0/85 | 0.2453 | 0.2453 | 91.63 | 72 |
+| 新增85人（主要检验） | wms | 0/85 | 0.168 | 0.168 | 93.24 | 55 |
+| 全部93人（补充） | xi | 89/93 | 3.551e-07 | 3.551e-07 | 15.68 | 0 |
+| 全部93人（补充） | phi_r | 0/93 | 0.2413 | 0.2413 | 91.19 | 78 |
+| 全部93人（补充） | wms | 0/93 | 0.1621 | 0.1621 | 92.5 | 58 |
+| 已看过8人（开发） | xi | 7/8 | 2.236e-06 | 2.236e-06 | 17.54 | 0 |
+| 已看过8人（开发） | phi_r | 0/8 | 0.199 | 0.199 | 86.44 | 6 |
+| 已看过8人（开发） | wms | 0/8 | 0.09889 | 0.09889 | 84.6 | 3 |
+
+U为全局峰前下降量加峰后回升量，除以全曲线幅度；峰后回摆单独保留。U≈0的相对容差为10⁻¹⁰，并不要求出现内部峰，边界单调曲线也可U=0。明显峰采用幅度5%的prominence，同时保存0%、1%、5%敏感性；该阈值不改变主要命中判断。Q为G和纵轴幅度归一化后相邻斜率的总变差，没有事后正确/错误阈值。均值和逐seed形状均保留，平均可能掩盖seed波动。
+
+### 计算成本与复杂度
+
+![平均计算成本](assets/dmf_subject_dense/computation_cost.png)
+
+点为新计算条件的平均墙钟时间，竖线为条件耗时的10–90百分位，不是置信区间。每个条件是一人、一个G、一个seed；4进程并行、每进程BLAS单线程。共11271个个体条件、93人进入计时，排除168个复用条件和平均SC。缓存读取不当作估计器耗时。下表单位秒，同时记录每进程CPU时间以区分并行竞争。
+
+| 指标 | 估计均值：墙钟 | 估计均值：CPU | 必需流程均值：墙钟 | 必需流程均值：CPU |
+|---|---:|---:|---:|---:|
+| xi | 0.091631 | 0.079504 | 5.7693 | 4.9932 |
+| phi_r | 0.026203 | 0.022646 | 0.13307 | 0.11536 |
+| wms | 0.1444 | 0.12584 | 5.6737 | 4.9129 |
+
+估计耗时包含各自原生数值审计，Ξ还包括affine-TM拟合与密度查询；ΦR含pairwise MMI与特征值审计；WMS含标准化、原Gaussian拟合和审计。完整流程为估计加必需样本准备：Ξ的干预未来批次、ΦR的自然轨迹/BOLD转换、WMS的自然轨迹/未来批次。两基线共享的自然轨迹平均0.075231秒，分别列入依赖成本，因此不能将两项完整流程均值相加来估计总运行时间；独立序参量诊断平均0.44634秒单列，不归入某项指标。初始化、共享均匀源生成、输入/缓存读写和最终绘图不进入这些计时。开发8人的原粗格点复用，故计时覆盖不同；汇总同时给出等被试权重均值、条件中位数、SD及10–90百分位。此处均值为条件权重，固定100ROI维度的实测不用于拟合渐近指数。
+
+复杂度按当前实现分析。令R为ROI数，d=2R为源/未来状态维数，N为未来样本数，T为自然轨迹长度，H为未来积分步数。在相同源/未来维数、稠密SC下，Ξ的affine-TM拟合与查询为O(Nd²+d³)；原生WMS为O(Nd²+d³)，其标量循环复用一个逆矩阵，采用秩一行列式更新，并非每标量重做完整逆。ΦR为O(TR²+R²)，来自滞后协方差及全部ROI对的固定小矩阵运算。Ξ/WMS各自的未来批次为O(HNR²)，共享自然轨迹为O(TR²)、BOLD转换为O(TR)，独立诊断为O(LR²)、L=5000。未来批次与密度的主要工作内存为O(Nd+d²)，自然轨迹另占O(TR)。这些是当前代码的主要阶数，常数、稀疏实现和不同估计协议会影响实际成本。
+
+### 单独的EI分解
+
+![整体EI、部分EI之和及差值](assets/dmf_subject_dense/ei_components.png)
+
+这三项按同一200标量源、同一完整200维未来、同一affine-TM密度计算，Ξ=整体EI−部分EI之和。whole EI不进入基线比较。
+
+### 估计与边界
+
+沿用2048个[0.3,0.7]因子化干预、300ms未来、固定JFIC及共同affine-TM Gaussian近似。Ξ非负容差10⁻⁸ nats，未投影；数值负值计数0，全量分解最大闭合误差0 nats。ΦR保留1.5s自然轨迹的BOLD-like转换、1ms延迟及原生特征值下限；WMS保留自然完整E/I状态、有放回抽2048次的相关源先验及原ridge。ΦR/WMS轨迹短与正则化限制解释，增加被试和G点不能自动解决估计器偏差。原生ΦR下限触发总数1751549；WMS下限触发0；最少不同自然采样时间点100。没有独立确认无转变对照，虚假峰率未定义。失败、边界和不利结果均保留，细扫描不保证Ξ获胜。
+
+本任务重新读取Zotero父条目P6UJCVG8、唯一正文附件DXGC7JEA，*Emergent hierarchical organization of causal interactions in complex systems*，19页，Brain/Fig.2及Methods式（5）、（7）、（8）。稿件没有明确版本日期，补充附录不可用。正文把两观测基线写为BOLD-like，仓库原生WMS实际是完整E/I状态；这里保留原生协议并记录差别。
+
+[固定执行与分析协议](../log/dmf_subject_dense_protocol.md)。计算支持断点复用，原8人结果保留在独立目录。
+
+<!-- dense-resolution-review:start -->
+### 分辨率敏感性：粗定位、区间合并与边界起点
+
+本节是看过0.1结果后、由用户明确要求的事后分析。没有新增模拟、改估计器、改干预或选择被试；原始summary/completed/contract保持不变。计算前将全部方案记入[分辨率分析计划](../../results/dmf_schaefer100/subject_curves_93_dense/resolution_plan.json)。宽度为0.1、0.2、0.4、0.5、0.8、1.0：这些是原生0.1网格中能整除0–4扫描范围且保留至少5个节点的全部整数步长。每项均先平均同人的3seed，再找极值。
+
+**重算粗网格：** 从G=0开始保留已有观测格点，重新以独立序参量最大正斜率定位区间，并在相同粗格点寻找Ξ/ΦR全局峰和WMS全局谷。没有插值、平滑或移动待比较指标峰去迎合转折。**仅合并区间：** 保留细网格的独立转折和精确极值，把包含该独立转折的相邻0.1区间按共同G=0起点合并；三项使用完全相同的新区间。因此第二项只改变容许分辨率，第一项还包含粗采样对峰位和最大斜率的量化。
+
+![分辨率敏感性](assets/dmf_subject_dense/resolution_sensitivity.png)
+
+图中为主要85人的命中率；两种分析的全部宽度均能定位全部85人，所以主要检验的固定队列分母与条件于可定位者的分母一致。全部93人的补充中，仅重算1.0粗网格有1人转折落在边界、92人可定位；表中其补充命中人数仍以固定93人为队列，另存条件于92人的命中率。其他档位全部93人可定位。无法定位不写成无相变。0.1行保留原两项Holm校正；其余行对5宽度×2处理×2基线共20项主要85人比较一起作Holm校正。全部93人是补充描述，不再用其p值宣称独立验证。
+
+| 处理 | 宽度G | Ξ：主要85人 | ΦR：主要85人 | WMS：主要85人 | 对ΦR的Holm p | 对WMS的Holm p | 全部93人命中数：Ξ / ΦR / WMS |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 重算粗网格 | 0.1 | 15/85（17.6%） | 4/85（4.7%） | 4/85（4.7%） | 0.0009766 | 0.0009766 | 18 / 4 / 5 |
+| 重算粗网格 | 0.2 | 28/85（32.9%） | 6/85（7.1%） | 7/85（8.2%） | 3.576e-06 | 3.147e-05 | 31 / 7 / 8 |
+| 重算粗网格 | 0.4 | 56/85（65.9%） | 19/85（22.4%） | 30/85（35.3%） | 3.021e-08 | 1.789e-05 | 63 / 22 / 33 |
+| 重算粗网格 | 0.5 | 59/85（69.4%） | 27/85（31.8%） | 28/85（32.9%） | 3.871e-08 | 7.125e-08 | 65 / 31 / 33 |
+| 重算粗网格 | 0.8 | 70/85（82.4%） | 46/85（54.1%） | 55/85（64.7%） | 1.971e-05 | 0.001221 | 76 / 49 / 59 |
+| 重算粗网格 | 1 | 59/85（69.4%） | 46/85（54.1%） | 44/85（51.8%） | 0.0007324 | 0.0002136 | 64 / 51 / 48 |
+| 仅合并区间 | 0.1 | 15/85（17.6%） | 4/85（4.7%） | 4/85（4.7%） | 0.0009766 | 0.0009766 | 18 / 4 / 5 |
+| 仅合并区间 | 0.2 | 24/85（28.2%） | 5/85（5.9%） | 6/85（7.1%） | 2.289e-05 | 3.815e-05 | 28 / 6 / 8 |
+| 仅合并区间 | 0.4 | 44/85（51.8%） | 17/85（20.0%） | 17/85（20.0%） | 1.267e-07 | 1.267e-07 | 49 / 20 / 21 |
+| 仅合并区间 | 0.5 | 50/85（58.8%） | 32/85（37.6%） | 32/85（37.6%） | 3.815e-05 | 3.815e-05 | 56 / 38 / 38 |
+| 仅合并区间 | 0.8 | 57/85（67.1%） | 45/85（52.9%） | 45/85（52.9%） | 0.001221 | 0.001221 | 64 / 52 / 52 |
+| 仅合并区间 | 1 | 75/85（88.2%） | 70/85（82.4%） | 70/85（82.4%） | 0.0625 | 0.0625 | 83 / 78 / 78 |
+
+命中率**并非越粗越高**。例如重算粗网格从0.8到1.0，Ξ由82.4%降至69.4%，WMS由64.7%降至51.8%；最大斜率区间及极值格点都可能变化。仅合并区间到1.0时，Ξ为88.2%，两基线均为82.4%，配对优势仅5/85，20项校正p=0.0625，**高绝对命中率没有保留显著差异**。到0.5，重算粗网格Ξ为69.4%、两基线31.8%/32.9%，跨20项校正仍显著；到0.8则为82.4%、54.1%/64.7%。所有宽度一起显示，不按最高命中率挑选唯一“正确”尺度。
+
+共同区间起点会影响仅合并结果。下表遍历每个宽度的所有0.1格点起点偏移，保留完整原扫描支持，并给出命中人数范围；范围内每个点均来自同一93人缓存。这里只报告起点敏感性，不根据起点的显著性选值，也不对这些界限给出新的确认性p值。
+
+| 宽度G | Ξ主要85人：各起点范围 | ΦR主要85人 | WMS主要85人 |
+|---|---:|---:|---:|
+| 0.2 | 24–28 / 85 | 5–11 / 85 | 6–11 / 85 |
+| 0.4 | 41–48 / 85 | 17–21 / 85 | 17–21 / 85 |
+| 0.5 | 47–53 / 85 | 22–32 / 85 | 22–32 / 85 |
+| 0.8 | 55–71 / 85 | 29–58 / 85 | 30–58 / 85 |
+| 1 | 57–77 / 85 | 32–70 / 85 | 33–70 / 85 |
+
+原8人粗网格G=[0,0.5,1,1.3,1.6,2.2,3]也已在同一完整缓存上复现：7人可定位，Ξ5/7（71.4%）、两基线各2/7（28.6%）；将边界无法定位者保留在全部8人分母则为5/8、2/8、2/8。该小样本当时的两项Holm p=0.25，不能把高点估计当作已确立的显著优势。细扫描既缩窄区间，也将支持扩到4；两批命中率差不能只归因于分辨率或只归因于新增被试。
+
+### 全量EI分解的补充解释
+
+视觉上的总体下降并非严格全域单调。以每相邻G步增加超过10⁻⁸ nats计，whole EI有93/93人出现增加，最大单步0.472 nats；部分EI之和有91/93人出现增加，最大单步0.093 nats。主要是低G的轻微上升，另有4人在高G低信息尾部出现小幅回升；从G≥0.5开始，两分量各89/93人均不再上升。没有为了呈现单调而平滑或投影。
+
+在实际有限格点上逐步验证ΔΞ=Δwhole EI−Δ部分EI之和，最大误差6.8e-14 nats。在两分量同时下降的区段，部分EI之和下降更快时差值Ξ上升；whole EI下降更快时Ξ下降。因此峰来自两项变化速度的交替，而不是whole EI本身必须有峰。此差值恒等式解释当前共同affine-TM估计中的峰，不单独证明相变机制。
+
+### 完成证据与方法边界
+
+11562个缓存全部通过有限性、状态支持、Ξ非负容差10⁻⁸ nats及EI闭合审计，原18张PNG与完成记录的哈希一致，已逐页检查图例位于数据外。原主分析脚本在运行期间随文档归并发生4处展示变化（报告路径、章节写入函数、导入和链接）；将这4处恢复后的源文本SHA256与冻结脚本完全相同，科学分析逻辑未改。完成时的brain.md哈希也与completed.json匹配；本节后续编辑另存[最终审核](../../results/dmf_schaefer100/subject_curves_93_dense/final_review.json)，不覆盖原完成证据。每小时临时检查已删除。
+
+稿件核对沿用本任务新读取的P6UJCVG8/DXGC7JEA正文、Methods式（5）（7）（8）及Brain/Fig.2；版本日期和补充附录仍无法确定。当前“命中”是对应固定DMF发放率最大变化区间，既非独立生物相变真值，也非“无相变不报峰”的检验。尚无确认无转变对照；高命中与低回摆不足以证明普遍相变识别能力。
+
+完整逐人、逐宽度、起点和配对结果：[事后分析汇总](../../results/dmf_schaefer100/subject_curves_93_dense/resolution_summary.json)。重现本节：`.venv/bin/python -m scripts.analyze_dmf_subject_dense_resolution`。高成本模拟无需重跑。
+<!-- dense-resolution-review:end -->
+<!-- report-section:dmf-subject-dense:end -->

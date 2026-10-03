@@ -1,3 +1,84 @@
+# Part 1：干预式协同的定义、验证与层级组织
+
+![图1：PEID 的干预定义、共同驱动检验、六系统比较与完整 SPT](../../paper_assets/figure1_integrated_hierarchy_spt_clean.png)
+
+**图1｜从不可约联合约束到协同的层级组织。** a，独立均匀干预改变源分布并保持转移机制；在论文采用的 PID 公理下，冗余项消失。b，固定 $\sin(x_ty_t)\to z_{t+1}$ 联合作用并增强共同驱动，比较单源、成对依赖和协同读数；绿色粗线突出 MLP+PEID。c，六类非线性系统检验方法能否区分机制变化、观测冗余、单源信息和输出幅值。d，六振子混合阶 Kuramoto 的生成结构及三个耦合条件下的完整 SPT。绝对信息量显示为 nats；d 的节点数值及填色表示局部 Syn 占本树总 $\Xi$ 的百分比。SHAP、PCMCI、Neural Granger 和 Liang IF 保留各自原生尺度；b 为四个配对种子的均值，c 为三个种子的均值及标准差带，d 为配对种子 0 的代表树。
+
+这张主图回答两个相连的问题：**如何从多变量依赖中识别不可约的联合因果约束，以及这些联合约束如何组织成层级。** 图1a 给出干预定义，图1b 在固定联合作用下改变共同驱动，图1c 在不同动力学中改变机制参数，图1d 再把系统级信息增量分配到嵌套变量组。前三部分检验读数的含义，最后一部分检验结构的组织方式。
+
+## 图1a：在共同干预分布上定义协同
+
+PEID 在同一个因子化最大熵干预分布上评价所有源子集。设 $\mathbf{x}$ 为完整源状态，$\mathbf{y}$ 为固定未来目标；在预先指定的有界支持上，$q_{\max}(\mathbf{x})=\prod_i q_i^{\max}(x_i)$，每个边缘分布为均匀分布。保持转移核不变后，干预诱导联合分布 $q$，并定义
+
+$$
+\mathrm{EI}(A\to\mathbf{y})=I_q(\mathbf{x}_A;\mathbf{y}).
+$$
+
+计算不同子集时，未选中的源仍按同一完整干预分布边缘化，不能为每个子集重新选择支持、背景或目标。对两个源，在论文采用的 PID 公理下，源独立性使 redundancy 为零，因而
+
+$$
+\mathrm{Syn}^{\mathrm{EID}}(x_1,x_2\to\mathbf{y})
+=\mathrm{EI}(\{1,2\}\to\mathbf{y})
+-\mathrm{EI}(\{1\}\to\mathbf{y})
+-\mathrm{EI}(\{2\}\to\mathbf{y})\ge0.
+$$
+
+图中的区域是这一分解的示意，不代表干预前后的协同数值必然相同。干预移除了源分布中的依赖，保留的是转移机制；信息量仍取决于干预支持、目标和预测时间窗。对多于两个源，论文使用 integrated effective information
+
+$$
+\Xi(A\to\mathbf{y})
+=\mathrm{EI}(A\to\mathbf{y})
+-\sum_{i\in A}\mathrm{EI}(\{i\}\to\mathbf{y}),
+$$
+
+表示超出全部单源贡献的联合信息增量，而不把它称为单个多源 PID 原子。
+
+## 图1b：固定联合作用，改变共同驱动
+
+蓝色虚线表示 $w$ 对 $x,y,z$ 的共同驱动，红色路径表示固定系数的 $\sin(xy)$ 联合作用。扫描 $\beta$ 增强观测依赖，但不改变这项联合作用的系数。四维 MLP 从完整状态学习一步转移，MLP+PEID 随后在固定 $x,y\in[-1.8,1.8]$ 支持上使用 5,120 个交换配对干预样本；$w,z$ 的背景支持来自各条件的经验范围。
+
+当 $\beta:0\to1$ 时，$|\operatorname{corr}(x,y)|$ 从 0.018 增至 0.859。MLP+PEID 的协同由 **0.468 降至 0.411 nats**，在扫描中保持正值；两个单源 EI 的跨参数均值分别只有 0.0155 和 0.0117 nats。相同扰动却使 SHAP interaction 从 0.225 增至 0.527，同时使 WMS 从 0.240 降至 −0.022 nats、MMI-PID synergy 从 0.243 降至 0.025 nats、SURD synergy 从 0.142 降至 0.027 nats。因此，放大、衰减和符号反转可以由观测分布改变产生，不能直接等同于红色联合作用的增强或消失。
+
+上方曲线比较单源信息、预测归因与成对依赖，下方比较二源协同和 SHAP interaction；两组回答的问题不同。Neural Granger、PCMCI 和 Liang IF 的成对读数不能充当二源协同原子。PEID 在本实验中较好保留了固定联合作用的正贡献，但仍有轻微下降，不能写成严格不变；模型误差、有限样本估计和随 $\beta$ 变化的背景支持都限制这一稳健性结论。
+
+## 图1c：跨动力学检验读数的机制含义
+
+六个系统覆盖混沌、神经群体、锁相、非线性光学和生态动力学。比较重点是同一方法对参数变化的响应，而不是不同方法之间的绝对排名。
+
+| 系统与扫描 | 被检验的变化 | 主图支持的观察 |
+|---|---|---|
+| Coupled standard map，$J$ | 转子间相位耦合增强 | PEID 随耦合增强；弱耦合处 SURD 的极端估计需结合数值退化解释，纵轴使用 symlog |
+| Wilson–Cowan，$g$ | sigmoid gain 改变联合门控与饱和 | PEID 先升高再降低，并不随 gain 单调增大 |
+| Kuramoto active rotator，$K$ | 相位差作用持续，同时锁相增加观测冗余 | WMS 转为负值，PEID 仍保留正联合贡献；SURD 使用独立右轴 |
+| 受控 Hénon-inspired response，$\lambda$ | 显式交互减弱，同时独立单源通道增强 | PEID 降低，MMI-PID 却升高，区分协同与 unique information |
+| Ikeda，$u$ | 同一非线性联合响应的输出幅值缩放 | 信息读数在开启后近似平台，SHAP interaction 继续随幅值增大 |
+| Nicholson–Bailey，$a$ | 指数存活门控开启并趋于饱和 | PEID 从结构零点升高后趋于平台 |
+
+受控 Hénon 是对经典二次非线性的实验性改写，不是原始 Hénon 迭代。六个系统的源、目标和时间定义也各不相同，具体方程见下文；它们支持的是跨机制的定性比较，不能据此宣称有限样本估计对任意系统都准确。
+
+## 图1d：把总增量分解为完整层级
+
+六振子系统包含 pairwise 三角形 $\{1,2,3\}$ 和真实 triadic 超边 $\{4,5,6\}$，九条跨组 pairwise 边的权重为 $K_{\mathrm{out}}/3$。所有源子集共享同一个六维未来相位增量目标和 $\tau=0.20$ 时间窗。SPT 在每个内部节点选择最大限度保留子组 $\Xi$ 的二分，并把剩余贡献记为该节点的 Syn：
+
+$$
+(L^*,R^*)\in\arg\max_{L\mathbin{\dot\cup}R=A}
+\{\Xi(L\to\mathbf{y})+\Xi(R\to\mathbf{y})\},
+\qquad
+\mathrm{Syn}_A=\Xi(A\to\mathbf{y})-\Xi(L^*\to\mathbf{y})-\Xi(R^*\to\mathbf{y}).
+$$
+
+递归到单节点后，内部节点的 Syn 总和等于根 $\Xi$。图1d 的节点数值及填色均按 $100\,\mathrm{Syn}_A/\Xi(\{1,\ldots,6\}\to\mathbf{y})$ 归一化为百分比；每棵树使用自己的总 $\Xi$ 作分母，未取整的内部节点占比合计为 100%，显示保留一位小数。树上方仍标出总 $\Xi$ 的 nats 值。网络示意给出生成结构，树中数字则给出所选二分路径上的联合信息贡献占比；二者不是逐边对应的同一种对象。
+
+| $K_{\mathrm{out}}$ | 系统 $\Xi$（nats） | 根 Syn 占总 $\Xi$ | 层级组织 |
+|---:|---:|---:|---|
+| 0 | 4.73 | 0.0% | 根分为 $\{1,2,3\}\mid\{4,5,6\}$，保留两个模块 |
+| 0.04 | 4.79 | 0.0% | 相同根分裂；弱跨组作用低于当前 learned-channel 分辨门槛 |
+| 5 | 5.60 | 21.8% | 根分为 $\{1,2,3,4,5\}\mid\{6\}$，继续形成嵌套链 |
+
+在断连条件下，pairwise 分支的 $\{1,2\}$ 节点占总 $\Xi$ 的 27.7%，triadic 分支的 $\{4,5,6\}$ 节点占 41.8%；弱连接时分别为 27.2% 和 42.4%。强连接使原模块边界不再被最优二分保留，并将联合贡献重新分布到跨原模块的嵌套组中。系统总 $\Xi$ 仅从 4.73 增至 5.60 nats，树形却从两个平衡子树变为链，说明总量与组织结构提供互补信息。
+
+这里的“阶数”是节点所含的源变量数。SPT 的高阶节点是路径依赖的层级残差，不能直接视作纯高阶动力学力或 Möbius 反演后的 PID 原子：pairwise 三角形也可在三节点父节点留下残差。图1d 的纯三体与 pairwise 诊断另有模块内 polynomial-TM 结果，不能与主图的完整 neural-TM 树混写。$K_{\mathrm{out}}=0.04$ 的根零值来自统一分量判定下的可分通道近似，不能解释为物理跨边不存在。
+
 # 对比方法介绍
 
 同一模拟数据用于比较以下方法：
@@ -26,7 +107,7 @@ $$
 
 其中 $S_{xy}$ 为 SURD synergy。
 
-# 共同驱动压力测试：原模型邻域的一位小数动力学
+# 图1b 实验细节：共同驱动压力测试
 
 本节不重新设计动力学，只把附录 B 的原始两位小数系数局部改写为一位小数，以检验原有定性结论是否对这种表示简化稳健。$\beta\in[0,1]$ 是扫描变量，不属于固定系数。最终动力学为
 
@@ -39,7 +120,7 @@ z_{t+1} &= 0.2z_t + 1.0\sin\left(x_t y_t\right) + 0.1\beta w_t + \eta^z_t.
 \end{aligned}
 $$
 
-其中 $\eta^w_t\sim\mathcal N(0,0.4^2)$、$\xi^x_t,\xi^y_t\sim\mathcal N(0,0.6^2)$、$\eta^x_t,\eta^y_t\sim\mathcal N(0,0.3^2)$、$\eta^z_t\sim\mathcal N(0,0.1^2)$。固定结构项 $1.0\sin(x_ty_t)$ 不随 $\beta$ 改变。
+其中 $\eta^w_t\sim\mathcal N(0,0.4^2)$、$\xi^x_t,\xi^y_t\sim\mathcal N(0,0.6^2)$、$\eta^x_t,\eta^y_t\sim\mathcal N(0,0.3^2)$、$\eta^z_t\sim\mathcal N(0,0.05^2)$。固定结构项 $1.0\sin(x_ty_t)$ 不随 $\beta$ 改变。
 
 ![原模型邻域一位小数动力学的因果结构](../../fig/granger_peid_mlp_comparison/causal_graph_original_neighborhood_one_decimal.png)
 
@@ -53,9 +134,9 @@ $$
 [w_t,x_t,y_t,z_t]\mapsto[w_{t+1},x_{t+1},y_{t+1},z_{t+1}].
 $$
 
-MLP+PEID 使用 `5120` 个随机干预样本，固定 $x,y\in[-1.8,1.8]$ 的均匀干预支持，$w,z$ 从每个 $\beta$ 对应的经验支持中采样。为降低有限样本造成的源顺序不对称，$x,y$ 使用交换配对样本，同一对样本共享相同的 $w,z$ 上下文。读出直接对完整预测 $\hat z_{t+1}$ 做三阶 transport-map PEID，不提取函数 ANOVA 交互面。MMI-PID、SURD 和 WMS 使用自然轨迹 $(x_t,y_t,z_{t+1})$；图中不绘制 Oracle。各方法的绝对量纲不同，因此只在同一方法内比较 $\beta$ 趋势，或在同为 bits 的协同读出之间比较敏感性。
+MLP+PEID 使用 `5120` 个随机干预样本，固定 $x,y\in[-1.8,1.8]$ 的均匀干预支持，$w,z$ 从每个 $\beta$ 对应的经验支持中采样。为降低有限样本造成的源顺序不对称，$x,y$ 使用交换配对样本，同一对样本共享相同的 $w,z$ 上下文。读出直接对完整预测 $\hat z_{t+1}$ 做三阶 transport-map PEID，不提取函数 ANOVA 交互面。MMI-PID、SURD 和 WMS 使用自然轨迹 $(x_t,y_t,z_{t+1})$；图中不绘制 Oracle。各方法的绝对量纲不同，因此只在同一方法内比较 $\beta$ 趋势，或在同为 nats 的信息读数之间比较参数敏感性。
 
-这里沿用仓库当前的 PEID 原子口径：不单独分配 redundancy，并令
+按照当前论文的双源定义，所有 EI 在共同干预分布上计算；在所采用的 PID 公理下，redundancy 为零，并令
 
 $$
 R=0,\qquad
@@ -68,23 +149,24 @@ $$
 
 ## 四维 MLP 的全方法对比曲线
 
-![原模型邻域一位小数动力学下不含 Oracle 的全方法对比曲线](../../fig/granger_peid_mlp_comparison/sine_beta_original_neighborhood_one_decimal_all_methods.png)
+![图1b：四维 MLP 全方法比较，信息量换算为 nats](../../fig/part1_synergy_comparison/figure1_sources/confounder_mlp_peid_focus.png)
 
-曲线为四个配对 seeds 的均值，MLP+PEID 的 $U_x,U_y$ 和 synergy 均使用 `5120` 个干预样本。$U_x$ 的 beta 均值为 `0.0223` bits、线性斜率为 `0.0009` bits / $\beta$；$U_y$ 的 beta 均值为 `0.0169` bits、线性斜率为 `0.0062` bits / $\beta$。两条曲线因而没有明显的单调 beta 漂移，但仍保留约 `0.02` bits 的非零偏移。MLP+PEID synergy 从 $\beta=0$ 时的 `0.675` 降至 $\beta=1$ 时的 `0.593` bits，线性斜率为 `-0.0634` bits / $\beta$；SHAP interaction 从 `0.225` 增至 `0.527`，而 observational WMS、MMI-PID synergy 和 SURD synergy 总体下降。MLP 对 $z_{t+1}$ 的平均增量 $R^2$ 为 `0.937`，没有出现由拟合失效造成的整体读出崩塌。
+曲线为四个配对 seeds 的均值，MLP+PEID 的 $U_x,U_y$ 和 synergy 均使用 `5120` 个干预样本。$U_x$ 的跨 $\beta$ 均值为 `0.0155` nats、线性斜率约为 `0.0006` nats / $\beta$；$U_y$ 的均值为 `0.0117` nats、线性斜率约为 `0.0043` nats / $\beta$。两条曲线未出现明显的单调漂移，但仍保留非零单源响应。MLP+PEID synergy 从 $\beta=0$ 的 `0.468` 降至 $\beta=1$ 的 `0.411` nats，线性斜率为 `-0.0440` nats / $\beta$。SHAP interaction 从 `0.225` 增至 `0.527`，而 observational WMS、MMI-PID synergy 和 SURD synergy 总体下降。MLP 对 $z_{t+1}$ 的平均增量 $R^2$ 为 `0.937`，未出现整体拟合失效。
 
-图 1b 的关键不在于哪条曲线数值最大，而在于固定结构下各方法是否把共同驱动造成的分布变化误读为协同机制变化。随着 $\beta$ 从 `0` 增至 `1`，观测相关 $\lvert\operatorname{corr}(x,y)\rvert$ 从 `0.018` 增至 `0.859`，但结构项 $\sin(x_ty_t)$ 的系数始终为 `1.0`。在这一受控条件下，SHAP interaction 从 `0.225` 增至 `0.527`，说明它会把共同驱动改变后的预测归因放大为更强的交互；WMS 从 `0.346` 降至 `-0.032`，MMI-PID synergy 从 `0.350` 降至 `0.037`，SURD synergy 从 `0.205` 降至 `0.039`，说明观测冗余的增加会压低甚至反转这些分布依赖的协同读出。Neural Granger 的二源汇总分数从 `3.346` 降至 `3.093`，PCMCI-CMIknn 从 `0.479` 降至 `0.100`；它们仍能报告预测或条件依赖，却没有给出不可约二源协同原子，因此这些变化不能直接解释为 hyperedge 强度。
+随着 $\beta:0\to1$，$|\operatorname{corr}(x,y)|$ 从 `0.018` 增至 `0.859`，$\sin(x_ty_t)$ 的系数始终为 `1.0`。WMS 从 `0.240` 降至 `-0.022` nats，MMI-PID synergy 从 `0.243` 降至 `0.025` nats，SURD synergy 从 `0.142` 降至 `0.027` nats；这些下降及 WMS 的符号反转与观测冗余增强一致。Neural Granger 的二源汇总分数从 `3.346` 降至 `3.093`，PCMCI-CMIknn 从 `0.479` 降至 `0.100`，但这些原生尺度的成对依赖分数不能直接解释为 causal hyperedge 的强度。
 
-相比之下，MLP+PEID 在整个 sweep 中始终保持约 `0.6` bits 的正协同，只从 `0.675` 缓慢降至 `0.593` bits，且两个单源 EI 始终很小。已知生成机制上的 Oracle PEID 在所有 $\beta$ 下严格不变，进一步确认理论目标确实是固定的；MLP+PEID 的轻微下降应归因于有限样本、动力学拟合和变化状态分布下的估计误差，而不是被表述为完全不变。由此，图 1b 支持的最终结论是：**共同驱动可以让观测型信息分解、预测归因和成对因果读出产生方向相反的变化，但这些变化都不等同于结构协同的改变；在当前实验范围内，干预式 PEID 最接近保持固定 causal hyperedge 的强度，因此能更可靠地区分“共同出现的依赖”与“不可约的联合因果机制”。**
+MLP+PEID 保持约 `0.45` nats 的正联合贡献，并将较少信息分配给单源；相较于明显改变方向或符号的观测读数，这支持它在当前干预协议下较好保留固定联合作用。固定支持的 Oracle 参考读数未随 $\beta$ 改变，但 MLP+PEID 仍有轻微下降。有限样本、动力学拟合和变化的 $w,z$ 背景支持可能共同影响这一结果，不能声称完整学习通道的协同严格不变。
 
+本次主图复核对 84 个 $\beta\times\mathrm{seed}$ 的缓存 PEID Syn 声明 **0 nats 显示复核容差**；最小原值为 `0.374577` nats，容差带负值及显著违例数均为 0，不作裁剪。这是对既有缓存的显示复核，不追称为原实验预注册的容差。缓存仍以 bits 保存，主图及本节采用 $I_{\mathrm{nats}}=(\ln2)I_{\mathrm{bits}}$；SHAP、PCMCI、Neural Granger 和 Liang IF 不参与这一换算。
 
-# 五方法协同比较
+# 图1c 实验细节：六系统五方法比较
 
 每个系统比较 WMS、SURD synergy、SHAP interaction、MLP+PEID synergy 和 MMI-PID synergy。六个 panel 分别基于 coupled standard map、Wilson–Cowan、active-rotator/Kuramoto、受控 Hénon-style、Ikeda 和 Nicholson–Bailey 动力学；各系统的经典来源分别见 [Chirikov (1979)](https://doi.org/10.1016/0370-1573(79)90023-1)、[Wilson & Cowan (1972)](https://doi.org/10.1016/S0006-3495(72)86068-5)、[Shinomoto & Kuramoto (1986)](https://doi.org/10.1143/PTP.75.1105)、[Hénon (1976)](https://doi.org/10.1007/BF01608556)、[Ikeda (1979)](https://doi.org/10.1016/0030-4018(79)90090-7) 和 [Nicholson & Bailey (1935)](https://doi.org/10.1111/j.1096-3642.1935.tb01680.x)。各 panel 内五种方法使用相同的源变量与目标变量；曲线为 `3` 个 seed 的均值，浅色区域表示 `mean ± std`。MI 本身不作为曲线绘制。
 
 
-![Six-system five-method synergy comparison](../../fig/part1_synergy_comparison/six_system_five_method_synergy_panels.png)
+![图1c：六系统比较，信息量为 nats，SHAP 保留原生尺度](../../fig/part1_synergy_comparison/figure1_sources/six_system_large_text.png)
 
-
+本次显示复核对六个系统的 162 个种子级缓存 PEID Syn 声明 0 bits（等价于 0 nats）容差；存在原始 Syn 字段时优先检查原值。最小值为 0，容差带负值及显著违例数均为 0，不作裁剪。该规则用于复核已有图值，不追称为历史实验预注册的容差；重绘脚本遇到显著违例时会明确失败。
 
 ## Coupled Standard Map
 
@@ -171,112 +253,6 @@ $K\in\{0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0,1.5,2.0\}$，
 
 随着 $K$ 增大，系统逐渐锁相；WMS 受同步冗余影响转为负值，而 MLP+PEID 保留相位差机制的正协同。SURD 在锁相转变附近波动较大，不宜作定量解释。
 
-## 高阶 Kuramoto：从 pairwise 边到多体相位作用
-
-普通 Kuramoto 的每个相互作用只涉及一对振子。真正的高阶 Kuramoto 在向量场中加入不可约三体或四体项。本节实验采用的三体形式为
-
-$$
-\dot{\theta}_i
-=\omega_i
-+\frac{K_1}{d_i^{(1)}}\sum_j A_{ij}\sin(\theta_j-\theta_i)
-+\frac{K_2}{d_i^{(2)}}\sum_{j,k}B_{ijk}
-\sin(\theta_j+\theta_k-2\theta_i),
-$$
-
-其中 $\mathbf{A}$ 是 pairwise adjacency matrix，$\mathbf{B}$ 是三元 adjacency tensor。$B_{ijk}=1$ 表示 $\{i,j,k\}$ 形成一个真正的动力学超边。这里的“高阶”不能与 $\sin 2(\theta_j-\theta_i)$ 之类的二体高次谐波混淆：后者仍只涉及两个振子，前者才要求同时知道 $\theta_i,\theta_j,\theta_k$。
-
-
-### 六振子混合阶 $K_{\mathrm{out}}$ 扫描：纯三体与 pairwise 子树
-
-六振子生成机制包含两个三节点模块
-
-$$
-A=\{\theta_1,\theta_2,\theta_3\},
-\qquad
-B=\{\theta_4,\theta_5,\theta_6\}.
-$$
-
-模块 $A$ 是不对称 pairwise 三角形：
-
-$$
-(w_{12},w_{13},w_{23})
-=c(\rho)(1,\rho,\rho),
-\qquad
-c(\rho)=\frac{K_{\mathrm{in}}}{2}
-\sqrt{\frac{3}{1+2\rho^2}},
-\qquad \rho=0.25,
-$$
-
-即 $(w_{12},w_{13},w_{23})=(1.225,0.306,0.306)$。模块 $B$ 只包含三体超边：
-
-$$
-\dot{\theta}_i
-=\omega_i+K_3\sin(\theta_j+\theta_k-2\theta_i),
-\qquad
-\{i,j,k\}=\{4,5,6\},
-$$
-
-其中 $K_3=K_{\mathrm{in}}/\sqrt{2}=1.061$。两个模块之间加入九条全连接 pairwise 边，每条权重为 $K_{\mathrm{out}}/3$。最终只保留三个代表条件：
-
-$$
-K_{\mathrm{out}}\in\{0,0.04,5\}.
-$$
-
-三个条件统一使用 4,800 个有限时间转移训练同一容量、800 epochs 的 MLP，时间窗 $\tau=0.20$、积分步长 $0.01$、过程噪声尺度 $0.08$。MLP 对所有节点使用相同的一、二阶圆周 Fourier 特征。随后在 4,000 个独立均匀相位干预上采样 learned channel。除了 $K_{\mathrm{out}}$，初始相位、随机种子、训练预算、干预支持和概率估计预算全部固定。
-
-EI 的输入干预分布固定为六个相位相互独立的最大熵均匀分布
-
-$$
-p_{\mathrm{do}}(\boldsymbol{\theta}^t)
-=\prod_{i=1}^{6}\operatorname{Unif}(-\pi,\pi).
-$$
-
-所有 SPT 节点共享同一个六维 target：完整系统在同一未来时间窗内的 wrapped phase increment
-
-$$
-\boldsymbol{y}
-=\Delta_\tau\boldsymbol{\theta}_{1:6}
-=\operatorname{wrap}\!\left(
-\boldsymbol{\theta}^{t+\tau}_{1:6}-\boldsymbol{\theta}^{t}_{1:6}
-\right).
-$$
-
-分裂时只改变 source 子集，target 不缩减为局部模块或代表节点。MLP held-out 残差的完整协方差定义随机读出，不额外加入人为噪声下限。完整 SPT 对每个 learned dependency component 拟合一个条件 neural TM，全部 63 个非空 source 子集始终使用同一分量判定规则和同一估计预算；每个 TM 均使用 100 epochs、512 个 scrambled Sobol 评价点和 256 个边缘积分样本。TM context 在基础圆周特征之外显式加入对应的 pairwise、triadic 与候选跨边 Fourier 项；三个条件使用完全相同的特征字典。
-
-概率通道使用同一个 MLP permutation-effect 规则发现可辨识分量，门槛预先固定为 0.25 个输出标准差。$K_{\mathrm{out}}=0$ 和 0.04 的最大跨模块效应约为 0.19，因而 learned channel 仍分成两个模块；$K_{\mathrm{out}}=5$ 明显越过门槛，六节点作为一个联合通道。该规则不读取 $K_{\mathrm{out}}$ 标签或 planted 根分区。SPT 在每个内部节点枚举全部非平凡二分并递归到单节点叶子。
-
-作为同一批条件下的机制阶数诊断，右栏使用 degree-3 polynomial TM 对两个三节点模块各自计算 7 个 source 子集。它只负责报告模块内 pair atom 与 triple residual，不与完整树中的 neural-TM Syn 混写。两种估计都固定 0.10-bit 原生非负容差；三个条件均无负原子或超容差违例，不使用 jackknife、非负裁剪或单调投影。
-
-![自由分裂下的混合阶 Kuramoto 扫描](assets/kuramoto_hierarchy/kuramoto_mixed_order_kout_complete_spt.png)
-
-| $K_{\mathrm{out}}$ | 根 $\Xi$ | 根 Syn | 根分裂 | pairwise：二阶 / 三阶 | triadic：二阶 / 三阶 |
-|---:|---:|---:|:---|---:|---:|
-| 0 | 6.829 | 0.000 | $\{1,2,3\}\mid\{4,5,6\}$ | 1.547 / 1.267 | 0.065 / 1.472 |
-| 0.04 | 6.914 | 0.000 | $\{1,2,3\}\mid\{4,5,6\}$ | 1.548 / 1.270 | 0.065 / 1.521 |
-| 5 | 8.084 | 1.765 | $\{1,2,3,4,5\}\mid\{6\}$ | 0.745 / 0.781 | 0.379 / 0.673 |
-
-在 $K_{\mathrm{out}}=0$ 时，根 Syn 精确为 0，自由 SPT 恢复两个模块。弱连接 0.04 的物理跨边已经存在，但其效应低于统一的 learned-channel 分辨门槛；因此树仍保留平衡 3–3 结构，模块内原子相对零连接几乎不变。这一档应解释为“存在但当前模型不可分辨的弱跨模块耦合”，而不是严格断连。
-
-当 $K_{\mathrm{out}}=5$ 时，六节点越过分量门槛，根首先分成 $\{1,2,3,4,5\}\mid\{6\}$，随后继续以 $4$–$1$、$3$–$1$、$2$–$1$ 递归，形成链式结构；根 Syn 升至 1.765 bits。因而三档在同一算法下依次表现为断连平衡树、弱连接平衡树和强连接链。
-
-同批条件的模块内 polynomial-TM 诊断也恢复了预期阶数差异：在 0 与 0.04 下，纯三体模块的二源原子只有 0.065 bits，而三阶原子为 1.47–1.52 bits，三阶质量约占 96%。强跨边会让任意二节点共同约束完整未来，因此该模块的二源原子升至 0.379 bits；这表示跨模块信息约束增强，不表示纯三体模块内部新增了物理 pairwise 边。
-
-已有研究显示，多体相位作用可以产生普通 pairwise 模型中没有或不稳定出现的现象：
-
-- 同一参数下存在大量同步吸引子，最终同步度强烈依赖初始相位；
-- 同步参数突然跳变并形成向上/向下扫描不同的滞回环；
-- 即使 pairwise 耦合为排斥，高阶项仍可稳定同步分支；
-- 两个反相同步簇使一阶序参量 $R_1$ 接近零，但二阶序参量
-  $$
-  R_2=\left|N^{-1}\sum_j e^{2\mathrm{i}\theta_j}\right|
-  $$
-  仍接近 1，并可发生突然的 $\pi$-transition；
-- 近期三振子纯三体模型还报告了 devil's staircase、multistability 和 synchronization revival。
-
-这些现象分别由三体多稳态研究、simplicial Kuramoto、multicluster 稳定性分析和双簇相变工作支持，而不是本仓库已经完成的实验结果。关键来源包括 [Tanaka & Aoyagi 2011](https://doi.org/10.1103/PhysRevLett.106.224101)、[Skardal & Arenas 2020](https://www.nature.com/articles/s42005-020-00485-0)、[Millán et al. 2020](https://doi.org/10.1103/PhysRevLett.124.218301)、[Xu & Skardal 2021](https://doi.org/10.1103/PhysRevResearch.3.013013)、[Carballosa et al. 2023](https://doi.org/10.1016/j.chaos.2023.114197) 和 [Li et al. 2026](https://doi.org/10.1103/5rg2-4xkq)。
-
-上述 learned-dynamics SPT 短时机制实验已经完成。下一步应检验联合 TM 与共同边缘积分向更高维系统扩展时的容量和计算成本，再转向自然轨迹与集体态：同时扫描 $K_1,K_2$，记录 $R_1$、$R_2$、滞回面积和 basin occupancy，并补充 triangle-without-hyperedge、degree-preserving hyperedge permutation 与统一谐波字典对照。详细文献边界、方程和后续失败判据见[高阶 Kuramoto 调研与实验方案](../ref/higher_order_kuramoto_research.md)。
-
 ## Controlled Hénon Unique-Information Sweep
 
 **领域背景**：Hénon 映射是经典二维耗散混沌模型（[Hénon, 1976](https://doi.org/10.1007/BF01608556)）。这里使用的是由其二次非线性构造的受控 Hénon-style 读出，而不是未经修改的经典迭代映射；该构造把显式二源交互项和单源观测通道分开。
@@ -333,6 +309,112 @@ $$
 **协同源和目标**：只计算 `H+P->H_tau`。
 
 当 $a=0$ 时，$P_t$ 不影响目标；当 $a>0$ 时，指数项形成乘性门控。随着攻击效率继续增大，指数响应逐渐饱和，因此信息协同表现为平台而非线性增长。
+
+# 图1d 实验细节：混合阶 Kuramoto 与完整 SPT
+
+普通 Kuramoto 的每个相互作用只涉及一对振子。真正的高阶 Kuramoto 在向量场中加入不可约三体或四体项。本节实验采用的三体形式为
+
+$$
+\dot{\theta}_i
+=\omega_i
++\frac{K_1}{d_i^{(1)}}\sum_j A_{ij}\sin(\theta_j-\theta_i)
++\frac{K_2}{d_i^{(2)}}\sum_{j,k}B_{ijk}
+\sin(\theta_j+\theta_k-2\theta_i),
+$$
+
+其中 $\mathbf{A}$ 是 pairwise adjacency matrix，$\mathbf{B}$ 是三元 adjacency tensor。$B_{ijk}=1$ 表示 $\{i,j,k\}$ 形成一个真正的动力学超边。这里的“高阶”不能与 $\sin 2(\theta_j-\theta_i)$ 之类的二体高次谐波混淆：后者仍只涉及两个振子，前者才要求同时知道 $\theta_i,\theta_j,\theta_k$。
+
+
+### 六振子混合阶 $K_{\mathrm{out}}$ 扫描：纯三体与 pairwise 子树
+
+六振子生成机制包含两个三节点模块
+
+$$
+A=\{\theta_1,\theta_2,\theta_3\},
+\qquad
+B=\{\theta_4,\theta_5,\theta_6\}.
+$$
+
+模块 $A$ 是不对称 pairwise 三角形：
+
+$$
+(w_{12},w_{13},w_{23})
+=c(\rho)(1,\rho,\rho),
+\qquad
+c(\rho)=\frac{K_{\mathrm{in}}}{2}
+\sqrt{\frac{3}{1+2\rho^2}},
+\qquad \rho=0.25,
+$$
+
+其中 $K_{\mathrm{in}}=1.5$，即 $(w_{12},w_{13},w_{23})=(1.225,0.306,0.306)$。模块 $B$ 只包含三体超边：
+
+$$
+\dot{\theta}_i
+=\omega_i+K_3\sin(\theta_j+\theta_k-2\theta_i),
+\qquad
+\{i,j,k\}=\{4,5,6\},
+$$
+
+其中 $K_3=K_{\mathrm{in}}/\sqrt{2}=1.061$。两个模块之间加入九条全连接 pairwise 边，每条权重为 $K_{\mathrm{out}}/3$。最终只保留三个代表条件：
+
+$$
+K_{\mathrm{out}}\in\{0,0.04,5\}.
+$$
+
+图1d 使用配对种子 0；三个条件统一使用 4,800 个有限时间转移训练同一容量、800 epochs 的 MLP，时间窗 $\tau=0.20$、积分步长 $0.01$、过程噪声尺度 $0.08$。MLP 对所有节点使用相同的一、二阶圆周 Fourier 特征。随后在 4,000 个独立均匀相位干预上采样 learned channel。除了 $K_{\mathrm{out}}$，初始相位、随机种子、训练预算、干预支持和概率估计预算全部固定。
+
+EI 的输入干预分布固定为六个相位相互独立的最大熵均匀分布
+
+$$
+p_{\mathrm{do}}(\boldsymbol{\theta}^t)
+=\prod_{i=1}^{6}\operatorname{Unif}(-\pi,\pi).
+$$
+
+所有 SPT 节点共享同一个六维 target：完整系统在同一未来时间窗内的 wrapped phase increment
+
+$$
+\boldsymbol{y}
+=\Delta_\tau\boldsymbol{\theta}_{1:6}
+=\operatorname{wrap}\!\left(
+\boldsymbol{\theta}^{t+\tau}_{1:6}-\boldsymbol{\theta}^{t}_{1:6}
+\right).
+$$
+
+分裂时只改变 source 子集，target 不缩减为局部模块或代表节点。MLP held-out 残差的完整协方差定义随机读出，不额外加入人为噪声下限。完整 SPT 对每个 learned dependency component 拟合一个条件 neural TM，全部 63 个非空 source 子集始终使用同一分量判定规则和同一估计预算；每个 TM 均使用 100 epochs、512 个 scrambled Sobol 评价点和 256 个边缘积分样本。TM context 在基础圆周特征之外显式加入对应的 pairwise、triadic 与候选跨边 Fourier 项；三个条件使用完全相同的特征字典。
+
+概率通道使用同一个 MLP permutation-effect 规则发现可辨识分量，门槛预先固定为 0.25 个输出标准差。$K_{\mathrm{out}}=0$ 和 0.04 的最大跨模块效应约为 0.19，因而 learned channel 仍分成两个模块；$K_{\mathrm{out}}=5$ 明显越过门槛，六节点作为一个联合通道。该规则不读取 $K_{\mathrm{out}}$ 标签或 planted 根分区。SPT 在每个内部节点枚举全部非平凡二分并递归到单节点叶子。
+
+作为同一批条件下的补充机制阶数诊断，缓存另用 degree-3 polynomial TM 对两个三节点模块各自计算 7 个 source 子集。它只负责报告模块内 pair atom 与 triple residual，不与完整树中的 neural-TM Syn 混写。两种估计都固定 0.10 bits 的原生非负容差（显示单位为 $0.10\ln2\approx0.069315$ nats）；完整树与模块内诊断的容差带负值数、超容差违例数均为 0，完整树闭合误差为 0，不使用 jackknife、非负裁剪或单调投影。
+
+完整树见开篇图1d，节点显示局部 Syn 占本树总 $\Xi$ 的百分比。下表保留 nats 绝对量：系统量来自 neural-TM 完整树，模块内二阶／三阶量来自另行计算的 polynomial-TM 诊断；后者不是主图节点值。
+
+| $K_{\mathrm{out}}$ | 根 $\Xi$（nats） | 根 Syn（nats） | 根分裂 | pairwise 诊断：二阶 / 三阶（nats） | triadic 诊断：二阶 / 三阶（nats） |
+|---:|---:|---:|:---|---:|---:|
+| 0 | 4.733 | 0.000 | $\{1,2,3\}\mid\{4,5,6\}$ | 1.072 / 0.878 | 0.045 / 1.021 |
+| 0.04 | 4.792 | 0.000 | $\{1,2,3\}\mid\{4,5,6\}$ | 1.073 / 0.880 | 0.045 / 1.054 |
+| 5 | 5.603 | 1.224 | $\{1,2,3,4,5\}\mid\{6\}$ | 0.516 / 0.541 | 0.263 / 0.466 |
+
+在 $K_{\mathrm{out}}=0$ 时，根 Syn 精确为 0，自由 SPT 恢复两个模块。弱连接 0.04 的物理跨边已经存在，但其效应低于统一的 learned-channel 分辨门槛；因此树仍保留平衡 3–3 结构，模块内原子相对零连接几乎不变。这一档应解释为“存在但当前模型不可分辨的弱跨模块耦合”，而不是严格断连。
+
+当 $K_{\mathrm{out}}=5$ 时，六节点越过分量门槛，根首先分成 $\{1,2,3,4,5\}\mid\{6\}$，随后继续以 $4$–$1$、$3$–$1$、$2$–$1$ 递归，形成链式结构；根 Syn 升至 1.224 nats（主图显示其占本树总 $\Xi$ 的比例 21.8%）。因而三档在同一算法下依次表现为断连平衡树、弱连接平衡树和强连接链。
+
+同批条件的模块内 polynomial-TM 诊断也恢复了预期阶数差异：在 0 与 0.04 下，纯三体模块的二源原子只有约 0.045 nats，而三节点残差为 1.021–1.054 nats，三阶质量约占 96%。强跨边会让任意二节点共同约束完整未来，因此该模块的二源原子升至 0.263 nats；这表示跨模块信息约束增强，不表示纯三体模块内部新增了物理 pairwise 边。
+
+已有研究显示，多体相位作用可以产生普通 pairwise 模型中没有或不稳定出现的现象：
+
+- 同一参数下存在大量同步吸引子，最终同步度强烈依赖初始相位；
+- 同步参数突然跳变并形成向上/向下扫描不同的滞回环；
+- 即使 pairwise 耦合为排斥，高阶项仍可稳定同步分支；
+- 两个反相同步簇使一阶序参量 $R_1$ 接近零，但二阶序参量
+  $$
+  R_2=\left|N^{-1}\sum_j e^{2\mathrm{i}\theta_j}\right|
+  $$
+  仍接近 1，并可发生突然的 $\pi$-transition；
+- 近期三振子纯三体模型还报告了 devil's staircase、multistability 和 synchronization revival。
+
+这些现象分别由三体多稳态研究、simplicial Kuramoto、multicluster 稳定性分析和双簇相变工作支持，而不是本仓库已经完成的实验结果。关键来源包括 [Tanaka & Aoyagi 2011](https://doi.org/10.1103/PhysRevLett.106.224101)、[Skardal & Arenas 2020](https://www.nature.com/articles/s42005-020-00485-0)、[Millán et al. 2020](https://doi.org/10.1103/PhysRevLett.124.218301)、[Xu & Skardal 2021](https://doi.org/10.1103/PhysRevResearch.3.013013)、[Carballosa et al. 2023](https://doi.org/10.1016/j.chaos.2023.114197) 和 [Li et al. 2026](https://doi.org/10.1103/5rg2-4xkq)。
+
+上述 learned-dynamics SPT 短时机制实验已经完成。下一步应检验联合 TM 与共同边缘积分向更高维系统扩展时的容量和计算成本，再转向自然轨迹与集体态：同时扫描 $K_1,K_2$，记录 $R_1$、$R_2$、滞回面积和 basin occupancy，并补充 triangle-without-hyperedge、degree-preserving hyperedge permutation 与统一谐波字典对照。详细文献边界、方程和后续失败判据见[高阶 Kuramoto 调研与实验方案](../ref/higher_order_kuramoto_research.md)。
 
 # 图 1c 六类经典非线性动力系统附录
 
@@ -511,7 +593,7 @@ $$
 
 ![MLP+PEID 干预样本数量鲁棒性](../../fig/granger_peid_mlp_comparison/sine_beta_intervention_sample_robustness.png)
 
-| 干预样本数 | mean $U_x$ | mean $U_y$ | TV $U_x$ | TV $U_y$ | synergy slope |
+| 干预样本数 | mean $U_x$（bits） | mean $U_y$（bits） | TV $U_x$（bits） | TV $U_y$（bits） | synergy slope（bits / $\beta$） |
 |---:|---:|---:|---:|---:|---:|
 | 320 | 0.0285 | 0.0216 | 0.0867 | 0.0759 | -0.0992 |
 | 640 | 0.0231 | 0.0160 | 0.0834 | 0.0541 | -0.0794 |
@@ -520,3 +602,13 @@ $$
 | 5120 | 0.0223 | 0.0169 | 0.1015 | 0.0718 | -0.0634 |
 
 从 `320` 增至 `640` 时，$U_x/U_y$ 的平均偏移明显下降；从 `640` 继续增至 `5120` 后，均值稳定在约 `0.02/0.017` bits，没有继续趋近零。`5120` 样本时 $U_x/U_y$ 的线性斜率分别只有 `0.0009/0.0062` bits / $\beta$，说明它们没有稳定的单调 beta 趋势；但 absolute TV 并未随样本量单调下降，局部起伏主要来自各 beta 下重新训练的 MLP，而不是干预 Monte Carlo 样本不足。正文使用用户预先指定的最大样本量 `5120`，并保留这一非零偏移，不通过改变动力学、缩窄干预区间或事后平滑将其人为压到零。
+
+# 本次更新的依据与范围（2026-10-03）
+
+本次重新读取 Zotero 中 *Emergent hierarchical organization of causal interactions in complex systems*：父条目 `P6UJCVG8`、当前唯一 PDF 附件 `DXGC7JEA`（标题 `EI_SYN`，2026-10-02 入库）。附件正文没有明确稿号或成稿日期，因此以当前可取得的附件及 [Overleaf 项目](https://www.overleaf.com/project/6a52528e88192eff2e574fb8) 为依据，不将条目修改时间视为新稿版本证明。核对范围为正文 PEID 与受控动力学结果（PDF 第 3–6 页）、Methods 的 EI／Syn／SPT 定义及式 (5)–(12)（第 15–17 页），以及 Overleaf 补充材料的 S6 六系统、S7 混合阶 Kuramoto 和比较方法说明。
+
+主图沿用所提供的 a–d 布局。图1b 改用 `results/granger_peid_mlp_comparison/sine_beta_intervention_sample_robustness.json` 中最终 5,120 样本读出，替换合成脚本先前读取的 640 样本结果；信息量由缓存 bits 换算为 nats，使纵轴标注、图注和报告一致。图1c 来自已有六系统结果，图1d 来自 `results/mixed_order_kuramoto_kout_main/summary.json` 的配对种子 0；本次仅重绘和核对已有结果，没有重跑训练或参数扫描。附录 A–D 保留历史实验及其原始 bits 单位。
+
+图1d 的节点数值及填色进一步统一为局部 Syn 占本树总 $\Xi$ 的百分比，使用未取整缓存值计算，保留一位小数。此次重新查询 Zotero，父条目和当前唯一 PDF 附件仍为 `P6UJCVG8`／`DXGC7JEA`；归一化依据为 Methods 的 SPT 节点残差与闭合关系，式 (11)–(12)（第 16–17 页）。三个条件的未取整节点占比均闭合到 100%；沿用 0.10 bits 的原生 Syn 容差，容差带负值与显著违例数均为 0，没有裁剪或改变树的分裂。
+
+Overleaf 图注同步补充样本量、种子、单位和面板读法；补充材料区分主图的完整 neural-TM SPT 与原有三种子 module-local polynomial-TM 诊断。仍需保留的解释边界是：共同驱动扫描中的背景支持随条件变化，弱耦合根零值依赖 learned-channel 分量近似，高阶 SPT 残差不能直接等同于纯高阶动力学力。本次核对限于图1及相关报告，不代表全文方法或数值实现已经完成全面审计。
