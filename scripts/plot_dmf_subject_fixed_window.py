@@ -163,61 +163,55 @@ def draw(g, values, rho, scenario):
 
 
 def write_report(config):
-    # Only the canonical Appendix P changes; preserve every pre-existing result verbatim.
+    # Update only the two active blocks in their current body/appendix locations.
+    # Never recreate Appendix P or move the identification results back to its end.
     text = REPORT.read_text()
-    start, end = '<!-- report-section:dmf-subject-dense:start -->', '<!-- report-section:dmf-subject-dense:end -->'
-    assert text.count(start) == text.count(end) == 1
-    a, b = text.index(start), text.index(end)
-    section = text[a:b]
     lo, hi = '<!-- dense-fixed-view:start -->', '<!-- dense-fixed-view:end -->'
-    if lo in section:
-        assert section.count(lo) == section.count(hi) == 1
-        section = section[:section.index(lo)] + section[section.index(hi)+len(hi):]
-    archive_start = '<!-- dense-fixed-archive:start -->\n<details>\n<summary>历史结果：原精确区间、粗网格分析与完整窗口搜索</summary>\n'
-    archive_end = '</details>\n<!-- dense-fixed-archive:end -->'
-    section = section.replace(archive_start, '').replace(archive_end, '')
-    # Keep the dedicated rebound view outside the historical fold on later rerenders.
-    rebound = ''
-    rl, rh = '<!-- dense-rebound-view:start -->', '<!-- dense-rebound-view:end -->'
-    if rl in section:
-        assert section.count(rl) == section.count(rh) == 1
-        ri, rj = section.index(rl), section.index(rh)+len(rh)
-        rebound, section = section[ri:rj], section[:ri]+section[rj:]
-    heading = '## 附录 P：93 人 DMF 细扫描\n'
-    assert section.count(heading) == 1
-    h = section.index(heading) + len(heading)
-    old_content = section[h:].strip()
     body = f'''{lo}
 <a id="dmf-subject-fixed-window"></a>
 
-### 当前固定展示参数与总览（2026-10-04）
+### 1.1 个体转折定位与三指标命中率
 
-用户确认固定 **G=0–4、步长0.1**；以每个人独立平均E发放率曲线的**最大正斜率小区间**[L,U]为中心，左右各扩两格，命中窗口为[max(0,L−0.2),min(4,U+0.2)]。这里是发放率对G的最大正导数区间，不是发放率达到最高值的位置。名义总宽0.5 G；当前93人的窗口均无端点截断，实际宽也都是0.5 G。
+**在93个体SC驱动的DMF模型中，Ξ的极值命中个体序参量转折邻域的比例为69.9%，ΦR与WMS均为30.1%。** 每个人分别使用自己的原生SC，G=0–4、步长0.1，每个格点取seed 3/4/5均值；另模拟93人平均SC作为参照，共11,562个完整条件。
 
-Ξ/ΦR取原全局峰、保留符号的WMS取原全局谷；内部极值、平坦/边界处理、首并列点及含端点规则均保留。参数固定只停止本次继续选宽度，没有使此前同队列的事后选择成为预注册独立验证。原0.1精确定位与全部窗口搜索保留在下方历史记录。
+任务是比较指标极值是否对应每个人独立发放率曲线的变化。以独立100ROI平均E发放率对G的**最大正斜率小区间**[L,U]为中心，左右各扩两格，命中窗口为[max(0,L−0.2),min(4,U+0.2)]。它由序参量决定，不由三个指标决定；不是最大发放率所在的位置。当前93人的实际窗口均为0.5 G，无端点截断。
+
+Ξ/ΦR取原全局峰，保留符号的WMS取原全局谷；内部极值落入窗口才算命中，平坦或边界极值算未命中。保持首并列点及含端点规则，不平滑、插值或移动极值。93人均有可定位的独立转折，三项分母统一为93；平均SC不进入统计。
 
 ![93人曲线、平均SC与固定窗口命中率](assets/dmf_subject_dense/fixed_window_overview.png)
 
-**图P当前主图。** a为独立序参量（100ROI平均E发放率，Hz），b为整合有效信息Ξ，c为BOLD-like pairwise ΦR，d为保留符号的原生source WMS，e为三指标在各自独立转折窗口下的命中率。a–d每个面板都包含全部93人的原始41格点、同人3seed均值，无平滑、插值、峰位对齐或幅度标准化。个体颜色由原生SC谱半径决定，同一个人在四图中颜色一致；黑色虚线及小圆点是93人平均SC的**独立模拟**，不是93条个体曲线的算术平均，也不算第94位被试。不同子图使用各自原生纵轴范围，不据幅度大小比较指标优劣。
+**识别总览图｜93人曲线与命中率。** a为独立序参量（Hz），b为整合有效信息Ξ，c为BOLD-like pairwise ΦR，d为保留符号的原生source WMS，e为全部93人的命中率。a–d均保留全部41格点的同人3seed均值，个体颜色按原生SC谱半径编码、跨图一致。黑色虚线及小圆点是平均SC的**独立模拟**，不是93条曲线的算术平均。各图使用原生纵轴范围，信息量单位为nats；没有幅度标准化或峰位对齐。图例在数据外。
 
-e按用户要求只展示**全部93人**的三项命中率：Ξ **65/93（69.9%）**，ΦR/WMS各 **28/93（30.1%）**，三项分母统一为93。柱高是样本比例，配对差及CI见历史窗口统计；50%竖线只对应用户的展示目标。窗口按各人的序参量单独确定，平均SC参照不进入人数统计。
+e只展示93人结果：Ξ **65/93（69.9%）**，ΦR/WMS各 **28/93（30.1%）**。50%竖线对应用户的展示目标，柱高为样本比例。
 
-**93人与85人的关系。** 93人是完整队列，其中8人此前已经用于开发和查看方案；原分析把后来新增的85人作为主要检验集，所以93=开发8人+新增85人。当前总览统一展示93人，原85人的配对检验与40项窗口搜索校正仍保存在下方历史记录。这个展示调整不改变被试成员、命中分类或参数，也不将全93人结果解释为一组重新独立验证的数据。
+原主要检验集为新增85人，另8人曾用于开发和查看方案。85人中Ξ为58/85（68.2%）、两基线各25/85（29.4%），两项配对增幅均为38.8个百分点；描述性95%bootstrap CI为[28.2,49.4]个百分点（未作多重/选窗校正），覆盖全部40项窗口比较的Holm p均4.6566×10⁻⁹。窗口0.5 G是同队列事后搜索后固定的容许范围，宽为原0.1区间的5倍；支持**转折邻域对应**，不能当作独立确认性结果或精确相变点定位。完整搜索、原精确区间与队列记录见[附录P](#dmf-subject-dense)。
+
+{hi}'''
+    el, eh = '<!-- dense-ei-view:start -->', '<!-- dense-ei-view:end -->'
+    ei_body = f'''{el}
+<a id="dmf-subject-ei-dense"></a>
+
+### Q.1 93人细扫描：两个EI分量的下降速度形成整合峰
+
+识别比较之后，进一步考察Ξ的代数来源。在同一93人、G步长0.1和三seed协议下，分别展示whole EI、部分EI之和与Ξ；whole EI和部分EI之和不进入前面的三指标命中比较。
 
 ![93人整体EI、部分EI之和与整合有效信息分解](assets/dmf_subject_dense/fixed_window_ei_decomposition.png)
 
-**EI分解单独展示。** 全部93人及平均SC参照的whole EI、部分EI之和、Ξ，数据与颜色规则同主图。它们满足 **Ξ=whole EI−部分EI之和**，由两个分量下降速度的差异形成Ξ的峰；不是两个分量相加。whole EI与部分EI之和不进入三指标命中率比较。前两幅纵轴都为0–160 nats，Ξ单列0–23 nats。此图保留低G与个别回摆，不把曲线概括为全域严格单调。
+**图 Q1｜联合读取与单变量读取。** 每条细线为一个体三seed均值，颜色与识别总览图一致，黑色虚线为平均SC独立模拟。两分量满足 **Ξ=whole EI−部分EI之和**。前两幅共用0–160 nats范围，Ξ单列0–23 nats；保留低G及个别回摆，不将两分量概括为全域严格单调。
 
-当前图用于先看总体趋势与个体差异；93条曲线的总体外观不能替代同人命中判断，也不能证明无相变时不会报峰。固定窗口宽为原0.1区间的5倍，仍是转折邻域对应，不能称精确相变点定位。此前原生WMS使用完整E/I自然状态、ΦR使用BOLD-like轨迹的协议差异保持并已记录。
-
-本次重新通过Zotero按标题核实父条目P6UJCVG8及附件清单，当前唯一正文为DXGC7JEA（19页），读取Brain/Fig.2和Methods式（5）、（7）、（8）；仍无明确稿件日期/版本，补充附录不可用。图只复用冻结缓存，不变更稿件相关估计方法。当前固定参数及来源核验保存在[展示配置](../../results/dmf_schaefer100/subject_curves_93_dense/fixed_window_view.json)，重现：`.venv/bin/python -m scripts.plot_dmf_subject_fixed_window`。
-{hi}'''
-    section = section[:h] + '\n' + body + '\n\n' + (rebound+'\n\n' if rebound else '') + archive_start + '\n' + old_content + '\n\n' + archive_end + '\n'
-    updated = text[:a] + section + text[b:]
-    assert updated[:a] == text[:a] and updated.endswith(text[b:])
+部分EI之和下降更快时，差值Ξ增大；整体EI下降更快时，Ξ回落。峰值因而来自联合信息相对单变量信息的变化，不需要whole EI本身上升。当前共同affine-TM近似使用完整200维未来、同一干预和300ms时距，EI分解闭合检查通过。与下文八seed的早期经验Gaussian结果分开报告，不合并不同估计协议或bits/nats单位。
+{eh}'''
+    updated = text
+    for lower, upper, value in [(lo, hi, body), (el, eh, ei_body)]:
+        assert updated.count(lower) == updated.count(upper) == 1
+        a, b = updated.index(lower), updated.index(upper)+len(upper)
+        updated = updated[:a]+value+updated[b:]
+    assert updated.index(lo) < updated.index('<a id="dmf-main">')
+    assert updated.index('<a id="appendix-q">') < updated.index(el)
     REPORT.write_text(updated)
     return dict(path='docs/reports/brain.md#dmf-subject-fixed-window', sha256=digest(REPORT),
-                historical_content_preserved=True, changes_outside_appendix_P=False)
+                historical_content_preserved=True, layout='identification_first_then_organization_with_ei_appendix',
+                updated_blocks=['dense-fixed-view', 'dense-ei-view'])
 
 
 def main():

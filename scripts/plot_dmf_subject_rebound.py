@@ -96,7 +96,7 @@ def draw(results):
             mean_text = r'$3.55\times10^{-5}\%$' if n == 'xi' else f'{y.mean():.2f}%'
             ax.text(i, 1.02, 'Mean: '+mean_text, transform=ax.get_xaxis_transform(),
                     ha='center', fontsize=9)
-        labels = [METHOD_LABELS[n]+f"\n{results[n]['no_rebound_count']}/93 with U ≤ tol." for n in NAMES]
+        labels = [METHOD_LABELS[n] for n in NAMES]
         ax.set(xticks=range(3), xticklabels=labels, xlim=(-.5, 2.5), ylim=(-1.5, 65),
                ylabel='Cumulative rebound / curve amplitude (%)')
         ax.axhline(0, color='#ccc', lw=.6, zorder=0)
@@ -121,15 +121,15 @@ def write_report(results):
     body = rf'''{lo}
 <a id="dmf-subject-rebound"></a>
 
-### 独立比较维度：额外回摆 U（93人）
+### 1.2 曲线形状：Ξ 的额外回摆更少
 
 用原协议已冻结的**累计反向变化量 U**专门区分单峰趋势和额外起伏；不另选一个有利阈值。先取原41个G点的同人3seed平均曲线，Ξ、ΦR用原值，WMS只在这个形状诊断中取负值以把单谷对应到单峰。主图WMS符号和原谷位不变。
 
-对非平坦曲线 $mathbf{{y}}=(y_1,ldots,y_{{41}})^	op$，令 $p$ 为首个全局最大值的位置，$Delta_i=y_{{i+1}}-y_i$，$A=max_i y_i-min_i y_i>0$。定义
+对非平坦曲线 $\mathbf{{y}}=(y_1,\ldots,y_{{41}})^\top$，令 $p$ 为首个全局最大值的位置，$\Delta_i=y_{{i+1}}-y_i$，$A=\max_i y_i-\min_i y_i>0$。定义
 
 $$
-U=U_{{m pre}}+U_{{m post}}
-=rac{{sum_{{i<p}}[-Delta_i]_++sum_{{ige p}}[Delta_i]_+}}{{A}},qquad [z]_+=max(z,0).
+U=U_{{\mathrm{{pre}}}}+U_{{\mathrm{{post}}}}
+=\frac{{\sum_{{i<p}}[-\Delta_i]_++\sum_{{i\ge p}}[\Delta_i]_+}}{{A}},\qquad [z]_+=\max(z,0).
 $$
 
 第一项累计峰前下降，第二项累计峰后回升；除以整条曲线幅度消除nats量级差异。显示为100U%，表示回摆量相当于曲线幅度的多少，而非发生回摆的被试比例。**U越低，越接近先升后降；陡峭但单峰的曲线仍有U=0。**
@@ -138,7 +138,7 @@ $$
 
 ![93人累计额外回摆的分布](assets/dmf_subject_dense/fixed_window_rebound.png)
 
-**回摆分布。** 每个圆点是一人的3seed平均曲线，共93人；横向散开仅防重叠。箱线表示中位数与四分位分布、须为1.5 IQR范围内数据，全部个体点保留，菱形是93人算术均值；没有CI或显著性星号。三项共用线性纵轴，Ξ的微小回摆在这一尺度接近0，精确量级列在表中。图例位于数据外。
+**回摆比较图｜93 人累计额外回摆。** 每个圆点是一人的3seed平均曲线，共93人；横向散开仅防重叠。箱线表示中位数与四分位分布、须为1.5 IQR范围内数据，全部个体点保留，菱形是93人算术均值；没有CI或显著性星号。三项共用线性纵轴，Ξ的微小回摆在这一尺度接近0，精确量级列在表中。图例位于数据外。
 
 | 指标 | 平均累计回摆/幅度 | 中位数 | U≤10⁻¹⁰人数 | 最大累计回摆/幅度 |
 |---|---:|---:|---:|---:|
@@ -148,24 +148,23 @@ $$
 
 回摆与粗糙度Q分开：Q衡量相邻斜率的变化，可同时响应陡峭尖峰与频繁振荡；U更直接回答“有没有额外回摆”。当前结果支持固定SC＋DMF、原生估计协议下，Ξ的单峰趋势更稳定；不能将短自然轨迹、高维拟合或正则化导致的观测基线波动直接归为指标公式失效。这里只复用既有描述性形状结果，没有新增模拟、检验或改变G步长0.1/命中窗口0.5 G；3seed均值的平滑外观不代替逐seed稳健性。
 
-本轮重新通过Zotero核实主稿父条目P6UJCVG8及唯一正文附件DXGC7JEA（19页），读取Brain/Fig.2与Methods式（7）、（8）；无明确稿件版本日期且补充附录不可用。U是原实验的形状诊断，不作为稿件新信息量或PEID分解项。原生WMS完整E/I自然状态与稿件BOLD-like基线措辞差别保持。复现：`.venv/bin/python -m scripts.plot_dmf_subject_rebound`。
+这一形状结果与上一节的转折定位结果共同构成指标比较；随后再分析整合峰的 EI 分量及空间组织。U 是原实验的形状诊断，不是新的 PEID 信息量或分解项。当前稿件核对、协议差异及复现记录见[附录 P](#dmf-subject-dense)。
 {hi}'''
     current = REPORT.read_text()
-    start, end = '<!-- report-section:dmf-subject-dense:start -->', '<!-- report-section:dmf-subject-dense:end -->'
+    start, end = '<!-- report-section:dmf-identification:start -->', '<!-- report-section:dmf-identification:end -->'
+    assert current.count(start) == current.count(end) == 1
     a, b = current.index(start), current.index(end)
     section = current[a:b]
-    if lo in section:
-        assert section.count(lo) == section.count(hi) == 1
-        i, j = section.index(lo), section.index(hi)+len(hi)
-        section = section[:i]+section[j:]
-    anchor = '<!-- dense-fixed-view:end -->'
-    assert section.count(anchor) == 1
-    section = section.replace(anchor, anchor+'\n\n'+body, 1)
+    assert section.count(lo) == section.count(hi) == 1
+    i, j = section.index(lo), section.index(hi)+len(hi)
+    section = section[:i]+body+section[j:]
     updated = current[:a]+section+current[b:]
     assert updated[:a] == current[:a] and updated.endswith(current[b:])
     REPORT.write_text(updated)
     return dict(path='docs/reports/brain.md#dmf-subject-rebound', full_report_sha256=digest(REPORT),
-                rebound_block_sha256=hashlib.sha256(body.encode()).hexdigest(), changes_outside_appendix_P=False)
+                rebound_block_sha256=hashlib.sha256(body.encode()).hexdigest(),
+                changes_outside_identification_section=False,
+                layout='identification_first_then_integration')
 
 
 def main():

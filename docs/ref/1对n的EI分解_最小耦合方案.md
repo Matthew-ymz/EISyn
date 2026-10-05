@@ -2,41 +2,37 @@
 
 > **主研究路线：** 用同一个三变量冗余函数连接 2→1 与 1→2；在共同因子化干预下恢复二源 PEID，在任意有限离散联合分布下保证四项非负与信息收支。正文先给定义和核心证明，再说明机制解释、已有工作的关系及下一步；长证明见附录 A，淘汰路线见第 6 节与附录 B。
 >
-> 本文把下面的函数作为**本研究提出的候选定义**。它的可提取信息构件已有文献来源；与已比较函数的不等价可由反例证明，但尚未完成足以宣称“学界首次”的优先权核查。整理及当前稿重核日期：2026-10-04。保留原文件路径，正文主方向已从最小耦合转为本定义。
+> 本文把下面的函数作为**本研究提出的候选定义**。它的可提取信息构件已有文献来源；与已比较函数的不等价可由反例证明，但尚未完成足以宣称“学界首次”的优先权核查。整理日期：2026-10-04；记号更新及当前稿重核：2026-10-05。保留原文件路径，正文主方向已从最小耦合转为本定义。
 
 ## 1. 主定义：三个位置的单端可提取共信息
 
-### 1.1 定义域与共信息
+### 1.1 共信息与单端提取
 
-设 $A,B,T$ 为服从同一个联合分布 $P$ 的有限离散随机变量，字母表固定。信息单位为 bit，所有对数以 2 为底。变量可取有限元组的编码值，不要求为二元变量。先记
-
-$$
-a:=I_P(A;T),\qquad b:=I_P(B;T),\qquad j:=I_P(A,B;T),
-$$
+设 $u,v,w$ 为三个有限离散随机变量，不要求为二元变量。信息单位为 bit，所有对数以 2 为底。其共信息定义为
 
 $$
-c:=\operatorname{CoI}_P(A,B,T)
-=a+b-j
-=I_P(A;B)-I_P(A;B\mid T).
+\operatorname{CoI}(u,v,w)
+:=I(u;w)+I(v;w)-I(u,v;w)
+=I(u;v)-I(u;v\mid w).
 \tag{1-1}
 $$
 
-$\operatorname{CoI}$ 是对三个变量完全对称的共信息，采用“冗余减协同”的符号约定；它可以为负。下文省略 $P$ 下标时，仍指这个共同分布。
+共信息对三个变量完全对称，采用“冗余减协同”的符号约定，可以为负。
 
-对任意三个这样的变量 $U,V,W$，定义**单端可提取共信息**
+定义**单端可提取共信息**
 
 $$
 \boxed{
-\Phi(U,V;W)
-:=\sup_{P_{Z\mid W}}\operatorname{CoI}(U,V,Z)
-=I(U;V)-\inf_{P_{Z\mid W}}I(U;V\mid Z).
+C_{\mathrm{ext}}(u,v;w)
+:=\sup_{z\leftarrow w}\operatorname{CoI}(u,v,z)
+=I(u;v)-\inf_{z\leftarrow w}I(u;v\mid z).
 }
 \tag{1-2}
 $$
 
-每个候选联合分布严格为 $P(u,v,w)P(z\mid w)$，即 $(U,V)-W-Z$ 构成 Markov 链。$Z$ 只能由 $W$ 局部随机处理得到，其额外随机性给定 $W$ 后与 $U,V$ 独立；不能访问另两个变量或重新选择原联合分布。允许恒等处理 $Z=W$ 及常量处理。这里一次只处理一个位置，其余两个变量保留。
+下标 $\mathrm{ext}$ 表示 extractable。记号 $z\leftarrow w$ 表示 $z$ 由 $w$ 的局部随机处理产生，满足 Markov 链 $(u,v)-w-z$。优化遍历所有这样的处理，包括恒等处理 $z=w$ 与常量处理；一次只处理一个变量，其余两个保留。
 
-右侧下确界是内禀条件互信息 $I(U;V\downarrow W)$。概率式局部提取及这一关系已有来源，见 Rauh 等 Section III。[25](#ref-25) 本文的新候选在于下一步的三位置构造及其 EI 分配，不能把式（1-2）的构件本身称为首次提出。
+右侧下确界是内禀条件互信息 $I(u;v\downarrow w)$。概率式局部提取及这一关系已有来源，见 Rauh 等 Section III。[25](#ref-25) 本文的新候选在于下一步的三位置构造及其 EI 分配，不能把式（1-2）的构件本身称为首次提出。
 
 ### 1.2 对称冗余与四项分解
 
@@ -44,41 +40,33 @@ $$
 
 $$
 \boxed{
-R_{\mathrm{sym}}(A,B,T)
-:=\max\{\Phi(A,B;T),\ \Phi(A,T;B),\ \Phi(B,T;A)\}.
+R_{\mathrm{sym}}(u,v,w)
+:=\max\{C_{\mathrm{ext}}(u,v;w),\ C_{\mathrm{ext}}(u,w;v),\ C_{\mathrm{ext}}(v,w;u)\}.
 }
 \tag{1-3}
 $$
 
-三个候选分别允许处理 $T$、$B$ 和 $A$，再取最大值。任意置换三个变量只会重排候选，因此 $R_{\mathrm{sym}}$ 完全置换对称。它与“同时任意处理三端”的优化不同；本文没有用后者替代式（1-3）。
+三个候选分别允许处理 $w$、$v$ 和 $u$，再取最大值。任意置换三个变量只会重排候选，因此 $R_{\mathrm{sym}}$ 完全置换对称。它与“同时任意处理三端”的优化不同；本文没有用后者替代式（1-3）。
 
-以 $A,B$ 为两变量一侧、$T$ 为单变量一侧，统一定义
+以 $u,v$ 为两变量一侧、$w$ 为单变量一侧，统一定义
 
 $$
 \boxed{
-R:=R_{\mathrm{sym}}(A,B,T),\qquad
-U_A:=a-R,\qquad U_B:=b-R,\qquad
-S:=j-a-b+R=R-c.
+\begin{aligned}
+R&:=R_{\mathrm{sym}}(u,v,w),\\
+U_u&:=I(u;w)-R,\qquad U_v:=I(v;w)-R,\\
+S&:=I(u,v;w)-I(u;w)-I(v;w)+R\\
+&=R-\operatorname{CoI}(u,v,w).
+\end{aligned}
 }
 \tag{1-4}
 $$
 
 冗余 $R$ 衡量通过任一单端处理可显露的三变量共信息；特有项是对应单变量互信息扣除这份冗余后的余额；协同是联合互信息扣除一份冗余及两份特有后的余额。这是精确的数学定义，其机制解释及边界见第 3 节。
 
-若沿用 union information 的收支术语，可定义
-
-$$
-J_{\mathrm{sym}}:=a+b-R_{\mathrm{sym}},\qquad
-U_A=J_{\mathrm{sym}}-b,\quad
-U_B=J_{\mathrm{sym}}-a,\quad S=j-J_{\mathrm{sym}}.
-\tag{1-5}
-$$
-
-$J_{\mathrm{sym}}$ 是本定义诱导的并集量；它不是固定两条边缘通道后最小化联合互信息得到的 $J_{\mathrm{MC}}$。两者收支形式相同，优化问题不同。
-
 ### 1.3 在两个方向上的同一用法
 
-| 分解方向 | 两变量一侧 $(A,B)$ | 单变量一侧 $T$ | 采用的冗余 |
+| 分解方向 | 两变量一侧 $(u,v)$ | 单变量一侧 $w$ | 采用的冗余 |
 |---|---|---|---|
 | $(X_1,X_2)\to Y$ | $(X_1,X_2)$ | $Y$ | $R_{\mathrm{sym}}(X_1,X_2,Y)$ |
 | $X\to(Y_1,Y_2)$ | $(Y_1,Y_2)$ | $X$ | $R_{\mathrm{sym}}(Y_1,Y_2,X)$ |
@@ -88,48 +76,51 @@ $J_{\mathrm{sym}}$ 是本定义诱导的并集量；它不是固定两条边缘�
 **EI 的干预协议保持因果方向。** 1→2 时取
 
 $$
-P(x,y_1,y_2)=u(x)K(y_1,y_2\mid\mathrm{do}(x)),
+p(x,y_1,y_2)=\pi(x)K(y_1,y_2\mid\mathrm{do}(x)),
 \tag{1-6}
 $$
 
-其中 $u$ 是固定有限支持上的均匀干预分布，$K$ 是原联合输出机制。2→1 时取同一个共同干预协议下的
+其中 $\pi$ 是固定有限支持上的均匀干预分布，$K$ 是原联合输出机制。2→1 时取同一个共同干预协议下的
 
 $$
-P(x_1,x_2,y)=u_1(x_1)u_2(x_2)
+p(x_1,x_2,y)=\pi_1(x_1)\pi_2(x_2)
 K(y\mid\mathrm{do}(x_1,x_2)).
 \tag{1-7}
 $$
 
-其他未被报告的输入仍按同一因子化干预分布边缘化；时间跨度也保持一致。单独 EI 与联合 EI 都从同一个 $P$ 取边缘，不能为单源项另换干预背景。置换泛函中的变量位置不意味着干预输出，也不意味着实际反向干预机制产生相同的 $P$。因果解释来自原干预分布，局部提取是信息论参照操作。
+其他未被报告的输入仍按同一因子化干预分布边缘化；时间跨度也保持一致。单独 EI 与联合 EI 都按同一干预协议计算，不能为单源项另换干预背景。置换泛函中的变量位置不意味着干预输出，也不意味着实际反向干预机制产生相同的联合分布。因果解释来自原干预分布，局部提取是信息论参照操作。
 
 ## 2. 已证明的核心性质
 
 ### 2.1 关键界、非负性与信息收支
 
-**命题 1。** 对任意有限离散 $P$，
+**命题 1。** 对任意三个有限离散随机变量，
 
 $$
 \boxed{
-\max(0,c)\le R_{\mathrm{sym}}
-\le\min\{I(A;B),I(A;T),I(B;T)\}.
+\max(0,\operatorname{CoI}(u,v,w))\le R_{\mathrm{sym}}
+\le\min\{I(u;v),I(u;w),I(v;w)\}.
 }
 \tag{2-1}
 $$
 
-**简证。** 常量处理给出 0，恒等处理给出 $c$，故有下界。对任意 $Z\leftarrow W$，共信息不超过 $I(U;V)$、$I(U;Z)$、$I(V;Z)$；后两项再由数据处理不超过 $I(U;W)$、$I(V;W)$。因此每个单端提取量均受三个原始二元互信息限制，取最大值仍保留上界。展开证明见附录 A.1。
+**简证。** 常量处理给出 0，恒等处理给出 $\operatorname{CoI}(u,v,w)$，故有下界。对任意 $z\leftarrow w$，共信息不超过 $I(u;v)$、$I(u;z)$、$I(v;z)$；后两项再由数据处理不超过 $I(u;w)$、$I(v;w)$。因此每个单端提取量均受三个原始二元互信息限制，取最大值仍保留上界。展开证明见附录 A.1。
 
 **推论 1。** 式（1-4）中的四项均非负，且
 
 $$
-a=R+U_A,\qquad b=R+U_B,\qquad
-j=R+U_A+U_B+S.
+\begin{aligned}
+I(u;w)&=R+U_u,\\
+I(v;w)&=R+U_v,\\
+I(u,v;w)&=R+U_u+U_v+S.
+\end{aligned}
 \tag{2-2}
 $$
 
-非负性分别由 $R\ge0$、$R\le a,b$ 及 $R\ge c$ 得到，收支由代入直接成立。相应并集量满足
+非负性分别由 $R\ge0$、$R\le I(u;w),I(v;w)$ 及 $R\ge \operatorname{CoI}(u,v,w)$ 得到，收支由代入直接成立。相应并集量满足
 
 $$
-\max(a,b)\le J_{\mathrm{sym}}\le\min(j,a+b).
+\max(I(u;w),I(v;w))\le J_{\mathrm{sym}}\le\min(I(u,v;w),I(u;w)+I(v;w)).
 \tag{2-3}
 $$
 
@@ -137,51 +128,69 @@ $$
 
 ### 2.2 独立源严格退化为 PEID
 
-**命题 2。** 若 $A\perp B$，则
+**命题 2。** 若 $u\perp v$，则
 
 $$
 \boxed{
-R=0,\quad U_A=I(A;T),\quad U_B=I(B;T),\quad
-S=I(A,B;T)-I(A;T)-I(B;T)=I(A;B\mid T)\ge0.
+\begin{aligned}
+R&=0,\\
+U_u&=I(u;w),\qquad U_v=I(v;w),\\
+S&=I(u,v;w)-I(u;w)-I(v;w)\\
+&=I(u;v\mid w)\ge0.
+\end{aligned}
 }
 \tag{2-4}
 $$
 
-**证明。** 式（2-1）的上界含 $I(A;B)=0$，故 $R=0$；其余由式（1-1）、（1-4）推出。
+**证明。** 式（2-1）的上界含 $I(u;v)=0$，故 $R=0$；其余由式（1-1）、（1-4）推出。
 
 在式（1-7）的共同因子化干预下，$X_1\perp X_2$，式（2-4）与当前二源 PEID 的数值定义严格一致。这个结论直接来自本函数的界，不依赖完整冗余 LC 公理。
 
-由于冗余完全对称，任意一对变量独立都会使 $R=0$；因此 1→2 中若实际两个输出独立，也得到零冗余。独立应在所采用的共同 $P$ 下判断，不能用观测分布中的独立替代干预分布中的独立。
+由于冗余完全对称，任意一对变量独立都会使 $R=0$；因此 1→2 中若实际两个输出独立，也得到零冗余。EI 中的独立性应在干预后判断，不能用观测分布中的独立性替代。
 
 ### 2.3 恒等性、包含、无关噪声与连续性
 
 **命题 3。** 本定义满足以下性质，详细证明见附录 A.3—A.5。
 
-| 性质 | 精确结论与适用条件 |
-|---|---|
-| 普通恒等性 | 若 $T$ 是 $(A,B)$ 的一一编码，则 $R=I(A;B)$ |
-| 确定性包含 | 若 $A=f(B)$，则 $R=I(A;T)$，$U_A=0$ |
-| 单预测变量自冗余 | 另定义为 $R(A;T)=I(A;T)$，与上述包含及二元上界相容 |
-| 无关噪声不变 | 在任意两个位置追加与原三变量联合独立的噪声对，允许这两个噪声相关，$R$ 不变 |
-| 输出噪声不改变原子 | 上述噪声追加在输出位置时，单输出及联合 EI 也不变，故四个原子均不变 |
-| 有限字母表连续性 | 固定有限字母表时，$R$ 及四项对 $P$ 连续，包括支持边界 |
-| 最优值可达 | 处理变量 $W$ 有 $m$ 个正概率状态时，$|\mathcal Z|\le m+1$ 足够；三次优化均可取到最优值 |
+噪声追加记为 $\widetilde u=\langle u,n_u\rangle$、$\widetilde v=\langle v,n_v\rangle$，括号表示一一编码；撇号表示追加后重新计算的原子。输出噪声一行以 $w\to(u,v)$ 为方向。
 
-这里的单端随机优化一般不能只用确定性分组替代。有限维最优值存在，也不等于有快速的全局求解算法。
+| 性质 | 形式化表达 |
+|---|---|
+| 普通恒等性 | $H(w\mid u,v)=H(u,v\mid w)=0\ \Longrightarrow\ R=I(u;v)$ |
+| 确定性包含 | $H(u\mid v)=0\ \Longrightarrow\ R=I(u;w),\ U_u=0$ |
+| 单预测变量自冗余（定义性扩展） | $R(u;w):=I(u;w)$ |
+| 无关噪声不变 | $(n_u,n_v)\perp(u,v,w)\ \Longrightarrow\ R_{\mathrm{sym}}(\widetilde u,\widetilde v,w)=R$ |
+| 输出噪声不改变原子 | $(n_u,n_v)\perp(u,v,w)\ \Longrightarrow\ (R',U'_{\widetilde u},U'_{\widetilde v},S')=(R,U_u,U_v,S)$ |
+| 有限字母表连续性 | $p_k\to p\ \Longrightarrow\ (R_k,U_{u,k},U_{v,k},S_k)\to(R,U_u,U_v,S)$ |
+| 最优值可达 | $m=\lvert\operatorname{supp}(w)\rvert\ \Longrightarrow\ C_{\mathrm{ext}}(u,v;w)=\displaystyle\max_{z\leftarrow w,\,\lvert\mathcal Z\rvert\le m+1}\operatorname{CoI}(u,v,z)$ |
+
+普通恒等性的条件表示 $w$ 与 $(u,v)$ 可以相互无损恢复；确定性包含的条件等价于存在函数 $f$ 使 $u=f(v)$。噪声条件不要求 $n_u\perp n_v$；由完全置换对称性，冗余不变结论适用于任意两个位置。
+
+连续性一行固定有限字母表，$p_k\to p$ 指联合概率逐项收敛，下标 $k$ 表示按 $p_k$ 重算的原子；结论包括零概率状态出现或消失的支持边界。最优值一行对其他两个处理端同样成立，$m+1$ 是充分的辅助状态数界，不声称它总是最紧。
+
+**连续性的意义：分解结果对小的概率扰动保持稳定。** 固定有限字母表后，若联合概率只发生足够小的变化，冗余、两项特有和协同的变化也可以同时任意小。这里连续的是四个信息量对分布的依赖，而不是变量在时间上的运动。该结论还包括支持边界：一个原本不可能的状态获得很小概率时，指标不会仅因该状态出现就发生有限幅度的跳变。
+
+例如，令 $u=w$ 为公平比特，$v=w\oplus n$，其中 $n$ 独立于 $w$，且 $\Pr(n=1)=\varepsilon$。原共信息与共同上界都等于 $I(v;w)$，所以本定义给出 $R=1-h_2(\varepsilon)$，其中 $h_2$ 为二元熵。零噪声时 $R=1$ bit；随着 $\varepsilon\to0$，冗余趋于 1 bit，不会在任意正噪声下突然降为 0。
+
+连续性为有限状态数据估计提供一致性基础：若经验联合概率收敛于真实联合概率，则按这些概率精确重算的四个原子也收敛于真实值；采用数值优化时，还需优化误差趋于零。连续性本身没有给出有限样本误差或收敛速度，也不保证最优读出通道唯一、连续变化或指标可微。
+
+**最优值可达的意义：确有一个有限读出方案实现定义值。** 上确界本身只规定所有可行值的最小上界；有时只能无限接近该上界，却没有任何方案恰好达到它。本命题排除了这里的这种情形：存在某个局部随机通道 $z^\star\leftarrow w$，使 $\operatorname{CoI}(u,v,z^\star)=C_{\mathrm{ext}}(u,v;w)$，而且 $z^\star$ 最多只需 $m+1$ 个状态。因此，定义中的最佳单端读出可以由一个实际的有限状态通道实现。
+
+辅助状态数界进一步把任意规模的通道搜索化为固定大小的连续优化。若 $w$ 有两个正概率状态，使用最多三个辅助状态就足够，通道由一个 $2\times3$ 的条件概率表表示，每行非负且和为 1。其概率参数仍有无限多种取值，因此这不是有限次枚举，也不保证确定性分组就能得到最优值。三端各自都有可达的最优值，取其中最大者后，$R_{\mathrm{sym}}$ 同样可以由某一端的有限通道达到；可达性没有提供快速算法，也不保证局部优化找到全局最优。
 
 二元“增加第二个预测变量后冗余不超过单变量 MI”及确定性包含等号已经证明；任意多源晶格单调性、任意局部处理单调性和独立系统可加性尚未证明，见第 5 节。
 
 ### 2.4 明确不采用完整冗余 LC
 
-本定义保留普通恒等性，且对每个条件分布单独应用时仍有相同恒等性与非负性；它**不满足完整目标链式法则**
+本定义保留普通恒等性，且对每个条件分布单独应用时仍有相同恒等性与非负性；它**不满足完整目标链式法则**。以下条件冗余指在相应条件态中重算的值：
 
 $$
-R(A,B;T,T')=R(A,B;T)
-+\sum_tP(t)R_{P(\cdot\mid t)}(A,B;T').
+R(u,v;w,w')=R(u,v;w)
++\sum_{\bar w}p(\bar w)R(u,v;w'\mid w=\bar w).
 \tag{2-5}
 $$
 
-独立公平源的 XOR 已能给出反例：取 $T=A\oplus B$、$T'=A$。原源独立，式（2-5）左侧和右侧第一项都为 0；给定每个 $T=t$ 后，$A,B$ 互相确定，条件冗余为 1，右侧成为 1。详细推导见附录 A.7。[17](#ref-17)、[18](#ref-18)
+独立公平源的 XOR 已能给出反例：取 $w=u\oplus v$、$w'=u$。原源独立，式（2-5）左侧和右侧第一项都为 0；给定每个 $w=\bar w$ 后，$u,v$ 互相确定，条件冗余为 1，右侧成为 1。详细推导见附录 A.7。[17](#ref-17)、[18](#ref-18)
 
 因此，最初源独立不使该分布族对条件化封闭，不能用“只研究独立源”避开这个完整 LC 反例。应把零冗余退化作为新定义的性质，避免再通过不相容的普遍公理包证明它。
 
@@ -189,20 +198,20 @@ $$
 
 ### 3.1 已有解析例子
 
-以下 $A,B,C,Z,N$ 是相互独立的公平比特；$F,F_1,F_2$ 是与它们独立的翻转噪声，出现两个 $F_i$ 时也相互独立。令 $\langle u,v\rangle:=2u+v$ 表示两个比特的一一编码，避免把四状态源误当作两个另行干预的源。
+以下 $u,v,C,z,N$ 是相互独立的公平比特；$F,F_1,F_2$ 是与它们独立的翻转噪声，出现两个 $F_i$ 时也相互独立。令 $\langle u,v\rangle:=2u+v$ 表示两个比特的一一编码，避免把四状态源误当作两个另行干预的源。
 
 记 $h_2(p)=-p\log_2p-(1-p)\log_2(1-p)$、$k=1-h_2(0.1)\simeq0.531004$、$d=1-h_2(0.18)\simeq0.319923$。表中单位均为 bit。
 
 | 1→2 机制 | $R$ | $U_1$ | $U_2$ | $S$ | 解释 |
 |---|---:|---:|---:|---:|---|
 | $X=C$；$Y_1=Y_2=C$ | 1 | 0 | 0 | 0 | 完整复制 |
-| $X=\langle A,B\rangle$；$Y_1=A,Y_2=B$ | 0 | 1 | 1 | 0 | 独立分流 |
-| $X=Z$；$Y_1=N,Y_2=N\oplus Z$ | 0 | 0 | 0 | 1 | 秘密共享 |
-| $X=\langle C,Z\rangle$；$Y_1=\langle C,N\rangle,Y_2=\langle C,N\oplus Z\rangle$ | 1 | 0 | 0 | 1 | 共有与协同同时存在 |
-| $X=\langle A,B\rangle$；$Y_1=\langle A,N\rangle,Y_2=\langle B,N\rangle$ | 0 | 1 | 1 | 0 | 共同无关噪声不制造源冗余 |
+| $X=\langle u,v\rangle$；$Y_1=u,Y_2=v$ | 0 | 1 | 1 | 0 | 独立分流 |
+| $X=z$；$Y_1=N,Y_2=N\oplus z$ | 0 | 0 | 0 | 1 | 秘密共享 |
+| $X=\langle C,z\rangle$；$Y_1=\langle C,N\rangle,Y_2=\langle C,N\oplus z\rangle$ | 1 | 0 | 0 | 1 | 共有与协同同时存在 |
+| $X=\langle u,v\rangle$；$Y_1=\langle u,N\rangle,Y_2=\langle v,N\rangle$ | 0 | 1 | 1 | 0 | 共同无关噪声不制造源冗余 |
 | $X=C$；$Y_1=C,Y_2=C\oplus F$，翻转率 0.1 | $k$ | $1-k$ | 0 | 0 | 带噪重叠 |
-| $X=\langle C,Z\rangle$；$Y_1=\langle C,N\rangle,Y_2=\langle C\oplus F,N\oplus Z\rangle$ | $k$ | $1-k$ | 0 | 1 | 带噪共有与秘密共享并存 |
-| $X=\langle A,B\rangle$；$Y_1=A,Y_2=A\land B$ | 0.311278 | 0.688722 | 0.5 | 0 | 确定性概率重叠 |
+| $X=\langle C,z\rangle$；$Y_1=\langle C,N\rangle,Y_2=\langle C\oplus F,N\oplus z\rangle$ | $k$ | $1-k$ | 0 | 1 | 带噪共有与秘密共享并存 |
+| $X=\langle u,v\rangle$；$Y_1=u,Y_2=u\land v$ | 0.311278 | 0.688722 | 0.5 | 0 | 确定性概率重叠 |
 | $X=C$；$Y_i=C\oplus F_i$，翻转率均为 0.1 | $d$ | $k-d$ | $k-d$ | 0 | 条件独立观测；解释见第 3.3 节 |
 
 这些精确最优值有解析依据：上下界相等、提取 $C$ 达到二元 MI 上界，或由噪声不变性归约得到。数值分组搜索只是核对，不能作为随机优化达到最优的唯一依据。具体见附录 A.8。
@@ -223,23 +232,23 @@ $$
 
 但前者冗余应为 1，后者在无关噪声不变要求下应为 0。任何只依赖式（3-1）这些标量的公式都不能同时区分两例。原共信息也都为 0，因此只取其正部仍会遗漏前者的共有 $C$。
 
-式（1-3）利用局部处理与整个联合分布。第一例只需将源 $X=\langle C,Z\rangle$ 处理为 $C$ 即达到 1 bit；第二例由噪声不变性得到 0。它能把共同内容与掩盖这份内容的协同分开，也避免把输出间共同无关噪声等同于对源的共同信息。
+式（1-3）利用局部处理与整个联合分布。第一例只需将源 $X=\langle C,z\rangle$ 处理为 $C$ 即达到 1 bit；第二例由噪声不变性得到 0。它能把共同内容与掩盖这份内容的协同分开，也避免把输出间共同无关噪声等同于对源的共同信息。
 
 ### 3.3 完全对称性的代价：条件独立观测协同为零
 
-**命题 4。** 任意三变量完全置换对称的冗余函数，只要在每个变量充当单变量一侧时四项均非负，就必有 $R\le\min\{I(A;B),I(A;T),I(B;T)\}$。若 $A\perp B\mid T$，则被迫满足
+**命题 4。** 若 $u\perp v\mid w$，则被迫满足
 
 $$
-\boxed{R=I(A;B),\qquad S=0.}
+\boxed{R=I(u;v),\qquad S=0.}
 \tag{3-2}
 $$
 
-**简证。** 在三个角色下用特有项非负得到三个二元 MI 上界；条件独立给出 $c=I(A;B)$，协同非负又要求 $R\ge c$，因此相等。见附录 A.6。
+**简证。** 在三个角色下用特有项非负得到三个二元 MI 上界；条件独立给出 $\operatorname{CoI}(u,v,w)=I(u;v)$，协同非负又要求 $R\ge \operatorname{CoI}(u,v,w)$，因此相等。见附录 A.6。
 
 更一般地，式（2-1）还给出
 
 $$
-0\le S\le\min\{I(A;B\mid T),I(A;T\mid B),I(B;T\mid A)\}.
+0\le S\le\min\{I(u;v\mid w),I(u;w\mid v),I(v;w\mid u)\}.
 \tag{3-3}
 $$
 
@@ -267,8 +276,8 @@ Pica 等 2017 年已比较三种目标选择下的 PID，并构造角色不变�
 
 | 已有函数／构造 | 鉴别例 | 已有冗余 | $R_{\mathrm{sym}}$ | 对本研究要求的影响 |
 |---|---|---:|---:|---|
-| MMI：$\min(a,b)$ | 独立公平源，$T$ 为两源一一编码 | 1 | 0 | 不满足独立源零冗余及该复制恒等性 |
-| 最小耦合／BROJA | 独立公平源 AND，$T=A\land B$ | 0.311278 | 0 | 非负，但与所选 PEID 分配不同 |
+| MMI：$\min(I(u;w),I(v;w))$ | 独立公平源，$w$ 为两源一一编码 | 1 | 0 | 不满足独立源零冗余及该复制恒等性 |
+| 最小耦合／BROJA | 独立公平源 AND，$w=u\land v$ | 0.311278 | 0 | 非负，但与所选 PEID 分配不同 |
 | RR | 第 3.1 节共有加秘密共享 | 0.5 | 1 | 标量插值削弱完整共有内容 |
 | $I_{\mathrm{CCS}}$ | 独立公平源 AND | 0.103759 | 0 | 不普遍满足独立源零冗余 |
 | 共同确定性 $I_{\wedge}$ | 精确副本与 0.1 带噪副本 | 0 | 0.531004 | 按四项收支产生负协同 |
@@ -302,7 +311,7 @@ MMI 对联合高斯、标量目标且冗余／特有仅依赖两条边缘的类�
 
 随后检验下列未决问题，每项都需要证明或最小反例，不能从第 2 节自动推断：
 
-1. 任一变量经过确定性或随机局部处理后，$R_{\mathrm{sym}}$ 是否单调不增？单个 $\Phi$ 对被处理端的单调性不能直接证明三个候选的最大值具有此性质。
+1. 任一变量经过确定性或随机局部处理后，$R_{\mathrm{sym}}$ 是否单调不增？单个 $C_{\mathrm{ext}}$ 对被处理端的单调性不能直接证明三个候选的最大值具有此性质。
 2. 加入目标信息或扩大观测变量时，冗余、特有与协同分别如何变化？明确所变的是哪一侧，避免把不同单调性混成一个公理。
 3. 两个相互独立的信息模块合并后，$R$ 是否可加？允许一个局部通道联合处理模块时，优化可能耦合，不能仅靠逐模块候选证明等号。
 4. 相同边缘通道、改变实际输出耦合时，本定义的变化是否与选定的共同结构解释一致？用第 3.1 节的独立同等通道和条件独立副本作为起点。
@@ -316,14 +325,14 @@ MMI 对联合高斯、标量目标且冗余／特有仅依赖两条边缘的类�
 一个有用的计算报告是
 
 $$
-R_{\mathrm{lo}}:=\max\{0,c,\text{已计算可行局部通道的共信息值}\},\qquad
-R_{\mathrm{hi}}:=\min\{I(A;B),a,b\}.
+R_{\mathrm{lo}}:=\max\{0,\operatorname{CoI}(u,v,w),\text{已计算可行局部通道的共信息值}\},\qquad
+R_{\mathrm{hi}}:=\min\{I(u;v),I(u;w),I(v;w)\}.
 \tag{5-1}
 $$
 
-其中 0 和 $c$ 来自明确可行的常量与恒等通道。理论上 $R_{\mathrm{lo}}\le R_{\mathrm{sym}}\le R_{\mathrm{hi}}$；可以进一步收紧上界。式（5-1）是明确的优化界，不是对估计 Syn 的裁剪。
+其中 0 和 $\operatorname{CoI}(u,v,w)$ 来自明确可行的常量与恒等通道。理论上 $R_{\mathrm{lo}}\le R_{\mathrm{sym}}\le R_{\mathrm{hi}}$；可以进一步收紧上界。式（5-1）是明确的优化界，不是对估计 Syn 的裁剪。
 
-由此有 $U_A\in[a-R_{\mathrm{hi}},a-R_{\mathrm{lo}}]$、$U_B\in[b-R_{\mathrm{hi}},b-R_{\mathrm{lo}}]$、$S\in[R_{\mathrm{lo}}-c,R_{\mathrm{hi}}-c]$。若临时报告 $R_{\mathrm{lo}}$ 诱导的分配，应明确它低估冗余及协同、高估特有，不能标作精确 $R_{\mathrm{sym}}$。
+这些上下界通过式（1-4）同时给出特有信息与协同的取值区间。若临时报告 $R_{\mathrm{lo}}$ 诱导的分配，应明确它低估冗余及协同、高估特有，不能标作精确 $R_{\mathrm{sym}}$。
 
 实现时区分优化误差和 MI 估计误差。每次消耗估计 Syn 都声明原生单位容差、记录处于 $[-\tau,0)$ 的数量；低于 $-\tau$ 时显式失败并报告最小值、阈值、数量。若估计量导致 $R_{\mathrm{lo}}>R_{\mathrm{hi}}$，也应报告不一致，不能静默投影。
 
@@ -335,7 +344,7 @@ $$
 
 ### 5.4 1→N 的第一步：两块分解
 
-令 $X\to(Y_1,\ldots,Y_n)$，全部信息仍来自同一个干预 $P$。对不交非空目标索引块 $G,H$，记向量 $\boldsymbol{y}_G=(Y_i)_{i\in G}$、$\boldsymbol{y}_H=(Y_i)_{i\in H}$，以及 $E(G):=I_P(X;\boldsymbol{y}_G)$。直接沿用新函数定义
+令 $X\to(Y_1,\ldots,Y_n)$，全部信息仍按同一干预协议计算。对不交非空目标索引块 $G,H$，记向量 $\boldsymbol{y}_G=(Y_i)_{i\in G}$、$\boldsymbol{y}_H=(Y_i)_{i\in H}$，以及 $E(G):=I(X;\boldsymbol{y}_G)$。直接沿用新函数定义
 
 $$
 \begin{aligned}
@@ -347,9 +356,9 @@ S_X(G\mid H)&:=E(G\cup H)-E(G)-E(H)+R_X(G\mid H).
 \tag{5-2}
 $$
 
-有限状态下，把每个目标向量视为一个有限随机变量，命题 1 立即保证四项非负与两块收支。因此式（5-2）是已经有证明依据的延拓起点。若两块输出在 $P$ 下独立，则块间冗余为零。
+有限状态下，把每个目标向量视为一个有限随机变量，命题 1 立即保证四项非负与两块收支。因此式（5-2）是已经有证明依据的延拓起点。若两块输出统计独立，则块间冗余为零。
 
-源侧同理将独立干预源分成两块 $\boldsymbol{x}_G,\boldsymbol{x}_H$，用 $R_{\mathrm{sym}}(\boldsymbol{x}_G,\boldsymbol{x}_H,T)$；因子化干预保证两块独立，恢复当前 PEID 的块合并增益。这样两侧使用同一构造。
+源侧同理将独立干预源分成两块 $\boldsymbol{x}_G,\boldsymbol{x}_H$，用 $R_{\mathrm{sym}}(\boldsymbol{x}_G,\boldsymbol{x}_H,w)$；因子化干预保证两块独立，恢复当前 PEID 的块合并增益。这样两侧使用同一构造。
 
 对全部 $n$ 个输出，非空无序二分共有 $2^{n-1}-1$ 个。报告这些二分量是在不同划分下看同一系统，**不是把它们相加后的全局非重叠原子分解**。可先选研究关心的分块，避免把枚举所有二分当成必需。
 
@@ -407,13 +416,13 @@ Blackwell 共同退化通道量有独立的决策论含义，与最小耦合并�
 
 ### A.1 单端提取与三变量共同上界
 
-任取 $Z\leftarrow W$。共信息的三种展开分别为
+任取 $z\leftarrow w$。共信息的三种展开分别为
 
 $$
 \begin{aligned}
-\operatorname{CoI}(U,V,Z)&=I(U;V)-I(U;V\mid Z),\\
-&=I(U;Z)-I(U;Z\mid V),\\
-&=I(V;Z)-I(V;Z\mid U).
+\operatorname{CoI}(u,v,z)&=I(u;v)-I(u;v\mid z),\\
+&=I(u;z)-I(u;z\mid v),\\
+&=I(v;z)-I(v;z\mid u).
 \end{aligned}
 \tag{A-1}
 $$
@@ -421,170 +430,170 @@ $$
 条件互信息非负，得到它不超过右侧三个无条件 MI。Markov 链又给出
 
 $$
-I(U;Z)\le I(U;W),\qquad I(V;Z)\le I(V;W).
+I(u;z)\le I(u;w),\qquad I(v;z)\le I(v;w).
 $$
 
 因此
 
 $$
-\Phi(U,V;W)\le\min\{I(U;V),I(U;W),I(V;W)\}.
+C_{\mathrm{ext}}(u,v;w)\le\min\{I(u;v),I(u;w),I(v;w)\}.
 \tag{A-2}
 $$
 
-$Z$ 为常量时，共信息为 0；$Z=W$ 时，共信息为原始三变量 $c$。于是每个 $\Phi$ 都至少为 $\max(0,c)$。三个 $\Phi$ 的上界都是同一组二元 MI，下界也相同，取最大值得式（2-1）。
+$z$ 为常量时，共信息为 0；$z=w$ 时，共信息为原始三变量 $\operatorname{CoI}(u,v,w)$。于是每个 $C_{\mathrm{ext}}$ 都至少为 $\max(0,\operatorname{CoI}(u,v,w))$。三个 $C_{\mathrm{ext}}$ 的上界都是同一组二元 MI，下界也相同，取最大值得式（2-1）。
 
-$\Phi(U,V;W)$ 对 $U,V$ 对称；置换 $A,B,T$ 将三个候选之间重排，式（1-3）的最大值不变。这同时证明完全三变量对称性。
+$C_{\mathrm{ext}}(u,v;w)$ 对 $u,v$ 对称；置换 $u,v,w$ 将三个候选之间重排，式（1-3）的最大值不变。这同时证明完全三变量对称性。
 
 ### A.2 四项非负与独立源退化
 
 任何采用式（1-4）收支的二元分配，四项非负的充要条件是
 
 $$
-\max(0,c)\le R\le\min(a,b).
+\max(0,\operatorname{CoI}(u,v,w))\le R\le\min(I(u;w),I(v;w)).
 \tag{A-3}
 $$
 
-式（2-1）满足这个条件。直接代入得到 $R\ge0$、$U_A\ge0$、$U_B\ge0$、$S=R-c\ge0$；相加给出式（2-2）。再由 $R\le a,b$、$R\ge c,0$ 分别得到 $J_{\mathrm{sym}}\ge a,b$、$J_{\mathrm{sym}}\le j,a+b$，证明式（2-3）。
+式（2-1）满足这个条件。直接代入得到 $R\ge0$、$U_u\ge0$、$U_v\ge0$、$S=R-\operatorname{CoI}(u,v,w)\ge0$；相加给出式（2-2）。再由 $R\le I(u;w),I(v;w)$、$R\ge \operatorname{CoI}(u,v,w),0$ 分别得到 $J_{\mathrm{sym}}\ge I(u;w),I(v;w)$、$J_{\mathrm{sym}}\le I(u,v;w),I(u;w)+I(v;w)$，证明式（2-3）。
 
-源独立时，$I(A;B)=0$ 迫使 $R=0$。用共信息的源侧展开，
+源独立时，$I(u;v)=0$ 迫使 $R=0$。用共信息的源侧展开，
 
 $$
-S=-c=I(A;B\mid T)-I(A;B)=I(A;B\mid T).
+S=-\operatorname{CoI}(u,v,w)=I(u;v\mid w)-I(u;v)=I(u;v\mid w).
 \tag{A-4}
 $$
 
-条件互信息是 KL 散度的平均，故非负。这里不要求 $A,B$ 为公平比特；独立即可。最大熵且因子化干预是本项目产生这种独立的协议，均匀性不是该信息论等式的必要条件。
+条件互信息是 KL 散度的平均，故非负。这里不要求 $u,v$ 为公平比特；独立即可。最大熵且因子化干预是本项目产生这种独立的协议，均匀性不是该信息论等式的必要条件。
 
 ### A.3 恒等性、包含与重编码
 
-若 $T=\langle A,B\rangle$ 为一一编码，给定 $T$ 后两个源完全确定，$I(A;B\mid T)=0$，因此 $c=I(A;B)$。式（2-1）的下界为 $I(A;B)$，上界也不超过它，所以 $R=I(A;B)$。
+若 $w=\langle u,v\rangle$ 为一一编码，给定 $w$ 后两个源完全确定，$I(u;v\mid w)=0$，因此 $\operatorname{CoI}(u,v,w)=I(u;v)$。式（2-1）的下界为 $I(u;v)$，上界也不超过它，所以 $R=I(u;v)$。
 
-若 $A=f(B)$，则 $I(A,B;T)=I(B;T)$，故 $c=I(A;T)$；上界不超过 $I(A;T)$，所以 $R=I(A;T)$。数据处理保证 $I(A;T)\le I(B;T)$。
+若 $u=f(v)$，则 $I(u,v;w)=I(v;w)$，故 $\operatorname{CoI}(u,v,w)=I(u;w)$；上界不超过 $I(u;w)$，所以 $R=I(u;w)$。数据处理保证 $I(u;w)\le I(v;w)$。
 
 对每个变量作一一重编码，不改变 MI、CMI，也在局部通道之间产生一一对应，故 $R$ 及对应分配不变。这里指各变量各自的一一编码；把两个变量混成新变量会改变分解对象，不是该不变性。
 
-单预测变量自冗余按 $I(A;T)$ 定义；包含等号及二元上界使它与二元构造相容。它没有指定三个及以上预测变量的冗余晶格函数。
+单预测变量自冗余按 $I(u;w)$ 定义；包含等号及二元上界使它与二元构造相容。它没有指定三个及以上预测变量的冗余晶格函数。
 
 ### A.4 共同无关噪声不变性
 
-令噪声对 $(N_A,N_B)$ 与原 $(A,B,T)$ 联合独立，允许 $N_A,N_B$ 相互相关。取 $\widetilde A=\langle A,N_A\rangle$、$\widetilde B=\langle B,N_B\rangle$；此处括号表示有限取值的一一编码。
+令噪声对 $(N_u,N_v)$ 与原 $(u,v,w)$ 联合独立，允许 $N_u,N_v$ 相互相关。取 $\widetilde u=\langle u,N_u\rangle$、$\widetilde v=\langle v,N_v\rangle$；此处括号表示有限取值的一一编码。
 
-**处理 $T$ 的候选。** 对每个 $Z\leftarrow T$，噪声与 $(A,B,T,Z)$ 独立，故
+**处理 $w$ 的候选。** 对每个 $z\leftarrow w$，噪声与 $(u,v,w,z)$ 独立，故
 
 $$
 \begin{aligned}
-I(\widetilde A;\widetilde B)&=I(A;B)+I(N_A;N_B),\\
-I(\widetilde A;\widetilde B\mid Z)&=I(A;B\mid Z)+I(N_A;N_B).
+I(\widetilde u;\widetilde v)&=I(u;v)+I(N_u;N_v),\\
+I(\widetilde u;\widetilde v\mid z)&=I(u;v\mid z)+I(N_u;N_v).
 \end{aligned}
 \tag{A-5}
 $$
 
-相减时噪声项抵消，因此 $\Phi(\widetilde A,\widetilde B;T)=\Phi(A,B;T)$。
+相减时噪声项抵消，因此 $C_{\mathrm{ext}}(\widetilde u,\widetilde v;w)=C_{\mathrm{ext}}(u,v;w)$。
 
-**处理 $\widetilde A$ 的候选。** 任取 $Z\leftarrow\widetilde A$，由噪声独立性及条件链式法则，
+**处理 $\widetilde u$ 的候选。** 任取 $z\leftarrow\widetilde u$，由噪声独立性及条件链式法则，
 
 $$
 \begin{aligned}
-\operatorname{CoI}(\widetilde B,T,Z)
-&=I(B;T)-I(\widetilde B;T\mid Z)\\
-&=I(B;T)-I(N_B;T\mid Z)-I(B;T\mid Z,N_B)\\
-&\le I(B;T)-I(B;T\mid Z,N_B).
+\operatorname{CoI}(\widetilde v,w,z)
+&=I(v;w)-I(\widetilde v;w\mid z)\\
+&=I(v;w)-I(N_v;w\mid z)-I(v;w\mid z,N_v)\\
+&\le I(v;w)-I(v;w\mid z,N_v).
 \end{aligned}
 \tag{A-6}
 $$
 
-对每个正概率 $N_B=n$，条件原联合分布仍为 $P(A,B,T)$。此时
+对每个正概率 $N_v=n$，条件化不改变原三个变量的联合分布。此时
 
 $$
-P(z\mid A=a,N_B=n)
-=\sum_{n_A}P(n_A\mid n)P(z\mid a,n_A)
+P(z=\bar z\mid u=\bar u,N_v=n)
+=\sum_{n_u}P(N_u=n_u\mid N_v=n)P(z=\bar z\mid u=\bar u,N_u=n_u)
 \tag{A-7}
 $$
 
-是从原 $A$ 到 $Z$ 的可行随机通道。因此，记 $m_A:=\inf_{Z'\leftarrow A}I(B;T\mid Z')$，每个条件态都有 $I(B;T\mid Z,N_B=n)\ge m_A$，平均后也有该下界。式（A-6）于是不超过 $I(B;T)-m_A=\Phi(B,T;A)$。
+是从原 $u$ 到 $z$ 的可行随机通道。因此，记 $m_u:=\inf_{z'\leftarrow u}I(v;w\mid z')$，每个条件态都有 $I(v;w\mid z,N_v=n)\ge m_u$，平均后也有该下界。式（A-6）于是不超过 $I(v;w)-m_u=C_{\mathrm{ext}}(v,w;u)$。
 
-对所有扩展通道取上确界，得到 $\Phi(\widetilde B,T;\widetilde A)\le\Phi(B,T;A)$。反向不等式由忽略 $N_A$ 的原通道得到；对于这种通道，$N_B$ 与原变量及 $Z$ 独立，添加它不改变候选共信息。故二者相等。处理 $\widetilde B$ 同理。
+对所有扩展通道取上确界，得到 $C_{\mathrm{ext}}(\widetilde v,w;\widetilde u)\le C_{\mathrm{ext}}(v,w;u)$。反向不等式由忽略 $N_u$ 的原通道得到；对于这种通道，$N_v$ 与原变量及 $z$ 独立，添加它不改变候选共信息。故二者相等。处理 $\widetilde v$ 同理。
 
 三个候选量分别不变，取最大值后 $R_{\mathrm{sym}}$ 不变。完全对称性使结论适用于任意两个位置；把其中一个噪声取常量也包括只加单个无关噪声。该命题未要求同时追加在三个位置的任意相关噪声都满足不变性。
 
-若两个位置是输出，则 $I(X;\widetilde A)=I(X;A)$、$I(X;\widetilde B)=I(X;B)$、$I(X;\widetilde A,\widetilde B)=I(X;A,B)$，故由式（1-4）所有原子均不变。
+若两个位置是输出，则 $I(X;\widetilde u)=I(X;u)$、$I(X;\widetilde v)=I(X;v)$、$I(X;\widetilde u,\widetilde v)=I(X;u,v)$，故由式（1-4）所有原子均不变。
 
 ### A.5 辅助字母表界、可达性与连续性
 
-设被处理变量 $W$ 有 $m$ 个正概率状态，去掉零概率状态后记 $\mathbf p=P_W$。给每个 $Z=z$ 写权重 $\lambda_z=P(Z=z)$ 和后验概率向量 $\mathbf v_z=P(W\mid Z=z)$。向量使用粗体小写；它们满足
+设被处理变量 $w$ 有 $m$ 个正概率状态，去掉零概率状态后记其边缘概率向量为 $\mathbf p$。对辅助变量的每个取值 $z$，记其概率为 $\lambda_z$，对应的 $w$ 后验概率向量为 $\mathbf r_z$。它们满足
 
 $$
 \lambda_z\ge0,\qquad\sum_z\lambda_z=1,\qquad
-\sum_z\lambda_z\mathbf v_z=\mathbf p.
+\sum_z\lambda_z\mathbf r_z=\mathbf p.
 \tag{A-8}
 $$
 
-因为 $Z$ 仅由 $W$ 产生，条件分布 $P(U,V\mid Z=z)$ 为 $\sum_wv_z(w)P(U,V\mid W=w)$。定义单纯形上连续函数
+因为 $z$ 仅由 $w$ 产生，对应的条件分布为 $\sum_{\bar w}r_z(\bar w)p(u,v\mid w=\bar w)$。定义单纯形上连续函数
 
 $$
-F(\mathbf v):=
-I_{\sum_wv(w)P(U,V\mid W=w)}(U;V).
+F(\mathbf r):=
+I_{\sum_{\bar w}r(\bar w)p(u,v\mid w=\bar w)}(u;v).
 \tag{A-9}
 $$
 
-则要最小化的条件 MI 为 $\sum_z\lambda_zF(\mathbf v_z)$。函数图像 $(\mathbf v,F(\mathbf v))$ 位于 $m$ 维仿射空间：$\mathbf v$ 的自由维数为 $m-1$，函数值再占一维。其图像紧，有限维凸包亦紧。
+则要最小化的条件 MI 为 $\sum_z\lambda_zF(\mathbf r_z)$。函数图像 $(\mathbf r,F(\mathbf r))$ 位于 $m$ 维仿射空间：$\mathbf r$ 的自由维数为 $m-1$，函数值再占一维。其图像紧，有限维凸包亦紧。
 
 最小值就是该凸包中第一坐标为 $\mathbf p$ 时的最低函数坐标。可行切片非空且紧，故最低值可达。Carathéodory 定理保证该点可由至多 $m+1$ 个图像点混合得到，因此 $|\mathcal Z|\le m+1$ 足够。
 
 每个混合解都可还原成局部通道：对 $p(w)>0$，
 
 $$
-P(z\mid w)=\frac{\lambda_zv_z(w)}{p(w)}.
+p(z\mid w)=\frac{\lambda_zr_z(w)}{p(w)}.
 \tag{A-10}
 $$
 
 式（A-8）保证每行和为 1，且该通道产生相同后验及目标值。这里给出充分界，不声称它在所有分布上最紧。
 
-为证明连续性，固定整个 $W$ 字母表大小 $M$，统一使用 $M+1$ 个辅助状态，必要时增加零概率状态。所有行随机通道构成不依赖 $P$ 的紧集合。$P$ 与通道共同决定的有限联合分布连续，MI、CMI 和共信息在有限概率单纯形上连续，取该紧域上的最大值仍对 $P$ 连续。三个候选取最大值保持连续，其余原子由连续 MI 加减得到。这个证明包括支持变化，不依赖在支持边界定义后验。
+为证明连续性，固定整个 $w$ 字母表大小 $M$，统一使用 $M+1$ 个辅助状态，必要时增加零概率状态。所有行随机通道构成不依赖原分布的紧集合。联合概率与通道共同决定的有限联合分布连续，MI、CMI 和共信息在有限概率单纯形上连续，取该紧域上的最大值仍随原联合概率连续变化。三个候选取最大值保持连续，其余原子由连续 MI 加减得到。这个证明包括支持变化，不依赖在支持边界定义后验。
 
 ### A.6 条件独立零协同的必要性
 
-设某个三变量冗余 $R^*$ 完全置换对称，对每个角色均按四项收支定义非负原子。在 $T$ 为单变量时，特有非负给出 $R^*\le I(A;T),I(B;T)$。在 $A$ 为单变量时，又给出 $R^*\le I(A;B)$。因此
+设某个三变量冗余 $R^*$ 完全置换对称，对每个角色均按四项收支定义非负原子。在 $w$ 为单变量时，特有非负给出 $R^*\le I(u;w),I(v;w)$。在 $u$ 为单变量时，又给出 $R^*\le I(u;v)$。因此
 
 $$
-R^*\le\min\{I(A;B),I(A;T),I(B;T)\}.
+R^*\le\min\{I(u;v),I(u;w),I(v;w)\}.
 \tag{A-11}
 $$
 
-当 $A\perp B\mid T$ 时，$c=I(A;B)$；在原角色下协同非负给出 $R^*\ge c$。上下界相等，得式（3-2）。它适用于任何满足这些条件的函数，不仅是式（1-3）。
+当 $u\perp v\mid w$ 时，$\operatorname{CoI}(u,v,w)=I(u;v)$；在原角色下协同非负给出 $R^*\ge \operatorname{CoI}(u,v,w)$。上下界相等，得式（3-2）。它适用于任何满足这些条件的函数，不仅是式（1-3）。
 
-此外 $S=R-c\le I(A;B)-c=I(A;B\mid T)$；对另外两对变量作相同展开，得到式（3-3）。
+此外 $S=R-\operatorname{CoI}(u,v,w)\le I(u;v)-\operatorname{CoI}(u,v,w)=I(u;v\mid w)$；对另外两对变量作相同展开，得到式（3-3）。
 
 ### A.7 独立 XOR 对完整 LC 的反例
 
-取独立公平比特 $A,B$，$T=A\oplus B$、$T'=A$。对原源对，$I(A;B)=0$，所以
+取独立公平比特 $u,v$，$w=u\oplus v$、$w'=u$。对原源对，$I(u;v)=0$，所以
 
 $$
-R_{\mathrm{sym}}(A,B,T)=0,\qquad
-R_{\mathrm{sym}}(A,B,\langle T,T'\rangle)=0.
+R_{\mathrm{sym}}(u,v,w)=0,\qquad
+R_{\mathrm{sym}}(u,v,\langle w,w'\rangle)=0.
 \tag{A-12}
 $$
 
-给定 $T=t$ 后，$B=A\oplus t$，而 $A$ 仍公平。用包含性质，在条件分布上
+给定 $w=\bar w$ 后，$v=u\oplus\bar w$，而 $u$ 仍公平。用包含性质，在条件分布上
 
 $$
-R_{P(\cdot\mid T=t)}(A,B,T')=I(A;A\mid T=t)=1.
+R(u,v;w'\mid w=\bar w)=I(u;u\mid w=\bar w)=1.
 \tag{A-13}
 $$
 
 所以逐条件平均为 1，完整 LC 要求 $0=0+1$，矛盾。源在最初分布下独立，条件化后依赖；反例没有靠“不独立的原源”才成立。
 
-对任意候选公理包也可看出同一问题：联合目标 $\langle T,T'\rangle$ 与 $(A,B)$ 一一对应，普通恒等性和无损目标重编码给出冗余 0；逐条件恒等性给出条件冗余 1；完整 LC 加冗余非负不能成立。这个直接反例的约定比一句“恒等与 LC 冲突”更完整，不能省略条件量定义与重编码假设。
+对任意候选公理包也可看出同一问题：联合目标 $\langle w,w'\rangle$ 与 $(u,v)$ 一一对应，普通恒等性和无损目标重编码给出冗余 0；逐条件恒等性给出条件冗余 1；完整 LC 加冗余非负不能成立。这个直接反例的约定比一句“恒等与 LC 冲突”更完整，不能省略条件量定义与重编码假设。
 
 Finn–Lizier 的已发表 Theorem 6 表述涉及目标链式法则、恒等性质和所有 PID 原子的 local positivity。[18](#ref-18) 本文在上述明确约定下展示直接矛盾，不把其原定理悄然改写成仅一个未限定的冗余非负命题。
 
 ### A.8 表中最优值的解析确定
 
-复制、独立分流和纯秘密共享的值分别由包含、独立零冗余和 MI 收支决定。确定性重叠 $X=\langle A,B\rangle$、$Y_1=A,Y_2=A\land B$ 给定源后输出条件独立，命题 4 给出 $R=I(Y_1;Y_2)=0.311278\ldots$。
+复制、独立分流和纯秘密共享的值分别由包含、独立零冗余和 MI 收支决定。确定性重叠 $X=\langle u,v\rangle$、$Y_1=u,Y_2=u\land v$ 给定源后输出条件独立，命题 4 给出 $R=I(Y_1;Y_2)=0.311278\ldots$。
 
 共有加秘密共享例中，$I(Y_1;Y_2)=1$；源处理 $X\mapsto C$ 得到共信息 1，达到上界。带噪版本同理有 $I(Y_1;Y_2)=k$，处理为 $C$ 后两输出给定 $C$ 独立，其共信息为 $k$，达到上界。共同无关噪声例由附录 A.4 归约为独立分流。
 
-精确副本加带噪副本时 $a=j=1,b=k,c=k$，界迫使 $R=k$。两个独立噪声副本给定 $X$ 条件独立，$R=d$、$S=0$。其联合 MI 可写为
+精确副本加带噪副本时 $E_1=E_{12}=1$、$E_2=k$，共信息也为 $k$，界迫使 $R=k$。两个独立噪声副本给定 $X$ 条件独立，$R=d$、$S=0$。其联合 MI 可写为
 
 $$
 E_{12}=1-\left[0.82h_2(1/82)+0.18\right]
@@ -600,73 +609,73 @@ $$
 
 ### B.1 最小耦合：非负成立，独立源退化失败
 
-对两变量一侧 $A,B$ 和单变量 $T$，定义
+对两变量一侧 $u,v$ 和单变量 $w$，定义
 
 $$
-\Delta(P):=\{Q:Q_{AT}=P_{AT},\ Q_{BT}=P_{BT}\},\qquad
-J_{\mathrm{MC}}:=\min_{Q\in\Delta(P)}I_Q(A,B;T).
+\Delta(P):=\{Q:Q_{uw}=P_{uw},\ Q_{vw}=P_{vw}\},\qquad
+J_{\mathrm{MC}}:=\min_{Q\in\Delta(P)}I_Q(u,v;w).
 \tag{B-1}
 $$
 
-该量来源于 Griffith–Koch union information 及二源 BROJA。[3](#ref-3)、[4](#ref-4) 数据处理给出 $J_{\mathrm{MC}}\ge\max(a,b)$，原 $P$ 可行给出 $J_{\mathrm{MC}}\le j$，条件独立参照 $Q_0(a,b,t)=P(t)P(a\mid t)P(b\mid t)$ 又给出 $J_{\mathrm{MC}}\le a+b$。因此
+该量来源于 Griffith–Koch union information 及二源 BROJA。[3](#ref-3)、[4](#ref-4) 数据处理给出 $J_{\mathrm{MC}}\ge\max(I(u;w),I(v;w))$，原 $P$ 可行给出 $J_{\mathrm{MC}}\le I(u,v;w)$，条件独立参照 $Q_0(\bar u,\bar v,\bar w)=P(\bar w)P(\bar u\mid\bar w)P(\bar v\mid\bar w)$ 又给出 $J_{\mathrm{MC}}\le I(u;w)+I(v;w)$。因此
 
 $$
-R_{\mathrm{MC}}:=a+b-J_{\mathrm{MC}},\quad
-U_A^{\mathrm{MC}}:=J_{\mathrm{MC}}-b,\quad
-U_B^{\mathrm{MC}}:=J_{\mathrm{MC}}-a,\quad
-S_{\mathrm{MC}}:=j-J_{\mathrm{MC}}
+R_{\mathrm{MC}}:=I(u;w)+I(v;w)-J_{\mathrm{MC}},\quad
+U_u^{\mathrm{MC}}:=J_{\mathrm{MC}}-I(v;w),\quad
+U_v^{\mathrm{MC}}:=J_{\mathrm{MC}}-I(u;w),\quad
+S_{\mathrm{MC}}:=I(u,v;w)-J_{\mathrm{MC}}
 \tag{B-2}
 $$
 
 四项非负。源独立时，PEID 与之的准确关系是
 
 $$
-S_{\mathrm{PEID}}=j-a-b=S_{\mathrm{MC}}-R_{\mathrm{MC}}.
+S_{\mathrm{PEID}}=I(u,v;w)-I(u;w)-I(v;w)=S_{\mathrm{MC}}-R_{\mathrm{MC}}.
 \tag{B-3}
 $$
 
-独立公平源 AND：$a=b=h_2(1/4)-1/2=0.311278\ldots$、$j=h_2(1/4)=0.811278\ldots$。固定两条边缘允许 $Q$ 令两源完全相同，达到 $J_{\mathrm{MC}}=a$，因此 $R_{\mathrm{MC}}=a$、两项特有为 0、$S_{\mathrm{MC}}=1/2$；PEID 是 $R=0$、$U_A=U_B=a$、$S=0.188722\ldots$。
+独立公平源 AND：$I(u;w)=I(v;w)=h_2(1/4)-1/2=0.311278\ldots$、$I(u,v;w)=h_2(1/4)=0.811278\ldots$。固定两条边缘允许 $Q$ 令两源完全相同，达到 $J_{\mathrm{MC}}=I(u;w)$，因此 $R_{\mathrm{MC}}=I(u;w)$、两项特有为 0、$S_{\mathrm{MC}}=1/2$；PEID 是 $R=0$、$U_u=U_v=I(u;w)$、$S=0.188722\ldots$。
 
-即使强迫候选源仍独立，保留 AND 的两条边缘会迫使回到原分布，$J=j$；若还套用式（B-2），冗余反而成为 $a+b-j=-0.188722\ldots$。单加源独立约束不能修复原四项公式。依 PEID 原则可称其正冗余不符合所需分配，不能无条件宣布其通道操作语义“高估错误”。
+即使强迫候选源仍独立，保留 AND 的两条边缘会迫使回到原分布，$J=I(u,v;w)$；若还套用式（B-2），冗余反而成为 $I(u;w)+I(v;w)-I(u,v;w)=-0.188722\ldots$。单加源独立约束不能修复原四项公式。依 PEID 原则可称其正冗余不符合所需分配，不能无条件宣布其通道操作语义“高估错误”。
 
 ### B.2 RR 与 MMI
 
 Goodwell–Kumar RR 在有限离散二源情形取
 
 $$
-R_-:=\max(0,c),\quad R_+:=\min(a,b),\quad
-\alpha:=\frac{I(A;B)}{\min\{H(A),H(B)\}},\qquad
+R_-:=\max(0,\operatorname{CoI}(u,v,w)),\quad R_+:=\min(I(u;w),I(v;w)),\quad
+\alpha:=\frac{I(u;v)}{\min\{H(u),H(v)\}},\qquad
 R_{\mathrm{RR}}:=R_-+\alpha(R_+-R_-).
 \tag{B-4}
 $$
 
-分母为 0 时明确定义 $R_{\mathrm{RR}}=0$。$0\le\alpha\le1$ 保证四项非负；源独立使 $c\le0$、$\alpha=0$，故 $R=0$。这已经是发表过的独立源零冗余前例。[19](#ref-19)、[22](#ref-22)
+分母为 0 时明确定义 $R_{\mathrm{RR}}=0$。$0\le\alpha\le1$ 保证四项非负；源独立使 $\operatorname{CoI}(u,v,w)\le0$、$\alpha=0$，故 $R=0$。这已经是发表过的独立源零冗余前例。[19](#ref-19)、[22](#ref-22)
 
 但式（3-1）两例均有 $\alpha=1/2,R_-=0,R_+=1$，RR 都给出 $R=1/2$。在共有加秘密共享例中给每个输出再追加一个独立私有公平噪声后，单 EI、联合 EI及两输出 MI 不变，输出熵变为 3，RR 降为 $1/3$。其权重是依赖强度而非充分的内容判据。
 
-MMI 取 $R_{\mathrm{MMI}}=\min(a,b)$，始终在式（A-3）区间内，四项非负。但独立复制目标有 $a=b=1,j=2$，它给出 $R=S=1,U_A=U_B=0$，与所需独立分流不同；复制恒等性要求 $R=I(A;B)=0$。MMI 的特定高斯结论见 [9](#ref-9)，不作全类别推广。
+MMI 取 $R_{\mathrm{MMI}}=\min(I(u;w),I(v;w))$，始终在式（A-3）区间内，四项非负。但独立复制目标有 $I(u;w)=I(v;w)=1,I(u,v;w)=2$，它给出 $R=S=1,U_u=U_v=0$，与所需独立分流不同；复制恒等性要求 $R=I(u;v)=0$。MMI 的特定高斯结论见 [9](#ref-9)，不作全类别推广。
 
 ### B.3 CCS 的版本与两个关键例子
 
-这里的 $I_{\mathrm{CCS}}$ 按 Ince 第 4.2 节式（30）—（32）定义：构造保持三对边缘 $P_{AB},P_{AT},P_{BT}$ 的最大熵参照分布，再按逐状态信息变化的符号一致条件保留共信息项。[24](#ref-24) 不使用只保持两条目标边缘的另一变体替代它。
+这里的 $I_{\mathrm{CCS}}$ 按 Ince 第 4.2 节式（30）—（32）定义：构造保持三对边缘 $P_{uv},P_{uw},P_{vw}$ 的最大熵参照分布，再按逐状态信息变化的符号一致条件保留共信息项。[24](#ref-24) 不使用只保持两条目标边缘的另一变体替代它。
 
 独立公平 AND 的这些边缘唯一确定原概率表。该定义给出
 
 $$
 R_{\mathrm{CCS}}=\tfrac14\log_2(4/3)=0.103759\ldots,\quad
-U_A=U_B=0.207519\ldots,\quad S=0.292481\ldots.
+U_u=U_v=0.207519\ldots,\quad S=0.292481\ldots.
 \tag{B-5}
 $$
 
-这不符合独立源零冗余。但它在完整共享 $C$ 加秘密共享 $Z$ 中可以识别 1 bit 共有内容，不能只凭独立 AND 就否定它所有内容解释。
+这不符合独立源零冗余。但它在完整共享 $C$ 加秘密共享 $z$ 中可以识别 1 bit 共有内容，不能只凭独立 AND 就否定它所有内容解释。
 
-完整复制恒等性也不成立：目标无损复制源对时，三个局部目标 MI 都是非负惊讶度，CCS 的符号规则只保留源间正局部 MI；存在负局部 MI 时，结果一般不等于普通 $I(A;B)$。原文第 4.4 节明确区分完整恒等性与独立源复制的较弱恒等性。完整 LC 则由独立 XOR、剩余目标 $A$ 的条件化给出 $0=0+1$，与附录 A.7 同型。
+完整复制恒等性也不成立：目标无损复制源对时，三个局部目标 MI 都是非负惊讶度，CCS 的符号规则只保留源间正局部 MI；存在负局部 MI 时，结果一般不等于普通 $I(u;v)$。原文第 4.4 节明确区分完整恒等性与独立源复制的较弱恒等性。完整 LC 则由独立 XOR、剩余目标 $u$ 的条件化给出 $0=0+1$，与附录 A.7 同型。
 
-原文 Table 7 的概率 $P(0,0,0)=0.4$、$P(0,1,0)=0.1$、$P(1,1,1)=0.5$，变量依次为 $A,B,T$，有 $T=A$。$a=j=1,b=0.6099865\ldots$，CCS 给出 $R=0.7684828\ldots$，因此 $U_B=-0.1584963\ldots$。本定义由上下界相等给出 $R=b,U_B=S=0$。这里是候选 PID 原子的负值，不能解释成允许负的 PEID Syn，也不能截断后宣称保持收支。
+原文 Table 7 的概率 $P(0,0,0)=0.4$、$P(0,1,0)=0.1$、$P(1,1,1)=0.5$，变量依次为 $u,v,w$，有 $w=u$。$I(u;w)=I(u,v;w)=1,I(v;w)=0.6099865\ldots$，CCS 给出 $R=0.7684828\ldots$，因此 $U_v=-0.1584963\ldots$。本定义由上下界相等给出 $R=I(v;w),U_v=S=0$。这里是候选 PID 原子的负值，不能解释成允许负的 PEID Syn，也不能截断后宣称保持收支。
 
 ### B.4 共同确定性与路径参照的带噪副本反例
 
-共同确定性冗余取 $R_{\wedge}=I(K;T)$，$K$ 是两预测变量均可无误恢复的最大共同变量。[20](#ref-20) 对 $X=C,Y_1=C,Y_2=C\oplus F$，$0<\varepsilon<1/2$，两输出支持图连通，所以 $K$ 为常量，$R_{\wedge}=0$。但 $E_1=E_{12}=1,E_2=1-h_2(\varepsilon)$，按四项收支得到 $S_{\wedge}=-E_2<0$。在 $\varepsilon=0$ 时冗余为 1，任意正噪声时降为 0，定义不连续。确定性重叠 $Y_1=A,Y_2=A\land B$ 也有同类负协同，并非仅噪声模型的问题。
+共同确定性冗余取 $R_{\wedge}=I(K;w)$，$K$ 是两预测变量均可无误恢复的最大共同变量。[20](#ref-20) 对 $X=C,Y_1=C,Y_2=C\oplus F$，$0<\varepsilon<1/2$，两输出支持图连通，所以 $K$ 为常量，$R_{\wedge}=0$。但 $E_1=E_{12}=1,E_2=1-h_2(\varepsilon)$，按四项收支得到 $S_{\wedge}=-E_2<0$。在 $\varepsilon=0$ 时冗余为 1，任意正噪声时降为 0，定义不连续。确定性重叠 $Y_1=u,Y_2=u\land v$ 也有同类负协同，并非仅噪声模型的问题。
 
 双路径公式直接代入是明确的参照构造：
 
@@ -705,10 +714,10 @@ $$
 
 ### C.1 多源 EI 差值的独立 KL 证明
 
-对共同因子化干预 $q$、固定目标 $T$ 和源集合 $G$，记 $\boldsymbol{x}_G=(X_i)_{i\in G}$，
+对共同因子化干预 $q$、固定目标 $w$ 和源集合 $G$，记 $\boldsymbol{x}_G=(X_i)_{i\in G}$，
 
 $$
-\Xi_q(G;T):=I_q(\boldsymbol{x}_G;T)-\sum_{i\in G}I_q(X_i;T).
+\Xi_q(G;w):=I_q(\boldsymbol{x}_G;w)-\sum_{i\in G}I_q(X_i;w).
 \tag{C-1}
 $$
 
@@ -716,34 +725,34 @@ $$
 
 $$
 \begin{aligned}
-\Xi_q(G;T)
-&=\sum_{i\in G}H_q(X_i\mid T)-H_q(\boldsymbol{x}_G\mid T)\\
-&=\mathbb E_{q(T)}D_{\mathrm{KL}}\left(
-q(\boldsymbol{x}_G\mid T)\ \middle\|\ \prod_{i\in G}q(X_i\mid T)
+\Xi_q(G;w)
+&=\sum_{i\in G}H_q(X_i\mid w)-H_q(\boldsymbol{x}_G\mid w)\\
+&=\mathbb E_{q(w)}D_{\mathrm{KL}}\left(
+q(\boldsymbol{x}_G\mid w)\ \middle\|\ \prod_{i\in G}q(X_i\mid w)
 \right)\ge0.
 \end{aligned}
 \tag{C-2}
 $$
 
-又因各单源 MI 非负，$\Xi_q\le I_q(\boldsymbol{x}_G;T)$。这是当前补充式（S37）—（S44）的实质证明，不需要冗余 LC。两源时与式（2-4）一致；多源时它是集成信息增益，不自动等同于纯 $|G|$ 阶 PID 原子。例如第三源与目标无关、前两源 XOR 时，三源 $\Xi$ 仍为 1。
+又因各单源 MI 非负，$\Xi_q\le I_q(\boldsymbol{x}_G;w)$。这是当前补充式（S37）—（S44）的实质证明，不需要冗余 LC。两源时与式（2-4）一致；多源时它是集成信息增益，不自动等同于纯 $|G|$ 阶 PID 原子。例如第三源与目标无关、前两源 XOR 时，三源 $\Xi$ 仍为 1。
 
 ### C.2 源侧树可保留，目标侧树须重建
 
 对不交源块 $G,H$，因子化干预保证 $\boldsymbol{x}_G\perp\boldsymbol{x}_H$，合并增量为
 
 $$
-s_q(G,H;T):=I_q(\boldsymbol{x}_{G\cup H};T)
--I_q(\boldsymbol{x}_G;T)-I_q(\boldsymbol{x}_H;T)
-=I_q(\boldsymbol{x}_G;\boldsymbol{x}_H\mid T)\ge0.
+s_q(G,H;w):=I_q(\boldsymbol{x}_{G\cup H};w)
+-I_q(\boldsymbol{x}_G;w)-I_q(\boldsymbol{x}_H;w)
+=I_q(\boldsymbol{x}_G;\boldsymbol{x}_H\mid w)\ge0.
 \tag{C-3}
 $$
 
 在任意固定二叉源树上，各节点增量望远镜式相加，
 
 $$
-I_q(\boldsymbol{x}_G;T)
-=\sum_{i\in G}I_q(X_i;T)
-+\sum_{v\in\operatorname{Int}(\mathcal T)}s_q(G_v,H_v;T).
+I_q(\boldsymbol{x}_G;w)
+=\sum_{i\in G}I_q(X_i;w)
++\sum_{v\in\operatorname{Int}(\mathcal T)}s_q(G_v,H_v;w).
 \tag{C-4}
 $$
 
@@ -751,7 +760,7 @@ $$
 
 目标侧式（5-2）则有 $E(G\cup H)=E(G)+E(H)-R_X(G\mid H)+S_X(G\mid H)$。在树上直接展开会同时累积冗余的减项和协同的加项；二元非负不保证这些是全局互不重叠原子。需要新的共享内容归属规则，不能只移植式（C-4）。
 
-精确正 $\Xi$ 也不证明机制方程具有不可加交互：独立单位方差高斯源、$T=X_1+X_2+\varepsilon$、独立高斯噪声方差 $\sigma^2>0$ 时，
+精确正 $\Xi$ 也不证明机制方程具有不可加交互：独立单位方差高斯源、$w=X_1+X_2+\varepsilon$、独立高斯噪声方差 $\sigma^2>0$ 时，
 
 $$
 \Xi=\tfrac12\log_2\frac{(1+\sigma^2)^2}{\sigma^2(2+\sigma^2)}>0.
@@ -764,7 +773,7 @@ $$
 
 当前补充 S1.2 在特征空间使用仿射高斯 TM 代理。式（S12）的单源特征为 $\boldsymbol{\phi}_s(x)=(x,x^2,x^3)^{\mathsf T}$，联合特征为 $\boldsymbol{\phi}_j(x_1,x_2)=(x_1,x_2,x_1x_2,x_1^2,x_2^2)^{\mathsf T}$，后者没有两个单源的三次项。保留原坐标保证精确 MI 不变，不保证不同特征空间的高斯代理相容。
 
-保留前期解析反例：$X_1,X_2$ 独立均匀于 $[-1,1]$，$T=X_1^3+\varepsilon$，噪声独立高斯、方差 $\sigma^2>0$。精确 PEID Syn 为 0；单源仿射特征模型的预测残差方差为 $\sigma^2$，联合模型只能线性利用 $X_1$，残差方差为 $\sigma^2+4/175$。因此总体高斯代理的差值为
+保留前期解析反例：$X_1,X_2$ 独立均匀于 $[-1,1]$，$w=X_1^3+\varepsilon$，噪声独立高斯、方差 $\sigma^2>0$。精确 PEID Syn 为 0；单源仿射特征模型的预测残差方差为 $\sigma^2$，联合模型只能线性利用 $X_1$，残差方差为 $\sigma^2+4/175$。因此总体高斯代理的差值为
 
 $$
 \Delta_G=-\tfrac12\log\left(1+\frac{4}{175\sigma^2}\right)<0.
