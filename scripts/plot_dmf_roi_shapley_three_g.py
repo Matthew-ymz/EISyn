@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Bounded three-state ordinary ROI Shapley comparison from frozen affine-TM caches.
+"""Bounded three-state ordinary ROI Shapley comparison using one affine-TM protocol.
 
-No dynamics, fitting, SPT search or population analysis is performed. Each ROI is
-one E/I-paired player, with the complete future E/I state as a fixed target.
+Missing extreme-G conditions can be prepared explicitly; existing conditions are
+reused. Each ROI is one E/I-paired player, with the complete future E/I target.
 Shared antithetic permutations preserve paired Monte Carlo difference errors.
 """
 from __future__ import annotations
@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import inspect
 import json
+import math
 from itertools import combinations
 from pathlib import Path
 import sys
@@ -28,17 +29,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.compute_dmf_roi_shapley import prepare_game, permutation_contributions, source_digest
 from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
+from scripts.dmf_response_benchmark import Diagnostics, fit_affine_joint, simulate_sources, step
 from scripts.run_dmf_paired_spt_pilot import paired_sources, noise_seed
 from scripts.run_dmf_subject_consistency import atomic_json
 from scripts.run_dmf_subject_curve_baselines import atomic_savez
 from scripts.brain_surface_plot import _draw_surface
 from scripts.plot_dmf_schaefer100_summary import load_schaefer100_surface_map
+from scripts.validate_dmf_83_region_oracle_phi_eid import load_dmf_module
 
 G = np.array([0., 1.3, 3.])
 SEEDS = np.array([3, 4, 5])
 CONTRASTS = [(0, 1), (1, 2), (0, 2)]
 TOL = 1e-8  # native nats; never clip information contributions
-VERSION = "three-g-affine-tm-roi-shapley-v1"
+VERSION = "three-g-affine-tm-roi-shapley-v2"
 PILOT = ROOT / "results/dmf_schaefer100/subject_consistency_pilot"
 DENSE = ROOT / "results/dmf_schaefer100/subject_curves_93_dense"
 RESULT = ROOT / "results/dmf_schaefer100/roi_shapley_three_G"
@@ -46,7 +49,73 @@ FIGURE = ROOT / "fig/dmf_schaefer100/roi_shapley_three_G"
 SURFACE = ROOT / "results/dmf_schaefer100/schaefer100_fsaverage5_surface.npz"
 
 
-def load_conditions(pilot=PILOT, dense=DENSE):
+def simulate_extreme_sources(dmf, x, sc, jf, g, p, seed):
+    """Same native equations/RNG; record the 500-Hz diagnostic without stopping.
+
+    Used only by explicit --allow-extreme-rates. Nonfinite state/rate failures
+    still stop, and the caller rejects any state outside [0,1]. No state clipping.
+    """
+    se, si = np.split(x.copy(), 2, axis=1)
+    rng = np.random.default_rng(seed)
+    diagnostics = Diagnostics()
+    for _ in range(300):
+        ne = p.sigma * math.sqrt(p.dt) * rng.standard_normal(se.shape)
+        ni = p.sigma * math.sqrt(p.dt) * rng.standard_normal(si.shape)
+        se, si, re, ri = step(dmf, se, si, sc, jf, g, p, ne, ni)
+        try:
+            diagnostics.add(se, si, re, ri)
+        except ArithmeticError as error:
+            if not str(error).startswith("Abnormal DMF rate:"):
+                raise
+    record = diagnostics.record()
+    record.update(rate_diagnostic_threshold_hz=500.,
+        abnormal_rate_fraction=record["abnormal_rate_count"] / record["state_count"],
+        rate_guard_policy="Record threshold exceedance; explicit extreme-model comparison, not physiological validation")
+    return np.concatenate([se, si], axis=1), record
+
+
+def prepare_condition(path, g, seed, sc, jf, contract, implementation, *, prepare=False,
+                      allow_extreme_rates=False):
+    """Extend the frozen protocol at one G, with separately identified caches."""
+    x = np.concatenate(paired_sources(seed, 2048, 100), 1)
+    dmf = load_dmf_module()
+    identity = dict(protocol=contract, G=float(g), seed=int(seed),
+        source_sha256=hashlib.sha256(x.tobytes()).hexdigest(), noise_seed=noise_seed(seed),
+        sc_sha256=hashlib.sha256(sc.tobytes()).hexdigest(),
+        jfic_sha256=hashlib.sha256(jf.tobytes()).hexdigest(),
+        implementation_sha256=implementation, dmf_source_sha256=source_digest(Path(dmf.__file__)),
+        allow_extreme_rates=allow_extreme_rates,
+        density="fit_affine_joint: independent uniform-prior Gaussian moments, halfwidth=0.2, ridge=1e-6",
+        density_extension_source_sha256=hashlib.sha256((inspect.getsource(prepare_condition) +
+            inspect.getsource(simulate_extreme_sources)).encode()).hexdigest())
+    if path.exists():
+        with np.load(path) as a:
+            if json.loads(str(a["extension_identity_json"])) != identity:
+                raise ValueError(f"Extension cache mismatch: {path.name}")
+        return
+    if not prepare:
+        raise FileNotFoundError(f"Missing {path}; use --prepare-missing-conditions")
+    start = perf_counter()
+    p = dmf.DMFParameters(t_total=1, burn_in=0, dt=.001, sigma=.01)
+    simulator = simulate_extreme_sources if allow_extreme_rates else simulate_sources
+    y, diagnostics = simulator(dmf, x, sc, jf, g, p, noise_seed(seed))
+    if diagnostics["outside_state_count"]:
+        raise ArithmeticError(f"DMF state violation: G={g}, seed={seed}: {diagnostics}")
+    covariance = fit_affine_joint(x, y, .2, ridge=1e-6)
+    game = CommonTargetGame(covariance)
+    metrics = game.totals()
+    audit = audit_nonnegative([*game.audited, *metrics.values()], TOL)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_savez(path, covariance=covariance, conditional=game.conditional,
+        metrics_json=json.dumps(metrics), diagnostics_json=json.dumps(diagnostics),
+        density_audit_json=json.dumps(audit), extension_identity_json=json.dumps(identity),
+        source_sha256=identity["source_sha256"], noise_seed=noise_seed(seed),
+        elapsed_seconds=perf_counter()-start)
+    print(f"[prepare] G={g:g}, seed={seed}: Xi={metrics['xi_nats']:.6f} nats; {perf_counter()-start:.1f}s", flush=True)
+
+
+def load_conditions(pilot=PILOT, dense=DENSE, *, extension_dir=None, prepare_missing=False,
+                    allow_extreme_rates=False):
     contract = json.loads((pilot / "contract.json").read_text())
     dense_contract = json.loads((dense / "contract.json").read_text())
     if dense_contract["native_protocol"]["pilot_contract"] != contract:
@@ -89,6 +158,30 @@ def load_conditions(pilot=PILOT, dense=DENSE):
         for seed in SEEDS:
             path = pilot / "conditions" / f"group_mean_93_G{g:.2f}_seed{seed}.npz"
             comparison = dense / "conditions" / path.name
+            if not path.exists():
+                if extension_dir is None:
+                    raise FileNotFoundError(f"No extension directory for G={g}")
+                path = extension_dir / path.name
+                prepare_condition(path, g, int(seed), sc, jf, contract,
+                    {rel: source_digest(ROOT / rel) for rel in files}, prepare=prepare_missing,
+                    allow_extreme_rates=allow_extreme_rates)
+                with np.load(path) as a:
+                    game = CommonTargetGame(a["covariance"])
+                    np.testing.assert_allclose(game.conditional, a["conditional"], atol=1e-12, rtol=0)
+                    exact = game.totals()
+                    metrics = json.loads(str(a["metrics_json"]))
+                    for key in exact:
+                        np.testing.assert_allclose(exact[key], metrics[key], atol=TOL, rtol=0)
+                    audit = audit_nonnegative([*game.audited, *exact.values()], TOL)
+                    covariances.append(game.conditional)
+                    local.append(game.local_xi)
+                    totals.append([exact[k] for k in ["xi_nats", "roi_local_xi_nats", "cross_roi_nats"]])
+                    provenance.append(dict(G=float(g), seed=int(seed), cache=str(path.relative_to(ROOT)),
+                        cache_sha256=source_digest(path), dense_cache_sha256=None,
+                        origin="Frozen protocol extension; not part of the old dense sweep",
+                        source_sha256=sources[int(seed)], noise_seed=noise_seed(seed), density_audit=audit,
+                        diagnostics=json.loads(str(a["diagnostics_json"]))))
+                continue
             with np.load(path) as a, np.load(comparison) as b:
                 if json.loads(str(a["contract_json"])) != contract:
                     raise ValueError(f"Condition contract mismatch: {path.name}")
@@ -117,7 +210,7 @@ def load_conditions(pilot=PILOT, dense=DENSE):
     return (np.array(covariances), np.array(local).reshape(3, 3, 100),
             np.array(totals).reshape(3, 3, 3), labels, membership, networks,
             dict(protocol=contract, conditions=provenance,
-                 pairing_evidence="Actual source SHA256 matches regenerated arrays and dense caches. Noise seed, shapes and 300-step fixed RNG consumption verified in hash-matched simulation code; raw noise was not archived.",
+                 pairing_evidence="Actual source SHA256 matches regenerated arrays; old conditions also match dense caches. Extensions use the same frozen SC/JFIC, source arrays, noise seed, and hash-matched 300-step simulation. Raw noise was not archived.",
                  roi_label_status=contract["roi_label_status"],
                  source_sha256=source_digest(source), input_sha256=source_digest(pilot / "inputs.npz")))
 
@@ -241,7 +334,10 @@ def comparison_statistics(pp, labels):
 
 
 def surface_plate(values, labels, row_labels, annotations, output, *, asset=SURFACE,
-                  colorbar_label, cmap="viridis", diverging=False, footer=""):
+                  colorbar_label, cmap="viridis", diverging=False, footer="", reference_vmax=None,
+                  observed_range=False):
+    if observed_range and (diverging or reference_vmax is not None):
+        raise ValueError("Observed range requires a sequential scale without a historical maximum")
     nrows = len(values)
     low, high = (0., float(values.max()))
     if diverging:
@@ -249,6 +345,12 @@ def surface_plate(values, labels, row_labels, annotations, output, *, asset=SURF
         low = -high
     elif values.min() < 0:
         raise ArithmeticError("Negative raw attribution cannot use zero-based sequential scale")
+    elif observed_range:
+        # One range across all displayed seed-mean maps uses the full color band
+        # without per-row rescaling, quantile clipping, or changing attribution.
+        low = float(values.min())
+    elif reference_vmax is not None:
+        high = max(high, float(reference_vmax))
     norm = Normalize(low, high)
     with plt.rc_context({"font.family": "DejaVu Sans", "font.size": 9,
                          "pdf.fonttype": 42, "savefig.facecolor": "white"}):
@@ -275,6 +377,9 @@ def surface_plate(values, labels, row_labels, annotations, output, *, asset=SURF
             fig.text(.018, center - .008, annotations[i], fontsize=9, va="top", linespacing=1.55)
         cax = fig.add_axes([.315, .12, .52, .018])
         bar = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation="horizontal")
+        if observed_range:
+            bar.set_ticks(np.linspace(low, high, 5))
+            bar.ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
         bar.outline.set_linewidth(.6)
         bar.ax.tick_params(labelsize=9, length=3, width=.6)
         bar.set_label(colorbar_label, fontsize=10, labelpad=4)
@@ -284,24 +389,48 @@ def surface_plate(values, labels, row_labels, annotations, output, *, asset=SURF
             fig.savefig(output.with_suffix(suffix), dpi=300, bbox_inches=None)
         plt.close(fig)
     return dict(vmin=low, vmax=high, cmap=cmap, values_clipped=0,
+                reference_vmax=reference_vmax,
+                limits_policy=("Shared observed ROI range across all displayed rows" if observed_range else
+                               "Shared symmetric range" if diverging else "Shared zero-based range"),
+                normalization="linear",
                 camera="LH lateral 180, RH lateral 0, LH medial 0, RH medial 180; elev=0; orthographic; zoom=1.50",
                 mapping="Exact parcel-name match; 100 unique labels; medial wall gray; original SC row order remains inferred")
 
 
 def main():
+    global G
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--output-dir", type=Path, default=RESULT)
-    p.add_argument("--figure-dir", type=Path, default=FIGURE)
+    p.add_argument("--strong-g", type=float, default=3.)
+    p.add_argument("--prepare-missing-conditions", action="store_true")
+    p.add_argument("--allow-extreme-rates", action="store_true",
+                   help="Record rather than stop at the 500-Hz rate diagnostic in new extreme-model conditions")
+    p.add_argument("--output-dir", type=Path)
+    p.add_argument("--figure-dir", type=Path)
+    p.add_argument("--scale-reference", type=Path,
+                   help="Retain an earlier summary's absolute nats scale; percentages use the current observed ROI range")
     p.add_argument("--max-pairs", type=int, default=16384)
     p.add_argument("--min-pairs", type=int, default=512)
     p.add_argument("--rng-seed", type=int, default=20261002)
     args = p.parse_args()
+    if not np.isfinite(args.strong_g) or args.strong_g <= 1.3:
+        p.error("--strong-g must be finite and greater than 1.3")
+    G = np.array([0., 1.3, args.strong_g])
+    suffix = "" if args.strong_g == 3. else f"_G{round(100 * args.strong_g):04d}"
+    args.output_dir = args.output_dir or RESULT.with_name(RESULT.name + suffix)
+    args.figure_dir = args.figure_dir or FIGURE.with_name(FIGURE.name + suffix)
+    args.output_dir, args.figure_dir = args.output_dir.resolve(), args.figure_dir.resolve()
+    if args.scale_reference:
+        args.scale_reference = args.scale_reference.resolve()
+    reference = json.loads(args.scale_reference.read_text()) if args.scale_reference else None
     with threadpool_limits(limits=1):
-        cov, local, totals, labels, membership, networks, provenance = load_conditions()
+        cov, local, totals, labels, membership, networks, provenance = load_conditions(
+            extension_dir=args.output_dir / "conditions", prepare_missing=args.prepare_missing_conditions,
+            allow_extreme_rates=args.allow_extreme_rates)
         identity = dict(version=VERSION, G=G.tolist(), seeds=SEEDS.tolist(), provenance=provenance,
                         rng_seed=args.rng_seed, min_pairs=args.min_pairs, max_pairs=args.max_pairs,
                         estimator_source_sha256=hashlib.sha256("\n".join(inspect.getsource(f)
-                            for f in (load_conditions, estimate, sampling_diagnostics)).encode()).hexdigest(),
+                            for f in (simulate_extreme_sources, prepare_condition, load_conditions,
+                                      estimate, sampling_diagnostics)).encode()).hexdigest(),
                         prefix_source_sha256=source_digest(ROOT / "scripts/compute_dmf_roi_shapley.py"))
         args.output_dir.mkdir(parents=True, exist_ok=True)
         cache = args.output_dir / "roi_shapley.npz"
@@ -342,9 +471,11 @@ def main():
                 xi_seed_sd_nats=float(totals[i, :, 0].std(ddof=1)), local_mean_nats=float(totals[i, :, 1].mean()),
                 cross_mean_nats=float(totals[i, :, 2].mean())) for i, g in enumerate(G)],
             manuscript_recheck=dict(parent="P6UJCVG8", attachment="DXGC7JEA", pages=19,
-                checked_date="2026-10-04", version_date=None, locations="Brain/Fig.2 pp.6-7; Methods Eqs.5-12 pp.15-17",
-                limitation="Only one indexed body attachment; no explicit manuscript date/version; supplementary appendices unavailable",
-                consistency="Fixed target, factorized source and scalar-fine Xi definitions match visible text. Affine/Gaussian moment approximation differs from exact uniform EI; old Fig.2e averages 24 empirical-Gaussian conditions, not these nine affine-TM conditions."))
+                supplementary_attachment="MWIWKSVG", supplementary_pages=28,
+                checked_date="2026-10-06", version_date=None,
+                locations="Brain/Fig.2 pp.6-7; Methods Eqs.5-12 pp.15-17; SI S1.2-S1.3 pp.3-5, S12.2.1 p.23",
+                limitation="One body and one SI attachment; neither supplies an explicit manuscript date/revision. Metadata timestamps do not establish a version.",
+                consistency="Fixed target, factorized source and scalar-fine Xi definitions checked. Affine Gaussian-moment protocol is an approximation to uniform EI; no feature lift or S14 finite-sample MI correction is applied here. Old Fig.2e averages 24 empirical-Gaussian conditions, not these nine affine-TM conditions."))
         nats_by_condition = samples.mean(0)
         nats_mean = nats_by_condition.mean(1)
         summary["absolute_contrasts"] = [dict(G_from=float(G[a]), G_to=float(G[b]),
@@ -353,22 +484,26 @@ def main():
             all_seed_increased_roi_count=int(np.all(nats_by_condition[b] > nats_by_condition[a], axis=0).sum()),
             all_seed_decreased_roi_count=int(np.all(nats_by_condition[b] < nats_by_condition[a], axis=0).sum()))
             for a, b in CONTRASTS]
-    state_labels = [r"$G=0$", r"$G=1.3$", r"$G=3$"]
+    state_labels = [rf"$G={g:g}$" for g in G]
     state_notes = [f"{name}\n$\\Xi$ = {row['xi_mean_nats']:.2f}\n$\\pm$ {row['xi_seed_sd_nats']:.2f} nats"
-                   for name, row in zip(["No long-range\ncoupling", "Peak", "High coupling"], summary["state_totals"])]
+                   for name, row in zip(["No long-range\ncoupling", "Peak", "Extreme coupling" if args.strong_g >= 10 else "High coupling"], summary["state_totals"])]
     preview = "" if sampling["converged"] else "preview_"
     summary["surface_sha256"] = source_digest(SURFACE)
     summary["plot_source_sha256"] = source_digest(Path(__file__))
+    summary["scale_reference"] = (dict(path=str(args.scale_reference),
+        sha256=source_digest(args.scale_reference), applies_to="absolute_plot") if args.scale_reference else None)
     summary["plot"] = surface_plate(shares.mean(1), labels, state_labels, state_notes,
         args.figure_dir / f"{preview}roi_share_three_G", colorbar_label=r"ROI attribution to overall $\Xi$ (%)",
+        observed_range=True,
         footer="Mean SC model · seeds 3, 4, 5 · each row sums to 100% · total Ξ: mean ± seed SD" +
                (" · MC budget exhausted: preview" if preview else ""))
     summary["absolute_plot"] = surface_plate(samples.mean((0, 2)), labels, state_labels, state_notes,
         args.figure_dir / f"{preview}roi_nats_three_G", colorbar_label=r"ROI attribution to overall $\Xi$ (nats)",
+        reference_vmax=reference["absolute_plot"]["vmax"] if reference else None,
         footer="Mean SC model · seeds 3, 4, 5 · absolute Shapley attribution · shared scale")
     delta = np.array([shares[b].mean(0) - shares[a].mean(0) for a, b in CONTRASTS[:2]])
     summary["difference_plot"] = surface_plate(delta, labels,
-        [r"$1.3 - 0$", r"$3 - 1.3$"], ["Change in share", "Change in share"],
+        [rf"${G[b]:g} - {G[a]:g}$" for a, b in CONTRASTS[:2]], ["Change in share", "Change in share"],
         args.figure_dir / f"{preview}roi_share_difference", cmap="RdBu_r", diverging=True,
         colorbar_label=r"Change in ROI attribution to overall $\Xi$ (percentage points)",
         footer="Red: increased share · blue: decreased share · both contrasts use the same scale")

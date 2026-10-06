@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Compare a small, declared set of DMF trees using the main figure's search.
 
-Only cached Gaussian conditional covariances are read; no trajectories or EI
-models are refitted. Near-peak mode reuses the original G=1.3 / seed=4 tree;
-wide mode uses the existing paired-input covariance caches throughout.
+Near-peak mode reuses the original G=1.3 / seed=4 tree. Wide mode reads paired
+Gaussian conditional-covariance caches; --prepare-missing-covariances explicitly
+extends the same simulation protocol to a requested strong-coupling value.
 """
 
 from __future__ import annotations
@@ -83,6 +83,74 @@ class CachedScalarLogdetXiOracle(ConditionalBlockXiOracle):
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def prepare_paired_covariance(path, *, template, seed, coupling_g):
+    """Extend the existing paired simulation, without changing its estimator."""
+    from scripts.analyze_dmf_critical_phi_hierarchy_topology import conditional_source_covariance
+    from scripts.run_dmf_diffusive_fullstate_control import rollout
+    from scripts.run_dmf_paired_spt_pilot import paired_sources, noise_seed
+    from scripts.validate_dmf_83_region_oracle_phi_eid import load_dmf_module, standardize
+
+    with np.load(template) as cache:
+        config = json.loads(str(cache["config_json"].item()))
+        expected_digest = str(cache["input_sha256"].item())
+    source_path = ROOT / "results/dmf_schaefer100/source/group_mean_native_mean_rate.npz"
+    if sha256(source_path) != config["source_sha256"]:
+        raise ValueError("SC / frozen JFIC source differs from the paired comparison")
+    with np.load(source_path) as archive:
+        connectivity = archive["connectivity"].copy()
+        j_fic = archive["j_fic"].copy()
+        ref = np.flatnonzero(np.isclose(archive["G"], config["JFIC_reference_G"]))
+    if connectivity.shape != (100, 100) or len(ref) != 1 or not np.array_equal(
+            j_fic, np.broadcast_to(j_fic[int(ref[0])], j_fic.shape)):
+        raise ValueError("Require the same Schaefer100 SC and frozen G=1 JFIC")
+    if (config["support"] != [0.3, 0.7] or config["source_seed_offset"] != 31000
+            or config["noise_seed_offset"] != 31017 or config["boundary"] != "none"):
+        raise ValueError("Paired simulation helper differs from the cached protocol")
+    se, si = paired_sources(seed, config["sample_count"], 100)
+    source = np.concatenate((se, si), axis=1)
+    digest = hashlib.sha256(source.tobytes()).hexdigest()
+    if digest != expected_digest:
+        raise ValueError("New intervention draws differ from the existing seed")
+    started = time.monotonic()
+    dmf = load_dmf_module()
+    parameters = dmf.DMFParameters(t_total=1, burn_in=0, dt=config["dt"], sigma=config["sigma"])
+    te, ti = rollout(dmf, se, si, connectivity=connectivity, coupling_g=coupling_g,
+                     j_fic=j_fic[int(ref[0])], parameters=parameters, mode="direct",
+                     state_boundary=config["boundary"], horizon=config["horizon"],
+                     rng=np.random.default_rng(noise_seed(seed)))
+    target = np.concatenate((te, ti), axis=1)
+    if not np.isfinite(target).all():
+        raise RuntimeError(f"Nonfinite DMF target: seed={seed}, G={coupling_g}")
+    _, conditional, _ = conditional_source_covariance(
+        standardize(source)[0], standardize(target)[0], ridge=config["ridge"])
+    if not np.isfinite(conditional).all():
+        raise RuntimeError(f"Nonfinite conditional covariance: seed={seed}, G={coupling_g}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, conditional_covariance=conditional, config_json=json.dumps(config),
+                        input_sha256=digest, seed=seed, G=coupling_g,
+                        elapsed_seconds=time.monotonic() - started,
+                        target_min=target.min(), target_max=target.max(),
+                        target_minimum_sd=target.std(axis=0, ddof=1).min(),
+                        target_outside_unit_interval_count=int(((target < 0) | (target > 1)).sum()),
+                        dynamics_source_sha256=json.dumps({str(p.relative_to(ROOT)): sha256(p) for p in
+                            (ROOT / "exp/brain/dmf_fig6.py", ROOT / "scripts/run_dmf_diffusive_fullstate_control.py",
+                             ROOT / "scripts/run_dmf_paired_spt_pilot.py")}))
+    print(f"[simulated] G={coupling_g:g}, seed={seed}, {time.monotonic() - started:.1f}s", flush=True)
+
+
+def condition_config(config, *, seed, coupling_g):
+    """Compare per-condition provenance, so replacing another column preserves caches."""
+    result = dict(config)
+    if "paired_covariance_inputs" in result:
+        name = f"seed{seed:02d}_G{coupling_g:.2f}.npz"
+        inputs = [value for value in result.pop("paired_covariance_inputs")
+                  if Path(value["path"]).name == name]
+        if len(inputs) != 1:
+            raise ValueError(f"Missing or repeated covariance provenance for {name}")
+        result["paired_covariance_input"] = inputs[0]
+    return result
 
 
 def audit_tree(tree, expected_xi: float) -> dict:
@@ -181,14 +249,24 @@ def summarize_difference_scales(pairs, couplings) -> list[dict]:
 
 
 def load_or_build(conditional, *, seed, coupling_g, expected_xi, config, output_dir, reference,
-                  use_original_reference=True):
+                  use_original_reference=True, fallback_cache=None):
     path = output_dir / f"seed{seed:02d}_G{coupling_g:.2f}.json"
     reused = False
+    cached_payload = None
+    for candidate in (path, fallback_cache):
+        if candidate is not None and candidate.exists():
+            value = json.loads(candidate.read_text())
+            if condition_config(value["config"], seed=seed, coupling_g=coupling_g) == condition_config(
+                    config, seed=seed, coupling_g=coupling_g):
+                cached_payload = value
+                path = candidate
+                break
     if use_original_reference and seed == 4 and np.isclose(coupling_g, 1.3):
         payload = reference
         tree = _node_from_record(payload["tree"])
         reused = True
-    elif path.exists() and (payload := json.loads(path.read_text()))["config"] == config:
+    elif cached_payload is not None:
+        payload = cached_payload
         tree = _node_from_record(payload["tree"])
         reused = True
     else:
@@ -282,13 +360,24 @@ def main():
     parser.add_argument("--dpi", type=int, default=260)
     parser.add_argument("--wide", action="store_true",
                         help="Compare G=0,1.3,3 with consistently paired source/noise caches")
+    parser.add_argument("--strong-g", type=float, default=3.0,
+                        help="Replace the last wide column (for example, --strong-g 10)")
+    parser.add_argument("--prepare-missing-covariances", action="store_true",
+                        help="Simulate only missing wide conditions using the existing paired protocol")
     args = parser.parse_args()
+    if not np.isfinite(args.strong_g) or args.strong_g <= 1.3:
+        parser.error("--strong-g must be finite and greater than 1.3")
+    if not np.isclose(args.strong_g * 100, round(args.strong_g * 100), rtol=0, atol=1.0e-8):
+        parser.error("--strong-g supports at most two decimal places, matching cache names")
+    if not args.wide and (args.strong_g != 3.0 or args.prepare_missing_covariances):
+        parser.error("Strong-coupling extensions require --wide")
     if args.wide:
-        args.output_dir = args.output_dir / "wide"
-        args.figure_dir = args.figure_dir / "wide"
+        suffix = "wide" if args.strong_g == 3.0 else f"wide_G{round(args.strong_g * 100):03d}"
+        args.output_dir = args.output_dir / suffix
+        args.figure_dir = args.figure_dir / suffix
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.figure_dir.mkdir(parents=True, exist_ok=True)
-    seeds, couplings = (3, 4, 5), ((0.0, 1.3, 3.0) if args.wide else (1.2, 1.3, 1.4))
+    seeds, couplings = (3, 4, 5), ((0.0, 1.3, args.strong_g) if args.wide else (1.2, 1.3, 1.4))
     config = {
         "input_sha256": sha256(args.input), "exact_max_size": 8,
         "search": "same spectral candidates as Figure 1b; no singleton supplementation or random candidates",
@@ -314,6 +403,13 @@ def main():
                 if args.wide:
                     shard = "seeds3_4" if seed in (3, 4) else "seeds5_6"
                     path = ROOT / f"results/dmf_schaefer100/unconstrained_spt_wide/shards/{shard}/covariance/seed{seed:02d}_G{coupling_g:.2f}.npz"
+                    if not path.exists():
+                        path = args.output_dir / "covariance" / path.name
+                        if not path.exists() and args.prepare_missing_covariances:
+                            template = ROOT / f"results/dmf_schaefer100/unconstrained_spt_wide/shards/{shard}/covariance/seed{seed:02d}_G0.00.npz"
+                            prepare_paired_covariance(path, template=template, seed=seed, coupling_g=coupling_g)
+                        if not path.exists():
+                            raise FileNotFoundError(f"Missing {path}; use --prepare-missing-covariances to compute it")
                     with np.load(path) as cache:
                         simulation_config = json.loads(str(cache["config_json"].item()))
                         if int(cache["seed"].item()) != seed or not np.isclose(cache["G"].item(), coupling_g):
@@ -342,7 +438,9 @@ def main():
     for seed, coupling_g, conditional, expected_xi, provenance in conditions:
         tree, row = load_or_build(conditional, seed=seed, coupling_g=coupling_g, expected_xi=expected_xi,
                                  config=config, output_dir=args.output_dir, reference=reference,
-                                 use_original_reference=not args.wide)
+                                 use_original_reference=not args.wide,
+                                 fallback_cache=DEFAULT_OUTPUT / "wide" / f"seed{seed:02d}_G{coupling_g:.2f}.json"
+                                 if args.wide else None)
         if provenance:
             row["covariance_provenance"] = provenance
         trees.append(tree)
@@ -351,6 +449,9 @@ def main():
     for tree, row in zip(trees, rows, strict=True):
         row["comparison_to_G130_seed04"] = comparison(tree, baseline)
     color_max = math.ceil(max(row["maximum_local_syn_share_percent"] for row in rows) * 2) / 2
+    if args.wide:
+        # Preserve the original 0/1.3/3 visual mapping when replacing its last column.
+        color_max = max(3.0, color_max)
     pairs = []
     for i, first in enumerate(rows):
         for j in range(i + 1, len(rows)):
@@ -375,7 +476,8 @@ def main():
         "selection": f"Declared small grid: G={couplings} and seeds={seeds}; not selected by topology",
         "input": str(args.input), "config": config,
         "original_reference_sha256": sha256(reference_path),
-        "estimator": "Existing high-dimensional Gaussian conditional-covariance approximation; no new EI fit or dynamics",
+        "estimator": "Existing high-dimensional Gaussian conditional-covariance approximation; uniform bounded intervention approximated by independent Gaussian source moments",
+        "simulation_extension": "Only missing requested conditions are simulated; existing covariances and compatible trees are reused",
         "source_blocks": "100 E/I-paired ROI blocks; leaf Xi includes within-ROI E/I increments",
         "normalization": "Each local split Syn / same-condition overall scalar-source Xi * 100",
         "shared_color_range_percent": [0.0, color_max],

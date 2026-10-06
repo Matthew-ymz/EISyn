@@ -235,7 +235,9 @@ def main():
     tail_max = max(max(row["counts"][1:]) for row in rows)
     tail_y_max = max(5.0, math.ceil(tail_max + 0.5))
     figure_dir = Path(source["figure"]).parent
-    overview = figure_dir / "smaller_child_size_distributions_G000_130_300_seeds03_04_05.png"
+    g_tag = "_".join(f"{round(g * 100):03d}" for g in couplings)
+    seed_tag = "_".join(f"{seed:02d}" for seed in seeds)
+    overview = figure_dir / f"smaller_child_size_distributions_G{g_tag}_seeds{seed_tag}.png"
     with plt.rc_context({"font.family": "sans-serif", "font.sans-serif": ["Arial", "DejaVu Sans"],
                          "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 8,
                          "xtick.labelsize": 8, "ytick.labelsize": 8, "axes.linewidth": 0.7,

@@ -24,6 +24,8 @@ $G$ 表示全局耦合强度，ROI 表示图谱脑区。联合预测优势 $\Xi$
 
 ## 阅读导航
 
+论文替换候选图：[主图整合版（a–k）](#dmf-main-composite)，将 93 人曲线／命中率、三个 G 的 SPT 与对应四视角脑图排在同一图版。
+
 最新 93 人识别与回摆结果见正文首节：[序参量转折识别与三指标命中率](#dmf-subject-fixed-window)、[额外回摆比较](#dmf-subject-rebound)。之后进入网络／协同核组织分析；[93 人 EI 两项分解](#dmf-subject-ei-dense)与[群体平均 SC 扫描](#dmf-group-scan)见附录 Q。8 人开发结果和完整统计审计留在附录。
 
 1. [序参量转折能否被指标准确识别？](#dmf-identification)——93 人与平均 SC 的曲线、三指标命中率及额外回摆。
@@ -35,6 +37,26 @@ $G$ 表示全局耦合强度，ROI 表示图谱脑区。联合预测优势 $\Xi$
 补充材料：[A：动力学诊断与结构 null](#appendix-a) · [B：数据、方程与信息分解](#appendix-b) · [C：83/100 ROI 比较](#appendix-c) · [D：DMF 复现文件](#appendix-d) · [E：HCP 57 人验证](#appendix-e) · [F：HCP 状态与空间结果](#appendix-f) · [G：MMP360 大样本探索](#appendix-g) · [H：HCP 结论与边界](#appendix-h)。
 
 新增补充：[I：8 个体开发结果](#dmf-subject-pilot) · [J：指标曲线](#dmf-subject-curves) · [K：EI 分解](#dmf-ei-components) · [L：个体协议与预检](#dmf-subject-plan) · [M：已停止路线及失败原因](#dmf-retired) · [N：PED／O-information](#hcp-ped-oinfo) · [O：脑指纹](#hcp-fingerprinting) · [P：93 人完整统计与审计](#dmf-subject-dense) · [Q：EI 分量与群体平均 SC 扫描](#appendix-q)。
+
+<a id="dmf-main-composite"></a>
+
+## 主图整合版：个体转折定位、层级树与皮层归因
+
+2026-10-06。复用现有结果组装论文主图候选，不运行新模拟或信息估计。图版为 **190 × 211 mm**，PNG 为 450 dpi，PDF 保留曲线、树、文字和色条的矢量内容，脑表面沿用原始渲染。后续正式替换论文图 2 时，应同时按下述口径更新图注与正文。
+
+![DMF 整合主图：93 人转折定位、三个耦合条件的无先验 SPT 与四视角皮层归因](../../fig/dmf_schaefer100/dmf_brain_main_composite.png)
+
+[PDF 图版](../../fig/dmf_schaefer100/dmf_brain_main_composite.pdf) · [高分辨率 PNG](../../fig/dmf_schaefer100/dmf_brain_main_composite.png) · [复现排版脚本](../../scripts/compose_dmf_brain_main_figure.py)
+
+**排版。** 上半部 a–d 为 2×2 曲线，e 为共用两行高度的命中率；下半部按 G=0、1.3、10 分三列，同列的 f–h 层级树与 i–k 脑图上下对应。每个脑图将原来的四视角长行改为 2×2，上排外侧、下排内侧，左为左半球、右为右半球。只移除原脑表面图的空白边缘与旧文字；十二个视角采用相同像素画布及显示比例，不变更 RGB、相机、色域或区域值。树的全部节点和叶子保留，移除节点数值方框及重复的“SPT, seed 3｜Ξ”标题，腾出的高度用于树形，突出宏观结构；seed 信息保留在图注中。图例与两类色条均置于数据区域之外。
+
+**候选图注｜结构连接约束的 DMF 模型中的转折定位与信息组织。** **a–d，** 93 个体 SC 模型的独立平均 E 发放率、整合有效信息 Ξ、BOLD-like pairwise ΦR 和保留符号的 source WMS；每条细线为同一人的 seed 3、4、5 均值，颜色编码原生 SC 谱半径。G=0–4、步长 0.1，保留全部格点，无平滑、幅度归一化或峰位对齐。黑色虚线及圆点为平均 SC 的独立模拟，不是个体曲线的算术平均。发放率单位为 Hz，信息量为 nats；WMS 使用自然态完整 E/I 状态，只有 ΦR 使用 BOLD-like 信号。**e，** 三指标极值命中每个人独立发放率最大正斜率区间扩展窗口的比例：Ξ 为 65/93（69.9%），ΦR 和 WMS 各为 28/93（30.1%）。0.5 G 窗口经同队列事后搜索后固定，只支持当前模型的转折邻域对应。
+
+**f–h，** 平均 SC 下 G=0、1.3、10 的 seed 3 无先验 ROI 块 SPT，叶块保留该 ROI 的 E/I 坐标，树高按 ROI 数对数缩放。节点青绿色、大小与边框编码局部二分 Syn / 同条件根 Ξ，三棵树共用 0–3% 色域，不在节点上标注具体数值。Yeo-7 叶颜色为事后标签，不约束切分；缩写 VIS、SM、DA、SA/VA、LIM、FPN、DMN 依次对应视觉、躯体运动、背侧注意、显著性／腹侧注意、边缘、额顶控制、默认网络。树下报告深度、主干占比与 Colless 不平衡度。**i–k，** 同三个 G 的普通 ROI Shapley 归因份额；逐条件计算 100φᵢ/Ξ 后，在 seed 3、4、5 间等权平均。每个 G 的 100 ROI 份额合计为 100%，十二个视角共用 0.4617%–1.9785% 线性色域，内侧壁为灰色。标题整体 Ξ 为三 seed 的均值 ± seed SD，单位 nats；归因百分比不能直接比较绝对信息强度。
+
+**协议边界。** a–e 为个体结果，f–k 为平均 SC 组织示例。f–h 复用现有条件协方差 Gaussian 近似树，i–k 复用共同 affine-TM Gaussian-moment 九条件缓存；它们按 G 对齐，但不是同一估计／聚合口径，不能把单棵树的根量与三 seed 脑图均值互作归一化分母。G=10 位于原稿 G=0–3 扫描之外，已有异常发放率诊断见[三状态 ROI 归因](#dmf-roi-three-g)；这里只作为极端模型条件。重绘检查通过：93 人既有极值与命中分类不变；曲线／ROI 的原生非负容差为 10⁻⁸ nats，树为 10⁻⁸ bits，所用缓存均无容差内负值或显著非负性违反，信息预算闭合；未裁剪或重新归一化信息值。
+
+**稿件核对（本任务重新读取）。** Zotero 父条目 P6UJCVG8，题名 *Emergent hierarchical organization of causal interactions in complex systems*；正文 DXGC7JEA（19 页）与补充 MWIWKSVG（28 页）。读取 Brain／Fig. 2（正文第 6–7 页）、Methods 式（5）–（12）（第 15–17 页），补充 S1.2–S1.3（第 3–5 页）、S5／Algorithm S1（第 8–9 页）和 S12.2.1 式 S82–S87（第 23 页）。两附件无明确稿件日期或修订号，入库／修改时间不能建立版本先后。原稿图 2b 为 Yeo 首层约束树，图 2e 为峰附近 24 条件的 nats 归因；本图改用无先验树、三 G 百分比脑图，并新增个体识别结果，不能沿用旧图注。原稿的 BOLD-like WMS 表述与仓库完整 E/I WMS 的差别继续明确保留，不宣称完整稿件／代码一致性已验证。
 
 <!-- report-section:dmf-identification:start -->
 <a id="dmf-identification"></a>
@@ -216,93 +238,52 @@ b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独�
 
 <a id="dmf-tree-examples"></a>
 
-#### 2.4.1 大跨度 G 对照：0、1.3、3
+#### 2.4.1 <span style="color: red;">极端耦合 G 对照：0、1.3、10</span>
 
-将耦合间隔拉大到 $G\in\{0,1.3,3\}$，仍取 seed 3、4、5，共九棵树。条件预先按这个小网格选定，没有按树形筛选。本轮直接读取已有配对协方差：同一 seed 的三个 G 共用 2,048 个均匀干预初态及逐步噪声；SC、固定 JFIC、300-step 时距、Gaussian 近似与树搜索均保持一致，没有重跑模拟或拟合 EI。新图中 $G=1.3$ 也使用配对缓存，其随机样本与原图 Q2b 的独立采样不同；因此中央树不是原图的简单重绘。
+<span style="color: red;">将右列由 $G=3$ 替换为 $G=10$，仍取 seed 3、4、5，共九棵树。这个极端参数点位于原 $G=0$–3 扫描以外，用来观察更强耦合时的树形，不作生理范围或临界点判断。左两列直接复用原 $G=0$、1.3 的六棵树；只新增 $G=10$ 的三次模拟、条件协方差拟合与构树。同一 seed 的三个 G 共用 2,048 个 $U(0.30,0.70)^{200}$ 干预初态及逐步噪声；SC、在 $G=1$ 校准后固定的 JFIC、300-step 时距、积分步长 $10^{-3}$ s 和无状态裁剪规则均保持一致。新增三条件输出全部有限，未发生状态裁剪。中央列沿用配对样本，与原图 Q2b 的独立采样仍应区分。</span>
 
-![G 为 0、1.3、3 时三个 seed 的无先验 SPT 对照](../../fig/dmf_schaefer100/tree_examples/wide/tree_examples_G000_130_300_seeds03_04_05.png)
+![G 为 0、1.3、10 时三个 seed 的无先验 SPT 对照](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_examples_G000_130_1000_seeds03_04_05.png)
 
-*图 Q2b 补充 A｜行依次为 seed 3、4、5，列依次为 G=0、1.3、3。同一行比较配对的 G 变化，同一列比较随机种子变化。九图共用高度规则与 0–3% 的节点色标、大小及边框映射；节点数值为局部二分 Syn 占同条件整体 $\Xi$ 的百分比，顶部整体量为 nats。每棵树独立排列叶子，颜色为事后 Yeo 标签。完整 ROI 名称与更多节点标注见下方单图。*
+*<span style="color: red;">图 Q2b 补充 A｜行依次为 seed 3、4、5，列依次为 G=0、1.3、10。同一行比较配对的 G 变化，同一列比较随机种子变化。九图保留原图的高度规则与 0–3% 节点色标、大小及边框映射；节点数值为局部二分 Syn 占同条件整体 $\Xi$ 的百分比，顶部整体量为 nats。因此相近的节点颜色只表示相近份额，不能表示相近绝对信息量。每棵树独立排列叶子，颜色为事后 Yeo 标签。完整 ROI 名称与更多节点标注见下方单图。</span>*
 
 | 单图：G / seed | 整体 $\Xi$ / nats | 最大深度 | 主干占比 | Colless | 最大局部 Syn / nats |
 |---|---:|---:|---:|---:|---:|
-| [0 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed03.png) | 5.774 | 99 | 100.0% | 1.000 | 0.082 |
-| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed03.png) | 18.080 | 79 | 79.8% | 0.867 | 0.444 |
-| [3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed03.png) | 4.470 | 85 | 85.9% | 0.949 | 0.115 |
-| [0 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed04.png) | 5.911 | 99 | 100.0% | 1.000 | 0.082 |
-| [1.3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed04.png) | 17.990 | 79 | 79.8% | 0.873 | 0.429 |
-| [3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed04.png) | 4.394 | 87 | 87.9% | 0.959 | 0.101 |
-| [0 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G000_seed05.png) | 5.821 | 99 | 100.0% | 1.000 | 0.083 |
-| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G130_seed05.png) | 18.000 | 83 | 83.8% | 0.876 | 0.412 |
-| [3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/tree_G300_seed05.png) | 4.388 | 89 | 89.9% | 0.962 | 0.112 |
+| [0 / 3](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G000_seed03.png) | 5.774 | 99 | 100.0% | 1.000 | 0.082 |
+| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G130_seed03.png) | 18.080 | 79 | 79.8% | 0.867 | 0.444 |
+| [<span style="color: red;">10 / 3</span>](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G1000_seed03.png) | <span style="color: red;">0.718</span> | <span style="color: red;">99</span> | <span style="color: red;">100.0%</span> | <span style="color: red;">1.000</span> | <span style="color: red;">0.013</span> |
+| [0 / 4](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G000_seed04.png) | 5.911 | 99 | 100.0% | 1.000 | 0.082 |
+| [1.3 / 4](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G130_seed04.png) | 17.990 | 79 | 79.8% | 0.873 | 0.429 |
+| [<span style="color: red;">10 / 4</span>](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G1000_seed04.png) | <span style="color: red;">0.718</span> | <span style="color: red;">99</span> | <span style="color: red;">100.0%</span> | <span style="color: red;">1.000</span> | <span style="color: red;">0.013</span> |
+| [0 / 5](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G000_seed05.png) | 5.821 | 99 | 100.0% | 1.000 | 0.083 |
+| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G130_seed05.png) | 18.000 | 83 | 83.8% | 0.876 | 0.412 |
+| [<span style="color: red;">10 / 5</span>](../../fig/dmf_schaefer100/tree_examples/wide_G1000/tree_G1000_seed05.png) | <span style="color: red;">0.734</span> | <span style="color: red;">99</span> | <span style="color: red;">100.0%</span> | <span style="color: red;">1.000</span> | <span style="color: red;">0.013</span> |
 
-**在这组例子中，跨 G 的形态和信息量差异大于跨 seed 的差异。** $G=0$ 的三棵树均为纯链；$G=1.3$ 的侧枝更多、主干缩短；$G=3$ 又更接近链形。以下先对同 G 的三个 seed 对、或同 seed 的三个配对 G 对分别计算差异，再报告均值；这些比较共享原始树，只是描述性汇总，不是独立重复的显著性检验。
+<span style="color: red;">**$G=10$ 与 $G=1.3$ 的树形差距更清楚，但两个极端条件的形态相同。** $G=0$、10 的三棵树均为最大深度 99 的纯链；$G=1.3$ 保留局部侧枝，深度为 79、79、83。由中等耦合到 $G=10$，整体 $\Xi$ 从约 18 nats 降至 0.718–0.734 nats，三个 seed 均下降约 96%；最大局部 Syn 也从 0.412–0.444 nats 降至约 0.013 nats。以下对同 G 的三个 seed 对、或同 seed 的三个配对 G 对分别计算差异并报告均值；这些重叠比较只是描述性汇总，不是独立重复的显著性检验。</span>
 
 | 比较（各 3 对） | 深度绝对差均值 | Colless 绝对差均值 | 整体 $\Xi$ 绝对差均值 / nats | ROI 对共同祖先大小的秩相关均值 |
 |---|---:|---:|---:|---:|
 | 固定 G=0，换 seed | 0.00 | 0.0000 | 0.091 | −0.062 |
 | 固定 G=1.3，换 seed | 2.67 | 0.0059 | 0.060 | 0.614 |
-| 固定 G=3，换 seed | 2.67 | 0.0084 | 0.055 | 0.767 |
+| <span style="color: red;">固定 G=10，换 seed</span> | <span style="color: red;">0.00</span> | <span style="color: red;">0.0000</span> | <span style="color: red;">0.011</span> | <span style="color: red;">−0.034</span> |
 | 固定 seed，G=0 对 1.3 | 18.67 | 0.1276 | 12.188 | 0.043 |
-| 固定 seed，G=1.3 对 3 | 6.67 | 0.0842 | 13.606 | −0.206 |
+| <span style="color: red;">固定 seed，G=0 对 10</span> | <span style="color: red;">0.00</span> | <span style="color: red;">0.0000</span> | <span style="color: red;">5.112</span> | <span style="color: red;">0.117</span> |
+| <span style="color: red;">固定 seed，G=1.3 对 10</span> | <span style="color: red;">18.67</span> | <span style="color: red;">0.1276</span> | <span style="color: red;">17.300</span> | <span style="color: red;">−0.029</span> |
 
-逐 seed 看，0 对 1.3 的深度差为 16–20，1.3 对 3 为 6–8，均超过固定 G 跨 seed 的最大深度差 4。Colless 的跨 G 差也与跨 seed 差清楚分开。共同祖先比较固定相同的 4,950 个 ROI 对，取每对 ROI 最小共同子树的大小，再比较其 Spearman 秩相关；它不受绘制顺序影响。1.3 和 3 各自在 seed 间的相关较高，而同 seed 的 1.3 对 3 相关为负，支持具体嵌套成员随 G 重组。三个配对 seed 在任意两种 G 之间均不共享非根内部子树（0 / 98），同 G=1.3 的 seed 对共享 13–17 / 98，G=3 为 12–14 / 98；仍不能把同一 G 的具体完整树当作固定不变的成员划分。
+<span style="color: red;">逐 seed 看，1.3 对 10 的深度差为 20、20、16，超过固定 G 跨 seed 的最大深度差 4；原 1.3 对 3 的差为 6–8。共同祖先比较固定相同的 4,950 个 ROI 对，取每对 ROI 最小共同子树的大小后计算 Spearman 秩相关，不受绘制顺序影响。$G=1.3$ 的 seed 间相关均值为 0.614；$G=10$ 为 −0.034，且三个 seed 对均不共享非根内部子树（0 / 98）。因此强耦合端的链形可以重复出现，具体 ROI 退出次序却不稳定。任意两种 G 的同 seed 树也均不共享非根内部子树；形态差异和成员稳定性应分别解释。</span>
 
-**G=0 的形态一致不等于其成员稳定。** 三个纯链的 ROI 退出次序不同，跨 seed 的共同祖先相关约为 0，且不共享非根内部子树。此时模型关闭了长程耦合，但 ROI 内 E/I 耦合仍存在；全系统跨 ROI 估计量还有高维有限样本／拟合背景（见第 3 节）。因此 G=0 的正节点值与纯链排序不能解释为真实长程协同机制。本节支持当前 Gaussian 估计及搜索口径下的大跨度差异，不建立动力学相变或估计器无关的组织规律。
+<span style="color: red;">**同为纯链并不意味着 $G=0$ 与 $G=10$ 具有相同机制。** $G=0$ 关闭了长程耦合，仍保留 ROI 内 E/I 耦合；$G=10$ 保留强长程耦合，但此时估计的整体信息量很低。高维有限样本／拟合背景仍影响节点值和退出次序，当前三个条件没有新增独立动力学定位或估计器稳健性分析。这个视觉对照支持当前固定参数、Gaussian 近似与搜索预算下的树形变化。</span>
 
-九棵树仍使用图 Q2b 的谱候选、至多八个 ROI 精确枚举，不补齐全部单 ROI 候选或加入随机候选；没有沿用原宽扫描树的另一搜索预算。预设非负容差为 $10^{-8}$ bits，891 个内部 Syn 和 900 个叶块 $\Xi$ 的容差内负值与显著违反数均为 0；最大全树闭合误差为 $7.11\times10^{-15}$ bits。缓存单变量行列式与原公式的小／大联盟核对差异为 0。本轮重新经 Zotero 核验主稿父条目 `P6UJCVG8` 与当前唯一正文附件 `DXGC7JEA`（19 页，2026-10-02 入库），读取 Brain／Fig. 2（第 6–7 页）及 Methods 式（5）–（12）（第 15–17 页）；正文无明确修订号／稿件日期，所引补充附录仍缺失。Yeo 约束稿件图与仓库无先验 ROI 块树、ROI 内 E/I 叶增量及既有高维 Gaussian 近似保持区分。
+<span style="color: red;">九棵树仍使用图 Q2b 的谱候选、至多八个 ROI 精确枚举，不补齐全部单 ROI 候选或加入随机候选。为与左两列直接比较，新增条件沿用既有 200 维 Gaussian 条件协方差近似和 $10^{-6}$ ridge；该近似以独立 Gaussian 源矩代替有界均匀源分布，便于高维联盟查询，不是一般非线性 TM 对原有界干预 EI 的精确估计。预设非负容差为 $10^{-8}$ bits（约 $6.93\times10^{-9}$ nats）；891 个内部 Syn 和 900 个叶块 $\Xi$ 的容差内负值及显著违反数均为 0，pair 和候选切分的容差内归零数也均为 0；最大全树闭合误差为 $7.11\times10^{-15}$ bits，未裁剪 Syn。</span>
 
-入口为 `scripts/plot_dmf_schaefer100_tree_examples.py --wide`，逐条件缓存、输入指纹、数值审计与差异汇总保存在 `results/dmf_schaefer100/xi_hierarchy_tree/examples/wide/`。原先的小间隔例子保留在[第 2.4.3 节](#dmf-tree-examples-near)，不能把两个采样协议的树混作同一组比较。
+<span style="color: red;">本轮于 2026-10-06 重新核验 Zotero 父条目 `P6UJCVG8` 的题名 *Emergent hierarchical organization of causal interactions in complex systems*，读取正文附件 `DXGC7JEA`（19/19 页）和新增可用的补充附件 `MWIWKSVG`（28/28 页）。相关位置为正文 Brain／Fig. 2（第 6–7 页）、Methods 式（5）–（12）（第 15–17 页），补充 S1.2（第 3–4 页）、S5 的谱候选及 Algorithm S1（第 8–9 页）、S12.2.1 的 DMF 方程和干预协议（第 23 页，式 S82–S87）。两个附件均没有明确稿件日期或修订号；入库或元数据修改时间不能确定稿件版本先后。谱候选与固定参数协议得到全文支持，稿件 Yeo 首层约束树与此处无先验 ROI 块树及非零 E/I 叶增量仍需区分，不能据此宣称完整稿件／代码一致。</span>
 
-<a id="dmf-smaller-child-sizes"></a>
-
-#### 2.4.2 沿较大子集主干剥离的团簇尺寸分布
-
-**将每个 ROI 只计入一个团簇后，中等耦合条件仍呈现更丰富的尺寸分布。** 本节按修正口径替换原先的全节点统计：从上一节每棵树的根开始，每次记录较小子集，将它作为一个完整团簇退出统计，只沿较大子集继续；最后剩下的单个 ROI 也计为一个团簇。已退出团簇的内部切分不再计数。等大时固定沿排序后 ROI 索引字典序较小的一侧继续，另一侧退出；该规则不依赖图中的左右绘制顺序。
-
-这样得到互不重叠、覆盖全部 ROI 的团簇集合 $\mathcal{C}$。设尺寸为 $k$ 的团簇数为 $n(k)$，则每棵树都满足
-
-$$
-\sum_k k\,n(k)=\sum_{C\in\mathcal{C}}|C|=100.
-$$
-
-这里守恒的是“尺寸 × 频次”的总和；柱高之和 $M=\sum_k n(k)$ 是团簇数，会随树形变化。统计单位仍为 ROI 块，每块含一对 E/I 状态；若按 E/I 标量变量计，尺寸翻倍，守恒总数为 200。完整 SPT 的构树规则保持原样，本节只改变统计时沿树的遍历方式，不按 Syn 加权。
-
-![九棵配对 SPT 沿较大子集主干剥离的团簇尺寸分布](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_size_distributions_G000_130_300_seeds03_04_05.png)
-
-*图 Q2b 补充 B｜行依次为 seed 3、4、5，列依次为 G=0、1.3、3，与补充 A 的树逐一对应。横轴为剥离团簇的 ROI 数，纵轴为原始团簇次数，包含最后剩余的单个 ROI。灰色为单点团簇，绿色为多点团簇；插图放大尺寸 $k\geq2$ 的原始次数，共用 0–5 范围，没有对尾部归一化。理论尺寸支持为 1–50，九图均未出现大于 12 的尺寸，其余计数为零；没有平滑或合并分箱。各图注明尺寸与频次乘积之和为 100。*
-
-用 $p(k)=n(k)/M$ 计算尺寸分布的 Shannon 熵 $H=-\sum_{k:p(k)>0}p(k)\log_2p(k)$，单位为 bits；它是团簇尺寸的多样性指标，不是 EI、Syn 或整体 $\Xi$。另统计多点团簇覆盖的 ROI 数 $\sum_{k\geq2}k\,n(k)$，以固定的 100 个 ROI 为分母。
-
-| 分布单图：G / seed | 团簇数 $M$ | 单点团簇数 $n(1)$ | 多点团簇覆盖的 ROI / 100 | 分布熵 $H$ / bits |
-|---|---:|---:|---:|---:|
-| [0 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed03.png) | 100 | 100 | 0 | 0.000 |
-| [1.3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed03.png) | 80 | 75 | 25 | 0.432 |
-| [3 / 3](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed03.png) | 86 | 82 | 18 | 0.309 |
-| [0 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed04.png) | 100 | 100 | 0 | 0.000 |
-| [1.3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed04.png) | 80 | 73 | 27 | 0.624 |
-| [3 / 4](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed04.png) | 88 | 84 | 16 | 0.335 |
-| [0 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G000_seed05.png) | 100 | 100 | 0 | 0.000 |
-| [1.3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G130_seed05.png) | 84 | 76 | 24 | 0.597 |
-| [3 / 5](../../fig/dmf_schaefer100/tree_examples/wide/smaller_child_sizes_G300_seed05.png) | 90 | 86 | 14 | 0.298 |
-
-例如 $G=1.3$、seed 4 的尺寸与次数满足 $1\times73+2\times2+3\times1+4\times2+5\times1+7\times1=100$，而团簇总数为 $73+2+1+2+1+1=80$。$G=0$ 则为 100 个互不重叠的单点团簇，$n(1)=100$。
-
-| G | 团簇数 $M$ | 多点团簇覆盖的 ROI 比例 | 分布熵 $H$ / bits |
-|---|---:|---:|---:|
-| 0 | 100.00 ± 0.00 | 0.00% ± 0.00% | 0.000 ± 0.000 |
-| 1.3 | 81.33 ± 2.31 | 25.33% ± 1.53% | 0.551 ± 0.104 |
-| 3 | 88.00 ± 2.00 | 16.00% ± 2.00% | 0.314 ± 0.019 |
-
-表中为固定等大规则下三个 seed 的均值 ± 样本 SD；百分比的 SD 以百分点计。三个配对 seed 下，$G=1.3$ 的分布熵和多点团簇覆盖比例均高于 $G=3$。中等耦合下有 24–27 个 ROI 被记录在多点团簇中，强耦合下为 14–18 个，零耦合下为 0。中等耦合仍保留 73–76 个单点团簇，尚未接近均匀分布；强耦合的最大剥离团簇可更大，因此尺寸多样性增加不等于最大团簇更大。
-
-**等大切分带来可记录的选择差异。** seed 3 的 $G=1.3$ 与 $G=3$ 分别出现 11+11、12+12 的非末端等分。枚举两侧延续选择后，前者的 $H$ 为 0.432–0.544 bits、多点覆盖为 25–29 ROI；后者的 $H$ 为 0.309–0.365 bits、多点覆盖为 18–20 ROI。其余七棵树仅有末端 1+1 等分，尺寸分布不受选择影响。所有备选分布仍满足逐 ROI 唯一覆盖及总数 100；任一等大选择下，三个配对 seed 的中等耦合熵与多点覆盖都高于强耦合。
+<span style="color: red;">**等大切分的选择差异仍保留。** seed 3 的 $G=1.3$ 出现 11+11 的非末端等分；枚举两侧延续选择后，$H$ 为 0.432–0.544 bits、多点覆盖为 25–29 ROI。其余八棵树仅有末端 1+1 等分，尺寸分布不受选择影响。所有备选分布均满足逐 ROI 唯一覆盖及总数 100；任一等大选择下，三个配对 seed 的中等耦合熵与多点覆盖都高于 $G=10$。</span>
 
 这个指标刻画沿主干剥离得到的团簇尺寸，不识别稳定成员或信息强度。来自同一棵树的团簇也不能当作独立重复，比较的重复单位仍为三个 seed。本节支持当前缓存及搜索口径下中等耦合的尺寸多样性增加，**不能单独确立临界相变**，也不消除 $G=0$ 的有限样本估计背景或候选搜索范围的影响。
 
-本轮只读取既有树，未重跑动力学、估计 EI/Syn 或构树。全部 891 个内部 Syn 与 900 个叶块 $\Xi$ 仍按 $10^{-8}$ bits 非负容差核验，容差内负值和显著违反数均为零。用链形、平衡二分树及等大但结构不同的两侧核对终点计数、唯一覆盖、尺寸守恒和绘图左右顺序不变性。经 Zotero 重新查询的主稿仍为父条目 `P6UJCVG8`、正文附件 `DXGC7JEA`（19 页，2026-10-02 入库；无明确稿件日期／修订号，补充附录缺失），本轮重新阅读 Brain／Fig. 2（第 6–7 页）及 Methods 式（5）–（12）（第 15–17 页）。正文 Yeo 约束树与此处无先验 ROI 块树的区别沿用上一节说明；主干剥离分布是新增的形态统计。
+<span style="color: red;">本节分布计算只读取上一节的九棵树，没有追加模拟或构树。全部 891 个内部 Syn 与 900 个叶块 $\Xi$ 按 $10^{-8}$ bits 非负容差重新核验，容差内负值和显著违反数均为零；九棵树的所有等大备选分布均满足逐 ROI 唯一覆盖和尺寸守恒。2026-10-06 的主稿及补充材料核对、估计器和 ROI 叶块口径见上一节；主干剥离分布继续作为形态统计使用。</span>
 
-分布图入口仍为 `scripts/plot_dmf_spt_smaller_child_distribution.py`。统计记录、完整 1–50 频次、各团簇 ROI 成员、等大选择的备选结果与输入指纹保存在 `results/dmf_schaefer100/xi_hierarchy_tree/examples/wide/smaller_child_size_summary.json`，本节图表已全部替换为新口径。
+<span style="color: red;">分布图入口为 `scripts/plot_dmf_spt_smaller_child_distribution.py --input results/dmf_schaefer100/xi_hierarchy_tree/examples/wide_G1000/summary.json`。统计记录、完整 1–50 频次、各团簇 ROI 成员、等大选择的备选结果与输入指纹保存在同目录的 `smaller_child_size_summary.json`；本节图表与上一节的 $G=0$、1.3、10 条件一致。</span>
 
 <a id="dmf-tree-examples-near"></a>
 
@@ -346,43 +327,45 @@ $$
 
 #### 2.5.1 三种耦合状态：信息总量与空间份额同时改变
 
-**平均 SC 模型中，整体 $\Xi$ 在 $G=1.3$ 达峰，而普通 ROI Shapley 的相对份额在 $G=0$、1.3、3 之间发生可重复的重排。** 本节实施[三状态四视图方案](brain_roi_fourview_plan.md)的第一阶段，采用与附录 P 细扫描一致的 affine-TM 平均 SC 独立模拟，seed 为 3、4、5。它不是 93 个体脑图的平均；也不与图 Q2e 的旧经验 Gaussian、24 条件归因合并。细扫描的平均 SC 均值及三个 seed 均在 $G=1.3$ 达峰。
+<span style="color: red;">**将强耦合端改为 $G=10$ 后，ROI 归因呈现“较平缓—明显分化—接近等份”的空间变化，同时整体 $\Xi$ 从峰值大幅下降。** 本节比较平均 SC 模型的 $G=0$、1.3、10，seed 为 3、4、5；采用与附录 P 一致的共同 affine-TM 方法。$G=0$ 和 1.3 的六条件复用原密度缓存，新增三个 $G=10$ 条件。前两排的原始排列贡献与原图逐值相同。细扫描的平均 SC 均值及三个 seed 均在 $G=1.3$ 达峰；该结论来自原 $G=0$–4 扫描，本轮补充一个极端工作点。</span>
 
-![平均 SC affine-TM 模型在 G 为 0、1.3、3 时的整体 Xi ROI 归因百分比四视图](../../fig/dmf_schaefer100/roi_shapley_three_G/roi_share_three_G.png)
+![平均 SC affine-TM 模型在 G 为 0、1.3、10 时的整体 Xi ROI 归因百分比四视图](../../fig/dmf_schaefer100/roi_shapley_three_G_G1000/roi_share_three_G.png)
 
-*图 Q2e 补充｜三排依次为 G=0、1.3、3；四列依次为左外侧、右外侧、左内侧、右内侧。每个 ROI 的 E/I 坐标作为一个 Shapley 参与者，联盟价值为其全部标量源的整体 $\Xi$，target 固定为完整未来 E/I 状态。先将逐条件归因除以同条件的整体 $\Xi$ 并乘 100，再等权平均三个 seed；每排 100 个 ROI 的份额合计为 100%。全部脑表面共用 0–3.8184% 的 viridis 色标、网格、相机和照明，内侧壁为灰色。每排旁标注整体量的均值 ± seed SD，单位 nats；四个视角展示同一组数值，颜色不编码皮层面积。[PDF 版](../../fig/dmf_schaefer100/roi_shapley_three_G/roi_share_three_G.pdf)。*
+<span style="color: red;">*图 Q2e 补充｜三排依次为 G=0、1.3、10；四列依次为左外侧、右外侧、左内侧、右内侧。每个 ROI 的 E/I 坐标作为一个 Shapley 参与者，联盟价值为其全部标量源的整体 $\Xi$，target 固定为完整未来 E/I 状态。逐条件归因除以同条件的整体 $\Xi$ 并乘 100，再等权平均三个 seed；每排 100 个 ROI 的份额合计为 100%。三排共用线性 viridis 色标，范围为当前全部均值图 ROI 的实际最小值至最大值（0.4617%–1.9785%），使最高归因区域呈现色带顶端的亮黄色，并增大区域间的颜色区分度。色条两端显式标出实际范围，低端紫色表示 0.4617%，不表示零；各排不单独缩放，未裁切或修改归因值。网格、相机和照明保持原设置，内侧壁为灰色。旁注为整体量均值 ± seed SD，单位 nats。四个视角展示同一组数值，颜色不编码皮层面积。[PDF 版](../../fig/dmf_schaefer100/roi_shapley_three_G_G1000/roi_share_three_G.pdf)。*</span>
 
 | G | 整体 $\Xi$ / nats，均值 ± seed SD | ROI 内 E/I 量 / nats，均值 | 跨 ROI 估计量 / nats，均值 | 均值图 ROI 份额范围 / % |
 |---|---:|---:|---:|---:|
 | 0 | 5.8395 ± 0.0739 | 1.4134 | 4.4261 | 0.748–1.425 |
 | 1.3 | 18.0127 ± 0.0439 | 2.1269 | 15.8858 | 0.462–1.978 |
-| 3 | 4.4204 ± 0.0335 | 0.3379 | 4.0825 | 0.247–3.818 |
+| <span style="color: red;">10</span> | <span style="color: red;">0.7235 ± 0.0127</span> | <span style="color: red;">0.0031</span> | <span style="color: red;">0.7203</span> | <span style="color: red;">0.881–1.120</span> |
 
-峰值状态的前三个 parcel 为 RH SomMot 2（1.978%）、LH SalVentAttn Med 2（1.834%）和 RH SalVentAttn Med 1（1.791%）。高耦合端的前三个变为 LH Default PFC 3（3.818%）、RH Default PFCdPFCm 1（3.760%）和 RH Limbic OFC 1（3.586%）。因此当前普通 ROI 归因支持感觉运动／显著性相关区域与前额叶／眶额区域之间的份额重排；这一定位结果独立于 SPT 成员换核，前十名也不等同于协同核。
+<span style="color: red;">$G=1.3$ 的空间差异最明显，前三个 parcel 为 RH SomMot 2（1.978%）、LH SalVentAttn Med 2（1.834%）和 RH SalVentAttn Med 1（1.791%）。$G=10$ 的均值图接近每 ROI 1% 的等份参照，原 $G=3$ 的前额叶／眶额集中热点消失。新图数值前三名为 RH Vis 3（1.120%）、LH Limbic OFC 1（1.100%）和 RH Cont PFCl 2（1.095%），但它们只比等份略高，不能据此提出稳定的极端耦合热点。普通 ROI 归因分配整体量，前十名不等同于 SPT 协同核。</span>
 
 每个 seed 内配对比较 ROI 份额，用总变差距离衡量需重新分配的信息预算，再报告三个 seed 的均值和范围。百分数口径的距离范围为 0–100；ROI 数量不作为统计重复数。
 
 | 配对 G 对照 | 预算重分配 / %，均值 [范围] | 逐 seed ROI 秩相关范围 | 三个 seed 同向变化的 ROI 数 | 逐 seed 前十名交集数 |
 |---|---:|---:|---:|---:|
 | 0 → 1.3 | 21.25 [21.01, 21.71] | −0.772 至 −0.738 | 92 / 100 | 0、0、0 |
-| 1.3 → 3 | 48.02 [47.72, 48.20] | −0.675 至 −0.651 | 98 / 100 | 0、0、0 |
-| 0 → 3 | 31.48 [30.90, 31.82] | 0.669 至 0.737 | 94 / 100 | 4、5、3 |
+| <span style="color: red;">1.3 → 10</span> | <span style="color: red;">15.87 [15.29, 16.18]</span> | <span style="color: red;">−0.075 至 0.021</span> | <span style="color: red;">87 / 100</span> | <span style="color: red;">0、0、1</span> |
+| <span style="color: red;">0 → 10</span> | <span style="color: red;">7.95 [7.46, 8.88]</span> | <span style="color: red;">−0.076 至 0.169</span> | <span style="color: red;">56 / 100</span> | <span style="color: red;">0、2、1</span> |
 
-固定 G 换 seed 时，预算距离均值分别为 4.84%、2.43%、3.99%，ROI 秩相关均值分别为 0.760、0.982、0.956；均小于跨 G 的预算距离。这支持当前平均 SC、固定协议下的模拟重复性，未检验人群空间显著性或空间自相关 null。
+<span style="color: red;">固定 G 换 seed 时，预算距离均值依次为 4.84%、2.43%、6.09%，ROI 秩相关均值依次为 0.760、0.982、−0.065。峰值状态的空间排序稳定；$G=10$ 的细小残余差异缺乏跨 seed 排名一致性。接近均匀也不是仅由平均抵消造成：三个 $G=10$ seed 与 1% 等份图的预算距离为 4.10%、4.14%、4.39%，低于 $G=1.3$ 的 15.69%、14.91%、15.57%；平均后 $G=10$ 进一步收缩至 2.31%。这支持“空间分化减弱”，不支持保留某个稳定强耦合热点。尚未检验人群空间显著性或空间自相关 null。</span>
 
-**高耦合端的百分比热点更集中，但其整体信息预算更小。** [绝对 nats 四视图](../../fig/dmf_schaefer100/roi_shapley_three_G/roi_nats_three_G.png)使用统一 0–0.3564 nats 色标；三状态最大 ROI 绝对归因分别为 0.0833、0.3564、0.1687 nats。总量下降不意味着每个 ROI 都下降：1.3 → 3 的均值绝对归因在 12 个 ROI 上升，其中 10 个在三个 seed 均上升。例如 RH Limbic OFC 1 从 0.0926 增至 0.1586 nats，同时份额从 0.514% 增至 3.586%。[百分点差值四视图](../../fig/dmf_schaefer100/roi_shapley_three_G/roi_share_difference.png)进一步定位两次重排，两组共用 ±3.0724 个百分点的对称色标；负差值表示份额下降。
+<span style="color: red;">**接近均匀的百分比图对应一个很小的信息预算。** [绝对 nats 四视图](../../fig/dmf_schaefer100/roi_shapley_three_G_G1000/roi_nats_three_G.png)保留共同 0–0.3564 nats 色标；三状态最大 ROI 均值归因依次为 0.0833、0.3564、0.0081 nats。$G=10$ 的整体 $\Xi$ 比 1.3 低 95.98%，全部 100 个 ROI 的绝对归因在三个配对 seed 中均下降，且均低于 $G=0$。百分比约 1% 表示小预算的近似等分，不能解释为每个 ROI 保持了中间状态的信息量。[百分点差值四视图](../../fig/dmf_schaefer100/roi_shapley_three_G_G1000/roi_share_difference.png)比较 1.3−0 和 10−1.3，共用 ±1.1492 个百分点的对称色标；负差值表示份额下降。</span>
 
-G=0 的份额较接近每 ROI 1% 的等份参照，但仍存在局部 E/I 贡献及约 4.426 nats 的跨 ROI 拟合背景。即使部分排序跨 seed 一致，也不能赋予其真实长程协同含义。本轮保留原始估计，没有扣除背景、置零整排或重新分配份额。主稿图 2e 的普通 ROI 归因定义与本图一致，但旧图只展示峰附近窗口；新图扩展了模型工作点的空间比较。与[方案第 5 节](brain_roi_fourview_plan.md#5-预期结果与文献解释)中的观察性 ΦID、PED 文献只作定义有区别的组织对照，不能从当前颜色分布宣称复现人脑协同梯度或确认临界点。
+<span style="color: red;">$G=0$ 仍包含局部 E/I 贡献及约 4.426 nats 的跨 ROI 拟合背景；其局部颜色不能赋予真实长程协同含义。本轮保留原始估计，没有扣除背景、置零整排或重新分配份额。$G=10$ 的小量残余也未经有限样本 null 校正，不能由非零颜色确认真实跨 ROI 整合。主稿图 2e 是旧经验 Gaussian、24 条件峰附近窗口；本节是平均 SC 的九条件 affine-TM 比较，不是 93 个体脑图的平均。与[方案第 5 节](brain_roi_fourview_plan.md#5-预期结果与文献解释)的观察性 ΦID、PED 文献只作定义有区别的组织对照。</span>
 
-九份共同密度均复用已有缓存；SC 原权重、冻结 JFIC、2,048 个因子化 U(0.30,0.70) 初态、200 维 E/I source/target、300 ms 时距、dt=1 ms、噪声和 ridge=10⁻⁶ 保持固定。逐条件 $\Xi$ 与细扫描一致，实际初态 SHA256 匹配。原缓存未保存原始噪声数组；已核对噪声种子、数组形状及经过指纹验证的模拟代码，300 步中每步恰好消耗两组正态噪声，消费顺序不随 G 改变。affine-TM 以对角 Gaussian 源先验匹配均匀干预的矩，转移和残差采用线性／Gaussian 近似；本图不能称为精确均匀干预 EI 或非线性 TM。
+<span style="color: red;">新增条件保持 SC 原权重、冻结 JFIC、2,048 个因子化 U(0.30,0.70) 初态、200 维 E/I source/target、300 ms 时距、dt=1 ms、噪声和 ridge=10⁻⁶；实际初态 SHA256 匹配，噪声种子及每步两组正态噪声的消费顺序保持相同。$G=10$ 不是原细扫描中的缓存条件；本轮按同协议重跑并拟合三份密度，未混入树图的经验 Gaussian 条件协方差。affine-TM 以对角 Gaussian 源先验匹配均匀干预的矩，转移和残差采用线性／Gaussian 近似；没有采用补充式（S13）–（S15）的低维特征提升或有限样本 MI 修正，不能称为精确均匀干预 EI 或非线性 TM。</span>
 
-每条件使用 512 对随机排列／反向排列，即 1,024 次排列；同一组排列用于全部九条件。预定三个精度门槛均在首个预算检查通过：均值图最大 MC SE 为 0.02287 个百分点（阈值 0.03），逐条件最大 MC SE 为 0.02446（阈值 0.05），前后半样本均值图最大差为 0.06050（阈值 0.10）。三个 G 的半样本秩相关为 0.999868、0.998884、0.999796，前十名交集为 10、9、10；排名仅作诊断。配对份额差的最大 MC SE 为 0.01847、0.02189、0.02257 个百分点，保留共同排列带来的协方差；seed SD 与 MC SE 分别记录。
+<span style="color: red;">**$G=10$ 已超过原放电率诊断范围，属于极端模型对照。** 三个 seed 的最高瞬时放电率为 528.34、528.39、528.39 Hz，约 0.4568% 的 E/I rate 条目超过原 500 Hz 上限。通过显式极端状态选项继续原方程并记录超限，未裁切 rate 或 state；非有限量仍立即失败，state 全部位于 [0,1]（实际范围约 0.0487–0.9736）。诊断策略扩展不改变积分结果：在未超限参照上，两条路径的末态逐值相同。该工作点不能直接沿用常规生理范围的解释。</span>
 
-原生非负容差为 **10⁻⁸ nats**。整体 $\Xi$、局部量、最终 ROI 及跨 ROI 归因均无负值；抽样边际最小值为 $3.73\times10^{-10}$ nats。边际减去局部 E/I 量的跨 ROI 检查出现 4,040 个容差内负值，最小为 $-3.05\times10^{-16}$ nats，全部保留原值；显著违反数为 0。最大排列闭合误差为 $5.68\times10^{-14}$ nats，逐条件百分比和的最大误差为 $8.96\times10^{-13}$ 个百分点。20 项相关科学与绘图检查通过，并已目视检查 PNG 的完整脑轮廓、色标、标签和边缘。
+<span style="color: red;">每条件使用 512 对随机排列／反向排列，即 1,024 次排列；同一组排列用于全部九条件。预定三个精度门槛均在首个预算检查通过：均值图最大 MC SE 为 0.01869 个百分点（阈值 0.03），逐条件最大 MC SE 为 0.01892（阈值 0.05），前后半样本均值图最大差为 0.06050（阈值 0.10）。三个 G 的半样本秩相关为 0.999868、0.998884、0.999112，前十名交集为 10、9、9；排名仅作抽样诊断，不能替代跨 seed 稳定性。配对份额差的最大 MC SE 为 0.01847、0.01812、0.000884 个百分点；seed SD 与 MC SE 分别记录。</span>
 
-本轮于 2026-10-04 重新经 Zotero 查询并核实主稿父条目 `P6UJCVG8` 及其唯一正文附件 `DXGC7JEA`（19 页），读取 Brain／Fig. 2（pp.6–7）和 Methods 式（5）–（12）（pp.15–17）。正文仍无明确稿件日期／修订号，2026-10-02 入库时间不确立版本先后，所引补充附录仍不可用。已核对可见正文的共同干预、固定 target 和标量精细 $\Xi$ 定义；不宣称缺失附录或完整稿件—代码一致性已验证。
+<span style="color: red;">原生非负容差为 **10⁻⁸ nats**。整体 $\Xi$、局部量、最终 ROI 及跨 ROI 归因均无负值；抽样边际最小值为 $7.42\times10^{-11}$ nats。边际减去局部 E/I 量的跨 ROI 检查出现 3,744 个容差内负值，最小为 $-3.05\times10^{-16}$ nats，全部保留原值；显著违反数为 0。最大排列闭合误差为 $5.68\times10^{-14}$ nats，逐条件百分比和的最大误差为 $8.95\times10^{-13}$ 个百分点。10 项原有 ROI 科学检查通过；另核对原积分末态一致性、非有限量失败、前两排逐值复现，并目视检查脑轮廓、共享色标、标签和边缘。</span>
 
-复现入口为 `scripts/plot_dmf_roi_shapley_three_g.py`，匹配指纹的归因缓存可直接复用。逐 seed ROI 表、nats 归因、配对 MC 误差、来源和精度记录保存在 `results/dmf_schaefer100/roi_shapley_three_G/`；PNG/PDF 保存在 `fig/dmf_schaefer100/roi_shapley_three_G/`。本轮未追加动力学、SPT 或个体扩展。
+<span style="color: red;">2026-10-06 重新经 Zotero 核实主稿父条目 `P6UJCVG8`，读取正文附件 `DXGC7JEA`（19 页）的 Brain／Fig. 2（pp.6–7）、Methods 式（5）–（12）（pp.15–17），以及补充附件 `MWIWKSVG`（28 页）的 S1.2–S1.3（pp.3–5）、S12.2.1（p.23）。目前各有一份正文与补充附件，未见明确稿件日期／修订号；附件时间戳不确立稿件版本。已核对共同干预、固定 target、标量精细 $\Xi$ 及归因效率条件，并明确上述估计近似与放电率诊断扩展。</span>
+
+<span style="color: red;">复现入口为 `scripts/plot_dmf_roi_shapley_three_g.py --strong-g 10 --allow-extreme-rates --scale-reference results/dmf_schaefer100/roi_shapley_three_G/summary.json`，匹配指纹的密度和归因缓存可直接复用；缺少极端条件缓存时才加 `--prepare-missing-conditions`。2026-10-06 的配色调整仅重绘已有结果；百分比图使用当前数据范围，`--scale-reference` 只保留绝对 nats 图的历史色标。逐 seed 表、nats 归因、配对 MC 误差、诊断及来源保存在 `results/dmf_schaefer100/roi_shapley_three_G_G1000/`；PNG/PDF 保存在 `fig/dmf_schaefer100/roi_shapley_three_G_G1000/`。原 G=3 图与缓存保留；本轮仅新增三个极端条件，未扩展 SPT 搜索或个体实验。</span>
 
 <a id="dmf-spt-main"></a>
 
