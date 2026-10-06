@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Draw the exact XOR/copy examples of the current symmetric EI candidate.
+"""Draw exact XOR/copy examples using the designated single-end EI definition.
 
-Definition source (read 2026-10-05):
-  docs/ref/1对n的EI分解_最小耦合方案.md, Eqs. (1-1)--(1-4), (2-1).
+Definition source (read 2026-10-06):
+  docs/ref/1对n的EI分解_最小耦合方案.md, Eqs. (1-1)--(1-8), Sections 2.1--2.2.
 Fresh Zotero check:
   parent P6UJCVG8, verified title: Emergent hierarchical organization of
   causal interactions in complex systems; children DXGC7JEA (main, 19 pages)
   and MWIWKSVG (supplement, 28 pages). Read main Methods pp. 15--16,
   Eqs. (5)--(8), supplement S1.1, S2 and S3.1, Eqs. (S20)--(S36).
   Neither attachment supplies an explicit manuscript date/version. Metadata
-  dates alone do not resolve manuscript version order. This figure uses the
-  Markdown's new three-position extractable-co-information candidate; it does
-  not assert that the manuscript's full-LC axiom package defines this candidate.
+  dates alone do not resolve manuscript version order. The figure directly
+  uses R(U,V;W)=C_ext(U,V;W), with W as the only processed endpoint. The
+  manuscript's full-LC axiom package is not asserted for this information quantity.
 
 One-step binary mechanisms, uniform intervention, all information in bits.
 No EI estimator or numerical channel optimizer: rational tables and integer
 base-2 logarithms give exact values. A constant channel attains the pair-MI
-upper bound in XOR; identity channels attain it in copy. These bounds certify
+upper bound in XOR; an identity channel attains it in copy. These bounds certify
 optimality over *all* local stochastic channels, not just deterministic ones.
 Syn nonnegative tolerance = 0 bit (exact arithmetic); affected count = 0.
 """
@@ -78,17 +78,15 @@ def exact_examples():
         pair = [mutual_information(table, (a,), (b,)) for a, b in ((0, 1), (0, 2), (1, 2))]
         joint = mutual_information(table, (0, 1), (2,))
         original_cmi = conditional_information(table, (0,), (1,), (2,))
-        extractable = []
-        for a, b, t in ((0, 1, 2), (0, 2, 1), (1, 2, 0)):
-            # Z=constant for XOR, Z=T for copy.
-            processed = {state + ((0 if name == "xor" else state[t]),): p for state, p in table.items()}
-            cmi = conditional_information(processed, (a,), (b,), (3,))
-            upper = mutual_information(table, (a,), (b,))
-            attained = upper - cmi
-            if attained != upper:
-                raise AssertionError("Witness did not attain the global pair-MI bound.")
-            extractable.append(attained)
-        redundancy = max(extractable)
+        # The third position is the sole processing endpoint:
+        # Both use (U,V;W); W is the target in XOR and the source in copy.
+        processed = {state + ((0 if name == "xor" else state[2]),): p
+                     for state, p in table.items()}
+        cmi = conditional_information(processed, (0,), (1,), (3,))
+        upper = mutual_information(table, (0,), (1,))
+        redundancy = upper - cmi
+        if redundancy != upper:
+            raise AssertionError("Single-end witness did not attain the pair-MI upper bound.")
         un_u, un_v = pair[1] - redundancy, pair[2] - redundancy
         syn = joint - pair[1] - pair[2] + redundancy
         if syn < 0:
@@ -97,7 +95,7 @@ def exact_examples():
         assert (redundancy, un_u, un_v, syn) == expected
         assert joint == redundancy + un_u + un_v + syn == 1
         checked[name] = dict(pair=pair, joint=joint, cmi=original_cmi,
-                             extractable=extractable, atoms=expected)
+                             extractable=redundancy, atoms=expected)
     return checked
 
 
@@ -141,12 +139,12 @@ def main():
         ax.plot((800, 800), (42, 886), color=RULE, lw=0.8)
 
         # The two mechanisms retain the geometry of the user's sketch.
-        for x, label, title, accent in ((64, "a", "XOR：联合输入", PURPLE),
-                                        (850, "b", "复制：广播输出", TEAL)):
+        for x, label, title, accent in ((64, "a", "2→1：XOR 联合输入", PURPLE),
+                                        (850, "b", "1→2：复制广播输出", TEAL)):
             text(x, 867, label, size=17, weight="bold", color=accent)
             text(x + 35, 867, title, size=17, chinese=True)
-        text(64, 825, r"$U,V\overset{\mathrm{iid}}{\sim}\mathrm{Bern}(1/2),\qquad W=U\oplus V$", size=14)
-        text(850, 825, r"$W\sim\mathrm{Bern}(1/2),\qquad U=V=W$", size=14)
+        text(64, 825, r"$U,V\overset{\mathrm{iid}}{\sim}\mathrm{Bern}(1/2),\quad W=U\oplus V$", size=15)
+        text(850, 825, r"$W\sim\mathrm{Bern}(1/2),\qquad U=V=W$", size=15)
         for start in ((215, 754), (215, 600)):
             arrow(start, (550, 677), PURPLE)
         for end in ((1435, 754), (1435, 600)):
@@ -164,23 +162,35 @@ def main():
         for x, value in ((64, 0), (850, 1)):
             line(x, x + 686, 555)
             text(x, 525, "互信息", size=12.5, chinese=True, color=MUTED)
-            text(x, 487, rf"$I(U;V)=I(U;W)=I(V;W)={value}$", size=15)
-            text(x, 450, rf"$I(U,V;W)=1,\qquad\mathrm{{CoI}}={value}+{value}-1={2*value-1}$", size=15)
-            text(x, 400, "单端提取", size=12.5, chinese=True, color=MUTED)
             if value == 0:
-                text(x, 363, "取常量处理：$Z_W^*=Z_V^*=Z_U^*=z_0$", size=14.5, chinese=True)
+                text(x, 487, r"$I(U;W)=I(V;W)=I(U;V)=0$", size=16)
+                text(x, 450, r"$I(U,V;W)=1,\qquad\mathrm{CoI}=-1$", size=16)
+                text(x, 400, "单端提取：只处理目标 W", size=14, chinese=True, color=MUTED)
+                text(x, 363, "可取常量通道：$Z^*=z_0$", size=16, chinese=True)
+                text(x, 325, r"$I(U;V\mid Z^*)=0$", size=16)
+                text(x, 288, "达到上界 $I(U;V)=0$", size=15, chinese=True, color=MUTED)
+                r_formula = r"$R=C_{\mathrm{ext}}(U,V;W)=0$"
+                u_formula = r"$\mathrm{Un}_{U}=\mathrm{Un}_{V}=0-0=0$"
+                s_formula = r"$S=R-\mathrm{CoI}=0-(-1)=1$"
             else:
-                text(x, 363, "取恒等处理：$Z_W^*=W,\ Z_V^*=V,\ Z_U^*=U$", size=14.5, chinese=True)
-            text(x, 325, rf"$C_{{\mathrm{{ext}}}}(U,V;W)=I(U;V)-I(U;V\mid Z_W^*)={value}-0={value}$", size=13.8)
-            text(x, 288, rf"$C_{{\mathrm{{ext}}}}(U,W;V)=C_{{\mathrm{{ext}}}}(V,W;U)={value}$", size=14.5)
+                text(x, 487, r"$I(W;U)=I(W;V)=I(U;V)=1$", size=16)
+                text(x, 450, r"$I(W;U,V)=1,\qquad\mathrm{CoI}=1$", size=16)
+                text(x, 400, "单端提取：只处理源 W", size=14, chinese=True, color=MUTED)
+                text(x, 363, "可取恒等通道：$Z^*=W$", size=16, chinese=True)
+                text(x, 325, r"$I(U;V\mid Z^*)=0$", size=16)
+                text(x, 288, "达到上界 $I(U;V)=1$", size=15, chinese=True, color=MUTED)
+                r_formula = r"$R=C_{\mathrm{ext}}(U,V;W)=1$"
+                u_formula = r"$\mathrm{Un}_{U}=\mathrm{Un}_{V}=1-1=0$"
+                s_formula = r"$S=R-\mathrm{CoI}=1-1=0$"
             text(x, 238, "冗余、特有与协同", size=12.5, chinese=True, color=MUTED)
-            text(x, 199, rf"$R=\max\{{{value},{value},{value}\}}={value}$", size=15)
-            text(x, 162, rf"$\mathrm{{Un}}_U=\mathrm{{Un}}_V=I(U;W)-R={value}-{value}=0$", size=15)
-            coi = "(-1)" if value == 0 else "1"
-            text(x, 125, rf"$\mathrm{{Syn}}=R-\mathrm{{CoI}}={value}-{coi}={1-value}$", size=15, color=PURPLE if value == 0 else TEAL)
+            text(x, 199, r_formula, size=16)
+            text(x, 162, u_formula, size=16)
+            text(x, 125, s_formula, size=16, color=PURPLE if value == 0 else TEAL)
             line(x, x + 686, 88)
         text(407, 54, "纯协同 · 1 bit", size=19, chinese=True, color=PURPLE, ha="center")
         text(1193, 54, "纯冗余 · 1 bit", size=19, chinese=True, color=TEAL, ha="center")
+        text(800, 15, "局部通道只用于提取冗余；EI 仍来自原联合分布。", size=11.5,
+             color=MUTED, chinese=True, ha="center")
 
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
