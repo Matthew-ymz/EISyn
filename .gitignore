@@ -55,6 +55,7 @@ tests/*
 !tests/test_dmf_response_benchmark.py
 !tests/test_dmf_joint_readout.py
 !tests/test_dmf_subject_consistency.py
+!tests/test_dmf_critical_coalitions.py
 !tests/test_dmf_subject_curves.py
 !tests/test_dmf_roi_shapley.py
 !tests/test_dmf_roi_shapley_three_g.py
