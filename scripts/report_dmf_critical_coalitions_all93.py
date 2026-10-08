@@ -48,6 +48,10 @@ def build_report(s, c, base, figure, development_only=False):
         if r['order'] <= 10:
             label_notes.append(f'- {r["display_id"]}：'+ '；'.join(f'{i+1}=`{labels[i]}`' for i in r['members'])+'。')
     ci = a['critical_ge4_ci95_wilson']
+    c1_enrichment = a['mean_critical_fraction'] / a['mean_outside_fraction'] if a['mean_outside_fraction'] else None
+    exclusive_enrichment = e['mean_critical_fraction'] / e['mean_outside_fraction'] if e['mean_outside_fraction'] else None
+    enrichment_text = f"约 {c1_enrichment:.1f} 倍" if c1_enrichment is not None else '本扫描未观察到窗口外重复点'
+    exclusive_enrichment_text = f"约 {exclusive_enrichment:.1f} 倍" if exclusive_enrichment is not None else '本扫描未观察到窗口外重复点'
     return f'''# 全 93 人 DMF 转折窗口的自然 SPT 完整组合搜索
 
 {'开发缓存回归预览，只有 8 人；此文件不是 93 人结果。' if development_only else '93 人 × 41 个 G × 3 seed 的全部 11,439 条件已经计算与汇总；图形导出仍待最后目视复核。'}
@@ -91,6 +95,10 @@ def build_report(s, c, base, figure, development_only=False):
 ## 哪些候选适合继续抓住
 
 严格排序首位的平均窗口格点发生比例为 {a['mean_critical_fraction']*100:.1f}%，低/高两端平均为 {a['mean_low_fraction']*100:.1f}% / {a['mean_high_fraction']*100:.1f}%，其他 35 格平均为 {a['mean_outside_fraction']*100:.1f}%。窗口减两端平均为 {a['critical_minus_endpoint_fraction']*100:.1f} 个百分点，窗口减全部非窗口平均为 {a['critical_minus_outside_fraction']*100:.1f} 个百分点。比例按每人的窗口 6 格、各端 4 格、窗口外 35 格分别归一化，再跨人平均。
+
+首位集合的窗口内/窗口外平均格点出现率为{enrichment_text}。因此，现阶段可以抓住的是**完整组合在转变邻域富集**：它既有较高跨人覆盖，又在转变附近形成明显的出现带。C1 与 C2 优先保留，C3 提供四阶候选；同一集合在不少人的窗口外也出现，故这个富集模式不能改写为窗口专属性。
+
+另保留专属性排序首位的完整 {exclusive['order']} 阶集合（C4）：窗口内 ≥1/6 为 {e['critical_ge1']}/{n}，≥4/6 为 {e['critical_ge4']}/{n}，窗口外任一格出现为 {e['outside_any']}/{n}；平均窗口/非窗口格点发生比例为 {e['mean_critical_fraction']*100:.2f}% / {e['mean_outside_fraction']*100:.2f}%，为{exclusive_enrichment_text}。它的跨人覆盖较低，但窗口集中程度更高，是另一种值得追踪的取舍。按继承标签，该集合跨感觉运动、背侧注意、显著性/腹侧注意、控制和默认网络；标签行序仍待核实。
 
 当前可以直接依据这些结果挑选复现优先、窗口内至少一次出现优先和窗口专属性优先的候选。需要区分“在转折附近常出现”“转折附近更集中”和“只在转折附近出现”。所有 93 人都参与本轮选择，以上候选频率和区间属于搜索后的描述性证据；原来的 85 人不再是未接触的候选验证集。没有对选择后候选提供未经选择校正的显著性声明。是否形成论文主张，留待针对这些实际候选的下一步解释与独立检查。
 
@@ -150,13 +158,20 @@ def export(base, output=REPORT, development_only=False, update_index=True):
     figure=FIGURE if not development_only else Path('/tmp/eisyn_all93_devcheck.png')
     if not figure.exists():
         raise FileNotFoundError(figure)
+    figure_metadata=json.loads((base/(prefix+'_figure_metadata.json')).read_text())
+    reviewed=(figure_metadata.get('visual_review')=='passed'
+        and figure_metadata.get('figure_sha256')==digest(figure))
     text=build_report(s,c,base,figure,development_only)
+    if reviewed:
+        text=text.replace('图形导出仍待最后目视复核。','最终图形已通过目视复核。')
+        text=text.replace('全 93 人的最终图形另需目视复核，导出不等于目视检查完成。',
+            '全 93 人的最终图形已目视复核：93 行、缺失状态、相对网格和图例均核对，图例未覆盖数据、标签无裁切。')
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_text(text)
     atomic_json(base/(prefix+'_report_metadata.json'),dict(output=str(output),
         exported_utc=datetime.now(timezone.utc).isoformat(),report_sha256=digest(output),
         summary_sha256=digest(base/(prefix+'_summary.json')),figure_sha256=digest(figure),
-        reporting_sha256=digest(Path(__file__)),visual_review='pending'))
+        reporting_sha256=digest(Path(__file__)),visual_review='passed' if reviewed else 'pending'))
     if update_index and not development_only:
         index=ROOT/'docs/reports/brain.md'
         marker='<!-- dmf-critical-coalitions-all93 -->'
@@ -175,14 +190,18 @@ def export(base, output=REPORT, development_only=False, update_index=True):
 *图 Q4｜原始入树与背景以上的严格、较宽松复现读出，首位候选的全部个体扫描与原始节点 Syn。全 93 人都参与选择，是探索性结果；原来的 85 人不再是未接触的验证集。完整候选、全阶排名、归一化窗口富集和解释边界见[93 人报告](brain_critical_coalition_all93.md)。图形导出待最后目视复核。*
 {end_marker}
 '''
+        if reviewed:
+            addition=addition.replace('图形导出待最后目视复核。','最终图形已通过目视复核，图例未覆盖数据。')
         if marker in current:
             start=current.index(marker)
             if end_marker not in current[start:]:
                 raise ValueError('Cannot safely locate end of owned all93 report section')
             end=current.index(end_marker,start)+len(end_marker)
-            index.write_text(current[:start]+addition.lstrip('\n')+current[end:])
+            # The user-curated main figures and appendix cross-references must survive export.
+            if '<!-- all93-main-figures-curated -->' not in current[start:end]:
+                index.write_text((current[:start]+addition.lstrip('\n')+current[end:]).rstrip()+'\n')
         else:
-            index.write_text(current+addition)
+            index.write_text((current+addition).rstrip()+'\n')
     print(output,flush=True)
 
 
