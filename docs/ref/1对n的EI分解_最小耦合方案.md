@@ -1,6 +1,6 @@
 # 从二元 EI 分解到 N→N：单端可提取共信息与固定 KL 残余树
 
-整理更新：2026-10-06。本文从 $2\to1$ 与 $1\to2$ 出发，直接采用已有的单端可提取共信息定义冗余，再由信息收支确定特有与协同。先给出二元定义、证明和例子，随后说明固定父项如何延拓到 $2\to2$，并用二分递归构造 $N\to M$ 非负分解；$N=M$ 即 $N\to N$。
+整理更新：2026-10-08。本文从 $2\to1$ 与 $1\to2$ 出发，直接采用已有的单端可提取共信息定义冗余，再由信息收支确定特有与协同。先给出二元定义、证明和例子，随后说明固定父项如何延拓到 $2\to2$，并用二分递归构造 $N\to M$ 非负分解；$N=M$ 即 $N\to N$。
 
 理论范围为有限离散变量，单位为 bit，对数以 2 为底。二元定义适用于任意给定的联合分布，包括自然观测分布；所有量均在同一分布下计算。采用干预分布时，相应互信息具有 EI 的解释。二元冗余直接采用已有单端可提取共信息及其与内禀条件互信息的关系。[25](#ref-25) 高阶部分复用独立源的 SPT，并增加固定 KL 参照与条件读出，以保持同一父项的非负收支；贪婪搜索负责选择分解路径。当前 PEID 稿件依据、版本歧义和实现接口见第 6.4 节。
 
@@ -106,7 +106,7 @@ $$
 | 输出附加噪声不改四项 | $(N_U,N_V)\perp(U,V,W)$，$\widetilde{\boldsymbol u}=(U,N_U),\widetilde{\boldsymbol v}=(V,N_V)$：<br>$(R',\mathrm{Un}'_U,\mathrm{Un}'_V,S')=(R,\mathrm{Un}_U,\mathrm{Un}_V,S)$，其中 $U,V$ 为输出、$W$ 为源 | 第 1.8 节 |
 | 有限字母表连续性 | 固定有限字母表，$p_k\to p\Rightarrow(R_k,\mathrm{Un}_{U,k},\mathrm{Un}_{V,k},S_k)\to(R,\mathrm{Un}_U,\mathrm{Un}_V,S)$ | 第 1.9 节 |
 | 最优值可达 | $m=\lvert\operatorname{supp}(W)\rvert$ 时，$C_{\mathrm{ext}}(U,V;W)=\max_{Z\leftarrow W,\ \lvert\mathcal Z\rvert\le m+1}\operatorname{CoI}(U,V,Z)$ | 第 1.9 节 |
-| 条件独立时无协同 | $U\perp V\mid W\Rightarrow R=I(U;V),\ S=0$ | 第 1.10 节 |
+| 条件独立时的四项分配 | $U\perp V\mid W\Rightarrow R=I(U;V),\ S=0$；<br>$\mathrm{Un}_U=I(U;W\mid V)\ge0,\ \mathrm{Un}_V=I(V;W\mid U)\ge0$ | 第 1.10 节 |
 | 完整冗余链式法则 | 一般不成立；独立公平源的 XOR 条件化给出反例 | 第 1.11 节 |
 
 表格独立导出：[PNG](../../fig/ei_decomposition_properties.png) · [SVG](../../fig/ei_decomposition_properties.svg)。
@@ -337,7 +337,11 @@ $m+1$ 为充分界，不一定最紧。二状态处理端最多三个辅助状�
 **命题 7。** 若 $U\perp V\mid W$，则
 
 $$
-R(U,V;W)=I(U;V),\qquad S=0.
+\begin{aligned}
+R(U,V;W)&=I(U;V),\qquad S=0,\\
+\mathrm{Un}_U&=I(U;W)-I(U;V)=I(U;W\mid V)\ge0,\\
+\mathrm{Un}_V&=I(V;W)-I(U;V)=I(V;W\mid U)\ge0.
+\end{aligned}
 \tag{1-25}
 $$
 
@@ -348,7 +352,26 @@ $$
 \tag{1-26}
 $$
 
-**证明。** 条件独立使 $\operatorname{CoI}=I(U;V)$，命题 1 上下界相等。一般有 $S=R-\operatorname{CoI}\le I(U;V)-\operatorname{CoI}=I(U;V\mid W)$；另两对变量同理。
+**证明。** 条件独立给出 $I(U;V\mid W)=0$，故 $\operatorname{CoI}=I(U;V)$，命题 1 上下界相等，得到 $R=I(U;V)$ 及 $S=R-\operatorname{CoI}=0$。
+
+特有信息由定义为 $\mathrm{Un}_U=I(U;W)-R$。互信息链式法则给出
+
+$$
+I(U;V)+I(U;W\mid V)
+=I(U;V,W)
+=I(U;W)+I(U;V\mid W).
+$$
+
+代入 $I(U;V\mid W)=0$ 及 $R=I(U;V)$，得到 $\mathrm{Un}_U=I(U;W\mid V)$。交换 $U,V$ 同理得到 $\mathrm{Un}_V=I(V;W\mid U)$。条件互信息是条件 KL 散度的概率平均，例如以 $p$ 记当前联合概率质量函数，
+
+$$
+\mathrm{Un}_U=I(U;W\mid V)
+=\sum_{v:p(v)>0}p(v)D_{\mathrm{KL}}\!\left(
+p(U,W\mid V=v)\middle\|p(U\mid V=v)p(W\mid V=v)
+\right)\ge0.
+$$
+
+另一项同理非负，式（1-25）的四项分配因此全部非负。一般情况下，$S\ge0$ 由命题 2 保证，且 $S=R-\operatorname{CoI}\le I(U;V)-\operatorname{CoI}=I(U;V\mid W)$；另两对变量同理得到式（1-26）。
 
 这些结论直接来自指定端 $C_{\mathrm{ext}}$ 的上下界；无需跨角色取最大值。证毕。
 
@@ -1012,7 +1035,7 @@ Blackwell 共同退化量采用决策论语义，[5](#ref-5) 与这里的单端�
 
 ### 6.4 当前可用稿件、版本歧义与实现差异
 
-本轮重新通过 Zotero 核对 *Emergent hierarchical organization of causal interactions in complex systems*，父项 P6UJCVG8；重新列附件并读主文 DXGC7JEA（19/19 页索引全文）、补充 MWIWKSVG（28/28 页索引全文）相关部分。
+2026-10-08 重新通过 Zotero 核对 *Emergent hierarchical organization of causal interactions in complex systems*，父项 P6UJCVG8；重新列附件并读主文 DXGC7JEA（19/19 页索引全文）、补充 MWIWKSVG（28/28 页索引全文）相关部分。本次补全第 1.10 节条件独立下的特有信息表达；沿用补充 S2 式（S27）的“单变量互信息减冗余”收支，条件互信息的表达与非负性由本文直接证明。
 
 主附件导入 2026-10-02、元数据修改 2026-10-04；补附件导入 2026-10-04。无明确稿件日期／版本号，元数据不足以判断版本更新先后，本文依据当前可用全文并保留歧义。
 

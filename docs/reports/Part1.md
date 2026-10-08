@@ -257,19 +257,23 @@ $K\in\{0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0,1.5,2.0\}$，
 
 **领域背景**：Hénon 映射是经典二维耗散混沌模型（[Hénon, 1976](https://doi.org/10.1007/BF01608556)）。这里使用的是由其二次非线性构造的受控 Hénon-style 读出，而不是未经修改的经典迭代映射；该构造把显式二源交互项和单源观测通道分开。
 
-读出定义为
+两个标量源 $x_t,y_t$ 的二维一步响应写为：
 
 $$
-\mathbf{z}_{t+1}
-=\left[
-1-1.4x_t^2+\kappa(\lambda) x_ty_t,\;
-\gamma(\lambda) y_t+\epsilon_t
-\right],
-\qquad
-\gamma:0.3\to2.0,\quad \kappa:0.5\to0.1,\quad \sigma_\epsilon=0.5 .
+\begin{aligned}
+x_{t+1}&=1-1.4x_t^2+(0.5-0.4\lambda)x_ty_t,\\
+y_{t+1}&=(0.3+1.7\lambda)y_t+\epsilon_t,\\
+\gamma(\lambda)&=0.3+1.7\lambda,\qquad
+\kappa(\lambda)=0.5-0.4\lambda,\qquad \lambda\in[0,1],\\
+\epsilon_t&\sim\mathcal N(0,0.5^2),\qquad \epsilon_t\perp(x_t,y_t).
+\end{aligned}
 $$
 
-**协同源和目标**：计算 `x+y->z_tau`。扫描参数为 `lambda`，令单源通道 $\gamma(\lambda)y_t+\epsilon_t$ 增强，同时令显式交互项 $\kappa(\lambda)x_ty_t$ 减弱。因此该 panel 用来展示：PEID 可随真实交互减弱而下降，而 MMI-PID 仍会因为弱源单源信息增加而上升；MI 本身仍只作为诊断保存在 JSON 中，不在图中绘制。
+$x_{t+1}$ 包含二次非线性和显式二源交互，$y_{t+1}$ 是仅依赖 $y_t$ 的带噪声单源通道；两者共同组成二维未来目标。随 $\lambda:0\to1$，$\gamma$ 从 $0.3$ 线性增至 $2.0$，$\kappa$ 从 $0.5$ 线性减至 $0.1$，噪声标准差固定为 $0.5$。
+
+**协同源和目标**：计算 $\{x_t,y_t\}\to(x_{t+1},y_{t+1})$，以两个未来分量组成的二维向量为共同目标。扫描参数为 $\lambda$，令单源通道 $\gamma(\lambda)y_t+\epsilon_t$ 增强，同时令显式交互项 $\kappa(\lambda)x_ty_t$ 减弱。因此该 panel 用来展示：PEID 可随真实交互减弱而下降，而 MMI-PID 仍会因为弱源单源信息增加而上升；MI 本身仍只作为诊断保存在 JSON 中，不在图中绘制。
+
+<!-- 2026-10-08 局部核对：Zotero 父项 P6UJCVG8，题名 Emergent hierarchical organization of causal interactions in complex systems；当前唯一正文附件 DXGC7JEA（19 页）和补充材料 MWIWKSVG（28 页），附件元数据分别修改于 2026-10-04T08:40:46Z 和 2026-10-04T08:40:31Z，未注明手稿版本或日期，元数据修改时间不视为稿件版本日期。已读正文 Results 的 PEID 定义（式 1）及六系统比较，补充材料 S6.4（第 10 页，式 S61）。本次仅核对二维目标、参数线性路径和噪声定义，并与 scripts/henon_mmi_pid_vs_mlp_peid.py 及 results/henon_unique_five_method_synergy/summary.json 对照；按用户要求将两个输出分量改记为 x_{t+1}、y_{t+1}，响应公式和参数不变，不涉及采样或迭代方式的修改；不声称完整估计流程一致性已验证。 -->
 
 ## Ikeda Optical Cavity
 
@@ -467,17 +471,16 @@ $$
 经典 Hénon 映射以二次折叠和耗散收缩生成二维 strange attractor（[Hénon, 1976](https://doi.org/10.1007/BF01608556)）。图 1c 使用的是受 Hénon 二次非线性启发的受控读出，而不是经典 Hénon 轨迹本身：
 
 $$
-\mathbf{z}_{t+1}
-=
-\begin{bmatrix}
-1-1.4x_t^2+\kappa(\lambda)x_ty_t\\
-\gamma(\lambda)y_t+\epsilon_t
-\end{bmatrix},
-\qquad
-\epsilon_t\sim\mathcal N(0,0.5^2).
+\begin{aligned}
+x_{t+1}&=1-1.4x_t^2+(0.5-0.4\lambda)x_ty_t,\\
+y_{t+1}&=(0.3+1.7\lambda)y_t+\epsilon_t,\\
+\gamma(\lambda)&=0.3+1.7\lambda,\qquad
+\kappa(\lambda)=0.5-0.4\lambda,\qquad \lambda\in[0,1],\\
+\epsilon_t&\sim\mathcal N(0,0.5^2),\qquad \epsilon_t\perp(x_t,y_t).
+\end{aligned}
 $$
 
-随 $\lambda:0\to1$，$\kappa(\lambda):0.5\to0.1$ 线性减小，而 $\gamma(\lambda):0.3\to2.0$ 线性增大。该单因素路径同时削弱显式交互项并增强独立单源通道，用于检验方法能否区分 synergy 与 unique information。
+这里 $x_{t+1},y_{t+1}$ 共同组成二维未来目标，计算 $\{x_t,y_t\}\to(x_{t+1},y_{t+1})$ 的协同；$x_{t+1}$ 包含二次非线性和显式二源交互，$y_{t+1}$ 是仅依赖 $y_t$ 的带噪声单源通道。随 $\lambda:0\to1$，$\kappa(\lambda):0.5\to0.1$ 线性减小，而 $\gamma(\lambda):0.3\to2.0$ 线性增大；噪声标准差固定为 $0.5$。该单因素路径同时削弱显式交互项并增强独立单源通道，用于检验方法能否区分 synergy 与 unique information。
 
 ## Ikeda Optical-Cavity Map
 
