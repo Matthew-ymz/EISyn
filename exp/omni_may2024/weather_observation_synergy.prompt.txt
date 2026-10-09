@@ -1,0 +1,37 @@
+Mode: Built-in image generation
+
+Scientific basis, rechecked 2026-10-09:
+Zotero parent P6UJCVG8: Emergent hierarchical organization of causal interactions in complex systems
+Main attachment DXGC7JEA; supplementary attachment MWIWKSVG.
+Relevant locations: Main Results: Partial Effective Information Decomposition, equations (1)–(3), and Discussion.
+Version boundary: One main text and one supplementary attachment were visible. No explicit manuscript version date was available; attachment metadata edit dates are not manuscript dates.
+Interpretation: Concept illustration only. Joint observing information and forecast accuracy are separate quantities. No empirical Syn values or numerical forecasts are depicted.
+The narrowing forecast envelope and increased error are illustrative hypotheses, not consequences established merely by positive PEID Syn. No numerical estimation was performed.
+
+Generation prompt:
+
+Use case: scientific-educational.
+Create a sophisticated, beautiful, mostly graphical scientific schematic illustrating WHY joint geographically distributed weather observations matter for predicting weather in a distant region, and how disruption of that joint information could affect a remote forecast. The scene is a conceptual, testable mechanism, NOT empirical results and NOT a universal claim that higher Syn means higher forecast accuracy.
+
+Canvas: high-resolution landscape 16:9, clean warm white background, generous whitespace, publication-style precise illustrations with softly shaded 3D Earth globes, crisp arrows, restrained colors, very little text. Large visual objects, no dense boxes or paragraphs.
+
+Top title in exact Chinese: "联合观测，约束远处天气"
+Two large balanced side-by-side panels with a very subtle vertical divider. Same Earth geometry and identical actual weather in both panels. A north-polar-oblique globe showing North America, Arctic, North Atlantic, Greenland and Eurasia. Simplified but recognizable geography, pale icy blue ocean, light gray land, minimal grid, no country labels. Source A near Alaska / Arctic, source C near Greenland / northern Atlantic, remote target B over central/eastern North America at much lower latitude. A, C and B are illustrative locations.
+
+LEFT panel heading, exact: "联合观测"
+Above two geographically separated observing regions show two elegant small weather-observation icons: one radiosonde / balloon and one small satellite. Source A uses cyan, source C uses indigo. Small complementary atmospheric data motifs accompany them, such as sparse wind arrows and a vertical temperature profile. The two sources supply distinct pieces of atmospheric information.
+Colored paths from A and C meet at a small warm gold interlocking / braided symbol outside the globe in clean whitespace; a single gold path from this joint-constraint symbol points to distant target B. The converging two-source path should be immediately visible and the visual focal point. Tiny text next to the gold symbol: "联合约束".
+Near B, show a modest stylized weather system / cyclone contour and a small forecast-path inset. The inset is schematic, without numeric axes, ticks or units. It has THREE horizontal rows:
+row label "仅 A": faint broad gray forecast fan and multiple pale possible tracks.
+row label "仅 C": a similar broad fan with different possible tracks.
+row label "A + C": a narrow green forecast envelope centered on a thin dark-gray reference weather track.
+Use the SAME gray reference track in all rows, so the joint case visually reduces uncertainty. Broad and narrow envelopes are qualitative conceptual graphics, not estimated confidence intervals. Keep every label in whitespace; do not cover data or paths with a legend. Do not use a quantitative bar chart or an equation that implies numerical superadditivity of forecast skill.
+
+RIGHT panel heading, exact: "观测受扰"
+Repeat the same globe, same A/C observing locations and same true weather system at B. A small restrained Sun / solar-wind ribbon above the two high-latitude source areas creates a violet upper-atmosphere / auroral disturbance glow near A and C. Disturbance is near the observing regions, never over B. Violet radio paths are interrupted by clean red x marks. The gold two-source joint-constraint braid is visibly broken / incomplete. A thin dashed orange path continues toward distant B with a tiny clock symbol, indicating a possible delayed remote forecast consequence.
+Beside B, show a clear forecast-path inset: thin dark-gray reference weather track identical to the left panel, and a coral-orange predicted track visibly displaced from it, with a broad pale-orange forecast envelope. A small double-headed distance arrow between tracks communicates forecast error, without numbers.
+Tiny text near the inset, exact: "远程误差"
+Use dashed arrows for the proposed disturbance-to-forecast consequence. This right panel illustrates one possible outcome to test, not a proven May 2024 event.
+
+Bottom centered tiny footnote, exact: "机制假设 · 非实测结果"
+No other text beyond the title, the two headings, "联合约束", "仅 A", "仅 C", "A + C", "远程误差", "A", "C", "B", and the footnote. No paragraphs, no long captions, no numerical scores, no colorbars, no invented measurements, no watermark. Do not display a Syn score as an accuracy score. No decorative lightning at Earth's surface. The strongest visual story must be: A and C together constrain B; damage to that combined observing information may cause a delayed error far from the directly disturbed regions. Keep palettes consistent: cyan and indigo sources, warm gold joint information, green constrained forecast, violet upper-atmosphere disturbance, coral-orange remote forecast error, navy Chinese typography.

@@ -1,0 +1,21 @@
+Mode: Built-in image generation
+
+Use case: scientific-educational.
+Create one polished, minimal scientific concept illustration about the spatial mismatch between geomagnetic-storm disturbance, damaged weather observations, and remote weather-forecast errors. This is a mechanism hypothesis, not measured event data. Landscape 16:9, high resolution, elegant white background, abundant whitespace, precise restrained scientific illustration with beautiful subtly shaded globes and crisp graphic annotations. Make the diagram visually understandable with very little text.
+
+Composition: three equally sized globes in one horizontal row, all showing exactly the same north-Atlantic-centered northern-hemisphere geography and camera angle so spatial locations are comparable. Recognizable North America, Greenland, northern Atlantic and Europe; simplified pale blue oceans, light gray land, fine latitude lines, no country names, no borders. A shared source location A lies at high northern latitude near Greenland / Arctic. A target location B lies distinctly far away at lower latitude in eastern North America. These locations are illustrative.
+
+LEFT globe: a translucent violet auroral-oval-like high-latitude disturbance region and a small marker A. A small tasteful Sun with a flowing solar-wind ribbon sits above-left outside the globe and leads toward the upper-atmosphere region. Do not depict lightning storms on the Earth's surface.
+MIDDLE globe: same high-latitude source A. A single small scientific satellite above the globe, receiving or transmitting thin cyan radio paths that sample near A; a few broken path segments and a tiny clean interrupted vertical profile communicate missing or unreliable observations. The observation-affected region is smaller and patchier than the violet disturbance band on the first globe.
+RIGHT globe: source A marked subtly in gray at the same location; a separate orange-red translucent forecast-error hotspot centered on remote B in eastern North America. A thin curved dashed orange arrow runs over the globe from A toward B, communicating a hypothetical delayed influence through data assimilation and atmospheric model evolution. Make A and B visibly separated geographically. The orange hotspot is forecast error, not actual damaged ground or a physical fire.
+
+Connections: a slender neutral solid arrow between LEFT and MIDDLE. A slender dashed arrow between MIDDLE and RIGHT, with a subtle small clock symbol above it. Keep all labels in open whitespace outside globes. No arrows crossing labels. No legends covering illustrations.
+
+Exact Chinese text, rendered verbatim in an elegant readable sans-serif:
+Small title at top: "局地受扰，远处预报受影响？"
+Caption beneath left globe: "地磁暴扰动"
+Caption beneath middle globe: "观测受损"
+Caption beneath right globe: "远程预报误差"
+Tiny label above the middle-to-right connector: "同化 · 传播"
+Tiny centered footer: "机制假设 · 非实测分布"
+Only additional text permitted: "A" on the high-latitude source markers and "B" on the remote target marker. No paragraphs, no extra headings, no legends, no numeric heatmap scales, no invented data, no timelines, no panels full of text, no watermark. Restrained palette: slate navy typography, pale blue Earth, violet disturbance, cyan observation signals, coral-orange remote forecast error. The spatial separation and time-delayed propagation should be the dominant story.
