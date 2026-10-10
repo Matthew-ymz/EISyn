@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.run_dmf_critical_coalitions import BASE
 from scripts.run_dmf_subject_consistency import atomic_json, digest
+from scripts.brain_report_sections import BRAIN_REPORT, demote, section, write_section
 
-REPORT = ROOT / 'docs/reports/brain_critical_coalition_all93.md'
+REPORT = BRAIN_REPORT
 FIGURE = ROOT / 'fig/dmf_schaefer100/critical_coalition_all93.png'
 
 
@@ -143,7 +144,7 @@ def build_report(s, c, base, figure, development_only=False):
 - [紧凑全组合统计](../../scripts/analyze_dmf_critical_coalitions_all93.py)，保存全部候选的完整身份和发生计数，不只保存展示名单。
 - [绘图入口](../../scripts/plot_dmf_critical_coalitions_all93.py)。图例在数据区域外，缺失不补零。
 - 结果目录 `results/dmf_schaefer100/critical_coalitions/`：`all93_extension_contract.json`、`all93_analysis_contract.json`、`all93_registry.npz`、`all93_summary.json`、`all93_display.npz`、逐条件 `density/` 与 `trees/`。
-- 主日志 `docs/log/brain_critical_coalitions/all93_run.log`。NPZ/JSON 为昂贵结果复用支持；未生成 CSV。旧阶段见[8 人执行报告](brain_critical_coalition_results.md)。
+- 主日志 `docs/log/brain_critical_coalitions/all93_run.log`。NPZ/JSON 为昂贵结果复用支持；未生成 CSV。旧阶段见[8 人执行报告](#dmf-critical-coalitions)。
 '''
 
 
@@ -166,8 +167,29 @@ def export(base, output=REPORT, development_only=False, update_index=True):
         text=text.replace('图形导出仍待最后目视复核。','最终图形已通过目视复核。')
         text=text.replace('全 93 人的最终图形另需目视复核，导出不等于目视检查完成。',
             '全 93 人的最终图形已目视复核：93 行、缺失状态、相对网格和图例均核对，图例未覆盖数据、标签无裁切。')
+    # Development previews must not replace the completed cohort's evidence.
+    if development_only and output == REPORT:
+        output = Path('/tmp/eisyn_all93_devcheck.md')
     output.parent.mkdir(parents=True,exist_ok=True)
-    output.write_text(text)
+    if output == REPORT:
+        details = ['<a id="dmf-critical-coalitions-rankings"></a>', '',
+                   '### Q.6 全 93 人候选的完整排序与审计', '',
+                   section(text, '## 完整扫描的候选证据').split('\n', 1)[1].split(
+                       '![全部个体')[0].strip(), '']
+        for heading in ('### 严格窗口复现排序：优先 3–10 ROI',
+                        '### 放宽为窗口任一格复现：优先 3–10 ROI',
+                        '### 全扫描窗口专属性排序', '### 全部阶数及二阶参照'):
+            details += [demote(section(text, heading), 1), '']
+        for heading in ('## 哪些候选适合继续抓住', '## 全条件有效性和完成证据',
+                        '## 复现与本地支持数据'):
+            details += [demote(section(text, heading)), '']
+        labels = section(text, '## 稿件核对与解释边界').split(
+            '继承 ROI 标签行序仍为 inferred，以下标签供候选定位，不宣称已完成个体解剖核验：')[1]
+        details += ['#### 候选标签定位', '',
+                    '以下标签行序仍为 inferred，不能据此声称已核实个体解剖定位。', '', labels.strip()]
+        write_section('dmf-all93-details', '\n'.join(details), output)
+    else:
+        output.write_text(text)
     atomic_json(base/(prefix+'_report_metadata.json'),dict(output=str(output),
         exported_utc=datetime.now(timezone.utc).isoformat(),report_sha256=digest(output),
         summary_sha256=digest(base/(prefix+'_summary.json')),figure_sha256=digest(figure),
@@ -187,7 +209,7 @@ def export(base, output=REPORT, development_only=False, update_index=True):
 
 ![全 93 人自然 SPT 组合搜索](../../fig/dmf_schaefer100/critical_coalition_all93.png)
 
-*图 Q4｜原始入树与背景以上的严格、较宽松复现读出，首位候选的全部个体扫描与原始节点 Syn。全 93 人都参与选择，是探索性结果；原来的 85 人不再是未接触的验证集。完整候选、全阶排名、归一化窗口富集和解释边界见[93 人报告](brain_critical_coalition_all93.md)。图形导出待最后目视复核。*
+*图 Q4｜原始入树与背景以上的严格、较宽松复现读出，首位候选的全部个体扫描与原始节点 Syn。全 93 人都参与选择，是探索性结果；原来的 85 人不再是未接触的验证集。完整候选、全阶排名、归一化窗口富集和解释边界见[93 人报告](#dmf-critical-coalitions-rankings)。图形导出待最后目视复核。*
 {end_marker}
 '''
         if reviewed:

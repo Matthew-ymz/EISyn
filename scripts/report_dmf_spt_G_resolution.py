@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts.run_dmf_spt_G_resolution import OUTPUT
+from scripts.brain_report_sections import demote, section, write_section
 
 
 def red(text):
@@ -122,7 +123,16 @@ def main():
                "[执行方案与版本记录](../log/dmf_spt_G_resolution_plan.md) · "
                "[扫描入口](../../scripts/run_dmf_spt_G_resolution.py) · "
                "[制图入口](../../scripts/plot_dmf_spt_G_resolution.py)", ""]
-    (ROOT / "docs/reports/brain_spt_G_resolution.md").write_text("\n".join(report))
+    full_report = "\n".join(report)
+    details = ['<a id="dmf-spt-G-resolution-details"></a>', '',
+               '## 附录 S：平均 SC 细 G 扫描的成员与估计边界', '',
+               '总量、树变化、交叉评分和交互图见[第 2.4.4 节](#dmf-spt-G-resolution)。本附录保留完整成员和原图联盟追踪，不重复正文图。', '',
+               demote(section(full_report, '## 可追踪的小团簇'), 1), '',
+               demote(section(full_report, '## 原图联盟的精确成员追踪'), 1), '',
+               '### 估计边界与复现', '', estimator, '', verification, '',
+               '本轮是一个固定模拟 seed 的探索性轨迹。树中的强度是路径依赖的层级二分残差，不是纯阶 PID 原子；选中区间不等于联盟的生物学形成区间。0.01 网格不能排除格点间短暂变化，本轮未开展 0.001 加密、多 seed 复核、样本量加倍或扩大搜索。', '',
+               report[-2]]
+    write_section('dmf-spt-G-resolution-details', '\n'.join(details))
     start = "<!-- report-section:dmf-spt-G-resolution:start -->"
     end = "<!-- report-section:dmf-spt-G-resolution:end -->"
     excerpt = "\n".join([start, '<a id="dmf-spt-G-resolution"></a>', "",
@@ -135,9 +145,9 @@ def main():
               red(interpretation), "", red(competition), "", red(original_statement), "", red(peak), "",
               red("[拖动 G 查看完整树与成员]("+assets+"spt_G_resolution_explorer.html) · "
                   "[完整动画]("+assets+"spt_G_resolution.gif) · [代表树]("+assets+"spt_G_resolution_representative_trees.png) · "
-                  "[具名团簇表、协议和核对](brain_spt_G_resolution.md)"), "",
+                  "[附录 S：具名团簇表与估计边界](#dmf-spt-G-resolution-details)"), "",
               red(verification+" "+"本轮使用一个 seed，当前结果支持探索性组织追踪；未开展 0.001 加密或跨 seed 确认。"
-                  "实际条件 Gaussian 矩估计与手稿版本边界见详细报告。"), "", end, ""])
+                  "实际条件 Gaussian 矩估计与版本边界见[附录 S](#dmf-spt-G-resolution-details)。"), "", end, ""])
     path = ROOT / "docs/reports/brain.md"
     text = path.read_text()
     if start in text:
@@ -149,7 +159,7 @@ def main():
             raise ValueError("Cannot uniquely locate the existing brain.md section")
         text = text.replace(anchor, excerpt+"\n"+anchor, 1)
     path.write_text(text)
-    print("REPORTS COMPLETE: brain.md section 2.4.4 and brain_spt_G_resolution.md")
+    print("REPORT COMPLETE: brain.md section 2.4.4 and appendix S")
 
 
 if __name__ == "__main__":

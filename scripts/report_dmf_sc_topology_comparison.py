@@ -12,11 +12,12 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.analyze_dmf_sc_topology_comparison import METRIC_NAMES, OUTPUT
+from scripts.brain_report_sections import BRAIN_REPORT, demote, section, write_section
 
 NAMES = {'internal_mean':'内部平均边权', 'clique_intensity':'闭合子图强度',
          'modularity_contribution':'模块度单组贡献'}
-REPORT = ROOT/'docs/reports/brain_sc_topology_comparison.md'
-RANKINGS = ROOT/'docs/reports/brain_sc_topology_rankings.md'
+REPORT = BRAIN_REPORT
+RANKINGS = BRAIN_REPORT
 
 
 def members(row):
@@ -97,14 +98,14 @@ def main():
             for r in orders[k]['sc_top20'][m][:3]:
                 d=r['above_background']
                 lines.append(f"| {k} | {NAMES[m]} | {rank(r,m)} | {members(r)} | {d['critical_ge4']}/93 | {d['critical_ge1']}/93 | {'是' if r['ever_natural_node'] else '否'} |")
-    lines += ['', '两阶、三指标的完整前 20 名及 SPT → SC 反向表见[完整排名表](brain_sc_topology_rankings.md)。表中的 SPT 强复现均要求同一人、同一 G、同一完整自然节点至少 2/3 seed 高于冻结同阶参考；原始入树计数另列，不能与附件图中的 seed 颜色混同。', '',
+    lines += ['', '两阶、三指标的完整前 20 名及 SPT → SC 反向表见[完整排名表](#dmf-sc-topology-rankings)。表中的 SPT 强复现均要求同一人、同一 G、同一完整自然节点至少 2/3 seed 高于冻结同阶参考；原始入树计数另列，不能与附件图中的 seed 颜色混同。', '',
         '## 比较图', '',
         '![C1–C3 的逐个体 SC 同阶名次分布](../../fig/dmf_schaefer100/sc_topology_comparison/candidate_sc_rank_ecdf.png)', '',
         '**图 1｜候选的个体结构名次。** 每条 ECDF 包含 93 人，三列对应固定结构指标；C1/C2 在全部三元组中排名，C3 在全部四元组中排名。横轴为个人中间名次的 top 百分比，对数刻度，越小越好；所有值为正，不删零分或缺边个体。纵轴为累计被试比例，虚线为前 1% 的描述性阈值。没有平滑或额外插值，也不把跨人离散度当置信区间。', '',
         '![静态结构与自然 SPT 复现的双向比较](../../fig/dmf_schaefer100/sc_topology_comparison/sc_vs_spt_ranking.png)', '',
         '**图 2｜结构排名与转折复现的关系。** 上、下行分别为三元组和四元组；横轴为跨人平均个人名次的 top 百分比，对数刻度，越小越好；纵轴为背景以上窗口 ≥4/6 的复现人数。灰点包括全部曾入树同阶集合，紫色圈为 SPT 前 20，橙色菱形为本列 SC 前 20，彩色标记为 C1–C3。未入树的 SC 前列集合显示为复现人数 0，其 Syn 未填零。标题 ρ 是“结构质量”与复现的相关，结构质量等于负的横轴名次量。未对零复现人数加抖动。', '',
         '## 固定方法与验证', '',
-        '三个指标为内部边权算术平均、全部内部边权几何平均（三角形/完整四节点子图强度），以及标准分辨率 1 的加权模块度单组贡献。零边保持零；不以 epsilon 补边，不截断 SC，不限制 Yeo 或空间。指标依据及完整公式见[冻结方案](brain_sc_topology_comparison_plan.md)，原始定义见 [Onnela 等，2005](https://doi.org/10.1103/PhysRevE.71.065103)与 [Newman，2004](https://doi.org/10.1103/PhysRevE.70.056131)。', '',
+        '三个指标为内部边权算术平均、全部内部边权几何平均（三角形/完整四节点子图强度），以及标准分辨率 1 的加权模块度单组贡献。零边保持零；不以 epsilon 补边，不截断 SC，不限制 Yeo 或空间。指标依据及完整公式见[冻结方案](#dmf-sc-topology-details)，原始定义见 [Onnela 等，2005](https://doi.org/10.1103/PhysRevE.71.065103)与 [Newman，2004](https://doi.org/10.1103/PhysRevE.70.056131)。', '',
         'SC 得分按实际计算浮点值的精确相等处理并列；个人归一化中间名次 `(rank−0.5)/N` 的全组合平均必须为 0.5。队列展示并列时使用完整成员字典序，表中数值报告中间名次。SPT 前 20 截断处的主复现数及完整排序条件并列数量均记录在支持摘要中；不能把确定性展示顺序当作额外证据。', '',
         f"小图独立核对 {summary['verification']['direct_checks']} 项，包括直接边权计算、完整模块度矩阵式与 NetworkX 划分值、并列中间名次和统一缩放。每个被试的全部组合枚举数、名次平均、指标范围和零分数量记录在摘要中。输入/注册/科学协议的 SHA256 核对，并确认分析期间未改变；93 人身份按 subject 配对。", '',
         f"原生数据独立复核通过：在 93 人的全部登记三、四元组上用边列表及完整模块度矩阵重算 {verified['registered_score_values_checked']:,} 个指标值；另用首位被试的全部同阶组合直接计数复核 C1–C3 的九个个人名次，与排序缓存一致（归一化名次绝对容差 2×10⁻¹⁶）。从原展示缓存重计窗口出现数的 {verified['candidate_display_count_checks']} 项核对均一致。支持摘要保留检查内容及所验缓存哈希。", '',
@@ -116,9 +117,19 @@ def main():
         '2026-10-08 执行前再次查询 Zotero `P6UJCVG8` 并核验题名 *Emergent hierarchical organization of causal interactions in complex systems*，重新提取正文 `DXGC7JEA`（19/19 页）与补充 `MWIWKSVG`（28/28 页）。附件无明确修订日期/号，版本日期歧义保留。读取 SPT 式（10）–（12）、S5/Algorithm S1、S12.2.1；沿用冻结个体无先验扩展，保持原 target、时距、affine-TM、干预先验与共享群体 JFIC。稿件平均 SC/Yeo 首层约束与扩展的差异及 SC 行序 inferred 限制不因本次比较而消除。', '',
         '2026-10-09 补充前 5 名时，重新查询上述父条目并核验题名、当前附件列表及全文索引（正文 19/19 页、补充 28/28 页），读取正文式（10）–（12）（第 16–17 页）及补充 S5/Algorithm S1（第 8–9 页）。当前仅有上述正文和补充附件，仍无明确稿件修订号或日期；附件元数据修改日期为 2026-10-04，不能据此认定稿件版本。前 5 名仅复用已验证的排名与计数缓存，不改变构树方法；本报告的跨人复现排序是分析读出，区别于式（10）的节点二分优化目标。', '',
         '实现：[分析入口](../../scripts/analyze_dmf_sc_topology_comparison.py)、[绘图入口](../../scripts/plot_dmf_sc_topology_comparison.py)、[原生数据复核](../../scripts/verify_dmf_sc_topology_comparison.py)。支持数据：`results/dmf_schaefer100/sc_topology_comparison/`；运行记录：`docs/log/brain_critical_coalitions/sc_topology_comparison_run.log`。']
-    REPORT.write_text('\n'.join(lines)+'\n')
+    report = '\n'.join(lines)
+    details = ['<a id="dmf-sc-topology-results"></a>', '',
+               '### R.2 同阶前列、个体名次分布与验证', '']
+    for heading in ('## 三阶、四阶 SPT 前 5 名及拓扑排名', '## C1–C3 的同阶排名'):
+        details += [demote(section(report, heading)), '']
+    details += [demote(section(report, '## 两类排行榜的异同').split(
+        '### 纯结构排名前 3 的动力学表现')[0]), '',
+        demote(section(report, '## 比较图').split('![静态结构与自然 SPT')[0]).replace(
+            '**图 1｜', '**图 R1｜'), '',
+        demote(section(report, '## 固定方法与验证')), '', lines[-1]]
+    write_section('dmf-sc-topology-results', '\n'.join(details), REPORT)
     tables = ['# SC 与 SPT 完整前 20 名双向表', '',
-        '2026-10-08。读出来自全部 93 人及每人全部同阶组合；指标、排名与限制见[比较报告](brain_sc_topology_comparison.md)。SC 均为平均个人归一化名次的队列排名，中间名次越小越好；SPT 按转折窗口内稳定复现该完整组合的人数降序排列，稳定复现要求至少 4/6 个 G 点、每点至少 2/3 seed 出现相同自然节点且 Syn 高于同阶背景阈值，并列沿用既有严格排序。完整成员必须相同才算重合。', '']
+        '2026-10-08。读出来自全部 93 人及每人全部同阶组合；指标、排名与限制见[比较报告](#dmf-sc-topology-results)。SC 均为平均个人归一化名次的队列排名，中间名次越小越好；SPT 按转折窗口内稳定复现该完整组合的人数降序排列，稳定复现要求至少 4/6 个 G 点、每点至少 2/3 seed 出现相同自然节点且 Syn 高于同阶背景阈值，并列沿用既有严格排序。完整成员必须相同才算重合。', '']
     for k in ('3','4'):
         for m in METRIC_NAMES:
             tables += [f"## {k} 阶 · SC {NAMES[m]}前 20", '',
@@ -136,7 +147,13 @@ def main():
             d=r['above_background']
             tables.append(f"| {r['spt_same_order_display_rank']} | {members(r)} | {d['critical_ge4']}/93 | {d['critical_ge1']}/93 | "+' | '.join(rank(r,m) for m in METRIC_NAMES)+' |')
         tables += ['', '强窗口计数使用冻结背景以上重复节点；原始入树另列。没有成为自然节点的集合的复现为零，不意味着其真实 Syn 为零。', '']
-    RANKINGS.write_text('\n'.join(tables)+'\n')
+    rankings = '\n'.join(tables)
+    write_section('dmf-sc-topology-rankings', '\n'.join([
+        '<a id="dmf-sc-topology-rankings"></a>', '',
+        '### R.3 SC 与 SPT 的完整前 20 名双向表', '',
+        '完整成员必须逐一相同。SC 为平均个人归一化名次的队列排名；SPT 为背景以上窗口≥4/6的跨人复现排名。三阶、四阶分别比较，并列规则见 R.1–R.2。以下表格保留全部原始数值，按需展开。', '',
+        '<details>', '<summary>展开三阶与四阶的八张完整排名表</summary>', '',
+        demote(rankings[rankings.index('## 3 阶'):]), '', '</details>']), RANKINGS)
     print(json.dumps({'report':str(REPORT),'rankings':str(RANKINGS)}))
 
 

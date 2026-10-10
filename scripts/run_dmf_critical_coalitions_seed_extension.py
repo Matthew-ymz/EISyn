@@ -21,11 +21,12 @@ sys.path.insert(0, str(ROOT))
 from scripts import run_dmf_critical_coalitions as kernel
 from scripts.analyze_dmf_critical_coalitions_all93 import members_mask
 from scripts.run_dmf_subject_consistency import atomic_json, digest
+from scripts.brain_report_sections import BRAIN_REPORT, write_section
 from scripts.run_dmf_subject_curve_baselines import atomic_savez
 
 BASE = kernel.BASE / 'seed_extension5'
 FIGURE_DIR = ROOT / 'fig/dmf_schaefer100'
-REPORT = ROOT / 'docs/reports/brain_critical_coalition_seed5.md'
+REPORT = BRAIN_REPORT
 STATE = {}
 
 
@@ -372,24 +373,28 @@ def export(base, c, extension, summary, present):
         plt.close(fig)
         files.append(output)
     table = []
+    majority_table = []
     for row in summary['candidates']:
         old, new, all5 = [row['groups'][key] for key in ['original3', 'added2', 'all5']]
-        table.append(f"| {row['display_id']}：{'、'.join(map(str, row['members_one_based']))} | "
-            f"{old['mean_window_seed_presence_fraction']*100:.1f}% | {new['mean_window_seed_presence_fraction']*100:.1f}% | "
-            f"{all5['mean_window_seed_presence_fraction']*100:.1f}% | {all5['mean_outside_seed_presence_fraction']*100:.1f}% | "
-            f"{all5['window_any_subjects']}/93 | {all5['window_ge4_subjects']}/93 |")
-    text = '# 固定 C1–C3 的五 seed 自然节点复现\n\n'
-    text += '原 seed 3、4、5 的 11,439 条件复用，新增 seed 6、7 的 7,626 条件完成；总计 93×41×5=19,065 条件。图形导出待目视复核。\n\n'
+        table.append(f"| {row['display_id']}：{'、'.join(map(str, row['members_one_based']))} | " +
+            ' | '.join(f"{group[key]*100:.1f}%" for group in (old, new, all5)
+                       for key in ('mean_window_seed_presence_fraction', 'mean_outside_seed_presence_fraction')) + ' |')
+        majority_table.append(f"| {row['display_id']} | " + ' | '.join(
+            f"{group[key]}/93" for group in (old, new, all5)
+            for key in ('window_any_subjects', 'window_ge4_subjects')) +
+            f" | {all5['outside_any_subjects']}/93 | {row['all5_at_least4seeds_window_ge4_subjects']}/93 |")
+    text = '#### 新旧 seed 的平均入树频率\n\n'
+    text += '原 seed 3、4、5 的 11,439 条件复用，新增 seed 6、7 的 7,626 条件完成；总计 93×41×5=19,065 条件。\n\n'
     text += '候选完整成员固定自原全 93 人探索。每格的主读出为入树 seed 数／seed 总数，不按 Syn 强度或 reference 筛选。下表的平均窗口入树频率先对每人的六格和 seed 平均，再跨人平均；窗口外按其余 35 格平均。\n\n'
-    text += '| 完整候选 | 原3seed窗口频率 | 新2seed窗口频率 | 全5seed窗口频率 | 全5seed窗口外频率 | 多数seed窗口≥1/6 | 多数seed窗口≥4/6 |\n|---|---:|---:|---:|---:|---:|---:|\n'
+    text += '| 完整候选 | 原3：窗口 | 原3：窗外 | 新2：窗口 | 新2：窗外 | 全5：窗口 | 全5：窗外 |\n|---|---:|---:|---:|---:|---:|---:|\n'
     text += '\n'.join(table) + '\n\n'
+    text += '这些是每格的 seed 平均频率；原主报告 57.9%、48.6%、40.3% 是至少 2/3 判定后的二值格点比例，两者定义不同。全部 93 人曾参与候选探索，新 seed 只增加模拟重复，不增加人群样本量。\n\n'
+    text += '#### 多数规则与较严格敏感性\n\n'
     text += '全五 seed 的多数规则为至少 3/5；原三 seed 为 2/3，新增两 seed 为两者都出现。主图保留连续频率，另存至少 4/5 的较严格读出，均不根据候选表现选择阈值。\n\n'
-    for output in files:
-        text += f'![{output.stem}](../../fig/dmf_schaefer100/{output.name})\n\n'
-    text += '逐人热图使用共同 0–100% 入树频率色标，白色为未扫描；93 行同序、无平滑。复现曲线为实际覆盖个体的单 seed 入树比例，再对五 seed 等权平均；C1 阴影为五个 seed 的最小–最大范围，不是置信区间。扫描边缘按实际覆盖人数计算。\n\n'
-    text += '新增 seed 检验固定候选的模拟重复性，不构成新增被试、未接触队列或消除估计偏差的证明。节点 Syn 仍是路径依赖的层级残差；发放率窗口仍为操作性定位。所有模型、干预、共同 target、时距、估计近似及 SPT 搜索保持原科学内核。\n\n'
-    text += f"全部 {summary['audit']['tree_count']:,} 棵树与密度的身份、source/noise、完整成员、非负性及预算闭合已检查。Syn 容差为 10⁻⁸ nats，最小选中 Syn 为 {summary['audit']['minimum_selected_syn_nats']:.10g} nats，容差内负值为 {summary['audit']['selected_tolerance_negative_count']}；原 Syn 未裁剪。新增 seed 无既有独立 dense 扫描，不声称其 dense Ξ 逐点再现检查；原三 seed 的展示缓存逐值完全一致。\n"
-    REPORT.write_text(text)
+    text += '| 候选 | 原3多数：窗口≥1/6 | 原3多数：窗口≥4/6 | 新2均出现：窗口≥1/6 | 新2均出现：窗口≥4/6 | 全5多数：窗口≥1/6 | 全5多数：窗口≥4/6 | 全5多数：窗外任一格 | 至少4/5：窗口≥4/6 |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n'
+    text += '\n'.join(majority_table) + '\n\n'
+    text += '各组规则的严格程度不同，不能将新增两 seed 的人数下降单独解释为重复性变差。全五 seed 窗口外仍有多数重复，结果支持邻域富集，不支持严格窗口专属性。\n'
+    write_section('dmf-seed5-readout', text, REPORT)
     atomic_json(base / 'seed5_figure_metadata.json', dict(figures=[dict(output=str(p), sha256=digest(p)) for p in files],
         summary_sha256=digest(base/'seed5_summary.json'), plotting_sha256=digest(Path(__file__)),
         report_sha256=digest(REPORT), visual_review='pending', legend_placement='Outside all data',
