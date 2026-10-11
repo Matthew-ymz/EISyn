@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Present the user-fixed dense grid/window using existing, frozen outputs only.
+"""Render the frozen historical comparison at the user-fixed grid/window.
 
-Four aligned raw-curve panels contain all 93 subjects and the separately simulated
-mean SC. Hit bars use the existing k=2 subject classifications; no new inference.
-Whole EI and the sum of partial EI stay in a separate decomposition figure.
+The all-interventional replacement was withdrawn: observational baselines must
+retain their natural source distribution. This renderer preserves the original
+explicit BOLD-PhiR / neural-WMS labels until natural-neural results are complete.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 import matplotlib
 matplotlib.use('Agg')
@@ -17,11 +18,12 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.lines import Line2D
 import numpy as np
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from scripts.dmf_curve_shape import METHOD_COLORS, METHOD_LABELS
 from scripts.dmf_dense_statistics import subject_landmarks
 from scripts.run_dmf_subject_consistency import atomic_json, digest
 
-ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / 'results/dmf_schaefer100/subject_curves_93_dense'
 OUTPUT = ROOT / 'docs/reports/assets/dmf_subject_dense'
 REPORT = ROOT / 'docs/reports/brain.md'
@@ -129,7 +131,8 @@ def draw(g, values, rho, scenario):
             rate = 100 * m['hit_rate']
             ax.barh(position, rate, height=.40, color=METHOD_COLORS[name], linewidth=0)
             ax.text(rate+1.7, position, f"{rate:.1f}%  {m['hit_count']}/93",
-                    va='center', ha='left', fontsize=8.2)
+                    va='center', ha='left', fontsize=8.2,
+                    bbox=dict(facecolor='white',edgecolor='none',pad=.2))
         ax.axvline(50, color='#aaa', ls=':', lw=.9, zorder=0)
         ax.set(xlim=(0, 100), ylim=(-.6, 2.6), xticks=np.arange(0, 101, 25),
                yticks=[2, 1, 0], yticklabels=[METHOD_LABELS[n] for n in NAMES],
@@ -214,7 +217,7 @@ e只展示93人结果：Ξ **65/93（69.9%）**，ΦR/WMS各 **28/93（30.1%）*
                 updated_blocks=['dense-fixed-view', 'dense-ei-view'])
 
 
-def main():
+def historical_main():
     config = json.loads((BASE / 'fixed_window_view.json').read_text())
     contract, g, values, rho, scenario, audit = read_inputs(config)
     exports = draw(g, values, rho, scenario)
@@ -231,6 +234,15 @@ def main():
     print('Fixed view rendered: 93 individual curves + separate mean SC; G step .1, k=2, width .5.')
     print('Hits', {key:{n:scenario['cohorts'][key]['methods'][n]['hit_count'] for n in NAMES}
                    for key in ('all93', 'primary85')})
+
+
+def main():
+    natural = ROOT / 'results/dmf_schaefer100/natural_state_phi_r/summary.json'
+    if natural.exists():
+        from scripts.run_dmf_natural_state_phi_r import render
+        render()
+    else:
+        historical_main()
 
 
 if __name__ == '__main__':

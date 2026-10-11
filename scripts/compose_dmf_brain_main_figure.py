@@ -33,6 +33,7 @@ from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import (
     render_tree, _tree_metrics, _blend_with_white, SPLIT_COLOR,
 )
 from scripts.compare_runge_slp_pc60_xi_horizons import _node_from_record
+from scripts.run_dmf_subject_consistency import digest
 
 OUTPUT = ROOT / "fig/dmf_schaefer100/dmf_brain_main_composite"
 ROI = ROOT / "results/dmf_schaefer100/roi_shapley_three_G_G1000"
@@ -44,6 +45,7 @@ TREE_PATHS = [
 ]
 # Physical dimensions, in millimetres, keep final type sizes meaningful.
 WIDTH, HEIGHT = 190., 211.
+PAIRWISE = ROOT / "results/dmf_schaefer100/natural_pairwise_phi_r"
 
 
 def axes_mm(fig, x, top, width, height):
@@ -95,10 +97,59 @@ def cortex_crops():
     return images
 
 
-def load_inputs():
+def read_main_comparison():
+    """Use the selected natural pairwise mean, preserving Xi/native WMS.
+
+    All 94 SCs include the independently simulated mean-SC reference. Its curve
+    is displayed separately and never enters the 93-participant hit count.
+    """
     fixed = json.loads((BASE / "fixed_window_view.json").read_text())
     contract, g, values, rho, scenario, audit = read_inputs(fixed)
-    print("Frozen 93-person curves and hit counts verified:", audit)
+    c = json.loads((PAIRWISE / "contract.json").read_text())
+    s = json.loads((PAIRWISE / "summary.json").read_text())
+    sha = digest(PAIRWISE / "contract.json")
+    if (s['contract_sha256'] != sha or c['pair_count'] != 19900
+            or c['subject_ids'] != contract['subject_ids']
+            or c['dense_curves_sha256'] != digest(BASE / "analysis_curves.npz")
+            or c['dense_windows_sha256'] != digest(BASE / "window_summary.json")
+            or c['query_script_sha256'] != digest(ROOT / "scripts/compare_dmf_state_aligned_phi_r.py")
+            or c['runner_sha256'] != digest(ROOT / "scripts/compare_dmf_natural_pairwise_phi_r.py")
+            or s['curves_sha256'] != digest(PAIRWISE / "curves.npz")):
+        raise ValueError('Selected pairwise PhiR provenance differs')
+    with np.load(PAIRWISE / "curves.npz") as a:
+        raw = a['phi_r_nats'].copy()
+        if (str(a['contract_sha256']) != sha or raw.shape != (94, 3, 41)
+                or a['subject_ids'].tolist() != c['subject_ids']
+                or not np.isfinite(raw).all() or not np.array_equal(a['G'], g)
+                or a['seeds'].tolist() != [3, 4, 5]):
+            raise ValueError('Invalid selected pairwise PhiR curves')
+    if s['audit']['significant_violation_count'] or raw.min() < -1e-8:
+        raise ArithmeticError('Selected pairwise PhiR nonnegativity violation')
+    values['phi_r'] = raw.mean(1)
+    scenario = json.loads(json.dumps(scenario))
+    for row, aligned in zip(scenario['subject_rows'], s['subject_rows']):
+        if row['subject'] != aligned['subject'] or row['window'] != aligned['window']:
+            raise ValueError('Selected pairwise PhiR subject/window changed')
+        row['methods']['phi_r'] = aligned['natural_pairwise']
+    for name, cohort in scenario['cohorts'].items():
+        cohort['methods']['phi_r'] = s['cohorts'][name]['methods']['natural_pairwise']
+        # Original comparisons refer to the historical BOLD-like PhiR. This
+        # figure-only selection does not recompute inferential statistics.
+        cohort.pop('comparisons', None)
+        cohort.pop('both_comparisons_significant', None)
+    if scenario['cohorts']['all93']['methods']['phi_r']['hit_count'] != 29:
+        raise ValueError('Selected pairwise PhiR hit count differs from 29/93')
+    scenario['original_Xi_and_WMS_unchanged'] = True
+    scenario['phi_r_protocol'] = 'natural-pairwise-mean'
+    audit.update(phi_r_protocol=scenario['phi_r_protocol'],phi_r_pair_count=19900,
+                 phi_r_individual_count=93,phi_r_mean_SC_reference_available=True,
+                 pairwise_nonnegative_audit=s['audit'],pairwise_curves_sha256=digest(PAIRWISE/'curves.npz'))
+    return contract, g, values, rho, scenario, audit
+
+
+def load_inputs():
+    contract, g, values, rho, scenario, audit = read_main_comparison()
+    print("Selected 93-person curves and hit counts verified:", audit)
     with np.load(ROI / "roi_shapley.npz") as a:
         labels, membership = a["region_labels"].copy(), a["network_membership"].copy()
         assert np.array_equal(a["G"], [0, 1.3, 10])
@@ -152,21 +203,23 @@ def draw(dpi):
         fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(.035, .995),
                    ncol=2, frameon=False, fontsize=6.8, handlelength=2.4,
                    columnspacing=1.2, borderaxespad=0.)
+        updated_comparison = scenario.get('original_Xi_and_WMS_unchanged', False)
         specifications = [
             ("a", "rate", 13, 14, "Independent order parameter"),
-            ("b", "xi", 80, 14, r"Integrated EI $\Xi$"),
-            ("c", "phi_r", 13, 50, r"BOLD-like pairwise $\Phi^R$"),
-            ("d", "wms", 80, 50, "Signed source WMS"),
+            ("b", "xi", 80, 14, r"$\Xi$"),
+            ("c", "phi_r", 13, 50, r"Natural pairwise $\Phi^R$"),
+            ("d", "wms", 80, 50, "Natural signed source WMS" if updated_comparison else "Signed source WMS"),
         ]
         for panel, name, x, top, title in specifications:
             ax = axes_mm(fig, x, top, 52, 26)
             for i in range(93):
                 ax.plot(g, values[name][i], color=colors[i], alpha=.50, lw=.42)
-            ax.plot(g, values[name][-1], color="#202020", ls=(0, (5, 2.4)),
-                    lw=1.35, marker="o", ms=1.6, markevery=5, zorder=4)
+            if len(values[name]) == 94:
+                ax.plot(g, values[name][-1], color="#202020", ls=(0, (5, 2.4)),
+                        lw=1.35, marker="o", ms=1.6, markevery=5, zorder=4)
             ax.set(xlim=(0, 4), xticks=np.arange(5), title=title,
                    ylabel="Mean E rate (Hz)" if name == "rate" else "Information (nats)")
-            if name in ("rate", "xi"):
+            if name in ('rate', 'xi', 'phi_r'):
                 ax.set_ylim(bottom=0)
             ax.margins(y=.06)
             if top == 14:
@@ -187,7 +240,8 @@ def draw(dpi):
             rate = 100*row["hit_rate"]
             ax.barh(position, rate, height=.43, color=METHOD_COLORS[name], linewidth=0)
             ax.text(rate+2., position, f"{rate:.1f}%\n{row['hit_count']}/93",
-                    ha="left", va="center", fontsize=6.4, linespacing=1.2)
+                    ha="left", va="center", fontsize=6.4, linespacing=1.2,
+                    bbox=dict(facecolor="white", edgecolor="none", pad=.6))
         ax.axvline(50, color=".65", ls=":", lw=.65, zorder=0)
         ax.set(xlim=(0, 100), ylim=(-.55, 2.55), xticks=[0, 50, 100],
                yticks=[2, 1, 0], yticklabels=[METHOD_LABELS[n] for n in ("xi", "phi_r", "wms")],

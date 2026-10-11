@@ -69,6 +69,7 @@ tests/*
 !tests/test_unicm_shap_surrogate.py
 !tests/test_unicm_information_prior_comparison.py
 !tests/test_unicm_observational_information.py
+!tests/test_nyc_taxi_information_prior_calibration.py
 !tests/test_hcp_lausanne_phi_eid_pilot.py
 !tests/test_hcp_ped_oinfo_57.py
 !tests/test_brain_surface_plot.py
