@@ -693,6 +693,55 @@ $$
 4. 对候选区域组实施分组 TM；只有这一步才能从“系统存在联合信息”推进到“哪些组合贡献联合信息”。
 5. 最后再用保持原始变量约束的非线性 TM 比较 Interaction Ridge 与 MLP。
 
+### E.3 信息先验预测校准：2023探索已完成
+
+按2026-10-11的[实施协议](../log/nyc_taxi_information_prior_calibration_contract.md)，完成三冻结checkpoint、三环境属性上下文、每条件4,096 donor的594个局部affine-TM oracle，以及完整三玩家SHAP及加倍精度检查、独立选参、200个尺度标签置乱、三single-checkpoint稳健性和T23时间块统计。**在这一固定协议下，Ξ先验没有显示额外预测收益。**
+
+各方法使用同一个8参数/目标的残差ridge校准器，固定同一通道保持的hurdle PCA、数据和归一化；每种先验各自搜索40个λ/γ候选。Uniform和Univariate只有8个不同配置。全部主方法、单checkpoint、置乱参数及竞争方法B*都在F/V确定，并将[配置锁定记录](../../results/nyc_taxi_information_prior_calibration/exploration2023/configuration_lock.json)写入后，才统一评价全部760小时T23。模型权重没有更新。
+
+| 方法 | 验证选择 λ | γ | T23 macro nRMSE ↓ |
+|---|---:|---:|---:|
+| Ξ-Shapley | 1000 | 0 | 0.479825 |
+| Uniform ridge | 1000 | 0 | 0.479825 |
+| EI-Shapley | 1000 | 0 | 0.479825 |
+| Pair-only PEID | 1000 | 0 | 0.479825 |
+| ΦR-Shapley | 100 | 1 | 0.479773 |
+| ΦWMS-Shapley（B*） | 100 | 1 | 0.479716 |
+| Gaussian SURD | 1000 | 0 | 0.479825 |
+| Target-augmented O-Shapley | 100 | 1 | 0.479707 |
+| Correlation | 1000 | 0 | 0.479825 |
+| Grouped SHAP（精度未通过） | 1000 | 0 | 0.479825 |
+| Univariate | 10 | 0 | 0.479845 |
+| Frozen ensemble | — | — | 0.471688 |
+
+Ξ选择λ=1000、γ=0，惩罚变为均匀，其T23预测与Uniform和EI逐元素完全相同。平均有效自由度为1.007/目标；名义容量仍是8参数/目标。原冻结ensemble的macro nRMSE为0.471688，Ξ/Uniform为0.479825，后者的误差点估计高1.73%。Ξ的inflow/outflow pooled RMSE为13.807/16.488，MAE为8.555/9.145；Frozen对应RMSE为13.113/15.676，MAE为8.001/8.547，单位均为rides per zone-hour。计数预测截断比例为3.04%/3.74%；未截断macro nRMSE为0.480413/0.472210。
+
+三个预定义主比较用相同实际小时索引进行4,000次7天循环块配对bootstrap；区间是95% percentile区间，p值来自中心化bootstrap误差分布，并对三项做Holm校正。T23已被既有分析使用，且只有约4.5周，这些是描述性探索结果，不是独立确认。
+
+| Ξ相对基线 | 误差改善（%） | 95%配对区间（%） | 描述性Holm p |
+|---|---:|---:|---:|
+| Uniform | 0 | [0, 0] | 1.000 |
+| EI-Shapley | 0 | [0, 0] | 1.000 |
+| 验证锁定B*：ΦWMS | −0.0227 | [−0.1053, 0.0693] | 1.000 |
+
+前两项的零区间来自完全相同的预测。相对ΦWMS的改善区间跨零，且未达到预设1%的实践收益线。三个单checkpoint也都选择γ=0，相对ΦWMS的改善分别为−0.0282%、−0.3502%、−0.0106%；它们是同一交通系统的模型稳健性检查。
+
+200个区域内R/D/W分数置乱均独立在V搜索40组参数。177个与真实Ξ打平，23个误差更高，没有置乱误差更低；按预定义含并列计数的Monte Carlo值为178/201=0.8856，真实Ξ的并列排名区间为1–178。这个结果没有支持正确尺度标签赋值的额外用途；该安慰剂也不是尺度严格可交换的无条件精确检验。
+
+Grouped SHAP从32前景/16背景加倍到64/32后，三checkpoint平均的归一化权重最大变化0.07348，高于0.05；7/66个非并列区域改变第一名，10.61%高于10%。三个checkpoint各自也未通过精度检查。因此保留SHAP预测结果并标记未收敛，将其排除于可用于充分验证声明的B*候选；B*由V锁定为ΦWMS，不据T23重新选择。不能据此声称超过充分收敛的SHAP。
+
+下图a为各方法T23误差及配对时间块区间，b为预定义主比较，c为200个独立选参置乱与真实Ξ的误差差值，d为按D0客流量五分位分层的点估计。分层全部保留66区；对ΦWMS，Ξ在34/66区的点估计更低，但全区macro误差更高。高客流组的微小改善不能替代主比较判胜。T23月度输出包含11月末16小时和12月744小时，不能视为两个充分独立月份。
+
+![Taxi2023信息先验探索：各方法测试误差、主比较配对区间、独立选参置乱及客流分层；Ξ未显示额外收益，SHAP精度未通过。](assets/nyc_taxi_information_prior_exploration2023.png)
+
+原生有效性检查通过：非负容差1e-8 bit，数值零计数与显著负值违规均为0；594个oracle的EI/Ξ-Shapley恒等式最大误差2.22e-16 bit。阶段0完整masked forward与分支缓存输出差5.96e-8个标准化单位。17项解析、时间隔离、真实配对、缓存及既有SURD检查通过。全量核心耗时87.5秒，完整SHAP/选参/探索阶段耗时868.7秒，合计约16分钟；后半程峰值进程RSS约1.34 GB。396份昂贵SHAP分支表示、先验、实际donor与噪声数组、最终预测和bootstrap小时计数均在NPZ/JSON中保留，并以数据/checkpoint/代码/配置来源信息限制复用。
+
+复现入口为[先验模块](../../scripts/nyc_taxi_information_priors.py)、[阶段0/核心运行入口](../../scripts/run_nyc_taxi_information_prior_calibration.py)、[完整探索入口](../../scripts/complete_nyc_taxi_information_prior_calibration.py)及[结果绘图](../../scripts/plot_nyc_taxi_information_prior_exploration.py)。完整[汇总](../../results/nyc_taxi_information_prior_calibration/exploration2023/summary.json)和[运行记录](../../results/nyc_taxi_information_prior_calibration/exploration2023/manifest.json)保留全部方法、选参、失败/排除、单checkpoint、月度与分层结果。阶段0检查图保留在[历史诊断图](assets/nyc_taxi_information_prior_stage0.png)。
+
+解释边界：本轮采用通道各1PC、经验块干预与affine-TM/Gaussian读出，PCA保留方差中位数70.7%、最低14.6%；比较的是完整先验方案的预测用途，受到表示损失、近似模型和短时间窗口限制。目标小时实测天气仍按原MGSTN回测输入提供。**尚未准备或评价2024确认集**，本轮不支持新年份泛化或Ξ普遍无效的结论。
+
+此次重新读取Zotero `P6UJCVG8` 当前正文 `DXGC7JEA`（第12–17页，式5–12）和补充 `MWIWKSVG`（S1.2/S1.3/S3.2/S12.3）；附件无明确稿件日期或修订号，版本先后仍未解决。此处使用bits，手稿连续实验采用nats，换算为 `nats = bits × ln(2)`。三块经验干预/affine读出与手稿最大熵及二阶R/M分析存在口径区别。手稿把77.8%–83.9%解释为三尺度贡献占比的文字仍与本报告式(0.3)不一致，不能用作本轮机制结论的依据。
+
 ---
 
 ## 附录 F：复现资源与数据开放性
