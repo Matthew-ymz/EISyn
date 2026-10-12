@@ -56,6 +56,15 @@ DEFAULT_FIGURE = ROOT / "docs/reports/assets/kuramoto_hierarchy/kuramoto_mixed_o
 DEFAULT_STATUS = ROOT / "docs/log/mixed_order_kuramoto_kout_main/live_progress.json"
 
 
+class JointTMNonnegativityError(RuntimeError):
+    """Keep raw estimates and the audit available when a TM estimate fails."""
+
+    def __init__(self, message, *, table, diagnostics):
+        super().__init__(message)
+        self.table = table
+        self.diagnostics = diagnostics
+
+
 def _configure_coherent_tm() -> None:
     """Reuse the learned-dynamics and conditional-TM implementation with six sources."""
     coherent_tm.NAMES = NAMES
@@ -524,13 +533,7 @@ def coherent_ei_table_without_resampling(
     violating_syn_count = int(
         sum(value < -SYN_TOLERANCE_BITS for value in partition_syn)
     )
-    if minimum_xi < -SYN_TOLERANCE_BITS or minimum_syn < -SYN_TOLERANCE_BITS:
-        raise RuntimeError(
-            "Coherent joint-TM nonnegativity violation: "
-            f"minimum Xi={minimum_xi:.6g} bits, minimum Syn={minimum_syn:.6g} bits, "
-            f"threshold=-{SYN_TOLERANCE_BITS:.6g} bits."
-        )
-    return table, {
+    diagnostics = {
         "minimum_non_singleton_xi_bits": minimum_xi,
         "minimum_partition_syn_bits": minimum_syn,
         "negative_non_singleton_xi_count": negative_xi_count,
@@ -542,6 +545,17 @@ def coherent_ei_table_without_resampling(
         "resampling_bias_correction": "none",
         "nonnegative_clipping": False,
     }
+    if minimum_xi < -SYN_TOLERANCE_BITS or minimum_syn < -SYN_TOLERANCE_BITS:
+        raise JointTMNonnegativityError(
+            "Coherent joint-TM nonnegativity violation: "
+            f"minimum Xi={minimum_xi:.6g} bits, minimum Syn={minimum_syn:.6g} bits, "
+            f"threshold=-{SYN_TOLERANCE_BITS:.6g} bits, "
+            f"violating Xi count={violating_xi_count}, "
+            f"violating Syn count={violating_syn_count}.",
+            table=table,
+            diagnostics=diagnostics,
+        )
+    return table, diagnostics
 
 
 def free_spt(table: dict[tuple[str, ...], float]):
@@ -1070,7 +1084,7 @@ def run(
                 "generate paired noisy finite-time Kuramoto transitions",
                 "fit one full-state MLP transition model per K_out with fixed architecture and budget",
                 "evaluate the MLP under independent maximum-entropy phase interventions",
-                "reconstruct the complete six-node future state and fit one conditional transport map per learned dependency component",
+                "use the complete six-node wrapped phase increment and fit one conditional transport map per learned dependency component",
                 "derive all 63 subset EIs from component-consistent marginals and build the free SPT",
             ],
             "estimator": "MLP dynamics followed by one conditional neural transport map per learned dependency component; all 63 subset EIs use the same component rule and fixed estimator budget",

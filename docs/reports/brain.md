@@ -248,13 +248,17 @@ b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独�
 
 ### 2.4 无先验树呈现嵌套的核心—外围结构
 
-图 Q2b 选取整体 $\Xi$ 最接近八个 seed 均值的 seed 4。树从 100 个 ROI 递归搜索二分，叶节点保留 E/I 配对，Yeo 颜色只作事后标识。<span style="color: red;">每个子树的整体 $\Xi$ 仍按其全部 E/I 标量源计算；图中节点标签显示局部 Syn 占全系统整体 $\Xi$ 的百分比，不是该子树累计信息的占比。</span>
+图 Q2b 选取整体 $\Xi$ 最接近八个 seed 均值的 seed 4。树从 100 个 ROI 递归搜索二分，叶节点保留 E/I 配对，Yeo 颜色只作事后标识。<span style="color: red;">图中恢复树状图，仅将连续单 ROI 剥离段收缩成一个显示分叉：这些单点仍是各自独立的叶子，但从同一条虚线横枝分出，菱形标出压缩节点。其余模块分叉和末端对子完整保留。圆形节点的青绿色与百分比表示原局部 Syn / 全系统整体 $\Xi$；压缩菱形取该段原二分节点的峰值，并以 peak 标注。它不是重新估计的多分叉 Syn 或压缩段总和。</span>
+
+显示规则仅压缩至少两步的最大连续单点剥离段；遇到两侧均至少两个 ROI 的分叉或末端 ROI 对即停止，在各分支递归执行，单次单点切分保持原状。纵向按保留子树的高度排布，给其余划分更多空间；横向沿用原树叶序。本例保留 10 个多 ROI 分叉、11 个末端 ROI 对，9 段连续剥离收缩后共显示 36 个内部节点、100 个单 ROI 叶子，最大显示深度从 81 降到 21。原 99 个内部 Syn 各归入且仅归入一个显示节点，ROI 及底部色条均唯一覆盖，没有按 Yeo 标签重分组。[压缩层级树单图](assets/dmf_tree_collapsed.png)。此前矩形图仅留作历史预览。
 
 树包含 99 个内部节点，最大深度为 81；主干覆盖 81 次划分（81.8%），归一化 Colless 不平衡度为 0.894。它呈现**主干占优、带局部分支的嵌套核心—外围结构**，不同 Yeo 网络成员在主干和侧枝交错。
 
+<span style="color: red;">这些形状指标属于 2,048 样本的当前估计。新增的固定 G=1.3 采样复核表明，更大样本会改变树的不平衡程度，具体 ROI 层级在 32,768 样本下仍有明显 seed 依赖；因此不能把当前单树当作已经采样收敛的固定层级。完整结果见[第 2.4.5 节](#dmf-spt-sampling-convergence)。</span>
+
 根的整体 $\Xi$ 为 26.102 bits（18.093 nats）。首次切分为 99 ROI 与一个 ROI，局部二分 Syn 为 0.134 bits（0.093 nats），多数信息继续保留在大子树中。内部节点 Syn 合计 23.021 bits，加上叶块 E/I 增量 3.081 bits，闭合到根，误差为 $-1.07\times10^{-14}$ bits。该单条件根部二分量，与图 Q2d 的 24 条件网络间均值 17.151 bits 对应不同的划分和汇总口径。
 
-<span style="color: red;">比例版使用同一棵缓存树，只改变显示单位。首次切分占整体 $\Xi$ 的 0.51%；最强局部节点含 85 个 ROI，其 0.452 nats 占整体 $\Xi$ 的 2.50%。全部 99 个内部节点的未舍入占比合计为 88.1957%，100 个叶块保留的 E/I 增量合计为 11.8043%，两者相加为 100%。因此，图上少量标注节点的百分比不能单独相加为系统总量，也不等同于图 Q2e 的 ROI Shapley 贡献。百分比保留两位小数。非负容差仍为 $10^{-8}$ bits，99 个所选内部节点与 100 个叶块均无容差内负值或显著非负性违反；本轮未重跑动力学、拟合 EI 或改变搜索范围。</span>
+<span style="color: red;">比例显示复用同一棵缓存树。原首次切分占整体 $\Xi$ 的 0.51%；最强局部节点含 85 个 ROI，其 0.452 nats 占整体 $\Xi$ 的 2.50%。当前 100-ROI 显示段涵盖前 17 次连续单点剥离，因此其顶部 2.50% 是这段中的原节点峰值，不是根首次二分的 0.51%。全部 99 个原内部节点的未舍入占比合计为 88.1957%，100 个叶块 E/I 增量合计为 11.8043%，两者相加为 100%；显示的段峰值不可相加为这个预算，也不等同于 ROI Shapley。百分比保留两位小数。非负容差仍为 $10^{-8}$ bits，99 个所选内部节点与 100 个叶块均无容差内负值或显著非负性违反；本轮未重跑动力学、拟合 EI 或改变搜索范围。</span>
 
 大联盟采用谱候选划分，至多八个 ROI 时精确搜索；共评估 25,982 个候选划分、37,597 个联盟。树反映这一预算下的搜索结果。预设非负容差为 $10^{-8}$ bits，pair 和候选切分的容差内归零数、显著违反数均为 0。旧独立树见[附录 A.5.4](#appendix-a-5-4)。
 
@@ -265,6 +269,12 @@ b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独�
 <a id="dmf-tree-examples"></a>
 
 #### 2.4.1 <span style="color: red;">极端耦合 G 对照：0、1.3、10</span>
+
+2026-10-12 恢复固定 seed 4 的三个已有配对条件的树状图，只对 $G=1.3$ 压缩连续单点剥离，$G=0$、10 保留完整二叉树；共用 0–3% 局部 Syn 占比色标，不新增模拟或搜索。两个端点都是纯链，原最大深度均为 99、两侧均至少两个 ROI 的分叉为零；$G=1.3$ 的此类分叉为 8、末端对子为 9，10 段连续剥离压缩后显示 29 个内部节点，最大深度从 79 降到 15。因此中间条件的局部分支更清楚，两个端点的外形相近；差异也受中间面板的层级压缩影响，不能按图上高度作定量比较。整体信息量分别为 5.911、17.990、0.718 nats。对比的 $G=1.3$ 是配对输入重建的树，不能替代主图独立抽样的 18.093-nats 树。这个同 seed 对照不说明同形态的两端具有相同机制。
+
+![固定 seed 4，G=0、1.3、10 的树状图，仅中间条件压缩连续单点剥离](assets/dmf_trees_G000_130_1000_seed04.png)
+
+*三个 G 的 SPT 树状对照。仅 $G=1.3$ 的连续单点出口从同一个虚线分叉展开；菱形取段内原局部 Syn 峰值，圆形保留单个原节点值，均除以同条件整体 $\Xi$。每棵树的 99 个原内部节点各被代表一次、100 个单 ROI 叶子全部保留；原始节点、值、输入指纹和非负审计写入 PNG 元数据。各面板沿用各自原始叶序；中间面板按保留子树高度排层，其余面板沿用原来的 log₂ ROI 数高度，纵向距离不可跨面板定量比较。源码为 `scripts/plot_dmf_spt_collapsed_tree.py`。*
 
 <span style="color: red;">将右列由 $G=3$ 替换为 $G=10$，仍取 seed 3、4、5，共九棵树。这个极端参数点位于原 $G=0$–3 扫描以外，用来观察更强耦合时的树形，不作生理范围或临界点判断。左两列直接复用原 $G=0$、1.3 的六棵树；只新增 $G=10$ 的三次模拟、条件协方差拟合与构树。同一 seed 的三个 G 共用 2,048 个 $U(0.30,0.70)^{200}$ 干预初态及逐步噪声；SC、在 $G=1$ 校准后固定的 JFIC、300-step 时距、积分步长 $10^{-3}$ s 和无状态裁剪规则均保持一致。新增三条件输出全部有限，未发生状态裁剪。中央列沿用配对样本，与原图 Q2b 的独立采样仍应区分。</span>
 
@@ -367,6 +377,49 @@ b 的自然树、c/d 的固定网络汇总和 e 的普通 ROI Shapley 各自独�
 <span style="color: red;">G=1.3 重跑模拟与旧配对条件协方差最大差异为 0，199 个节点成员相同、Syn 最大差异为 0。全部树最大闭合误差为 1.07e-14 bits。非负容差为 10⁻⁸ bits（换算为 nats 时乘 ln 2）；选中树、搜索候选及固定联盟／交叉评分的容差内负值计数分别为 0、0、0，显著违规为 0。保留原始信息值，没有静默非负投影。 本轮使用一个 seed，当前结果支持探索性组织追踪；未开展 0.001 加密或跨 seed 确认。实际条件 Gaussian 矩估计与版本边界见[附录 S](#dmf-spt-G-resolution-details)。</span>
 
 <!-- report-section:dmf-spt-G-resolution:end -->
+
+<!-- report-section:dmf-spt-sampling-convergence:start -->
+<a id="dmf-spt-sampling-convergence"></a>
+
+#### 2.4.5 <span style="color: red;">G=1.3：扩大采样改善稳定性，但完整树尚未摆脱 seed 依赖</span>
+
+<span style="color: red;">**将采样量增大 16 倍，仍不足以把 seed 对完整层级分解的影响视为微乎其微。** 固定 G=1.3、seeds 3–10，在 2,048、8,192、32,768 个干预样本上构建全部 24 棵树。跨 seed 的非平凡 ROI 子树共有率均值由 12.2% 升至 33.2%；最高采样量下，两棵树平均仍有 65.4 / 98 个非平凡子树不同，范围为 52–76 个。与此同时，固定同一参考划分计算的 Syn 差异由 7.19% 降到 1.90%，整体 Xi 跨 seed 的变异系数仅 0.18%。总量与连续数值比具体联盟层级更稳定。</span>
+
+SC、冻结 JFIC、干预支持、动力学噪声、source/target、300-ms 时距、ridge、Gaussian 条件协方差读出和原图的确定性谱候选规则均保持不变，至多八 ROI 精确枚举。每个 seed 使用独立的 2,048 样本批次逐档追加；所有 sample/noise 前缀实际嵌套，重算旧 2,048 样本的条件协方差与旧缓存最大差均为 0。三棵已有原图搜索缓存复用，其余 21 棵按相同规则构建。参考分叉冻结为新增采样前已有的 paired seed 4 树；它与主图独立抽样的 18.093-nats 树分别保存。这里沿用第 2.1 节的 200 维 TM 计算代价例外，检验的是当前 Gaussian/affine 近似及搜索策略的采样稳定性。
+
+| 干预样本数 | ROI 子树共有率均值（seed 对范围） | ROI 对祖先规模差均值 | 固定参考分叉 Syn 差均值 | 整体 Xi 的 seed CV |
+|---:|---:|---:|---:|---:|
+| 2,048 | 12.2%（7.1–19.4%） | 16.02% | 7.19% | 0.353% |
+| 8,192 | 24.0%（16.3–34.7%） | 18.01% | 3.65% | 0.402% |
+| 32,768 | 33.2%（22.4–46.9%） | 11.57% | 1.90% | 0.179% |
+
+ROI 子树共有率按原始二叉树的精确成员集合计算，排除根与单叶，每树 98 项，不受左右翻转或叶序影响。祖先规模差是全部 4,950 个固定 ROI 对在两棵树中的最小共同祖先 ROI 数的平均绝对差，除以 100 ROI 后换算为百分比。固定参考分叉 Syn 差是同一组 99 个原分叉 Syn 两两绝对差之和，除以两条件整体 Xi 的均值；它反映同一组分叉的数值波动，不能等同于不同获选树的误差。CV 使用八 seed 的样本 SD / 均值。每档 28 个重叠 seed 对只作描述性均值与范围，不能当作 28 个独立重复或置信区间。
+
+![G=1.3，八 seed 在三档采样量下的层级与数值稳定性](assets/dmf_spt_seed_sampling_convergence.png)
+
+*采样收敛图。a，精确 ROI 子树共有率；b，固定 ROI 对的祖先规模差；c，每个 seed 的整体 Xi；d，同一参考树的 99 个分叉 Syn 差。a/b/d 实线为 28 对均值，阴影为最小–最大范围；c 为八 seed 原值。各档 source 与逐步噪声为嵌套前缀，统计使用完整原树，不受单点剥离的显示压缩影响。*
+
+忽略 ROI 身份的完整树形，在三个档位的 28 对中均没有完全相同的一对；2–20 ROI 子树集合的 Jaccard 均值分别为 21.8%、30.9%、37.8%。不同量衡量的稳定性不同，不能以整体 Xi 的低 CV 推断成员划分已经一致。
+
+| 干预样本数 | 整体 Xi，八 seed 均值 ± SD（nats） | 原始树最大深度范围 | 归一化 Colless 范围 |
+|---:|---:|---:|---:|
+| 2,048 | 18.027 ± 0.064 | 72–83 | 0.828–0.891 |
+| 8,192 | 14.748 ± 0.059 | 49–68 | 0.581–0.766 |
+| 32,768 | 14.089 ± 0.025 | 35–53 | 0.378–0.548 |
+
+**采样量也改变了平均估计及粗层级形状。** 主干覆盖的原二分比例均值为 79.2%、60.9%、44.2%；更大样本的树更平衡。整体 Xi 的跨 seed 离散度较小，其均值却随样本量继续变化，8,192→32,768 仍下降约 0.66 nats。因此本次支持“扩大采样改善部分稳定性”，没有证明达到总体极限，也不能把 2,048 样本的长主干结构视为采样无关的组织事实。
+
+![预先固定的前三个 seed，随采样量增加的树状对照](assets/dmf_spt_seed_sampling_trees.png)
+
+*固定展示 seeds 3、4、5，没有按相似程度挑选。列为三档样本数，虚线/菱形只压缩连续单点出口，全部单 ROI 叶子及其余分叉保留；所有面板共用局部 Syn 占根 Xi 的色标，压缩节点取段内原局部 Syn 峰值。各树沿用各自叶序，纵向是显示排布，原始深度与成员稳定性由上表和完整二叉树统计评估。*
+
+运行前的严格“实际可忽略”判据要求所有 seed 对至多一个非平凡子树不同、ROI 对祖先差≤1%、固定 Syn 差≤1%、整体 Xi CV≤1%。三个档位均不满足；最高采样量的固定 Syn 差范围为 1.73–2.17%，祖先差范围为 3.78–20.33%。这些阈值是本次操作定义，完整数值同时报告。树选取是离散的候选最优问题；数值接近时小扰动仍可能换枝，且谱候选本身依赖估计的亲和矩阵。本轮没有分离评分间隔与候选集合变动的影响，不把这个可能解释当成已检验机制，也不外推更大样本永远不会稳定。
+
+原生 Syn 非负容差为 1e-8 bits；24 棵树的 2,376 个内部 Syn、2,400 个叶块 Xi 及固定参考分解均无容差内负值或显著违反。最小所选 Syn 为 0.0132889 bits，最小叶块 Xi 为 8.02422e-5 bits；所选树和参考树的最大闭合误差分别为 7.11e-15 与 1.78e-14 bits。全部原节点与参考节点保留原值，没有静默非负裁剪。方法/模拟输入指纹、每档前缀、完整树及审计保存在 `results/dmf_schaefer100/xi_hierarchy_tree/sampling_convergence_G130/`；入口为 `scripts/validate_dmf_spt_seed_convergence.py`，再次运行可复用匹配 NPZ/JSON。主图仍保留原 2,048 样本口径，较大样本的固定网络及 ROI Shapley 归因未在本轮重算。
+
+本轮重新读取 Zotero 父项 P6UJCVG8 的当前可用正文 DXGC7JEA（19 页，Methods pp.16–17，式9–12）与补充 MWIWKSVG（28 页，S5 pp.8–9，式S49–S51、Algorithm S1）。仍无显式稿件日期或修订号，元数据同步版本不能建立稿件版本先后。本文沿用无先验 ROI 搜索与 E/I 叶块闭合，和稿件 Yeo 约束脑图、标量单叶停止的区别按前述边界保留。
+
+<!-- report-section:dmf-spt-sampling-convergence:end -->
 
 ### 2.5 ROI Shapley 给出可相加的整体贡献
 
@@ -1726,7 +1779,7 @@ involvement 和 leverage 是留一块条件总相关下降量。它们是非负�
 | Pairwise BOLD-like $\Phi^R$ | `results/dmf_schaefer100/full/observational_phi_r.npz`、`results/dmf_schaefer100/full/observational_phi_r_summary.json` |
 | 拓扑/层级分解 | `results/dmf_schaefer100/full/critical_topology.npz`、`results/dmf_schaefer100/full/topology_summary.json` |
 | Yeo-7 分解 | `results/dmf_schaefer100/full/critical_yeo7.npz`、`results/dmf_schaefer100/full/yeo7_summary.json` |
-| 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share.png`；b 节点与色标、c/d 柱长均为占整体 $\Xi$ 的百分比；树图单独预览为 `docs/reports/assets/dmf_tree_root_share.png`，c/d 单独预览为 `docs/reports/assets/dmf_network_xi_share_preview.png` |
+| 汇总图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_collapsed_tree.png`；b 恢复树状图，连续单点从同一分叉展开，菱形取段内原局部 Syn 峰值 / 整体 $\Xi$；c/d 柱长为占整体 $\Xi$ 的百分比。b 单图为 `docs/reports/assets/dmf_tree_collapsed.png`，三个配对 G 对照为 `docs/reports/assets/dmf_trees_G000_130_1000_seed04.png` |
 | c/d 绝对量对照版 | `fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_root_share.png`；b 使用比例，c/d 保留 nats |
 | 先验树与相同 ROI Shapley 的对照图 | `fig/dmf_schaefer100/dmf_schaefer100_summary_yeo_prior_shapley.png`；对应图 A5e |
 | 历史主图与无约束树归档 | `fig/dmf_schaefer100/archive/`；对应附录 A.5 的图 A5a–A5d |
@@ -1788,10 +1841,20 @@ python scripts/plot_dmf_schaefer100_summary.py \
   --tree-summary results/dmf_schaefer100/xi_hierarchy_tree/summary.json \
   --roi-shapley results/dmf_schaefer100/roi_shapley/full_xi_results.npz \
   --tree-node-values root_share \
+  --tree-layout collapsed \
   --network-values root_share \
-  --tree-preview-output docs/reports/assets/dmf_tree_root_share.png \
   --network-preview-output docs/reports/assets/dmf_network_xi_share_preview.png \
-  --output fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share
+  --output fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_collapsed_tree
+
+# Original Q2b; consecutive singleton exits share one displayed fork.
+python scripts/plot_dmf_spt_collapsed_tree.py --original
+# Three paired G conditions, fixed seed 4, reusing existing tree caches.
+python scripts/plot_dmf_spt_collapsed_tree.py
+
+# G=1.3: eight seeds, nested sample sizes 2048 / 8192 / 32768.
+python scripts/validate_dmf_spt_seed_convergence.py
+# Reuse all completed caches and regenerate the convergence and tree figures.
+python scripts/validate_dmf_spt_seed_convergence.py --analysis-only
 ```
 
 单线程 BLAS 用于避免小型线性代数在多线程调度下显著变慢，不改变统计定义或随机种子。
@@ -4003,14 +4066,14 @@ U为全局峰前下降量加峰后回升量，除以全曲线幅度；峰后回�
 
 $\Phi^R$ 与 $\Xi$ 因而支持 **$G=1.2$–1.3 的共同峰带**。二者都早于发放率最大变化点，却具有不同的 observable、维度、干预口径和预测时距；这里的对齐只构成同模型内的交叉指标一致性。
 
-![Schaefer100 DMF SPT 与网络贡献占整体 Xi 的百分比及 ROI Shapley](../../fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_network_share.png)
+![Schaefer100 DMF 压缩层级树、网络贡献占整体 Xi 的百分比及 ROI Shapley](../../fig/dmf_schaefer100/dmf_schaefer100_summary_unconstrained_shapley_collapsed_tree.png)
 
 历史图版及其指标差异见[附录 A.5](#appendix-a-5)。
 
-*图 Q2｜系统扫描、无先验 SPT、固定网络归因与 ROI Shapley。<span style="color: red;">绝对信息量以 nats 显示；b 的节点数值及色标、c/d 的柱长均为占全系统整体 $\Xi$ 的百分比。c 和 d 分别标为 Within-network 与 Between-network，使用相同的 0–15% 横轴；两图全部柱子的均值合计为 100%。</span>*
+*图 Q2｜系统扫描、无先验 SPT、固定网络归因与 ROI Shapley。<span style="color: red;">绝对信息量以 nats 显示；b 的局部 Syn（压缩节点取段内峰值）及色标、c/d 的柱长均为占全系统整体 $\Xi$ 的百分比。c 和 d 分别标为 Within-network 与 Between-network，使用相同的 0–15% 横轴；两图全部柱子的均值合计为 100%。</span>*
 
 - **a，系统扫描：** 上部为平均发放率与 full-state interventional $\Xi$；下部左轴为 full-state observational $\Phi^{WMS}$，右轴为全部 4,950 个 ROI 对平均的 BOLD-like Gaussian-MMI $\Phi^R$。曲线为八个 seed 的均值，阴影为 SD。三种指标的 observable、维度和时距不同，双轴用于比较峰形与峰位。
-- **b，无先验树：** $G=1.3$、seed 4 的二叉 SPT，每个叶块保留 ROI 的 E/I 对。<span style="color: red;">节点方块第一行的 $n$ 为子树 ROI 数，第二行的百分比为该节点局部二分协同量除以全系统整体 $\Xi$ 再乘 100%；内部节点大小、青绿色深浅和边框粗细均映射这一份额，共用百分比色标。分母包含 ROI 内 E/I 增量，内部节点合计占 88.20%，叶块内增量占其余 11.80%。</span>上方 $\Xi$ 为全系统整体量，高度按 ROI 数对数归一化。Yeo 叶颜色只作事后标识。
+- **b，无先验压缩层级树：** $G=1.3$、seed 4 的同一缓存 SPT，将至少连续两次单 ROI 剥离视为同一显示分叉，以虚线横枝和菱形标识；全部 100 个单 ROI 叶子、其余多 ROI 分支及末端对子保留，算法仍逐步二分，每个叶块保留 E/I 对。<span style="color: red;">n 为原节点 ROI 数；圆形的百分比与青绿色为原局部 Syn / 全系统整体 $\Xi$，菱形取段内原节点峰值并标注 peak，不重新估计多分叉 Syn。显示深度从 81 降到 21，保留子树高度决定层距，纵向不编码信息量、时间或原始深度。峰值不可相加为系统预算；全树 99 个原内部 Syn 仍合计占 88.20%，叶块内增量占其余 11.80%，全部原内部节点各被一个显示节点代表一次。</span>上方 $\Xi$ 为整体量，底部色条保留每个 ROI 的 Yeo 事后归属。完整规则见第 2.4 节。[单图](assets/dmf_tree_collapsed.png)；[三个配对 G 的视觉对照](assets/dmf_trees_G000_130_1000_seed04.png)。
 - **c、d，固定网络汇总：** c 为各 Yeo 网络的整体 $\Xi$，包含 ROI 内 E/I 增量；d 为网络间增量的精确七网络 Shapley。<span style="color: red;">每个 seed、每个 $G$ 下，两图各项均除以同条件的全系统整体 $\Xi$ 并乘 100%，再在 seed 内平均 $G\in\{1.2,1.3,1.4\}$，最后报告跨八个 seed 的均值和 SD；误差条单位为百分点。c 合计 33.73%，d 合计 66.27%，共同组成 100%。</span>两者独立于 b 的分支，归一化分母对应各自条件，不能统一除以 b 的单条件根。标签斜杠后的数字为 ROI 数，配色与 b 一致。[c/d 比例版局部预览](assets/dmf_network_xi_share_preview.png)。
 - **e，ROI 贡献：** 100 个 ROI 对整体 $\Xi$ 的普通 Shapley 在 24 条件上的均值，使用连续色标。随机排列与反向排列配对抽样，target 和条件协方差固定；MC 抽样误差单独记录。加入顺序不受 Yeo 标签约束，贡献也不按 SPT 节点分摊。
 

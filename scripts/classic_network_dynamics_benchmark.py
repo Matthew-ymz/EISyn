@@ -3654,9 +3654,9 @@ def _plot_large_kuramoto_n64_ei_decomposition(payload: Mapping[str, object], pat
     phi_sem = nats_per_bit * np.asarray([float(row.get("oracle_phi_sem", 0.0)) for row in summary], dtype=float)
     order_mean = np.asarray([float(row["natural_order_mean"]) for row in summary], dtype=float)
     order_sem = np.asarray([float(row.get("natural_order_sem", 0.0)) for row in summary], dtype=float)
-    axes[1].plot(couplings, phi_mean, color="#2F7D5A", marker="o", linewidth=2.0, markersize=4.6, label=r"$\Phi^{EID}$")
+    axes[1].plot(couplings, phi_mean, color="#2F7D5A", marker="o", linewidth=2.0, markersize=4.6, label=r"$\Xi$")
     axes[1].fill_between(couplings, phi_mean - phi_sem, phi_mean + phi_sem, color="#2F7D5A", alpha=0.14, linewidth=0)
-    axes[1].set_ylabel(r"$\Phi^{EID}$ (nats)")
+    axes[1].set_ylabel(r"$\Xi$ (nats)")
     axes[1].set_title("b  Difference and synchronization", loc="left", fontweight="bold")
 
     order_axis = axes[1].twinx()

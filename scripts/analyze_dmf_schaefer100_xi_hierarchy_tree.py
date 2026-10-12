@@ -244,11 +244,13 @@ def render_tree(
     )
     labeled: set[tuple[int, ...]] = set()
     label_points: list[tuple[float, float]] = []
+    # Two-line badges need more separation in narrow comparison panels.
+    label_x_spacing = max(4.0, 26.0 * figure.dpi / 72.0 * root.size / axis.get_window_extent().width)
     for node in ranked:
         if len(labeled) >= node_label_limit:
             break
         x_value, y_value = positions[node.indices]
-        if all(abs(x_value - old_x) >= 4.0 or abs(y_value - old_y) >= 0.075 for old_x, old_y in label_points):
+        if all(abs(x_value - old_x) >= label_x_spacing or abs(y_value - old_y) >= 0.075 for old_x, old_y in label_points):
             labeled.add(node.indices)
             label_points.append((x_value, y_value))
     for node in internal:

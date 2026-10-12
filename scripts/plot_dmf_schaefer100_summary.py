@@ -63,6 +63,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--roi-shapley", type=Path, help="Validated overall-Xi ROI Shapley cache for panel e, independent of the displayed tree; required with --yeo-prior.")
     parser.add_argument("--tree-node-values", choices=("absolute", "root_share"), default="absolute",
                         help="Unconstrained SPT node labels and color: local Syn or percent of overall Xi.")
+    parser.add_argument("--tree-layout", choices=("collapsed", "groups", "modules", "binary"), default="binary",
+                        help="Dendrogram with singleton runs sharing a fork (root_share), exit groups, scale landmarks, or full binary tree.")
     parser.add_argument("--tree-preview-output", type=Path, help="Optional PNG of panel b exported from the complete composition.")
     parser.add_argument("--network-values", choices=("absolute", "root_share"), default="absolute",
                         help="Panels c/d: absolute Xi or percent of the same condition's full-system Xi.")
@@ -802,6 +804,7 @@ def plot_summary(args: argparse.Namespace) -> None:
         -0.10, 1.00, "e", transform=ax_g[0].transAxes, fontsize=10, fontweight="bold"
     )
 
+    module_audit = None
     if yeo_prior:
         render_yeo_prior_tree(
             tree, axis=ax_tree, labels=[str(label) for label in yeo["region_labels"]],
@@ -810,6 +813,53 @@ def plot_summary(args: argparse.Namespace) -> None:
             network_order=order[::-1].tolist(), seed=int(hierarchy["seed"]),
             coupling_g=float(hierarchy["coupling_g"]),
         )
+    elif getattr(args, "tree_layout", "binary") == "collapsed":
+        if tree_node_values != "root_share":
+            raise ValueError("Condensed forks use original local Syn shares; pass --tree-node-values root_share")
+        from scripts.plot_dmf_spt_collapsed_tree import render_collapsed_tree
+        module_audit = render_collapsed_tree(
+            tree, axis=ax_tree, labels=[str(label) for label in yeo["region_labels"]],
+            network_membership=np.asarray(yeo["network_membership"], dtype=int),
+            network_names=network_names,
+            seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
+            network_colors=[network_color(name) for name in network_names],
+            show_colorbar=True,
+        )
+        ax_tree.text(0, -.04, "Dashed forks: consecutive singleton exits  ·  Peak: original local Syn  ·  All ROI retained",
+                     transform=ax_tree.transAxes, fontsize=5.9, color="0.35", va="top")
+        print(json.dumps({"collapsed_tree_display": {key: value for key, value in module_audit.items()
+                                                    if key not in {"roi_order", "nodes"}}}), flush=True)
+    elif getattr(args, "tree_layout", "binary") == "groups":
+        if tree_node_values != "root_share":
+            raise ValueError("Grouped paths use peak original local Syn shares; pass --tree-node-values root_share")
+        from scripts.plot_dmf_spt_peel_groups import render_peel_hierarchy
+        module_audit = render_peel_hierarchy(
+            tree, axis=ax_tree,
+            network_membership=np.asarray(yeo["network_membership"], dtype=int),
+            network_names=network_names,
+            seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
+            network_colors=[network_color(name) for name in network_names],
+            show_heading=False, show_colorbar=True,
+        )
+        ax_tree.text(.5, 1.015,
+                     rf"$G={hierarchy['coupling_g']:g}$, seed {hierarchy['seed']}  |  $\Xi={NATS_PER_BIT * tree.xi_bits:.2f}$ nats",
+                     transform=ax_tree.transAxes, ha="center", va="bottom", fontsize=7, color="0.2")
+        ax_tree.text(0, -.04, "Dashed: consecutive singleton exits  ·  Numbers: ROI counts  ·  All branches retained",
+                     transform=ax_tree.transAxes, fontsize=5.9, color="0.35", va="top")
+        print(json.dumps({"group_display": {key: value for key, value in module_audit.items()
+                                            if key not in {"roi_order", "modules"}}}), flush=True)
+    elif getattr(args, "tree_layout", "binary") == "modules":
+        from scripts.dmf_spt_module_plot import render_module_hierarchy
+        module_audit = render_module_hierarchy(
+            tree, axis=ax_tree,
+            network_membership=np.asarray(yeo["network_membership"], dtype=int),
+            network_names=network_names,
+            seed=int(hierarchy["seed"]), coupling_g=float(hierarchy["coupling_g"]),
+            network_colors=[network_color(name) for name in network_names],
+            information_unit="nats", node_value_mode=tree_node_values,
+        )
+        print(json.dumps({"module_display": {key: value for key, value in module_audit.items()
+                                             if key not in {"roi_order", "retained_module_indices"}}}), flush=True)
     else:
         render_tree(
             tree, None,
@@ -835,7 +885,9 @@ def plot_summary(args: argparse.Namespace) -> None:
         fontsize=6.3, handlelength=1, labelspacing=0.65, columnspacing=1.1,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(args.output.with_suffix(".png"), dpi=450, bbox_inches="tight", facecolor="white")
+    metadata = {"Module display audit": json.dumps(module_audit)} if module_audit is not None else None
+    figure.savefig(args.output.with_suffix(".png"), dpi=450, bbox_inches="tight", facecolor="white",
+                   metadata=metadata)
     network_preview = getattr(args, "network_preview_output", None)
     if network_preview is not None:
         network_preview.parent.mkdir(parents=True, exist_ok=True)
