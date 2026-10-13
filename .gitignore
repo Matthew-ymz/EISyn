@@ -51,6 +51,7 @@ tests/
 !tests/
 tests/*
 !tests/test_spt_core.py
+!tests/test_spt_continuous_phase_benchmark.py
 !tests/test_dmf_unconstrained_spt.py
 !tests/test_dmf_response_benchmark.py
 !tests/test_dmf_joint_readout.py
