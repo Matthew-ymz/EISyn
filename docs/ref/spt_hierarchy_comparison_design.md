@@ -390,7 +390,7 @@ $$
 
 ![三种非同构架构与异质节点层级比较](../reports/assets/kuramoto_hierarchy/spt_heterogeneous_hierarchy_comparison.png)
 
-大图（5,400 × 2,550 像素）只保留三个真实作用网络、实际树和六条件 F1*；矩阵/均值面板删除。节点形状表示 AND/NAND、OR/NOR、XOR、COPY 四类实际规则，超边颜色表示阶数。树固定展示嵌套最深的 case B；全部条件评分仍在右侧。区域逐一验证只包含其真实支持节点，不能凭外观误加入超边。Branch length 仅为排版，未编码噪声或时间尺度。
+大图（5,400 × 2,550 像素）只保留三个真实作用网络、实际树和六条件 F1*；矩阵/均值面板删除。2026-10-13 参考风格重绘后，节点按最新要求统一为绿色圆点，编号标识源变量，异质 gate 规则保留在模型和上表中，不再用节点形状编码；酒红色弯曲带表示二元作用，深蓝轮廓和淡紫填色表示高阶作用，最小三元组用三叶状区域表示。紫色 $\oplus_k$ 表示真实 parity 机制及源阶数 $k$，颜色不编码测得的强度或 Syn。树固定展示嵌套最深的 case B；全部条件评分仍在右侧。区域逐一验证只包含其真实支持节点，整个子区域轮廓包含在父区域中，parity 符号连同下标的完整文字边界位于对应支持区域内，并与所有轮廓、节点及其它符号保持间距；在实际 300 dpi 导出尺寸再次检查。为给符号留空间，仅调整带宽与少量节点绘图坐标，作用支持不变，不能凭外观误加入超边。本次只读取既有六条件记录重绘，未改变动力学或评分。Branch length 仅为排版，未编码噪声或时间尺度。
 
 四项验证通过：穷举 $2^{18}$ 原始 uniform driver 验证非均匀 activation 质量；在双节点 toy 的原始 source/完整 target 联合上核验式（7.8）的九个 source/target 组合；实际 transition 核验 copied/sharing 解码与异质 memory noise；六条件自由 SPT 恢复与完整非负审计。代码同时提供实际 `step` 更新，复杂动力学不是只写在示意图中的标签。
 
@@ -405,7 +405,58 @@ $$
 
 计算仅数秒，未新增仓库结果缓存。代码为 [异质动力学模型](../../scripts/spt_heterogeneous_hierarchy_case.py) 与[紧凑比较图](../../scripts/plot_spt_heterogeneous_hierarchy.py)。
 
+### 7.5 框架—混杂—离散层级—连续层级的拼合图
+
+2026-10-13 新增一张综合图。a 使用仓库中的原始干预示意图，与用户附件逐像素一致；b 原样保存用户提供的共驱动系统/多方法比较图作为拼图源，没有数字化曲线或重新估计其方法分数。a 是非比例概念示意，不能把圆的交叠面积当作一般 PID 原子的集合测度。c 整体嵌入第 7.4 节已有的异质离散层级图；d 新增混合阶 Kuramoto 上的实际层级算法比较。
+
+连续比较直接读取已批准 pilot 的**原始 16 点粗网格 × 3 种子 × learned-components 轨道**，不读取后续选择性加密点，也不合并 full-channel 轨道。完整通道条件在原轨道六节点连通时会复用估计，不能当作额外独立重复。每个条件在完全相同的 63 项 EI 上比较自由 canonical SPT 与 average-linkage HAC。成对基线定义为固定全 target 的 PEID affinity，而不是改变 target 的 pairwise $\Phi_R$：
+
+$$
+w_{ij}=\operatorname{EI}(\{i,j\}\to\Delta\boldsymbol{\theta})-
+\operatorname{EI}(\{i\}\to\Delta\boldsymbol{\theta})-
+\operatorname{EI}(\{j\}\to\Delta\boldsymbol{\theta}),\qquad
+\mathbf{W}=(w_{ij}),\qquad
+d_{ij}=1-\frac{w_{ij}}{\max_{p\ne q}w_{pq}}\quad(i\ne j),\quad d_{ii}=0.
+\tag{7.9}
+$$
+
+式（7.9）中 $w_{ii}=0$，使用 SciPy average linkage、固定节点编号 1–6 和默认平局策略。基线不追加高阶查询。连续目标为同一个六维 wrapped phase increment，$\tau=0.20$；源为 $(-\pi,\pi)^6$ 上的独立均匀相位干预。MLP 和 TM 预算、mechanism Fourier context、噪声与源/target 样本均沿用原生 pilot，不新增模拟或通道拟合。
+
+原始粗网格 48 个条件中有 46 个有效；$K_{\mathrm{out}}=0.2$ 的 seeds 1、2 原始非负审计失败。无效条件不生成任一比较树。连续曲线仅在三种子均有效的参数上给出三种子均值，因此 0.2 整列留缺口并标 ×；没有用单个有效种子冒充三种子均值，也没有连线跨过缺口。没有误差带或置信区间。
+
+每个有效条件重新检查全部 301 个 raw residual，并用 canonical SPT 从原始 EI 重构、核对缓存 clade 集合。沿用原生非负容差 0.1 bits，无 clipping 或单调投影；容差内负值原样保留。HAC 对 raw 成对 affinity 计算距离，不裁剪估计。46 个有效条件共 3 个容差内负 residual，最小值为 −0.0850358 bits，最小 pair affinity 为 −0.0291278 bits；raw 数值全部保留。所有有效条件无显著违规，闭合误差为 0。
+
+连续面板的代表树固定为 seed 0、$K_{\mathrm{out}}=0.04$ 与 5，分别为已展示的弱耦合和强耦合条件，不根据基线输赢挑图。两种树共同的非根 clade 用灰色，方法独有 clade 分别用绿/蓝色，**没有将高耦合独有 clade 标成“错误”**。该面板也不采用离散图的 Support F1* 作为连续准确率。
+
+令初始两个模块 $\mathcal M_0=\{123,456\}$，非根非叶 clade 集合为 $\mathcal C(T)$，两个描述量为：
+
+$$
+R_0(T)=\frac{|\mathcal M_0\cap\mathcal C(T)|}{2},\qquad
+J(T_{\mathrm{SPT}},T_{\mathrm{HAC}})=
+\frac{|\mathcal C(T_{\mathrm{SPT}})\cap\mathcal C(T_{\mathrm{HAC}})|}
+{|\mathcal C(T_{\mathrm{SPT}})\cup\mathcal C(T_{\mathrm{HAC}})|}.
+\tag{7.10}
+$$
+
+式（7.10）的 $R_0$ 表示原模块保留率，不是高耦合真值恢复率；$J$ 只表示方法一致性，不表示谁更正确。随着物理耦合增强，原模块可能合理地重组。曲线使用 symlog 横轴以兼顾 0、弱耦合和强耦合点，不把横轴间距当作等距采样。
+
+seed 0 的 0.04 条件两法均为 123 | 456，全部非根 clade 一致（$J=1$）。在 5 条件，SPT 根为 12345 | 6、HAC 根为 5 | 12346，仅保留共同的 12 clade（$J=1/7$）；原模块保留率为 1/2 与 0。所有三种子的完整网格曲线也保留反向变化，不能凭这一代表树推广出高耦合准确率优势。
+
+![理论、混杂、离散与连续层级综合比较](../reports/assets/kuramoto_hierarchy/spt_framework_discrete_continuous_comparison.png)
+
+综合图为 5,400 × 4,620 像素。新增连续比较仍保留第 3 节记录的限制：0.25 输出标准差的 component 规则会把弱物理跨耦合近似成可分通道；实际 target 是 phase increment；MLP/TM 的实值支持与圆周支持不完全等同。此图支持在同一估计信道中考察全子集 SPT 与成对表示产生的层级差异，不构成新的独立连续估计或普适最优证明。
+
+本次重新列出 Zotero 父项 `P6UJCVG8` 的附件并核验标题，重读正文 Methods（5）–（12）、Fig.1 对应机制解释，以及补充 S5/Algorithm S1 和 S7（11–12 页）。唯一正文/补充仍为 `DXGC7JEA`、`MWIWKSVG`，无明确版本日期，歧义保留。
+
+复现入口：[compose_spt_framework_comparison.py](../../scripts/compose_spt_framework_comparison.py)。用户第二张原始图保存在拼图 assets 中；其它图源和昂贵 pilot 缓存均已存在。新比较仅轻量后处理，不新增结果缓存。
+
+```bash
+.venv/bin/python scripts/compose_spt_framework_comparison.py > /tmp/eisyn_spt_framework_comparison.json
+```
+
 ## 8. 连续动力学的比较案例
+
+2026-10-13 已对当前九节点 A/B/C 做保持超边支持的连续状态、异质非线性随机映射试算；详见 [连续 A/B/C 初算](../reports/spt_continuous_abc_pilot.md)。使用共同独立均匀干预、完整未来状态和精确条件 TM，但 1024 个边缘积分粒子下三例均未通过原生 0.03 nats 的 Syn 非负审计，因此不输出 SPT 或成对 $\Xi$ 的层级。局部成对 $\Phi_R$ / future-MI 基线的初算表现良好，不能将该模型用于声称基线普遍失效；原大图未替换。该试算是连续变量映射，不是以下待设计的连续时间 Kuramoto 对照。
 
 | 案例 | 变化因素与固定条件 | 真值或独立依据 | 可支持的结论 |
 |---|---|---|---|
