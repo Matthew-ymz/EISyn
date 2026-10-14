@@ -23,7 +23,9 @@ from threadpoolctl import threadpool_limits
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
-from scripts.dmf_response_benchmark import fit_affine_joint, simulate_sources
+from scripts.dmf_response_benchmark import (
+    fit_dmf_affine_joint, simulate_sources, DMF_AFFINE_DENSITY_VERSION,
+)
 from scripts.run_dmf_paired_spt_pilot import paired_sources, noise_seed
 from scripts.run_dmf_schaefer100_critical_horizon import stochastic_rate_trace
 from scripts.run_dmf_subject_consistency import BASE as PILOT, atomic_json, digest
@@ -42,6 +44,8 @@ def prepare(base, step=.1, maximum=4.):
     if len(set(g)) != len(g):
         raise ValueError('G grid collides at cache filename precision')
     pilot = json.loads((PILOT/'contract.json').read_text())
+    if pilot.get('density_version') != DMF_AFFINE_DENSITY_VERSION:
+        raise ValueError('Pilot density predates the independent-component correction; migrate it before a new dense sweep')
     native = json.loads((PILOT/'curve_native_contract.json').read_text())
     if native['pilot_contract'] != pilot:
         raise ValueError('Pilot and native protocols disagree')
@@ -81,6 +85,7 @@ def prepare(base, step=.1, maximum=4.):
         G=g, seeds=pilot['seeds'], sample_count=2048, support=[.3, .7],
         horizon_steps=300, dt_seconds=.001, sigma=.01, ridge=1e-6,
         estimator=pilot['estimator'], JFIC=pilot['JFIC'], syn_tolerance_nats=1e-8,
+        density_version=DMF_AFFINE_DENSITY_VERSION,
         intervention_seed_rules=dict(source='100000*nominal_seed+31000', noise='100000*nominal_seed+31017'),
         diagnostic_seeds=[103, 104, 105], diagnostic_steps=5000, diagnostic_burn_steps=3000,
         native_protocol=native, development_subject_ids=development,
@@ -181,7 +186,8 @@ def job(indices):
         with stage(timing, 'xi_future'):
             y, diagnostic = simulate_sources(w['dmf'], w['sources'][seed], sc, w['jf'], g, w['p'], noise_seed(seed))
         with stage(timing, 'xi_density_fit'):
-            game = CommonTargetGame(fit_affine_joint(w['sources'][seed], y, .2, ridge=1e-6))
+            game = CommonTargetGame(fit_dmf_affine_joint(w['sources'][seed], y, .2,
+                connectivity=sc, coupling=g, ridge=1e-6))
         native = native_condition_timed(sc, w['jf'], g, seed, w['dmf'], w['native_p'], w['stabilization'], timing)
         with stage(timing, 'independent_diagnostic'):
             rates, outside = stochastic_rate_trace(w['dmf'], initial_se=np.full(100, w['p'].init_se),

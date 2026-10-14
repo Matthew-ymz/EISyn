@@ -52,9 +52,12 @@ tests/
 tests/*
 !tests/test_spt_core.py
 !tests/test_spt_continuous_phase_benchmark.py
+!tests/test_spt_spline_tm.py
+!tests/test_spt_finite_replacement_bc.py
 !tests/test_dmf_unconstrained_spt.py
 !tests/test_dmf_response_benchmark.py
 !tests/test_dmf_joint_readout.py
+!tests/test_dmf_continuous_affine.py
 !tests/test_dmf_subject_consistency.py
 !tests/test_dmf_critical_coalitions.py
 !tests/test_dmf_subject_curves.py

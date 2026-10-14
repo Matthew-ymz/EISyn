@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.compute_dmf_roi_shapley import prepare_game, permutation_contributions, source_digest
 from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
-from scripts.dmf_response_benchmark import Diagnostics, fit_affine_joint, simulate_sources, step
+from scripts.dmf_response_benchmark import Diagnostics, fit_dmf_affine_joint, simulate_sources, step
 from scripts.run_dmf_paired_spt_pilot import paired_sources, noise_seed
 from scripts.run_dmf_subject_consistency import atomic_json
 from scripts.run_dmf_subject_curve_baselines import atomic_savez
@@ -41,7 +41,7 @@ G = np.array([0., 1.3, 3.])
 SEEDS = np.array([3, 4, 5])
 CONTRASTS = [(0, 1), (1, 2), (0, 2)]
 TOL = 1e-8  # native nats; never clip information contributions
-VERSION = "three-g-affine-tm-roi-shapley-v2"
+VERSION = "three-g-independent-components-affine-tm-roi-shapley-v3"
 PILOT = ROOT / "results/dmf_schaefer100/subject_consistency_pilot"
 DENSE = ROOT / "results/dmf_schaefer100/subject_curves_93_dense"
 RESULT = ROOT / "results/dmf_schaefer100/roi_shapley_three_G"
@@ -85,7 +85,7 @@ def prepare_condition(path, g, seed, sc, jf, contract, implementation, *, prepar
         jfic_sha256=hashlib.sha256(jf.tobytes()).hexdigest(),
         implementation_sha256=implementation, dmf_source_sha256=source_digest(Path(dmf.__file__)),
         allow_extreme_rates=allow_extreme_rates,
-        density="fit_affine_joint: independent uniform-prior Gaussian moments, halfwidth=0.2, ridge=1e-6",
+        density="fit_dmf_affine_joint: independent dynamical components, uniform-prior Gaussian moments, halfwidth=0.2, ridge=1e-6",
         density_extension_source_sha256=hashlib.sha256((inspect.getsource(prepare_condition) +
             inspect.getsource(simulate_extreme_sources)).encode()).hexdigest())
     if path.exists():
@@ -101,7 +101,7 @@ def prepare_condition(path, g, seed, sc, jf, contract, implementation, *, prepar
     y, diagnostics = simulator(dmf, x, sc, jf, g, p, noise_seed(seed))
     if diagnostics["outside_state_count"]:
         raise ArithmeticError(f"DMF state violation: G={g}, seed={seed}: {diagnostics}")
-    covariance = fit_affine_joint(x, y, .2, ridge=1e-6)
+    covariance = fit_dmf_affine_joint(x, y, .2, connectivity=sc, coupling=g, ridge=1e-6)
     game = CommonTargetGame(covariance)
     metrics = game.totals()
     audit = audit_nonnegative([*game.audited, *metrics.values()], TOL)

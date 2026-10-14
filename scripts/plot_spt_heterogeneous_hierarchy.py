@@ -77,7 +77,7 @@ def load(path):
     return ordered
 
 
-def network(ax,record):
+def network(ax,record,*,operator_symbol=r'\oplus',node_size=225,positions=None,operator_positions=None):
     """Reference-inspired ribbons/regions for unchanged mechanistic supports.
 
     Smooth unions of capsules make primitive triads lobed; enclosing supports
@@ -85,7 +85,7 @@ def network(ax,record):
     not simulation data. Every drawn region must contain exactly its source
     nodes; hierarchy nesting is checked on its entire rendered boundary.
     """
-    positions=LAYOUTS[record['case']]
+    positions=LAYOUTS[record['case']] if positions is None else positions
     supports=record['hyperedges']
     primitive=tuple(map(tuple,record['planted_bottom']))
     x=np.linspace(-3.02,2.81,600)
@@ -138,15 +138,16 @@ def network(ax,record):
             if set(h)<set(parent) and not MplPath(parent_boundary).contains_points(boundary).all():
                 raise ValueError(f'{record["case"]}: contour {h} protrudes from {parent}')
     for i,(x,y) in positions.items():
-        ax.scatter([x],[y],s=225,marker='o',facecolor=NODE,edgecolor=NODE,linewidth=.9,zorder=20)
+        ax.scatter([x],[y],s=node_size,marker='o',facecolor=NODE,edgecolor=NODE,linewidth=.9,zorder=20)
         ax.text(x,y,str(i),ha='center',va='center',
                 fontsize=10.5,color='white',zorder=21)
     ax.set(xlim=(-3.0,2.79),ylim=(-1.26,1.31),aspect='equal')
     ax.axis('off')
-    place_operators(ax,record['case'],boundaries,positions)
+    place_operators(ax,record['case'],boundaries,positions,operator_symbol=operator_symbol,
+                    node_size=node_size,operator_positions=operator_positions)
 
 
-def place_operators(ax,case,boundaries,positions):
+def place_operators(ax,case,boundaries,positions,*,operator_symbol=r'\oplus',node_size=225,operator_positions=None):
     """Place the entire glyph/subscript box away from every contour and node.
 
     Use actual rendered text extents, not just a center-point containment test.
@@ -159,13 +160,14 @@ def place_operators(ax,case,boundaries,positions):
     outlines={h:MplPath(ax.transData.transform(b)) for h,b in boundaries.items()}
     nodes=np.asarray([ax.transData.transform(p) for p in positions.values()])
     padding=renderer.points_to_pixels(1.3)
-    node_radius=renderer.points_to_pixels(8.5)
+    node_radius=renderer.points_to_pixels(.5*np.sqrt(node_size)+1.)
     occupied=[]
     labels=[]
     for h in sorted(boundaries,key=len):
-        anchor=np.asarray(OPERATOR_POSITIONS[case][h])
+        anchors=OPERATOR_POSITIONS[case] if operator_positions is None else operator_positions
+        anchor=np.asarray(anchors[h])
         # Smaller labels still need room for the lower/right source-arity index.
-        label=ax.text(*anchor,rf'$\oplus_{{{len(h)}}}$',ha='center',va='center',
+        label=ax.text(*anchor,rf'${operator_symbol}_{{{len(h)}}}$',ha='center',va='center',
                       fontsize=11.4,color=OPERATOR,zorder=18)
         delta=np.array(list(itertools.product(np.arange(-.64,.641,.025),repeat=2)))
         candidates=np.vstack([anchor,anchor+delta[np.argsort(np.sum(delta**2,axis=1))]])

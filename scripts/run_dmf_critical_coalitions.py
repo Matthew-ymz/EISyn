@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
 from scripts.dmf_subject_consistency import ResidualOracle, pair_values
-from scripts.dmf_response_benchmark import fit_affine_joint, simulate_sources
+from scripts.dmf_response_benchmark import (
+    fit_dmf_affine_joint, simulate_sources, DMF_AFFINE_DENSITY_VERSION,
+)
 from scripts.run_dmf_paired_spt_pilot import noise_seed, paired_sources
 from scripts.run_dmf_subject_consistency import atomic_json, digest
 from scripts.run_dmf_subject_curve_baselines import atomic_savez
@@ -54,6 +56,8 @@ def standard_tree(game):
 
 def prepare(base):
     old = json.loads((DENSE / 'contract.json').read_text())
+    if old.get('density_version') != DMF_AFFINE_DENSITY_VERSION:
+        raise ValueError('Dense density predates the independent-component correction; migrate it before a new SPT scan')
     summary = json.loads((DENSE / 'summary.json').read_text())
     rows = {r['subject']: r['transition'] for r in summary['subject_rows']}
     ids = old['subject_ids'][:-1]
@@ -82,6 +86,7 @@ def prepare(base):
         G=old['G'], seeds=[3, 4, 5], sample_count=2048, support=[.3, .7],
         horizon_steps=300, dt_seconds=.001, sigma=.01, ridge=1e-6,
         JFIC=old['JFIC'], estimator=old['estimator'], units='nats', syn_tolerance_nats=TOL,
+        density_version=DMF_AFFINE_DENSITY_VERSION,
         source_seed_rule='100000*seed+31000', noise_seed_rule='100000*seed+31017',
         pairing='identical input samples and noise by seed across G and subjects',
         windows=windows, low_grid_indices=[0, 1, 2, 3], high_grid_indices=[37, 38, 39, 40],
@@ -187,7 +192,8 @@ def job(task):
             t = time.perf_counter()
             y, diagnostics = simulate_sources(w['dmf'], x, sc, w['jf'], g, w['p'], noise_seed(seed))
             simulation_seconds = time.perf_counter() - t
-            covariance = fit_affine_joint(x, y, .2, ridge=c['ridge'])
+            covariance = fit_dmf_affine_joint(x, y, .2,
+                connectivity=sc, coupling=g, ridge=c['ridge'])
             if background:
                 del w['sources'][seed]
         if diagnostics['outside_state_count']:

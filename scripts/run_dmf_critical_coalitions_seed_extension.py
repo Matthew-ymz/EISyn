@@ -170,7 +170,8 @@ def job(task):
         simulation_seconds = time.perf_counter() - t
         if diagnostics['outside_state_count'] or not np.isfinite(y).all():
             raise ArithmeticError(f'Nonfinite simulation/state boundary violation: {key}: {diagnostics}')
-        covariance = kernel.fit_affine_joint(x, y, .2, ridge=c['ridge'])
+        covariance = kernel.fit_dmf_affine_joint(x, y, .2,
+            connectivity=sc, coupling=g, ridge=c['ridge'])
         atomic_savez(density_path, covariance=covariance, contract_sha256=w['sha'],
             extension_contract_sha256=STATE['extension_sha'], source_sha256=source_sha,
             noise_seed=kernel.noise_seed(seed), diagnostics_json=json.dumps(diagnostics))

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Compose the cached DMF evidence into one manuscript plate; no experiments.
 
-Curves and trees are redrawn from the original cached values. Cortex images are
-unaltered crops of the existing 300-dpi surface plate: only blank margins and old
-labels are removed. Every cortex uses the same pixel crop size and display scale.
-The three state columns pair a seed-4 tree with a three-seed cortical mean; they
-are not estimates with identical aggregation. The output PDF retains vector text,
+Curves use the versioned continuous-G readout; historical inputs remain
+protected. G=0 and G=10 show one-level root/ROI displays; G=1.3 retains modules.
+Cortex images are unaltered crops of the corrected 300-dpi surface plate, with
+one shared pixel size and color scale. Seed-4 organization panels and three-seed
+cortical means are not identically aggregated. The output PDF retains vector text,
 curves, trees and color scales, with the existing cortex rendering as raster.
 """
 from __future__ import annotations
@@ -30,17 +30,27 @@ from scripts.plot_dmf_subject_fixed_window import BASE, read_inputs
 from scripts.dmf_curve_shape import METHOD_COLORS, METHOD_LABELS
 from scripts.plot_dmf_schaefer100_tree_examples import NETWORK_COLORS, audit_tree
 from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import (
-    render_tree, _blend_with_white, SPLIT_COLOR,
+    render_tree, _blend_with_white, SPLIT_COLOR, _leaf_order,
 )
 from scripts.plot_dmf_spt_collapsed_tree import render_collapsed_tree, layout_audit
 from scripts.plot_dmf_spt_peel_groups import load_comparison, PAIRED_SUMMARY, YEO_METADATA
-from scripts.plot_dmf_schaefer100_summary import network_xi_values, sd
+from scripts.plot_dmf_schaefer100_summary import sd
+from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
+from scripts.dmf_subject_consistency import network_values
 from scripts.run_dmf_subject_consistency import digest
+from scripts.dmf_main_independent_components import (
+    BASE as CORRECTED_BASE, ROI as CORRECTED_ROI, FIGURE as CORRECTED_FIGURE,
+    load_manifest,
+)
+from scripts.dmf_dense_statistics import subject_landmarks
+from scripts.analyze_dmf_subject_dense_windows import expanded_subject
+from scripts.run_dmf_continuous_subject_curves import (
+    BASE as CONTINUOUS_CURVES, load_curve_manifest,
+)
 
 OUTPUT = ROOT / "fig/dmf_schaefer100/dmf_brain_main_composite"
-ROI = ROOT / "results/dmf_schaefer100/roi_shapley_three_G_G1000"
-PEAK_ROI = ROOT / "results/dmf_schaefer100/roi_shapley/full_xi_results.npz"
-SURFACE = ROOT / "fig/dmf_schaefer100/roi_shapley_three_G_G1000/roi_share_three_G.png"
+ROI = CORRECTED_ROI
+SURFACE = CORRECTED_FIGURE / "roi_share_three_G.png"
 TREE_SEED = 4
 TREE_COUPLINGS = [0., 1.3, 10.]
 # Physical dimensions, in millimetres, keep final type sizes meaningful.
@@ -60,6 +70,59 @@ def text_mm(fig, x, top, text, **kwargs):
 
 def letter(fig, x, top, value):
     text_mm(fig, x, top, value, fontsize=9.4, weight="bold")
+
+
+def render_roi_star(axis, membership, *, order=None, fontsize=6.2, condensed=False):
+    """One displayed root and every ROI leaf; geometry carries no Syn value."""
+    membership = np.asarray(membership, int)
+    order = np.arange(100) if order is None else np.asarray(order, int)
+    if membership.shape != (100,) or not np.array_equal(np.sort(order), np.arange(100)):
+        raise ValueError('One-level display must retain every ROI exactly once')
+    x = np.arange(100, dtype=float)
+    colors = [NETWORK_COLORS[k] for k in membership[order]]
+    axis.set(xlim=(-1.5, 100.5), ylim=(-.07, 1.15)); axis.axis('off')
+    style = (0, (2.5, 2)) if condensed else '-'
+    axis.plot([49.5, 49.5], [.94, .65], color='#B3BAC0', lw=.45, zorder=1)
+    axis.plot([0, 99], [.65, .65], color='#B3BAC0', lw=.45, ls=style, zorder=1)
+    for roi in x:
+        axis.plot([roi, roi], [.65, .015], color='#B3BAC0', lw=.32, zorder=1)
+    axis.scatter([49.5], [.94], s=7, marker='D' if condensed else 'o',
+                 facecolors='white', edgecolors='#89959B', linewidths=.5, zorder=3)
+    axis.scatter(x, np.full(100, .015), s=2.3, color=colors, edgecolors='none', zorder=3)
+    axis.text(49.5, 1.07, 'Root → 100 ROI', ha='center', va='center',
+              fontsize=fontsize, color='.30')
+    return dict(display_root_count=1, display_leaf_count=100, display_maximum_depth=1,
+        scalar_leaf_count=0, roi_order=order.tolist(),
+        colors='Yeo membership only; no Syn magnitude encoding',
+        geometry='schematic; no optimization or quantitative edge length')
+
+
+def render_g0_trivial_tree(axis, record, membership, *, fontsize=6.2):
+    """Collapse zero-Syn joins; keep local E/I budgets inside ROI leaves."""
+    local = np.asarray(record['local_roi_xi_nats'], float)
+    membership = np.asarray(membership, int)
+    audit = audit_nonnegative(local, 1e-8)
+    if (local.shape != (100,) or membership.shape != (100,)
+            or abs(local.sum()-record['full_xi_nats']) > 1e-8
+            or abs(record['cross_roi_nats']) > 1e-8):
+        raise ArithmeticError('Trivial G=0 tree does not close to the local E/I budget')
+    display = render_roi_star(axis, membership, fontsize=fontsize)
+    return dict(**display, roi_block_count=100, collapsed_cross_roi_forks='all zero-Syn joins',
+        full_xi_nats=record['full_xi_nats'], cross_roi_nats_raw=record['cross_roi_nats'],
+        local_ei_audit=audit, hidden_local_coordinates='E/I retained within every ROI block')
+
+
+def render_g10_one_level_tree(axis, tree, membership, *, fontsize=6.2):
+    """Condense the singleton chain, including its terminal pair, for display."""
+    original = layout_audit(tree, collapse=False)
+    if original['multi_roi_fork_count'] != 0 or original['selected_internal_node_count'] != 99:
+        raise ValueError('One-level G=10 display requires a complete singleton chain')
+    display = render_roi_star(axis, membership, order=_leaf_order(tree),
+                              fontsize=fontsize, condensed=True)
+    return dict(**display, represented_binary_forks=99,
+        original_tree_metrics=original['original_tree_metrics'],
+        original_syn_audit=audit_tree(tree, tree.xi_bits),
+        interpretation='display contraction only; positive binary Syn retained in source tree')
 
 
 def cortex_crops():
@@ -98,7 +161,7 @@ def cortex_crops():
 
 
 def read_main_comparison():
-    """Use the selected natural pairwise mean, preserving Xi/native WMS.
+    """Combine continuous-G Xi with the selected natural pairwise mean/native WMS.
 
     All 94 SCs include the independently simulated mean-SC reference. Its curve
     is displayed separately and never enters the 93-participant hit count.
@@ -139,103 +202,140 @@ def read_main_comparison():
         cohort.pop('both_comparisons_significant', None)
     if scenario['cohorts']['all93']['methods']['phi_r']['hit_count'] != 29:
         raise ValueError('Selected pairwise PhiR hit count differs from 29/93')
-    scenario['original_Xi_and_WMS_unchanged'] = True
+    correction = load_manifest()  # retained lower-panel component readout
+    continuous = load_curve_manifest()
+    with np.load(CONTINUOUS_CURVES / 'analysis_curves.npz') as a:
+        if (a['subject_ids'].tolist() != contract['subject_ids'] or not np.array_equal(a['G'], g)
+                or str(a['curve_identity_sha256']) != continuous['identity_sha256']):
+            raise ValueError('Continuous dense curve identity differs')
+        for name in ['xi', 'whole_ei', 'partial_ei_sum']:
+            values[name] = a[name].mean(1)
+    corrected_rows = []
+    for i, old in enumerate(scenario['subject_rows']):
+        landmarks = subject_landmarks(g, values['rate'][i],
+            {n:values[n][i] for n in ['xi', 'phi_r', 'wms']})
+        row = expanded_subject(dict(subject=old['subject'], **landmarks), 2)
+        if row['window'] != old['window']:
+            raise ValueError('The independent transition window changed')
+        for name in ['phi_r', 'wms']:
+            if row['methods'][name]['hit'] != old['methods'][name]['hit']:
+                raise ValueError('An unchanged natural comparator changed hit status')
+        corrected_rows.append(row)
+    scenario['subject_rows'] = corrected_rows
+    memberships = dict(all93=set(contract['subject_ids'][:-1]),
+        primary85=set(contract['holdout_subject_ids']),
+        development8=set(contract['development_subject_ids']))
+    for name, cohort in scenario['cohorts'].items():
+        rows = [r for r in corrected_rows if r['subject'] in memberships[name]]
+        cohort['methods'] = {n:dict(hit_count=sum(r['methods'][n]['hit'] for r in rows),
+            denominator=len(rows), hit_rate=sum(r['methods'][n]['hit'] for r in rows)/len(rows),
+            flat_count=sum(r['methods'][n]['flat'] for r in rows),
+            boundary_extremum_count=sum(not r['methods'][n]['interior'] and not r['methods'][n]['flat'] for r in rows))
+            for n in ['xi', 'phi_r', 'wms']}
+    scenario['density_correction'] = continuous['identity_sha256']
+    scenario['curve_estimator'] = 'continuous-G affine TM; penalties 0.1 / 10 fixed from pilot'
+    scenario['lower_panel_estimator'] = 'previous independent-components / legacy tree readouts'
+    scenario['original_WMS_unchanged'] = True
     scenario['phi_r_protocol'] = 'natural-pairwise-mean'
     audit.update(phi_r_protocol=scenario['phi_r_protocol'],phi_r_pair_count=19900,
                  phi_r_individual_count=93,phi_r_mean_SC_reference_available=True,
                  pairwise_nonnegative_audit=s['audit'],pairwise_curves_sha256=digest(PAIRWISE/'curves.npz'))
+    audit.pop('all_93_landmarks_match_frozen', None)
+    audit.update(density_correction=continuous['identity_sha256'],
+        protected_source_landmarks_verified=True,
+        continuous_curve_condition_count=continuous['condition_count'],
+        continuous_mean_penalty=continuous['identity']['mean_penalty'],
+        continuous_noise_penalty=continuous['identity']['noise_penalty'],
+        continuous_nonnegative_audit=continuous['audit'],
+        all_93_Xi_landmarks_match_frozen=False,
+        independent_rate_windows_unchanged=True,
+        EI_closure_max_nats=continuous['audit']['EI_closure_max_nats'],
+        xi_minimum_nats=float(values['xi'].min()),
+        xi_negative_within_tolerance_count=int(np.count_nonzero(values['xi'] < 0)),
+        lower_panel_component_identity=correction['identity_sha256'],
+        corrected_Xi_hits=scenario['cohorts']['all93']['methods']['xi']['hit_count'])
     return contract, g, values, rho, scenario, audit
 
 
-def read_network_comparison():
-    """Reproduce the supplied Yeo panels from their existing 24-condition cache.
+def read_three_g_network_comparison():
+    """Network games share the brain-map affine-TM conditions and seed set.
 
-    Shares use the same full-system denominator in each seed/G condition.
-    Average the three G values within seed, then show eight-seed mean +/- SD.
-    The between-network component is the cached exact seven-group Shapley.
+    Normalize within-network full Xi and exact between-network Shapley by the
+    same condition's full Xi, then average seeds at each G. No G pooling.
+    Read the precomputed corrected conditions; no fitting during composition.
     """
-    with np.load(YEO_METADATA, allow_pickle=True) as a:
-        if (a['seeds'].tolist() != list(range(3, 11))
-                or not np.array_equal(a['G'], [1.2, 1.3, 1.4])):
-            raise ValueError('Network panels require the original eight-seed peak window')
-        sizes = a['network_sizes'].copy()
-        membership = a['network_membership'].copy()
-        names = a['network_names'].tolist()
-        if not np.array_equal(sizes, np.bincount(membership, minlength=7)):
-            raise ValueError('Network sizes differ from ROI membership')
-        within = network_xi_values(a['conditional_covariance'], membership)
-        between = a['between_group_shapley'].copy()
-        total = a['fine_phi'].copy()
-    if within.shape != (8, 3, 7) or between.shape != within.shape or total.shape != (8, 3):
-        raise ValueError('Invalid network contribution shapes')
-    components = np.concatenate([within.ravel(), between.ravel()])
-    tolerance = 1e-8  # native bits, same rule as the original network panels
-    count = int(np.count_nonzero(components < -tolerance))
-    if not np.isfinite(components).all() or not np.isfinite(total).all() or np.any(total <= 0):
-        raise ValueError('Network shares require finite components and positive root Xi')
-    if count:
-        raise ArithmeticError(f'Network nonnegativity violation: minimum={components.min()} bits, '
-                              f'threshold={-tolerance} bits, affected_count={count}')
-    closure = float(np.abs(within.sum(-1) + between.sum(-1) - total).max())
-    if closure > tolerance:
-        raise ArithmeticError(f'Network contribution closure failed: {closure} bits')
-    by_seed = [100 * values / total[..., None] for values in [within, between]]
-    by_seed = [values.mean(1) for values in by_seed]
-    means, errors = [values.mean(0) for values in by_seed], [sd(values, axis=0) for values in by_seed]
-    if abs(sum(values.sum() for values in means) - 100) > 1e-8:
-        raise ArithmeticError('Network percentage budget does not close')
-    audit = dict(source_sha256=digest(YEO_METADATA), tolerance_bits=tolerance,
-                 minimum_bits=float(components.min()), significant_violation_count=count,
-                 tolerance_negative_count=int(np.count_nonzero(components < 0)),
-                 closure_max_bits=closure, totals_percent=[float(v.sum()) for v in means],
-                 mean_percent=[v.tolist() for v in means], seed_sd_percent=[v.tolist() for v in errors],
-                 normalization='per-condition full Xi; then G mean within seed; then mean +/- seed SD')
-    print('Existing network panel audit:', audit)
-    return names, sizes, means, errors
-
-
-def read_roi_network_attribution():
-    """Sum cached ordinary ROI Shapley shares by post-hoc Yeo membership.
-
-    This is a separate full-Xi ROI game, not the sum of the two network games.
-    No permutation sampling or Shapley estimation is performed here.
-    """
-    with np.load(YEO_METADATA, allow_pickle=True) as reference, np.load(PEAK_ROI, allow_pickle=True) as a:
-        meta = json.loads(str(a['summary_json']))
-        if (meta['version'] != 'paired-permutation-full-xi-v2' or not meta['converged']
-                or meta['source_sha256'] != digest(YEO_METADATA)):
-            raise ValueError('ROI attribution provenance/convergence differs')
-        for key in ['G', 'seeds', 'region_labels', 'network_membership', 'network_names']:
-            if not np.array_equal(a[key], reference[key]):
-                raise ValueError(f'ROI attribution differs from network data: {key}')
-        raw = a['roi_shapley_bits'].copy()
-        total = reference['fine_phi'].copy()
-        membership = a['network_membership'].copy()
-        if not np.array_equal(a['full_xi'], total):
-            raise ValueError('ROI attribution root Xi differs from the network cache')
-    if raw.shape != (8, 3, 100) or not np.isfinite(raw).all():
-        raise ValueError('Invalid cached ROI attribution')
-    tolerance = 1e-8  # native bits; raw values retained without clipping
-    count = int(np.count_nonzero(raw < -tolerance))
-    if count or meta['significant_nonnegativity_violation_count']:
-        raise ArithmeticError(f'ROI nonnegativity violation: min={raw.min()} bits, '
-                              f'threshold={-tolerance} bits, affected_count={count}')
-    closure = float(np.abs(raw.sum(-1) - total).max())
-    if closure > tolerance:
-        raise ArithmeticError(f'ROI attribution budget failed: {closure} bits')
-    grouped = np.stack([raw[..., membership == k].sum(-1) for k in range(7)], axis=-1)
-    by_seed = (100 * grouped / total[..., None]).mean(1)
-    mean, error = by_seed.mean(0), sd(by_seed, axis=0)
-    if abs(mean.sum() - 100) > 1e-8:
-        raise ArithmeticError('Grouped ROI attribution percentage budget failed')
-    print('Existing ROI-to-network attribution audit:', dict(
-        source_sha256=digest(PEAK_ROI), tolerance_bits=tolerance, minimum_bits=float(raw.min()),
-        tolerance_negative_count=int(np.count_nonzero(raw < 0)), significant_violation_count=count,
-        original_marginal_audit_min_bits=meta['minimum_marginal_bits'],
-        original_marginal_tolerance_negative_count=meta['tolerance_negative_marginal_count'],
-        closure_max_bits=closure, mean_percent=mean.tolist(), seed_sd_percent=error.tolist(),
-        total_percent=float(mean.sum()), aggregation='ordinary ROI Shapley summed by Yeo group'))
-    return mean, error
+    record = json.loads((ROI / 'summary.json').read_text())
+    with np.load(ROI / 'roi_shapley.npz') as a:
+        g, seeds = a['G'].copy(), a['seeds'].copy()
+        labels, membership = a['region_labels'].copy(), a['network_membership'].copy()
+        names, root_xi = a['network_names'].tolist(), a['xi_nats'].copy()
+    if g.tolist() != TREE_COUPLINGS or seeds.tolist() != [3, 4, 5]:
+        raise ValueError('Network panels must match the brain-map G/seed set')
+    groups = [tuple(np.flatnonzero(membership == k)) for k in range(7)]
+    sizes = np.array([len(group) for group in groups])
+    if len(labels) != 100 or sizes.sum() != 100 or np.any(sizes <= 0):
+        raise ValueError('Invalid network/ROI metadata')
+    tolerance = 1e-8  # native nats; no clipping or re-normalization
+    raw = np.empty((3, 3, 2, 7))
+    audits = []
+    for gi, coupling in enumerate(g):
+        for si, seed in enumerate(seeds):
+            matches = [c for c in record['provenance']['conditions']
+                       if c['G'] == coupling and c['seed'] == seed]
+            if len(matches) != 1:
+                raise ValueError('Expected one brain-map source condition')
+            source = matches[0]
+            path = ROOT / source['cache']
+            if digest(path) != source['cache_sha256']:
+                raise ValueError(f'Brain-map density cache changed: {path}')
+            with np.load(path) as a:
+                if (str(a['source_sha256']) != source['source_sha256']
+                        or int(a['noise_seed']) != source['noise_seed']):
+                    raise ValueError('Network queries must share the brain-map samples')
+                game = CommonTargetGame(a['covariance'])
+                total = game.totals()['xi_nats']
+                if not np.isfinite(total) or total <= 0 or abs(total-root_xi[gi, si]) > tolerance:
+                    raise ValueError('Network queries and brain-map root Xi differ')
+                reused = 'within_network_xi' in a and 'between_network_shapley' in a
+                if reused:
+                    within = a['within_network_xi'].copy()
+                    between = a['between_network_shapley'].copy()
+                    query_audit = json.loads(str(a['network_audit_json']))
+                else:
+                    within, between, _, query_audit = network_values(game, groups)
+            if within.shape != (7,) or between.shape != (7,):
+                raise ValueError('Invalid per-network contribution arrays')
+            component_audit = audit_nonnegative(np.r_[within, between], tolerance)
+            if query_audit['nonnegative_audit']['violation_count']:
+                raise ArithmeticError(f'Network query nonnegativity violation: {query_audit}')
+            closure = float(abs(within.sum()+between.sum()-total))
+            if closure > tolerance:
+                raise ArithmeticError(f'Network budget error: {closure} nats')
+            raw[gi, si] = np.stack([within, between])
+            audits.append(dict(G=float(coupling), seed=int(seed), cache=source['cache'],
+                cache_sha256=source['cache_sha256'], source_sha256=source['source_sha256'],
+                root_xi_nats=total, reused_network_queries=reused, component_audit=component_audit,
+                query_audit=query_audit, closure_error_nats=closure))
+    shares = 100 * raw / root_xi[:, :, None, None]
+    # Known G=0 independence is exact; raw Shapley roundoff is preserved in the
+    # cache/audit. Show its declared numerical-zero band as zero on this plot.
+    if np.abs(raw[0, :, 1]).max() > tolerance:
+        raise ArithmeticError('G=0 network plot fails the independent-component control')
+    print('G=0 display numerical-zero audit:', dict(tolerance_nats=tolerance,
+        affected_count=int(np.count_nonzero(raw[0, :, 1])), minimum_nats=float(raw[0, :, 1].min()),
+        raw_values_preserved=True))
+    shares[0, :, 1] = 0.
+    means = shares.mean(1)
+    component_sd = shares.std(1, ddof=1)
+    total_sd = shares.sum(2).std(1, ddof=1)
+    if np.abs(shares.sum((2, 3)) - 100).max() > 1e-8:
+        raise ArithmeticError('Per-condition percentage budget does not close')
+    print('Three-G network comparison audit:', dict(
+        G=g.tolist(), seeds=seeds.tolist(), tolerance_nats=tolerance, conditions=audits,
+        totals_percent=means.sum(2).tolist(), mean_percent=means.tolist(),
+        component_seed_sd_percent=component_sd.tolist(), total_seed_sd_percent=total_sd.tolist(),
+        normalization='same brain-map condition full Xi, then seed mean at each G; no G pooling'))
+    return names, sizes, means, component_sd, total_sd
 
 
 def load_inputs():
@@ -266,17 +366,22 @@ def load_inputs():
         if not np.allclose([shares.min(), shares.max()],
                            [summary["plot"]["vmin"], summary["plot"]["vmax"]]):
             raise ValueError("Surface figure scale differs from current cache")
-    conditions = load_comparison(PAIRED_SUMMARY, TREE_SEED, TREE_COUPLINGS)
+    conditions = load_comparison(PAIRED_SUMMARY, TREE_SEED, TREE_COUPLINGS[1:])
     for tree, source in conditions:
         print("Cached tree audit:", source, audit_tree(tree, tree.xi_bits))
+    independent = summary['G0_hierarchy']
+    audit_nonnegative(independent['local_roi_xi_nats'], 1e-8)
+    if (independent['leaf_count'] != 100 or abs(independent['cross_roi_nats']) > 1e-8
+            or abs(sum(independent['local_roi_xi_nats'])-independent['full_xi_nats']) > 1e-8):
+        raise ArithmeticError('Corrected G=0 local-ROI information budget fails')
+    conditions.insert(0, (None, independent))
     return g, values, rho, scenario, labels, membership, network_names, summary, conditions
 
 
 def draw(dpi):
     g, values, rho, scenario, labels, membership, network_names, summary, conditions = load_inputs()
     images = cortex_crops()
-    network_names, network_sizes, network_means, network_errors = read_network_comparison()
-    roi_network_mean, roi_network_error = read_roi_network_attribution()
+    network_names, network_sizes, network_means, component_sd, total_sd = read_three_g_network_comparison()
     palette = LinearSegmentedColormap.from_list(
         "native_sc", plt.cm.viridis(np.linspace(.04, .90, 256)))
     norm = Normalize(float(rho.min()), float(rho.max()))
@@ -300,7 +405,7 @@ def draw(dpi):
                    columnspacing=1.2, borderaxespad=0.)
         specifications = [
             ("a", "rate", 13, 14, "Independent order parameter"),
-            ("b", "xi", 80, 14, r"$\Xi$"),
+            ("b", "xi", 80, 14, r"$\Xi$ · continuous TM"),
             ("c", "phi_r", 13, 50, r"Pairwise $\Phi^R$"),
             ("d", "wms", 80, 50, "Signed source WMS"),
         ]
@@ -347,15 +452,31 @@ def draw(dpi):
         text_mm(fig, 166.5, 86.5, "Window width: 0.5 $G$\nPost hoc; $\Delta G=0.1$",
                 fontsize=6.4, color=".35", ha="center", linespacing=1.4)
 
+        text_mm(fig, 95, 93.2,
+                "Organization references below: previous component / hierarchy readouts",
+                fontsize=5.6, color='.35', ha='center')
+
         # Shared state columns couple hierarchy and anatomy without extra empty cells.
         starts = [4, 67, 130]
-        descriptions = ["No long-range coupling", "Peak", "Extreme coupling"]
+        descriptions = ["No long-range coupling", "Transition range", "Extreme coupling"]
         couplings = [0, 1.3, 10]
         for i, (x, coupling, description, condition) in enumerate(zip(starts, couplings, descriptions, conditions)):
             tree, source = condition
             text_mm(fig, x+28.5, 99, rf"$G={coupling:g}$  ·  {description}",
                     ha="center", fontsize=7.7)
             ax = axes_mm(fig, x, 105, 57, 31)
+            if coupling == 0:
+                print('G=0 trivial tree display audit:', render_g0_trivial_tree(ax, source, membership))
+                letter(fig, x, 105, 'f')
+                text_mm(fig, x+28.5, 138.5, 'Cross-ROI Syn = 0 · ROI leaves',
+                    ha='center', fontsize=5.6, color='.30')
+                continue
+            if coupling == 10:
+                print('G=10 one-level display audit:', render_g10_one_level_tree(ax, tree, membership))
+                letter(fig, x, 105, 'h')
+                text_mm(fig, x+28.5, 138.5, 'One-level display · 99 binary forks condensed',
+                        ha='center', fontsize=5.6, color='.30')
+                continue
             condense = coupling == 1.3
             if condense:
                 tree_audit = render_collapsed_tree(
@@ -401,7 +522,7 @@ def draw(dpi):
                     f"Multi-ROI forks {tree_audit['multi_roi_fork_count']} · Display depth {depth}",
                     ha="center", fontsize=5.6, color=".30")
         text_mm(fig, 95, 148.1,
-                "Seed 4 · dashed forks / diamonds: condensed singleton exits; color = peak local Syn",
+                "Seed 4 · all leaves: ROI blocks · h: singleton chain condensed for display",
                 fontsize=5.6, ha="center", color=".35")
 
         network_labels = ["VIS", "SM", "DA", "SA/VA", "LIM", "FPN", "DMN"]
@@ -417,7 +538,7 @@ def draw(dpi):
                           ticks=[0, 1, 2, 3])
         cb.ax.tick_params(labelsize=5.4, length=1.5, pad=1.)
         cb.outline.set_linewidth(.4)
-        text_mm(fig, 129, 144.4, r"Local Syn / $\Xi$ (%)", fontsize=5.9, ha="center")
+        text_mm(fig, 129, 144.4, r"g: Local Syn / $\Xi$ (%)", fontsize=5.9, ha="center")
 
         text_mm(fig, 4, 152, "ROI attribution · mean across seeds 3, 4, 5",
                 fontsize=6.6, weight="bold")
@@ -443,31 +564,47 @@ def draw(dpi):
         cb.set_label(r"ROI attribution to overall $\Xi$ (%)", fontsize=6.7, labelpad=2)
         text_mm(fig, 95, 209.0, "Shared cortical scale · each state sums to 100% · ± seed SD",
                 ha="center", fontsize=5.9, color=".35")
-        # Bottom triptych: two fixed-network games and the independent ROI
-        # game aggregated by network. Same colors/order and percent axis.
-        order = np.argsort(network_means[0])[::-1]
+        # One stacked network comparison per G, aligned to the tree/cortex
+        # columns above. Hatch distinguishes between-network attribution.
+        order = np.argsort(network_means[1, 0])[::-1]  # freeze the G=1.3 within order
         ypos = np.arange(7)[::-1]
         short = ['VIS', 'SM', 'DA', 'SA/VA', 'LIM', 'FPN', 'DMN']
         rows = [f'{short[i]} / {network_sizes[i]}' for i in order]
         bar_colors = [NETWORK_COLORS[i] for i in order]
-        titles = [r'Within-network $\Xi$', 'Between-network Shapley', 'ROI Shapley by network']
-        means = [*network_means, roi_network_mean]
-        errors = [*network_errors, roi_network_error]
-        for i, (x, mean, error, title) in enumerate(zip([19, 82, 145], means, errors, titles)):
-            ax = axes_mm(fig, x, 225, 40, 33)
-            ax.barh(ypos, mean[order], xerr=error[order], height=.72, color=bar_colors,
-                    linewidth=0, capsize=1.3,
-                    error_kw=dict(ecolor='#202020', elinewidth=.65, capthick=.65), zorder=2)
-            ax.set(xlim=(0, 25), ylim=(-.65, 6.65), xticks=[0, 10, 20],
-                   yticks=ypos, yticklabels=rows, xlabel=r'Overall $\Xi$ share (%)')
-            ax.tick_params(axis='y', labelsize=6.1, pad=1.2, length=0)
-            ax.tick_params(axis='x', labelsize=6.1)
-            ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
-            ax.grid(axis='x', color='.91', lw=.5, zorder=0)
-            letter(fig, starts[i], 217.5, 'lmn'[i])
-            text_mm(fig, starts[i]+28.5, 219.2, title, fontsize=6.8, ha='center')
-            text_mm(fig, x+40, 267, f'Total: {mean.sum():.2f}%',
-                    ha='right', fontsize=5.9, color='.35')
+        faded = [_blend_with_white(color, .24) for color in bar_colors]
+        upper = 5 * np.ceil(np.max(network_means.sum(1) + total_sd) * 1.06 / 5)
+        with plt.rc_context({'hatch.linewidth': .35}):
+            fig.legend(handles=[
+                Patch(facecolor='#777777', edgecolor='none', label=r'Within-network $\Xi$'),
+                Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///', linewidth=.4,
+                      label='Between-network Shapley')],
+                loc='center', bbox_to_anchor=(.5, 1-215.2/HEIGHT), ncol=2,
+                fontsize=6.1, frameon=False, handlelength=1.6, columnspacing=1.7)
+            for i, (x, coupling) in enumerate(zip([19, 82, 145], TREE_COUPLINGS)):
+                within, between = network_means[i, :, order].T
+                combined = within + between
+                ax = axes_mm(fig, x, 226, 40, 32)
+                ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
+                ax.barh(ypos, between, left=within, height=.72, color=faded,
+                        edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
+                # Internal endpoint SD uses the within share; outer endpoint SD
+                # uses each seed's combined share, preserving their covariance.
+                ax.errorbar(within, ypos, xerr=component_sd[i, 0, order], fmt='none',
+                            ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
+                if coupling != 0:  # At G=0 this is the same endpoint/SD already drawn.
+                    ax.errorbar(combined, ypos, xerr=total_sd[i, order], fmt='none',
+                                ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
+                ax.set(xlim=(0, upper), ylim=(-.65, 6.65), xticks=np.arange(0, upper+.1, 10),
+                       yticks=ypos, yticklabels=rows, xlabel=r'Overall $\Xi$ share (%)')
+                ax.tick_params(axis='y', labelsize=6.1, pad=1.2, length=0)
+                ax.tick_params(axis='x', labelsize=6.1)
+                ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
+                ax.grid(axis='x', color='.91', lw=.5, zorder=0)
+                letter(fig, starts[i], 222, 'lmn'[i])
+                text_mm(fig, starts[i]+28.5, 222, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
+                text_mm(fig, starts[i]+28.5, 267,
+                        f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
+                        ha='center', fontsize=5.7, color='.35')
 
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         for suffix in (".png", ".pdf"):
@@ -477,7 +614,34 @@ def draw(dpi):
         plt.close(fig)
 
 
+def draw_g0_detail(dpi):
+    """A larger view makes all 100 ROI leaves inspectable."""
+    load_manifest()
+    record = json.loads((ROI / 'summary.json').read_text())['G0_hierarchy']
+    with np.load(ROI / 'roi_shapley.npz') as a:
+        membership = a['network_membership'].copy()
+    with plt.rc_context({'font.family':'DejaVu Sans', 'font.size':9,
+                         'pdf.fonttype':42, 'savefig.facecolor':'white'}):
+        fig = plt.figure(figsize=(7.48, 2.55), facecolor='white')
+        ax = fig.add_axes([.035, .23, .93, .66])
+        render_g0_trivial_tree(ax, record, membership, fontsize=10)
+        fig.text(.5, .99, rf'$G=0$, seed 4 · overall $\Xi={record["full_xi_nats"]:.3f}$ nats',
+                 ha='center', va='top', fontsize=10)
+        fig.text(.5, .17, 'Each ROI leaf contains E/I coordinates. Cross-ROI Syn = 0.',
+                 ha='center', fontsize=8.5, color='.30')
+        fig.legend(handles=[Patch(facecolor=c, edgecolor='none', label=n)
+            for c,n in zip(NETWORK_COLORS, ['VIS','SM','DA','SA/VA','LIM','FPN','DMN'])],
+            loc='lower center', bbox_to_anchor=(.5, .025), ncol=7,
+            frameon=False, fontsize=8, columnspacing=1.2)
+        output = OUTPUT.parent / 'dmf_G0_trivial_tree.png'
+        fig.savefig(output, dpi=dpi, bbox_inches=None)
+        plt.close(fig)
+        print('Saved:', output)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dpi", type=int, default=450)
-    draw(parser.parse_args().dpi)
+    dpi = parser.parse_args().dpi
+    draw(dpi)
+    draw_g0_detail(dpi)

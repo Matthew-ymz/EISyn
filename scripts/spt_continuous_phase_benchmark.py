@@ -162,7 +162,7 @@ class InformationOracle:
                          if set(e) == {a,b})
 
 
-def block_tree(info, sources):
+def block_tree(info, sources, *, normalize=False):
     clades, candidates = [], []
     def visit(a):
         if len(a)==1:
@@ -172,7 +172,8 @@ def block_tree(info, sources):
             redundancy = min(info(u,v) for u in (l,r) for v in (l,r))
             value = info(a,a)-info(l,l)-info(r,r)+redundancy
             candidates.append(value)
-            values.append((value,l,r))
+            objective = value/min(len(l),len(r)) if normalize else value
+            values.append((objective,l,r))
         _, l, r = min(values)
         for child in (l,r):
             if len(child)>1:
@@ -188,9 +189,9 @@ def evaluate(info, future_mi, sources=SOURCES):
     counts = {}
     original_info = info
     stage = "shared_ei_table"
-    def info(a, b=SOURCES):
+    def info(a, b=None):
         counts[stage] = counts.get(stage, 0)+1
-        return original_info(a,b)
+        return original_info(a,sources if b is None else b)
     ei = {s: info(s) for s in all_nonempty_subsets(sources)}
     audit = audit_table(ei, TOLERANCE_NATS)
     if audit["significant_violation_count"]:
@@ -199,27 +200,30 @@ def evaluate(info, future_mi, sources=SOURCES):
     tree = build_spt_from_ei_table(sources, ei, config=SPTConfig(syn_tolerance=TOLERANCE_NATS))
     nodes = flatten_nodes(tree.root)
     outputs = {"spt": {"root_split": tuple(c.sources for c in tree.root.children),
-        "clades": [n.sources for n in nodes if 1<len(n.sources)<9], "status": "resolved"}}
+        "clades": [n.sources for n in nodes if 1<len(n.sources)<len(sources)], "status": "resolved"}}
     stage = "block_phi_r"
     root, clades, values = block_tree(info, sources)
     if min(values)<-TOLERANCE_NATS:
         raise ArithmeticError(f"Block PhiR violation: minimum={min(values)}; threshold={-TOLERANCE_NATS}; "
                               f"affected_count={sum(v < -TOLERANCE_NATS for v in values)}")
     outputs["block_phi_r"] = {"root_split": root, "clades": clades, "status": "resolved"}
-    matrices = {m: np.zeros((9,9)) for m in METHODS[2:]}
+    matrices = {m: np.zeros((len(sources),len(sources))) for m in METHODS[2:]}
+    positions = {source:j for j,source in enumerate(sources)}
     stage = "pair_phi_r_hac"
     for i,j in itertools.combinations(sources,2):
         ii,jj = (i,), (j,)
         redundancy = min(info(u,v) for u in (ii,jj) for v in (ii,jj))
-        matrices["pair_phi_r_hac"][i-1,j-1] = info((i,j),(i,j))-info(ii,ii)-info(jj,jj)+redundancy
-        matrices["pair_xi_hac"][i-1,j-1] = ei[tuple(x for x in sources if x in (i,j))]-ei[ii]-ei[jj]
-        matrices["future_mi_hac"][i-1,j-1] = future_mi(i,j)
+        matrices["pair_phi_r_hac"][positions[i],positions[j]] = info((i,j),(i,j))-info(ii,ii)-info(jj,jj)+redundancy
+        matrices["pair_xi_hac"][positions[i],positions[j]] = ei[tuple(x for x in sources if x in (i,j))]-ei[ii]-ei[jj]
+        matrices["future_mi_hac"][positions[i],positions[j]] = future_mi(i,j)
     for method, matrix in matrices.items():
         matrix += matrix.T
         if matrix.max() <= TOLERANCE_NATS:
             outputs[method] = {"status": "no_structure_information", "root_split": (), "clades": ()}
         else:
             root, clades = graph_tree(matrix)
+            root = tuple(tuple(sources[i-1] for i in child) for child in root)
+            clades = [tuple(sources[i-1] for i in child) for child in clades]
             outputs[method] = {"status": "tie_sensitive", "root_split": root, "clades": clades}
     audit.update({"closure_error_nats": tree.closure_error,
                   "block_phi_minimum_nats": min(values),
@@ -227,8 +231,8 @@ def evaluate(info, future_mi, sources=SOURCES):
     if abs(tree.closure_error)>TOLERANCE_NATS:
         raise ArithmeticError(f"Closure failed: {tree.closure_error}")
     return {"methods": outputs, "matrices_nats": {k:v.tolist() for k,v in matrices.items()},
-            "information_query_counts": {**counts, "future_mi_hac":36,
-                "pair_xi_hac": "36 pairs + 9 singleton values reused from shared table"},
+            "information_query_counts": {**counts, "future_mi_hac":math.comb(len(sources),2),
+                "pair_xi_hac": f"{math.comb(len(sources),2)} pairs + {len(sources)} singleton values reused from shared table"},
             "audit": audit, "xi_nats": tree.root.xi_value, "root_syn_nats": tree.root.syn_value,
             "nodes": [{"sources": n.sources, "children": [c.sources for c in n.children],
                        "depth": n.depth, "xi_nats": n.xi_value, "syn_nats": n.syn_value} for n in nodes]}

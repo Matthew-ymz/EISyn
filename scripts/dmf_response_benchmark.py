@@ -1,8 +1,8 @@
 """Shared, unclipped DMF response trials and auditable affine-TM scores.
 
-The intervention prior is analytically factorized. A full-system affine
-transition is fitted before marginalizing background ROIs. All MI queries are
-marginals of this ONE fitted joint density; no eigenvalue floors or MI clipping.
+The intervention prior is analytically factorized. Known independent DMF
+components are fitted separately before assembling the full joint density.
+All MI queries marginalize this ONE density; no eigenvalue floors or MI clipping.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from scipy.linalg import solve_triangular
 from exp.TM.transport_map_density import AffineTransportMapDensityEstimator
 
 TOL = 1e-8
+DMF_AFFINE_DENSITY_VERSION = 'dmf-independent-components-affine-tm-v2'
 METHODS = ('xi', 'pair_phi_r', 'weak_phi_r', 'phi_r_lu', 'wms', 'o_increment', 'whole_mi')
 LABELS = ('ROI-block Xi', 'Pairwise Phi-R', 'Weakest split Phi-R', 'Phi-R-LU scalar',
           'Dynamic WMS', 'Target-augmented O', 'Whole MI', 'Return SC', 'Internal SC',
@@ -26,27 +27,142 @@ def logdet(matrix):
     return 2 * np.log(np.diag(chol)).sum()
 
 
-def fit_affine_joint(x, y, halfwidth, ridge=1e-6):
+def fit_affine_joint(x, y, halfwidth, ridge=1e-6, *, independent_blocks=None):
     """Affine TM with a known independent uniform prior's Gaussian moments.
 
     Ridge is added once to the prior and once to the residual covariance, in
     standardized units. It is not added again to subqueries or Schur complements.
+
+    Optional blocks declare independent source/target mechanisms, not groups
+    inferred from noisy correlations. Fit each block from its own samples before
+    assembling ONE joint density. DMF callers should use fit_dmf_affine_joint.
     """
     x = np.asarray(x, float); y = np.asarray(y, float)
+    if (x.ndim != 2 or y.ndim != 2 or len(x) != len(y) or len(x) < 2
+            or not x.shape[1] or not y.shape[1]):
+        raise ValueError('Expected paired, nonempty source/target sample matrices')
+    if not np.isfinite(halfwidth) or halfwidth <= 0 or not np.isfinite(ridge) or ridge < 0:
+        raise ValueError('Positive finite halfwidth and nonnegative finite ridge required')
     xs = x.std(axis=0, ddof=1); ys = y.std(axis=0, ddof=1)
     if np.any(xs <= 0) or np.any(ys <= 0) or not np.isfinite(x).all() or not np.isfinite(y).all():
         raise ValueError('Invalid affine TM inputs')
     xz = (x - x.mean(axis=0)) / xs; yz = (y - y.mean(axis=0)) / ys
-    coefficient = np.linalg.lstsq(xz, yz, rcond=None)[0]
-    residual = yz - xz @ coefficient
     prior = np.diag((halfwidth ** 2 / 3) / xs ** 2 + ridge)
-    noise = np.cov(residual, rowvar=False) + ridge * np.eye(y.shape[1])
+    if independent_blocks is None:
+        coefficient = np.linalg.lstsq(xz, yz, rcond=None)[0]
+        residual = yz - xz @ coefficient
+        noise = np.atleast_2d(np.cov(residual, rowvar=False)) + ridge * np.eye(y.shape[1])
+    else:
+        if x.shape[1] != y.shape[1]:
+            raise ValueError('Independent blocks require matching source/target dimensions')
+        blocks = []
+        for block in independent_blocks:
+            indices = np.asarray(block)
+            if indices.ndim != 1 or not indices.size or indices.dtype.kind not in 'iu':
+                raise ValueError('Independent blocks must contain nonempty integer index lists')
+            blocks.append(indices.astype(int))
+        flat = np.concatenate(blocks) if blocks else np.array([], dtype=int)
+        if not np.array_equal(np.sort(flat), np.arange(x.shape[1])):
+            raise ValueError('Independent blocks must partition every coordinate exactly once')
+        coefficient = np.zeros((x.shape[1], y.shape[1]))
+        noise = np.zeros((y.shape[1], y.shape[1]))
+        for indices in blocks:
+            block_x, block_y = xz[:, indices], yz[:, indices]
+            block_coefficient = np.linalg.lstsq(block_x, block_y, rcond=None)[0]
+            residual = block_y - block_x @ block_coefficient
+            block_noise = np.atleast_2d(np.cov(residual, rowvar=False)) + ridge * np.eye(len(indices))
+            coefficient[np.ix_(indices, indices)] = block_coefficient
+            noise[np.ix_(indices, indices)] = block_noise
     cross = prior @ coefficient
     future = coefficient.T @ cross + noise
     cov = np.block([[prior, cross], [cross.T, future]])
     # Construct the actual repository affine triangular TM and verify positivity.
     tm = AffineTransportMapDensityEstimator(np.zeros(len(cov)), cov, len(x))
     return tm.covariance
+
+
+def dmf_source_components(connectivity, coupling):
+    """Exact independent DMF components in [all E; all I] coordinate order.
+
+    Use weak connectivity, including all indirect paths over the finite horizon.
+    No edge threshold: any nonzero coupling retains every nonzero SC edge. At
+    exactly G=0 each ROI's E/I pair is an independent mechanism. This relies on
+    the native simulator's independent population/parcel noise and product input.
+    """
+    sc = np.asarray(connectivity, float)
+    if (sc.ndim != 2 or not len(sc) or sc.shape[0] != sc.shape[1]
+            or not np.isfinite(sc).all() or not np.isfinite(coupling)):
+        raise ValueError('Finite square SC and finite scalar coupling required')
+    n = len(sc)
+    adjacency = (sc != 0) | (sc.T != 0) if coupling != 0 else np.zeros((n, n), bool)
+    remaining = set(range(n)); components = []
+    while remaining:
+        pending = [min(remaining)]; members = []
+        while pending:
+            i = pending.pop()
+            if i not in remaining:
+                continue
+            remaining.remove(i); members.append(i)
+            pending.extend(j for j in np.flatnonzero(adjacency[i]) if j in remaining)
+        members.sort()
+        components.append(tuple(members + [i+n for i in members]))
+    return tuple(components)
+
+
+def fit_dmf_affine_joint(x, y, halfwidth, *, connectivity, coupling, ridge=1e-6):
+    """Mechanism-constrained affine TM; no background subtraction or Syn clipping.
+
+    Enforce only known independence between dynamical connected components.
+    Within a connected component this retains the Gaussian approximation and
+    its finite-sample error; it is not a universal statistical debiasing rule.
+    """
+    components = dmf_source_components(connectivity, coupling)
+    dimension = 2 * len(connectivity)
+    if np.shape(x)[-1:] != (dimension,) or np.shape(y)[-1:] != (dimension,):
+        raise ValueError('DMF source/target must each contain all E/I coordinates')
+    return fit_affine_joint(x, y, halfwidth, ridge,
+                            independent_blocks=components)
+
+
+def refit_affine_joint_from_moments(covariance, source_covariance, independent_blocks):
+    """Exact block refit from an original OLS affine density and source moments.
+
+    Original OLS residuals are orthogonal to ALL source coordinates. With full
+    coefficient B and restricted coefficient D, the restricted residual is
+    epsilon + X(B-D), so its covariance is R + (B-D)^T C_X (B-D). This retains
+    the original prior/ridge and refits coefficients; it is not post-fit masking.
+    Applies only to covariances produced by fit_affine_joint's unrestricted OLS.
+    """
+    cov, empirical = np.asarray(covariance, float), np.asarray(source_covariance, float)
+    d = len(empirical)
+    if (empirical.shape != (d, d) or cov.shape != (2*d, 2*d)
+            or not np.isfinite(cov).all() or not np.isfinite(empirical).all()):
+        raise ValueError('Expected finite full joint density and matching empirical source covariance')
+    blocks = [np.asarray(block, dtype=int) for block in independent_blocks]
+    flat = np.concatenate(blocks) if blocks else np.array([], dtype=int)
+    if any(b.ndim != 1 or not b.size for b in blocks) or not np.array_equal(np.sort(flat), np.arange(d)):
+        raise ValueError('Independent blocks must partition every coordinate exactly once')
+    prior = cov[:d, :d]
+    if not np.allclose(prior, np.diag(np.diag(prior)), atol=1e-12, rtol=0):
+        raise ValueError('Cache must have the known diagonal intervention prior')
+    np.linalg.cholesky(cov); np.linalg.cholesky(empirical)
+    if len(blocks) == 1 and np.array_equal(blocks[0], np.arange(d)):
+        return cov.copy()
+    full_coefficient = cov[:d, d:] / np.diag(prior)[:, None]
+    original_noise = cov[d:, d:] - full_coefficient.T @ prior @ full_coefficient
+    original_noise = .5*(original_noise + original_noise.T)
+    coefficient = np.zeros((d, d)); noise = np.zeros((d, d))
+    for indices in blocks:
+        restricted = np.linalg.solve(empirical[np.ix_(indices, indices)],
+            empirical[indices] @ full_coefficient[:, indices])
+        delta = full_coefficient[:, indices].copy()
+        delta[indices] -= restricted
+        block_noise = original_noise[np.ix_(indices, indices)] + delta.T @ empirical @ delta
+        coefficient[np.ix_(indices, indices)] = restricted
+        noise[np.ix_(indices, indices)] = .5*(block_noise + block_noise.T)
+    cross = prior @ coefficient
+    result = np.block([[prior, cross], [cross.T, coefficient.T @ cross + noise]])
+    return AffineTransportMapDensityEstimator(np.zeros(2*d), result, 0).covariance
 
 
 class MIOracle:

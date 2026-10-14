@@ -1,5 +1,15 @@
-"""Integrate provided framework panels, discrete hierarchy and cached Kuramoto.
+"""Compose the current three-panel framework / continuous-hierarchy figure.
 
+Default: preserve supplied a/b, use validated finite-data A/B/C in c, and omit
+the former Kuramoto d. Representative trees use predeclared identity labels,
+N=16384 and first dataset seed; scores retain all six methods and three datasets.
+--phase-bc reproduces the former Gaussian A / oracle phase B/C plate.
+--legacy reproduces the previous four-panel layout from its cached pilot.
+
+Current authority rechecked 2026-10-14: Zotero P6UJCVG8, main DXGC7JEA
+Methods (10)-(12), SI MWIWKSVG S5.1; no explicit manuscript version/date.
+
+Legacy layout (--legacy only):
 Header: original intervention schematic plus the user-provided confounding
 comparison image (no digitization, refitting, rescaling of scores or exclusions).
 Middle: existing heterogeneous hierarchy plate, embedded intact.
@@ -40,7 +50,8 @@ THEORY=ROOT/'fig/part1_synergy_comparison/figure1_sources/interventional_peid_de
 CONFOUND=ASSETS/'spt_confounding_reference.png'
 DISCRETE=ASSETS/'spt_heterogeneous_hierarchy_comparison.png'
 PILOT=ROOT/'results/spt_kuramoto_transition_pilot/summary.json'
-OUT=ASSETS/'spt_framework_discrete_continuous_comparison.png'
+LEGACY_OUT=ASSETS/'spt_framework_discrete_continuous_comparison.png'
+OUT=ASSETS/'spt_framework_continuous_comparison.png'
 GREEN,BLUE,PURPLE,INK='#217B68','#286DA0','#735B96','#24323C'
 SOURCES=tuple(range(1,7))
 MODULES={frozenset((1,2,3)),frozenset((4,5,6))}
@@ -196,7 +207,7 @@ def plot_curves(fig,contract,rows,bounds):
     return summaries
 
 
-def compose(output):
+def compose_legacy(output):
     contract,rows=load_comparison()
     with plt.rc_context({'font.family':'sans-serif','font.sans-serif':['Arial','DejaVu Sans'],
                          'font.size':10,'text.color':INK,'savefig.facecolor':'white'}):
@@ -244,8 +255,211 @@ def compose(output):
             'new_dynamics_fits':0,'track':'learned_components'}
 
 
+CURRENT_METHODS=('spt','pair_phi_r_hac','pair_xi_hac','future_mi_hac','block_phi_r','normalized_block_phi_r')
+CURRENT_NAMES=('SPT',r'Pair $\Phi_R$'+'\n+ HAC',r'Pair $\Xi$'+'\n+ HAC','Future MI\n+ HAC',
+               r'Block $\Phi_R$','Normalized\n'+r'Block $\Phi_R$')
+
+
+def load_current_comparison(*, finite=True):
+    if finite:
+        from scripts.spt_nested_broadcast_case import SUPPORTS
+        data=json.loads((ROOT/'results/spt_finite_replacement_bc/summary.json').read_text())
+        a=json.loads((ROOT/'results/spt_finite_data_tm/summary.json').read_text())
+        if data['status']!='complete' or not data['acceptance']['replace_main_figure']:
+            raise ValueError('Finite-data replacements require completed, accepted B/C')
+        records=[]
+        for r in a['records']:
+            if r['case']=='A' and r['n_train']==16384:
+                records.append({**r,'variant':0,'permutation_id':0,'permutation':tuple(range(1,10)),
+                                'hyperedges':SUPPORTS,'evidence':'finite_data'})
+        if sorted(r['seed'] for r in records)!=[0,1,2]:
+            raise ValueError('A requires all three existing independent datasets')
+        for r in data['records']:
+            if r['n_train']==16384:
+                if r['status']!='valid':
+                    raise ValueError('Failed finite fit cannot be plotted as a measured tree')
+                records.extend({**s,'evidence':'finite_data'} for s in r['label_records'])
+        for r in records:
+            audit=r['audit']
+            if audit['significant_violation_count'] or audit['clipping'] or abs(audit['closure_error_nats'])>1e-8:
+                raise ArithmeticError('Invalid finite-data input for main figure')
+            if set(CURRENT_METHODS)-r['methods'].keys():
+                raise ValueError('Missing finite-data baseline')
+        representatives=[next(r for r in records if r['case']==c and r['seed']==(0 if c=='A' else 101)
+                              and r['permutation_id']==0) for c in 'ABC']
+        return records,representatives
+    from scripts.plot_spt_continuous_refinement import normalized_phase_controls
+    phase=json.loads((ROOT/'results/spt_continuous_phase_benchmark/summary.json').read_text())
+    nested=json.loads((ROOT/'results/spt_nested_broadcast_case/summary.json').read_text())
+    records=nested['records']+normalized_phase_controls(phase)
+    if [tuple(r['permutation']) for r in nested['records']]!=[tuple(p) for p in phase['protocol']['permutations']]:
+        raise ValueError('A and B/C must use the same 20-label schedule')
+    for record in records:
+        audit=record['audit']; tolerance=audit['tolerance_nats']
+        if audit['significant_violation_count'] or audit['minimum_syn_nats'] < -tolerance:
+            raise ArithmeticError(f"Invalid Syn: minimum={audit['minimum_syn_nats']}; threshold={-tolerance}; "
+                                  f"affected_count={audit['significant_violation_count']}")
+        if audit['clipping'] or audit.get('monotone_projection',False) or abs(audit['closure_error_nats'])>tolerance:
+            raise ArithmeticError('Clipped or unclosed continuous hierarchy input')
+        if set(CURRENT_METHODS)-record['methods'].keys():
+            raise ValueError('Missing method in current continuous record')
+    representatives=[]
+    for case in 'ABC':
+        found=[r for r in records if r['case']==case and r['variant']==0 and r['permutation_id']==0]
+        if len(found)!=1:
+            raise ValueError(f'Missing or duplicate identity-label representative for {case}')
+        representatives.append(found[0])
+    return records,representatives
+
+
+def current_tree(ax,record,method):
+    """Render only the measured hierarchy, including explicit no-information cases."""
+    result=record['methods'][method]
+    if result['status']=='no_structure_information':
+        ax.text(.5,.5,'No pair\ninformation',ha='center',va='center',transform=ax.transAxes,
+                fontsize=10,color='#7B858D',linespacing=1.5)
+        ax.axis('off'); return
+    sources=tuple(range(1,10))
+    primitive=[set(e) for e in record['hyperedges'] if not any(set(g)<set(e) for g in record['hyperedges'])]
+    truth={tuple(sorted(e)) for e in record['hyperedges']}
+    sets={tuple(sorted(c)) for c in result['clades']}|{sources}|{(i,) for i in sources}
+    children={}
+    for parent in sets:
+        proper=[c for c in sets if set(c)<set(parent)]
+        children[parent]=tuple(sorted(c for c in proper if not any(set(c)<set(d) for d in proper)))
+        if len(parent)>1 and (len(children[parent])!=2 or set().union(*map(set,children[parent]))!=set(parent)):
+            raise ValueError(f'Incomplete cached {record["case"]}/{method} tree at {parent}')
+    positions={}; counter=[0]
+    def visit(parent,depth=0):
+        if children[parent]:
+            x=float(np.mean([visit(child,depth+1) for child in children[parent]]))
+        else:
+            x=counter[0]; counter[0]+=1
+        positions[parent]=(x,-depth)
+        return x
+    visit(sources)
+    def refinement(group):
+        return any(set(group)<block for block in primitive)
+    labels=[]
+    for parent in sorted(sets,key=lambda s:(-len(s),s)):
+        x,y=positions[parent]
+        for child in children[parent]:
+            cx,cy=positions[child]
+            wrong=len(child)>1 and child not in truth and not refinement(child)
+            ax.plot([x,cx],[y,cy],color='#B74738' if wrong else '#ADB7BF',
+                    lw=.85,ls='--' if wrong else '-',zorder=0)
+        if parent==sources:
+            edge,face,label='#84919A','#EFF2F4','1–9'
+        elif len(parent)==1 or refinement(parent):
+            edge,face,label='#B7C0C6','white',''.join(map(str,parent))
+        elif parent in truth:
+            edge,face,label=GREEN,'#E5F1EB',''.join(map(str,parent))
+        else:
+            edge,face,label='#B74738','#FCEFEA',''.join(map(str,parent))
+        labels.append(ax.text(x,y,label,ha='center',va='center',fontsize=8.9,color=INK,
+            bbox={'boxstyle':'round,pad=.16','fc':face,'ec':edge,'lw':.8}))
+    ax.set(xlim=(-.48,8.48),ylim=(min(y for x,y in positions.values())-.35,.38))
+    ax.axis('off'); ax._spt_node_labels=labels
+
+
+def compose(output, *, finite=True):
+    from scripts.plot_spt_heterogeneous_hierarchy import (
+        FILLS,PAIR,HIGHER,network,verify_export_clearance,
+    )
+    records,representatives=load_current_comparison(finite=finite)
+    scores=np.asarray([[np.mean([r['methods'][method]['clade_f1'] for r in records if r['case']==case])
+                        for case in 'ABC'] for method in CURRENT_METHODS])
+    from matplotlib.colors import LinearSegmentedColormap
+    with plt.rc_context({'font.family':'sans-serif','font.sans-serif':['Arial','DejaVu Sans'],
+                         'font.size':10,'text.color':INK,'savefig.facecolor':'white'}):
+        fig=plt.figure(figsize=(18,13.2),facecolor='white',dpi=300)
+        image_panel(fig,(.025,.783,.335,.205),THEORY)
+        image_panel(fig,(.380,.756,.600,.240),CONFOUND)
+        fig.text(.019,.980,'a',weight='bold',fontsize=13,va='top')
+        # b is already embedded in the original supplied confounding panel.
+        fig.text(.019,.748,'c',weight='bold',fontsize=13,va='top')
+        fig.legend(handles=[Patch(fc=FILLS[2],ec=PAIR,label='Pairwise'),
+                            Patch(fc=FILLS[3],ec=HIGHER,label='Higher-order'),
+                            Line2D([],[],color='#8982B4',ls='--',label='Global')],
+                   loc='upper center',bbox_to_anchor=(.51,.754),ncol=3,frameon=False,
+                   fontsize=10,handlelength=1.2,columnspacing=1.3)
+        networks=[]
+        grid=fig.add_gridspec(1,3,left=.048,right=.985,top=.710,bottom=.527,wspace=.10)
+        for i,record in enumerate(representatives):
+            ax=fig.add_subplot(grid[i]); supports=record['hyperedges']
+            primitive=[e for e in supports if not any(set(g)<set(e) for g in supports)]
+            network(ax,{'case':record['case'],'hyperedges':supports,'planted_bottom':primitive},
+                    operator_symbol='H',node_size=300)
+            label=('Mixed branches','Deep cascade','Triadic modules')[i]
+            ax.text(.5,1.01,f"{record['case']}  {label}",ha='center',va='bottom',
+                    transform=ax.transAxes,fontsize=12,weight='bold')
+            networks.append(ax)
+        grid=fig.add_gridspec(3,6,left=.052,right=.730,top=.479,bottom=.061,hspace=.20,wspace=.15)
+        trees=[]
+        for row,record in enumerate(representatives):
+            for col,(method,name) in enumerate(zip(CURRENT_METHODS,CURRENT_NAMES)):
+                ax=fig.add_subplot(grid[row,col]); current_tree(ax,record,method); trees.append(ax)
+                if row==0:
+                    ax.set_title(name,fontsize=10,pad=8,color=GREEN if method=='spt' else INK,
+                                 weight='bold' if method=='spt' else 'normal')
+                if col==0:
+                    ax.text(-.15,.5,f"Case {record['case']}",ha='right',va='center',rotation=90,
+                            transform=ax.transAxes,fontsize=10.6,color='#57636D')
+        score_ax=fig.add_axes((.864,.137,.119,.306))
+        cmap=LinearSegmentedColormap.from_list('recovery',['#FCF5F0','#C5DECF','#1D7967'])
+        score_ax.imshow(scores,cmap=cmap,vmin=0,vmax=1,aspect='auto',interpolation='nearest')
+        # Evaluation counts and label/variant schedules belong in the report
+        # and the eventual manuscript appendix, not in the main figure.
+        score_ax.set_xticks(range(3),list('ABC'))
+        score_ax.set_yticks(range(6),[s.replace('\n',' ') for s in CURRENT_NAMES])
+        score_ax.tick_params(axis='x',top=True,labeltop=True,bottom=False,labelbottom=False,length=0,pad=7,labelsize=10)
+        score_ax.tick_params(axis='y',length=0,pad=7,labelsize=9.3)
+        for i,j in np.ndindex(scores.shape):
+            note='*' if not finite and j==2 and CURRENT_METHODS[i] in ('pair_phi_r_hac','pair_xi_hac','future_mi_hac') else ''
+            score_ax.text(j,i,f'{scores[i,j]:.2f}'+note,ha='center',va='center',fontsize=10.5,
+                          color='white' if scores[i,j]>.82 else INK,weight='bold' if i==0 else 'normal')
+        for spine in score_ax.spines.values(): spine.set_visible(False)
+        score_ax.set_xlabel('Support F1',fontsize=11,labelpad=10)
+        if not finite:
+            fig.text(.866,.092,'* No pair information; no reported tree.',fontsize=8.8,color='#57636D',ha='center')
+        fig.legend(handles=[Patch(fc='#E5F1EB',ec=GREEN,label='True support'),
+                            Patch(fc='#FCEFEA',ec='#B74738',label='Wrong clade'),
+                            Patch(fc='white',ec='#B7C0C6',label='Leaf / minimal-support refinement')],
+                   loc='lower center',bbox_to_anchor=(.395,.018),ncol=3,frameon=False,
+                   fontsize=9,handlelength=1,columnspacing=1.2)
+        fig.text(.50,.006,r'Normalized Block: $\Phi_R/\min(|L|,|R|)$.',
+                 ha='center',fontsize=8.8,color='#57636D')
+        fig.canvas.draw()
+        for ax in networks: verify_export_clearance(ax)
+        renderer=fig.canvas.get_renderer()
+        for ax in trees:
+            boxes=[label.get_bbox_patch().get_window_extent(renderer) for label in getattr(ax,'_spt_node_labels',[])]
+            if any(a.overlaps(b) for i,a in enumerate(boxes) for b in boxes[i+1:]):
+                raise ValueError('Displayed tree has overlapping node-label boxes')
+        output.parent.mkdir(parents=True,exist_ok=True)
+        fig.savefig(output,dpi=300,bbox_inches=None,facecolor='white')
+        plt.close(fig)
+    return {'panels':['a','b','c'],'removed_panel':'d','pixels':[5400,3960],
+            'records_by_case':{case:sum(r['case']==case for r in records) for case in 'ABC'},
+            'representatives':('identity labels, N=16384; A seed0, B/C seed101; fixed before fitting' if finite
+                               else 'identity labels, variant zero, all A/B/C; no selection by method score'),
+            'evidence':'finite_data' if finite else 'oracle_phase_bc',
+            'aggregation':('equal-weight independent datasets; B/C labels averaged within fit' if finite
+                           else 'all common labels and variants'),
+            'methods':CURRENT_METHODS,'support_f1':scores.tolist(),'new_dynamics_fits':0,
+            'source_images_unchanged':[str(THEORY),str(CONFOUND)],
+            'minimum_syn_nats':min(r['audit']['minimum_syn_nats'] for r in records),
+            'tolerance_negative_count':sum(r['audit']['tolerance_negative_count'] for r in records),
+            'significant_syn_violations':sum(r['audit']['significant_violation_count'] for r in records),
+            'syn_tolerance_nats':1e-8,'clipping':False}
+
+
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=OUT)
+    parser.add_argument('--output',type=Path)
+    parser.add_argument('--legacy',action='store_true',help='Reproduce the former four-panel discrete + Kuramoto composite')
+    parser.add_argument('--phase-bc',action='store_true',help='Reproduce the former oracle phase B/C three-panel figure')
     args=parser.parse_args()
-    print(json.dumps(compose(args.output),indent=2,allow_nan=False))
+    output=args.output or (LEGACY_OUT if args.legacy else OUT.with_stem(OUT.stem+'_phase_bc') if args.phase_bc else OUT)
+    summary=compose_legacy(output) if args.legacy else compose(output,finite=not args.phase_bc)
+    print(json.dumps(summary,indent=2,allow_nan=False))

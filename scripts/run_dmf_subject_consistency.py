@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.dmf_subject_consistency import network_values, pair_values, roi_shapley, tree_record, TOL
 from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
-from scripts.dmf_response_benchmark import fit_affine_joint, simulate_sources
+from scripts.dmf_response_benchmark import (
+    fit_dmf_affine_joint, simulate_sources, DMF_AFFINE_DENSITY_VERSION,
+)
 from scripts.run_dmf_paired_spt_pilot import paired_sources, noise_seed
 from scripts.validate_dmf_83_region_oracle_phi_eid import load_dmf_module, standardize
 from scripts.analyze_dmf_critical_phi_hierarchy_topology import conditional_source_covariance
@@ -28,7 +30,7 @@ BASE = ROOT/'results/dmf_schaefer100/subject_consistency_pilot'
 G = [0., .5, 1., 1.3, 1.6, 2.2, 3.]
 SEEDS = [3, 4, 5]
 ORGANIZATION_G = [0., 1., 1.3, 2.2]
-VERSION = 'individual-sc-affine-tm-v1'
+VERSION = 'individual-sc-independent-components-affine-tm-v2'
 
 
 def digest(path):
@@ -72,7 +74,8 @@ def prepare(output):
         reference_source_sha256=digest(source), G=G, seeds=SEEDS, organization_G=ORGANIZATION_G,
         sample_count=2048, support=[.3,.7], horizon_steps=300, dt_seconds=.001,
         sigma=.01, ridge=1e-6, state_boundary='none', JFIC='93-person mean, calibrated G=1, frozen',
-        estimator='one full-system affine TM; moment-matched diagonal Gaussian source prior; linear transition and Gaussian residual',
+        estimator='one joint affine TM; independent dynamical components fitted separately; diagonal source prior; linear transition and Gaussian residual',
+        density_version=DMF_AFFINE_DENSITY_VERSION,
         units='nats', syn_tolerance_nats=TOL, source_seed_offset=31000, noise_seed_offset=31017,
         paired_inputs_and_noise_across_G_and_subjects=True,
         diagnostic_seeds=[103,104,105], diagnostic_steps=5000, diagnostic_burn_steps=3000,
@@ -129,7 +132,7 @@ def simulate(output, limit=None):
                 y,diag=simulate_sources(dmf,x,sc,jf,g,p,noise_seed(seed))
                 if diag['outside_state_count']:
                     raise ArithmeticError(f'DMF state violation: {key}: {diag}')
-                cov=fit_affine_joint(x,y,.2,ridge=1e-6);game=CommonTargetGame(cov)
+                cov=fit_dmf_affine_joint(x,y,.2,connectivity=sc,coupling=g,ridge=1e-6);game=CommonTargetGame(cov)
                 metrics=game.totals()
                 within,between,total,network_audit=network_values(game,groups)
                 metrics['cross_network_nats']=total
@@ -139,6 +142,7 @@ def simulate(output, limit=None):
                 metrics['legacy_xi_nats']=float(.5*(np.log(np.diag(old)).sum()-np.linalg.slogdet(old)[1]))
                 inp=hashlib.sha256(x.tobytes()).hexdigest()
                 np.savez_compressed(path,covariance=cov,conditional=game.conditional,
+                    density_version=DMF_AFFINE_DENSITY_VERSION,
                     within_network_xi=within,between_network_shapley=between,
                     metrics_json=json.dumps(metrics),diagnostics_json=json.dumps(diag),
                     network_audit_json=json.dumps(network_audit),contract_json=json.dumps(contract),
