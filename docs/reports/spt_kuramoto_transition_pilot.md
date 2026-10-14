@@ -116,11 +116,19 @@ SPT 六条件均完整恢复预设支持，F1*=1。在深层链 B 中，成对 $
 
 新图入口为[异质模型](../../scripts/spt_heterogeneous_hierarchy_case.py)和[绘图模块](../../scripts/plot_spt_heterogeneous_hierarchy.py)。这是具有非线性、异质噪声和局部记忆的有限状态开发例；memory 不反馈到 driver/readout parity，尚不是一般反馈网络或连续自然系统确认。三种模型/两种读出是条件，不是独立随机重复。重新定位并重读当前 Zotero 正文 Methods（5）–（12）和补充 S5；附件键仍为 `DXGC7JEA`、`MWIWKSVG`，父项 `P6UJCVG8`，无明确稿件日期或版本号，版本歧义保留。
 
-### 3.3 综合图与新增连续层级比较
+### 3.3 综合主图更新与原连续比较记录
+
+2026-10-14 当前主图：c 已替换为九节点连续高斯 A 与连续相位 B/C 的结构、六方法代表树及全标签 F1 汇总，原 d 已删除；a/b 继续使用原始图源。当前为 5,400 × 3,960 像素的 a、b、c 三面板，采用连续机制 $H_m$ 标记，移除旧 Copied／Shared 条件。模型与审计见[连续实验报告第 9–10 节](spt_continuous_hierarchy_refinement.md)。运行默认的 `scripts/compose_spt_framework_comparison.py` 生成当前版本，不重新拟合模型。
+
+![当前框架、混杂与连续层级主图](assets/kuramoto_hierarchy/spt_framework_continuous_comparison_phase_bc.png)
+
+图中的记录数括号及标签／架构汇总说明已按用户要求移除；完整细节保留在[连续实验报告第 10.1 节](spt_continuous_hierarchy_refinement.md)，论文阶段安排至附录／补充方法。
+
+**以下保留旧版四面板图及其 Kuramoto 分析记录。** 原数据未删除；旧图可使用同一入口加 `--legacy` 重绘。
 
 把干预示意、共驱动/多方法模块与现有异质层级大图拼合，并补充 mixed-order Kuramoto 上的 SPT 与成对 $\Xi$ + HAC。a 是原始非比例概念示意；b 原样使用用户提供图像，未数字化或重算原图分数；c 原样嵌入已有离散图；d 是读取 pilot 缓存后实际计算的层级算法对比。
 
-![理论—混杂—离散层级—连续层级综合图](assets/kuramoto_hierarchy/spt_framework_discrete_continuous_comparison.png)
+![旧版理论—混杂—离散层级—连续层级综合图](assets/kuramoto_hierarchy/spt_framework_discrete_continuous_comparison.png)
 
 图 6。5,400 × 4,620 像素。连续比较共享同一条件的完整 63 项 EI，pair-$\Xi$ 用全 target 的二源联合减去两个单源 EI，再进行 average linkage；它与离散面板的 local-target pair-$\Phi_R$ 不同。代表树固定为 seed 0、$K_{\mathrm{out}}=0.04$ 与 5。灰色为两法共同 clade，绿/蓝为方法独有 clade，无强耦合“错误树”标签。右侧两个曲线分别是两个初始模块的保留率、两法非根 clade Jaccard；均不是高耦合准确率或普适优越性指标。
 
