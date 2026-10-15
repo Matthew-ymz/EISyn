@@ -54,6 +54,17 @@ tests/*
 !tests/test_spt_continuous_phase_benchmark.py
 !tests/test_spt_spline_tm.py
 !tests/test_spt_finite_replacement_bc.py
+!tests/test_spt_local_hyperedge_kuramoto.py
+!tests/test_spt_kuramoto_finite_tm.py
+!tests/test_spt_kuramoto_group_tm.py
+!tests/test_spt_kuramoto_b_future_mi.py
+!tests/test_spt_local_hyperedge_glv.py
+!tests/test_spt_glv_finite_tm.py
+!tests/test_spt_glv_group_tm.py
+!tests/test_spt_glv_a_comparison.py
+!tests/test_spt_glv_surd.py
+!tests/test_spt_glv_natural_baselines.py
+!tests/test_spt_glv_full_table.py
 !tests/test_dmf_unconstrained_spt.py
 !tests/test_dmf_response_benchmark.py
 !tests/test_dmf_joint_readout.py
