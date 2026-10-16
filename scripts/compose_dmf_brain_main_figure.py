@@ -3,7 +3,7 @@
 
 Curves use the versioned continuous-G readout; historical inputs remain
 protected. G=0 and G=10 show one-level root/ROI displays; G=1.3 retains modules.
-Cortex images are unaltered crops of the corrected 300-dpi surface plate, with
+Cortex images are unaltered crops of the fixed-SPT order-band surface plate, with
 one shared pixel size and color scale. Seed-4 organization panels and three-seed
 cortical means are not identically aggregated. The output PDF retains vector text,
 curves, trees and color scales, with the existing cortex rendering as raster.
@@ -23,6 +23,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import numpy as np
 from PIL import Image
+from threadpoolctl import threadpool_limits
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -39,7 +40,7 @@ from scripts.dmf_joint_readout import CommonTargetGame, audit_nonnegative
 from scripts.dmf_subject_consistency import network_values
 from scripts.run_dmf_subject_consistency import digest
 from scripts.dmf_main_independent_components import (
-    BASE as CORRECTED_BASE, ROI as CORRECTED_ROI, FIGURE as CORRECTED_FIGURE,
+    BASE as CORRECTED_BASE, ROI as CORRECTED_ROI,
     load_manifest,
 )
 from scripts.dmf_dense_statistics import subject_landmarks
@@ -47,14 +48,14 @@ from scripts.analyze_dmf_subject_dense_windows import expanded_subject
 from scripts.run_dmf_continuous_subject_curves import (
     BASE as CONTINUOUS_CURVES, load_curve_manifest,
 )
+from scripts.plot_dmf_roi_order_attribution import output_paths as order_output_paths
 
 OUTPUT = ROOT / "fig/dmf_schaefer100/dmf_brain_main_composite"
 ROI = CORRECTED_ROI
-SURFACE = CORRECTED_FIGURE / "roi_share_three_G.png"
 TREE_SEED = 4
 TREE_COUPLINGS = [0., 1.3, 10.]
 # Physical dimensions, in millimetres, keep final type sizes meaningful.
-WIDTH, HEIGHT = 190., 255.
+WIDTH, HEIGHT = 190., 305.
 PAIRWISE = ROOT / "results/dmf_schaefer100/natural_pairwise_phi_r"
 
 
@@ -127,28 +128,44 @@ def render_g10_one_level_tree(axis, tree, membership, *, fontsize=6.2):
         interpretation='display contraction only; native ROI order shared with G=0; positive binary Syn retained in source tree')
 
 
-def cortex_crops():
+def cortex_crops(threshold=50):
     """Remove white padding in known source slots, retaining all brain pixels.
 
-    Original surface_plate uses x=.145..99 in four slots and y=.18..93 in
-    three slots. The common padded pixel extent preserves inter-panel scale.
+    Read the six maps in low/high, G, view order. The source geometry is recorded
+    in its summary. The common padded pixel extent preserves inter-panel scale.
     No recoloring, rotation, contrast adjustment, segmentation or stretching.
     """
-    original = np.asarray(Image.open(SURFACE).convert("RGB"))
+    cache, surface = order_output_paths(threshold)
+    record = json.loads((cache/'summary.json').read_text())
+    if (record['threshold_roi_order'] != threshold
+            or record['source_roi_sha256'] != digest(ROI/'roi_shapley.npz')
+            or record['source_summary_sha256'] != digest(ROI/'summary.json')
+            or record['tree_summary_sha256'] != digest(PAIRED_SUMMARY)
+            or record['figure_sha256'] != digest(surface.with_suffix('.png'))):
+        raise ValueError('Order-band surface provenance differs from the main map')
+    if record['nonnegative_audit']['violation_count']:
+        raise ArithmeticError('Significant negative order-band contribution')
+    plot = record['plot']
+    if plot.get('unit') != 'nats':
+        raise ValueError('Current order-band maps must display absolute nats')
+    original = np.asarray(Image.open(surface.with_suffix('.png')).convert("RGB"))
     h, w = original.shape[:2]
     slots = []
-    for row in range(3):
-        for col in range(4):
-            x0, x1 = [round(w * (.145 + j * (.99 - .145) / 4))
-                      for j in (col, col + 1)]
-            y0, y1 = [round(h * (.07 + j * .25)) for j in (row, row + 1)]
-            tile = original[y0:y1, x0:x1]
-            # Exact white-background extent; even faint antialias pixels survive.
-            # This detects the extent only; displayed RGB is untouched.
-            ys, xs = np.nonzero(np.any(tile != 255, axis=2))
-            if len(xs) == 0:
-                raise ValueError(f"Empty cortex slot: {row}, {col}")
-            slots.append((tile, (xs.min(), ys.min(), xs.max()+1, ys.max()+1)))
+    for top in plot['view_tops_mm']:
+        for start in plot['starts_mm']:
+            for view in range(4):
+                x = start+(view%2)*plot['view_dx_mm']
+                y = top+(view//2)*plot['view_dy_mm']
+                x0,x1 = [round(w*v/plot['width_mm']) for v in (x,x+plot['view_width_mm'])]
+                y0,y1 = [round(h*v/plot['height_mm']) for v in (y,y+plot['view_height_mm'])]
+                tile = original[y0:y1, x0:x1]
+                # Detect the extent only; displayed RGB is untouched.
+                ys,xs = np.nonzero(np.any(tile != 255,axis=2))
+                if len(xs) == 0:
+                    raise ValueError(f'Empty order-band cortex slot: {top}, {start}, {view}')
+                if xs.min() < 2 or ys.min() < 2 or xs.max() >= tile.shape[1]-2 or ys.max() >= tile.shape[0]-2:
+                    raise ValueError('Order-band cortex touches its rendering boundary')
+                slots.append((tile,(xs.min(),ys.min(),xs.max()+1,ys.max()+1)))
     crop_w = max(b[2]-b[0] for _, b in slots) + 20
     crop_h = max(b[3]-b[1] for _, b in slots) + 20
     images = []
@@ -159,7 +176,7 @@ def cortex_crops():
         y = (crop_h-content.shape[0])//2
         canvas[y:y+content.shape[0], x:x+content.shape[1]] = content
         images.append(canvas)
-    return images
+    return images, record
 
 
 def read_main_comparison():
@@ -380,9 +397,9 @@ def load_inputs():
     return g, values, rho, scenario, labels, membership, network_names, summary, conditions
 
 
-def draw(dpi):
+def draw(dpi, threshold=50):
     g, values, rho, scenario, labels, membership, network_names, summary, conditions = load_inputs()
-    images = cortex_crops()
+    images, order_summary = cortex_crops(threshold)
     network_names, network_sizes, network_means, component_sd, total_sd = read_three_g_network_comparison()
     palette = LinearSegmentedColormap.from_list(
         "native_sc", plt.cm.viridis(np.linspace(.04, .90, 256)))
@@ -540,26 +557,28 @@ def draw(dpi):
                      rotation=270, va='bottom')
         colorbars.append(cb)
 
-        text_mm(fig, 3, 148, "ROI attribution · mean across 3 seeds",
-                fontsize=6.6, weight="bold")
-        for i, x in enumerate(starts):
-            row = summary["state_totals"][i]
-            letter(fig, x, 153, "ijk"[i])
-            text_mm(fig, x+30, 153,
-                    rf"$\Xi={row['xi_mean_nats']:.2f}\pm{row['xi_seed_sd_nats']:.2f}$ nats",
-                    fontsize=6.8, ha="center")
-            for col in range(4):
-                ax = axes_mm(fig, x + (col % 2)*29, 157 + (col//2)*18.2, 28, 17.2)
-                ax.imshow(images[4*i+col], interpolation="none")
-                ax.axis("off")
+        for band, (offset, prefix, letters) in enumerate([(0,'low','ijk'),(50,'high','lmn')]):
+            label = f'Low order: < {threshold} ROI' if band == 0 else f'High order: ≥ {threshold} ROI'
+            text_mm(fig, 3, 148+offset, label+' · mean across 3 seeds',
+                    fontsize=6.6, weight='bold')
+            for i,x in enumerate(starts):
+                row = order_summary['by_G'][i]
+                letter(fig,x,153+offset,letters[i])
+                text_mm(fig,x+30,153+offset,
+                        f"Total: {row[prefix+'_mean_nats']:.3f} ± {row[prefix+'_seed_sd_nats']:.3f} nats",
+                        fontsize=6.1,ha='center')
+                for view in range(4):
+                    ax = axes_mm(fig,x+(view%2)*29,157+offset+(view//2)*18.2,28,17.2)
+                    ax.imshow(images[12*band+4*i+view],interpolation='none')
+                    ax.axis('off')
         cb = fig.colorbar(plt.cm.ScalarMappable(
-            norm=Normalize(summary["plot"]["vmin"], summary["plot"]["vmax"]), cmap="viridis"),
-            cax=axes_mm(fig, 179, 158, 1.6, 34), orientation="vertical")
-        cb.set_ticks(np.linspace(summary["plot"]["vmin"], summary["plot"]["vmax"], 5))
-        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
+            norm=Normalize(order_summary['plot']['vmin'],order_summary['plot']['vmax']),cmap='viridis'),
+            cax=axes_mm(fig,179,166,1.6,68),orientation='vertical')
+        cb.set_ticks(np.linspace(order_summary['plot']['vmin'],order_summary['plot']['vmax'],5))
+        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.3f"))
         cb.ax.tick_params(labelsize=6.0, length=1.5, pad=1.2)
         cb.outline.set_linewidth(.5)
-        cb.set_label(r"ROI attribution to overall $\Xi$ (%)", fontsize=6.2, labelpad=3,
+        cb.set_label('ROI allocation (nats)', fontsize=6.2, labelpad=3,
                      rotation=270, va='bottom')
         colorbars.append(cb)
         # One stacked network comparison per G, aligned to the tree/cortex
@@ -576,12 +595,12 @@ def draw(dpi):
                 Patch(facecolor='#777777', edgecolor='none', label=r'Within-network $\Xi$'),
                 Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///', linewidth=.4,
                       label='Between-network Shapley')],
-                loc='center', bbox_to_anchor=(90/WIDTH, 1-201.2/HEIGHT), ncol=2,
+                loc='center', bbox_to_anchor=(90/WIDTH, 1-251.2/HEIGHT), ncol=2,
                 fontsize=6.1, frameon=False, handlelength=1.6, columnspacing=1.7)
             for i, (x, coupling) in enumerate(zip([v+15 for v in starts], TREE_COUPLINGS)):
                 within, between = network_means[i, :, order].T
                 combined = within + between
-                ax = axes_mm(fig, x, 212, 40, 32)
+                ax = axes_mm(fig, x, 262, 40, 32)
                 ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
                 ax.barh(ypos, between, left=within, height=.72, color=faded,
                         edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
@@ -598,9 +617,9 @@ def draw(dpi):
                 ax.tick_params(axis='x', labelsize=6.1)
                 ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
                 ax.grid(axis='x', color='.91', lw=.5, zorder=0)
-                letter(fig, starts[i], 208, 'lmn'[i])
-                text_mm(fig, starts[i]+28.5, 208, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
-                text_mm(fig, starts[i]+28.5, 253,
+                letter(fig, starts[i], 258, 'opq'[i])
+                text_mm(fig, starts[i]+28.5, 258, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
+                text_mm(fig, starts[i]+28.5, 303,
                         f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
                         ha='center', fontsize=5.7, color='.35')
 
@@ -666,6 +685,8 @@ def draw_g0_detail(dpi):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dpi", type=int, default=450)
-    dpi = parser.parse_args().dpi
-    draw(dpi)
-    draw_g0_detail(dpi)
+    parser.add_argument('--roi-order-threshold',type=int,default=50)
+    args = parser.parse_args()
+    with threadpool_limits(limits=1):
+        draw(args.dpi,args.roi_order_threshold)
+        draw_g0_detail(args.dpi)

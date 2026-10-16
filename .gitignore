@@ -56,6 +56,7 @@ tests/*
 !tests/test_spt_finite_replacement_bc.py
 !tests/test_spt_local_hyperedge_kuramoto.py
 !tests/test_spt_kuramoto_finite_tm.py
+!tests/test_spt_natural_mlp.py
 !tests/test_spt_kuramoto_group_tm.py
 !tests/test_spt_kuramoto_b_future_mi.py
 !tests/test_spt_local_hyperedge_glv.py

@@ -152,6 +152,12 @@ class PeriodicConditionalTM:
 
     @classmethod
     def load(cls, payload):
+        if payload.get('family')=='natural_periodic_pair_mlp_v1':
+            from scripts.spt_kuramoto_pair_mlp import PairMLPConditionalTM
+            return PairMLPConditionalTM.load(payload)
+        if payload.get('family')=='natural_periodic_mlp_v1':
+            from scripts.spt_kuramoto_natural_mlp import NaturalMLPConditionalTM
+            return NaturalMLPConditionalTM.load(payload)
         if payload.get('family')=='learned_flow':
             from scripts.spt_kuramoto_flow_tm import PeriodicFlowConditionalTM
             return PeriodicFlowConditionalTM.load(payload)

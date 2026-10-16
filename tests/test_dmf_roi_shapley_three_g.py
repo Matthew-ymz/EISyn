@@ -72,3 +72,71 @@ def test_nonnegative_violation_reports_native_threshold_and_count(monkeypatch):
     monkeypatch.setattr('scripts.plot_dmf_roi_shapley_three_g.permutation_contributions', bad_marginals)
     with pytest.raises(ArithmeticError, match=r'min=-1e-05 nats; threshold=-1e-08 nats; affected=9'):
         estimate(np.tile(c, (9, 1, 1)), xi, np.zeros((3, 3, 3)), min_pairs=4, max_pairs=4)
+
+
+def test_spt_order_bands_match_exact_coalition_shapley_and_recombine():
+    from scripts.plot_dmf_roi_order_attribution import block_marginals, tree_budget
+    rng = np.random.default_rng(31)
+    coefficient = rng.normal(size=(8, 8))
+    prior = np.eye(8)
+    game = CommonTargetGame(np.block([[prior, coefficient],
+                                     [coefficient.T, coefficient.T @ coefficient + np.eye(8)]]))
+    def node(members, children=()):
+        return dict(indices=list(members), children=list(children),
+                    xi_bits=game.v(members)/np.log(2))
+    pair = node([0, 1], [node([0]), node([1])])
+    triple = node([0, 1, 2], [pair, node([2])])
+    tree = node(range(4), [triple, node([3])])
+    blocks, totals, audit = tree_budget(game, tree, 3)
+    assert blocks == [(0, 1), (2,), (3,)]
+    assert audit['high_order_node_count'] == 2  # Includes exactly order N.
+    c, logs, _ = prepare_game(game.conditional[None])
+    lows, highs = [], []
+    for p in permutations(range(4)):
+        low = block_marginals(c[0], logs[0], p, blocks)
+        full = permutation_contributions(c, logs, p)[0]*np.log(2)
+        high = full-low
+        def low_game(s):
+            return sum(game.v(set(s) & set(b)) for b in blocks)
+        for pos, roi in enumerate(p):
+            low_delta = low_game(p[:pos+1])-low_game(p[:pos])
+            high_delta = game.v(p[:pos+1])-game.v(p[:pos])-low_delta
+            np.testing.assert_allclose([low[roi], high[roi]], [low_delta, high_delta], atol=1e-12)
+        assert min(low.min(), high.min()) >= -1e-12
+        np.testing.assert_allclose([low.sum(), high.sum()], totals, atol=1e-12)
+        lows.append(low); highs.append(high)
+    full_mean = np.mean([permutation_contributions(c, logs, p)[0]*np.log(2)
+                        for p in permutations(range(4))], axis=0)
+    np.testing.assert_allclose(np.mean(lows, axis=0)+np.mean(highs, axis=0), full_mean, atol=1e-12)
+    # Full-coalition high mass is the sum of the original 3- and 4-ROI splits.
+    expected = ((game.v(range(4))-game.v([0,1,2])-game.v([3]))
+                +(game.v([0,1,2])-game.v([0,1])-game.v([2])))
+    np.testing.assert_allclose(totals[1], expected, atol=1e-12)
+    assert tree_budget(game, tree, 5)[1][1] == 0
+    np.testing.assert_allclose(tree_budget(game, tree, 2)[1][0], game.local_xi.sum(), atol=1e-12)
+
+
+def test_spt_frontier_rejects_nonpartition_and_invalid_threshold():
+    from scripts.plot_dmf_roi_order_attribution import frontier_blocks
+    leaf = dict(indices=[0], children=[])
+    with pytest.raises(ValueError, match='integer >= 2'):
+        frontier_blocks(leaf, 1)
+    malformed = dict(indices=[0, 1], children=[leaf, leaf])
+    with pytest.raises(ValueError, match='binary partition'):
+        frontier_blocks(malformed, 3)
+
+
+def test_order_band_percentages_normalize_each_seed_and_leave_zero_budget_undefined():
+    from scripts.plot_dmf_roi_order_attribution import band_percentages
+    raw = np.array([[[[1., 1.], [3., 1.]]], [[[0., 0.], [0., 0.]]]])
+    totals = raw.sum(-1)
+    shares, valid, audit = band_percentages(raw, totals)
+    np.testing.assert_allclose(shares[0, 0].mean(0), [62.5, 37.5])
+    assert not np.allclose(shares[0, 0].mean(0), 100*raw[0, 0].mean(0)/totals[0, 0].mean())
+    np.testing.assert_allclose(shares[valid].sum(-1), 100.)
+    assert valid[0].all() and not valid[1].any()
+    assert np.isnan(shares[1]).all() and audit['undefined_condition_count'] == 2
+    with pytest.raises(ArithmeticError, match=r'threshold=-1e-08 nats; affected=1'):
+        band_percentages(np.array([[-1e-5, 1.]]), np.array([1.-1e-5]))
+    with pytest.raises(ArithmeticError, match='does not sum'):
+        band_percentages(raw, totals+1.)
