@@ -107,16 +107,12 @@ transport-map EI 与连续动力学实验，包括：
 - [exp/brain/](exp/brain/)：DMF Fig.6、Lausanne 脑网络与 downward causation notebook。
 - [exp/granger_peid_mlp_comparison.ipynb](exp/granger_peid_mlp_comparison.ipynb)：Granger 与 PEID / MLP 因果读出对照。
 - [scripts/classic_network_dynamics_benchmark.py](scripts/classic_network_dynamics_benchmark.py)：Kuramoto、耦合 Rössler、SIS 与 Wilson–Cowan 向量场上的 Granger / SHAP / SURD / PEID 对照。
-- [docs/reports/classic_network_dynamics_benchmark.md](docs/reports/classic_network_dynamics_benchmark.md)：经典模型实验设计、干预协议、3-seed 结果与失败模式说明。
 - [scripts/lorenz3d_multihorizon_peid.py](scripts/lorenz3d_multihorizon_peid.py)：三维 Lorenz 自然轨迹直接多步 MLP、Oracle/MLP PEID 与参数扫描。
-- [docs/reports/lorenz3d_multihorizon_mlp_peid.md](docs/reports/lorenz3d_multihorizon_mlp_peid.md)：Lorenz-3D smoke 结果、预测 horizon 与机制恢复对照。
 - [scripts/coupled_standard_map_peid.py](scripts/coupled_standard_map_peid.py)：双转子耦合 standard map 的周期 MLP、Oracle/MLP PEID 与条件 Mixed-MLP 实验。
-- [docs/reports/coupled_standard_map_peid.md](docs/reports/coupled_standard_map_peid.md)：预测误差、逐关系因果强度和预注册门槛结果。
 - [scripts/compare_coupled_standard_map_methods.py](scripts/compare_coupled_standard_map_methods.py)：沿耦合强度扫描比较 WMS、MLP+SHAP、SURD、PCMCI-CMIknn、Neural Granger 与 MLP+PEID。
-- [docs/reports/coupled_standard_map_method_comparison.md](docs/reports/coupled_standard_map_method_comparison.md)：六方法的预测门槛、真源/空源分离、趋势与失败模式。
-- [HCP PED／O-information 补充比较](docs/reports/brain.md#hcp-ped-oinfo)：57 名 HCP 被试在 REST 与七任务下的三元 PED/O-information 复现、组合定位与稳健性分析。
-- [探索记录汇总](docs/reports/exploration.md)：RW-EI、Sine 校准、EI／Koopman 控制及历史公平性检查。
 - [exp/mediated_peid_known_dynamics.ipynb](exp/mediated_peid_known_dynamics.ipynb)：已知动力学中的 mediated PEID 验证。
+
+当前论文配套报告集中在 [docs/reports](docs/reports/README.md)：[Method](docs/reports/Method.md)、[Part1](docs/reports/Part1.md)、[Brain](docs/reports/brain.md)、[Earth](docs/reports/earth.md) 和 [NYC Taxi](docs/reports/nyc_taxi.md)。实验细节、数值限制和复现索引并入各主文档。
 
 ## 常用命令
 

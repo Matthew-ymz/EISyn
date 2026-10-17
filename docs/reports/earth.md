@@ -10,18 +10,15 @@
 
 - [1. 主图揭示的联合信息结构](#1-主图揭示的联合信息结构)
 - [2. EI 与其他信息指标实际怎样计算](#2-ei-与其他信息指标实际怎样计算)
-- [3. 初始条件是否统一，哪些影响仍未排除](#3-初始条件是否统一哪些影响仍未排除)
+- [3. 初始条件是否统一，哪些影响仍未排除](#earth-initial-conditions)
 - [4. 预测校准结果应怎样解释](#4-预测校准结果应怎样解释)
 - [附录 A. UniCM 补充机制分析](#附录-a-unicm-补充机制分析)
 - [附录 B. 输出校准的完整方法](#附录-b-输出校准的完整方法)
 - [附录 C. 已有起始月份扫描及其适用边界](#附录-c-已有起始月份扫描及其适用边界)
 - [附录 D. SLP 观测场的尺度依赖协同](#附录-d-slp-观测场的尺度依赖协同)
 - [附录 E. 跨实验讨论与历史对照](#附录-e-跨实验讨论与历史对照)
-- [附录 F. 图表、数据与核查依据](#附录-f-图表数据与核查依据)
+- [附录 F. 图表、数据与核查依据](#earth-provenance)
 - [附录 G：自然观测先验与 SURD 完整比较](#unicm-observational-priors)
-- [附录 H：历史干预先验比较](#unicm-historical-priors)
-- [附录 I：先验定义与排除理由](#unicm-prior-definitions)
-- [附录 J：O-information／WMS／PED 候选核对](#unicm-prior-candidates)
 - [参考文献](#参考文献)
 
 ## 1. 主图揭示的联合信息结构
@@ -157,6 +154,8 @@ $$
 当前观测指标使用实际发生的历史—未来窗口，反映拟合期访问到的自然状态及季节混合，不要求额外给模型设定初值。初值敏感性在“从某一历史持续运行模型，再估计轨迹分布”的设计中仍然重要：不同吸引子、慢混合、暂态长度和季节非平稳都可能改变所得分布。已知线性 Gaussian 系统也可由平稳协方差解析计算，不必显式生成轨迹。[Mediano、Seth 与 Barrett（2019）](https://pmc.ncbi.nlm.nih.gov/articles/PMC7514120/)
 
 本轮修正避免把干预样本误称为自然分布，但只估计一个拟合期资料窗口；尚未检查按季节、气候事件或替代时期估计先验的稳定性。图 1j 比较的是各方法按其适用分布生成先验后的预测用途，分布差异本身也是方法的一部分。
+
+<a id="earth-initial-conditions"></a>
 
 ## 3. 初始条件是否统一，哪些影响仍未排除
 
@@ -520,7 +519,7 @@ $$
 
 这一结论仍限定在平均 nRMSE。$\Xi$-Shapley prior 的平均 ACC 为 `0.390`，高于当前同参数 uniform ridge 的 `0.347`；历史独立选参 uniform 的 ACC 为 `0.414`；不同 target 和 lead 的收益也不一致；历史独立选参下，lead 7—10 相对其选参后的Uniform基线的平均增益点估计为负。因此，图 1i—j 支持的是“$\Xi$-Shapley 引导的正则化改善全模态平均幅值误差”，而不是“每个高 $\Xi$-Shapley 模态都会预测得更准”，也不是已证明的中期或业务预测增益。
 
-固定参数比较见正文第 4 节及[自然观测与 SURD 报告](earth.md#unicm-observational-priors)；分布修正前数值保留在[历史干预报告](earth.md#unicm-historical-priors)。图 1i 的随机化对照属于历史独立选参流程。
+固定参数比较见正文第 4 节及[自然观测与 SURD 报告](earth.md#unicm-observational-priors)。图 1i 的随机化对照属于历史独立选参流程。
 
 ### B.5 自然观测先验及全阶 SURD 的补充结果
 
@@ -675,7 +674,7 @@ $$
 -EI_{\mathrm{TM}}(j\rightarrow k).
 $$
 
-多步读出器、最大熵干预、三阶 transport-map（TM）估计和候选构造见 [Method.md 第 4 节](Method.md#4-runge-多尺度二源超边估计)。每个预测时距 $\ell$ 均穷举 `102660` 个跨目标二源候选，从而避免先用离散互信息 shortlist 再做 TM 排名造成的覆盖偏差。本附录关注三个层次：具体超边位于哪些区域、相同超边能否跨时距复现、以及强度随 $\ell$ 呈现何种连续型态。静态 ACE/ACS 节点指标只作为补充对照保留在附录 E.4。
+多步读出器、最大熵干预、三阶 transport-map（TM）估计和候选构造见 [EI 定义与估计约定](Method.md)及本附录 D.1、F.2 的实现索引。每个预测时距 $\ell$ 均穷举 `102660` 个跨目标二源候选，从而避免先用离散互信息 shortlist 再做 TM 排名造成的覆盖偏差。本附录关注三个层次：具体超边位于哪些区域、相同超边能否跨时距复现、以及强度随 $\ell$ 呈现何种连续型态。静态 ACE/ACS 节点指标只作为补充对照保留在附录 E.4。
 
 ### D.2 从分散短期联系到可复现的中长期源组合
 
@@ -968,6 +967,8 @@ $$
 
 后续可在其余设置不变的条件下改变保留主成分数量，以检验主要超边结构对 PCA 截断维数的敏感性。
 
+<a id="earth-provenance"></a>
+
 ## 附录 F. 图表、数据与核查依据
 
 ### F.1 本次核查的证据范围
@@ -985,7 +986,7 @@ $$
 | 时间是否来自缓存读取 | [计时与结果摘要](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/summary.json) | 三次重算；缓存读取、预测批次实测与全规模外推分别记录 |
 | 月份扫描是否完成 | [历史 8192 样本结果](../../results/unicm_start_month_sweep/full_n8192/summary.json) | 864 单元；采用历史估计口径，未混入当前先验比较 |
 
-**当前图的版本：** 图 1j 使用 `unicm_observational_prior_comparison_fit253_surd_allorders`，主图包括五项自然观测先验、$\Xi$ 干预先验及直接分组 SHAP（`unicm_frozen_shap_prior_fit253_pilot`），$\Xi$-Shapley 紧列 Frozen 下方；EI-Shapley 暂存附录 B.5，完整七项结果缓存保持不变；MIM 和拼接 Conditional MI + self MI 继续排除。原六项干预比较保留追溯；g、h 保持原布局；原 i（预测比较）与原 j（打乱对照）的位置交换，现在 i 为打乱对照，j 为相对 Frozen 的 nRMSE 降幅比较；去除评价归一化的候选显示见附录 B.8。各面板的计算来源未改变。
+**当前图的版本：** 图 1j 使用 `unicm_observational_prior_comparison_fit253_surd_allorders`，主图包括五项自然观测先验、$\Xi$ 干预先验及直接分组 SHAP（`unicm_frozen_shap_prior_fit253_pilot`），$\Xi$-Shapley 紧列 Frozen 下方；EI-Shapley 暂存附录 B.5，完整七项结果缓存保持不变；MIM 和拼接 Conditional MI + self MI 继续排除。g、h 保持原布局；原 i（预测比较）与原 j（打乱对照）的位置交换，现在 i 为打乱对照，j 为相对 Frozen 的 nRMSE 降幅比较；去除评价归一化的候选显示见附录 B.8。各面板的计算来源未改变。
 
 此前计算核查时 Zotero 插件不可用，未能读取当时的主参考稿 *Emergent hierarchical organization of causal interactions in complex systems* 的最新全文；PEID 沿用仓库已有定义与来源，未声称完成最新稿与代码的一致性核查。本次已核对公开的 Mediano 等（2019、2025）全文，并读取 SURD 原文及固定 commit 的作者实现；不能把已有本地阅读记录记作本次重新读取。Gaussian SURD 的状态积分依据、估计边界和实现核查另见[新比较报告](earth.md#unicm-observational-priors)。
 
@@ -1032,8 +1033,6 @@ $$
 - 当前图 1j 的先验与评估缓存：`results/unicm_observational_prior_comparison_fit253_surd_allorders/{information_priors,evaluation_arrays}.npz`、同目录 `summary.json` 和 `inference_timing.json`
 - 图 B3 的直接 SHAP 入口、结果及比较图：`scripts/run_unicm_frozen_shap_prior.py`、`results/unicm_frozen_shap_prior_fit253_pilot/`；先验与评价缓存为 `shap_priors.npz`、`evaluation_arrays.npz`。
 - 图 B1—B2 的执行入口及报告：`scripts/run_unicm_observational_prior_comparison.py`、[自然观测与 SURD 比较](earth.md#unicm-observational-priors)
-- 原六项干预结果及公式核对：[历史比较](earth.md#unicm-historical-priors)、[历史文献核对](earth.md#unicm-prior-definitions)
-- 历史五项比较及归因缓存：[历史报告](../log/unicm_information_prior_comparison_five_methods_historical.md)、`results/unicm_information_prior_comparison_extended_n16384/information_centralities.npz`
 
 ## 参考文献
 
@@ -1068,13 +1067,13 @@ $$
 [I2] Mediano, P. A. M., Rosas, F. E., Luppi, A. I., Carhart-Harris, R. L., Bor, D., Seth, A. K., & Barrett, A. B. (2025). Toward a unified taxonomy of information dynamics via Integrated Information Decomposition. *Proceedings of the National Academy of Sciences*, 122(39), e2423297122. [DOI](https://doi.org/10.1073/pnas.2423297122)，[本次读取的公开全文](https://api.repository.cam.ac.uk/server/api/core/bitstreams/1286cfad-f346-4aef-8f78-5ee1ddac92fc/content)。
 
 
-整理核对（2026-10-03）：重新通过 Zotero 本地 API 核验主稿父条目 `P6UJCVG8` 及唯一可读正文附件 `DXGC7JEA`（19/19 页），读取 Earth／Fig. 4（第 9–11 页）及 Methods 式（5）–（12）（第 15–17 页）。无明确稿件版本日期，补充附录未附带；本次合并不修改估计器或预测结果。主稿图 4j 的打乱对照固定参数与仓库历史逐对照选参的差异继续保留于附录 F.1。以下 G–J 按原实验日期保留证据，“当前”“图 1i／j”等表述仅指各历史比较当时的布局；当前主图及 SHAP 展示以正文和附录 B、F 为准。
+整理核对（2026-10-03）：重新通过 Zotero 本地 API 核验主稿父条目 `P6UJCVG8` 及唯一可读正文附件 `DXGC7JEA`（19/19 页），读取 Earth／Fig. 4（第 9–11 页）及 Methods 式（5）–（12）（第 15–17 页）。无明确稿件版本日期，补充附录未附带；本次合并不修改估计器或预测结果。主稿图 4j 的打乱对照固定参数与仓库历史逐对照选参的差异继续保留于附录 F.1。以下附录 G 保留当前自然观测先验与全阶 SURD 的完整结果；主图及 SHAP 展示以正文和附录 B、F 为准。
 
 <a id="unicm-observational-priors"></a>
 
 ## 附录 G：自然观测先验与全阶 Gaussian SURD 完整结果
 
-2026-10-02。本轮按完整方案重算 ΦR、ΦWMS、正向 ΦSI、causal density 与十一源全阶 SURD，先验只使用 253 个拟合期资料中的真实历史—真实未来配对。EI／Ξ 保留最大熵干预定义。MIM 与拼接 Conditional MI + self MI 已排除。主文及完整组合图见 [Earth 报告](earth.md)，分布修正前数值保留于[历史干预比较](earth.md#unicm-historical-priors)。
+2026-10-02。本轮按完整方案重算 ΦR、ΦWMS、正向 ΦSI、causal density 与十一源全阶 SURD，先验只使用 253 个拟合期资料中的真实历史—真实未来配对。EI／Ξ 保留最大熵干预定义。MIM 与拼接 Conditional MI + self MI 已排除。主文及完整组合图见 [Earth 报告](earth.md)。
 
 ### G.1 结果及其适用范围
 
@@ -1124,7 +1123,7 @@ $$
 
 观测 history 为每模态 12 月历史，actual target 为未来 1—24 月真实值。只使用 fit 的 253 个起报窗口，末次起报为 2001-12，未来目标最晚到 2003-12。所有观测量在同一经验 Gaussian 联合密度上计算，保留模态相关和历史自相关；源与未来协方差各加固定 10⁻⁶ ridge。132 维历史和重叠窗口带来共线性与有限样本限制，本轮没有更高阶非线性密度或季节分层分析。
 
-ΦR／ΦWMS／正向 ΦSI 对全部 55 对历史块与对应双未来输出计算，两端各分一半并广播到所有 target。ΦR 使用四项跨时 MI 的最小值作 MMI 冗余修正；没有十一模态全系统最小信息划分搜索。Causal density 使用条件于其余全部历史的源→未来信息，排除自连接，按发送源汇总并广播。公式及方向核对见 [Earth 第 2 节](earth.md#2-ei-与其他信息指标实际怎样计算)及[历史文献核对](earth.md#unicm-prior-definitions)。
+ΦR／ΦWMS／正向 ΦSI 对全部 55 对历史块与对应双未来输出计算，两端各分一半并广播到所有 target。ΦR 使用四项跨时 MI 的最小值作 MMI 冗余修正；没有十一模态全系统最小信息划分搜索。Causal density 使用条件于其余全部历史的源→未来信息，排除自连接，按发送源汇总并广播。公式及方向核对见 [Earth 第 2 节](earth.md#2-ei-与其他信息指标实际怎样计算)。
 
 WMS 的 1320 条边中 83 条为负，最小值 −1.339187 bit；广播前 264 条源归因中 8 条为负，广播后为 88/2904。将有符号源向量接入 ridge 时，按同一 target／lead 对所有源共同平移：
 
@@ -1195,376 +1194,4 @@ unique／redundant 与 synergy 原子之和闭合到全联盟 MI，最大误差 
 
 Zotero 插件在本轮不可用，未能读取当前主参考稿 *Emergent hierarchical organization of causal interactions in complex systems* 的最新全文；PEID 沿用仓库已有定义，未声称核实最新稿与代码的一致性；本轮 SURD 依据上述公开原文和作者实现。Gaussian SURD 的解析积分已由独立逐状态求积核查。更高阶密度估计、各方法独立调参和不同季节／时间窗先验不属于本轮结果。
 
-<a id="unicm-historical-priors"></a>
-
-## 附录 H：历史六项干预先验固定参数比较
-
-本报告保留分布修正前的干预比较。当前主图已将 ΦR、ΦWMS、ΦSI、causal density 改为自然历史—真实未来估计，并加入十一模态全阶 SURD；新结果和时间成本见[自然观测指标与 SURD 比较](earth.md#unicm-observational-priors)。下文“当前”均指这一历史六项版本。
-
-当前移除 **MIM**：它使用与 EI 相同的最大熵干预样本，读数就是 singleton EI，不能作为独立的普通观测 MI 对照。EI-Shapley 使用全联盟归因，仍与 singleton EI 加权不同。也移除 **Conditional MI + self MI**：这是本实验将对角 self MI 与非对角 CMI 拼接的加权接口，核对原文未将该组合作为独立指标定义。[文献核对与新增指标公式](earth.md#unicm-prior-definitions)。继续排除 O-Shapley、MMI-PID synergy、target-averaged Ξ；不新增单独二阶 PEID。
-
-当前保留新增的两项已有定义：**正向 stochastic interaction ΦSI、causal density**。各指标的原始信息量取自文献，转换为统一 ridge 惩罚仍是本实验的比较接口；不是原论文既有的冻结 Transformer 预测方法。
-
-**统一固定原全阶 Ξ 验证最优 α=30000、γ=3、floor_fraction=0.05。** 所有 prior 都使用自己的 attribution，启用正 γ 加权，不复制 Ξ 的惩罚向量，不搜索参数。Uniform 作为单独均匀基线，α也固定30000。Frozen和既有Univariate保留参考定义。
-
-![六项信息 prior 的固定参数比较](../../results/unicm_information_prior_comparison_literature_shared_xi_n16384/information_prior_comparison.png)
-
-*图1。A 为同一96个起报、264个target–lead单元的平均测试nRMSE。B 正值表示比较方法优于Ξ，横线为共享4000次循环12月块bootstrap的逐项95%区间，未作多重比较校正。C 为逐lead相对同参数Uniform的点估计改善。所有信息方法均固定α=30000、γ=3。图例在C轴外右侧，没有覆盖曲线。*
-
-### H.1 当前结果
-
-| 方法 | 测试 nRMSE ↓ | ACC ↑ | 相对 Frozen 的 nRMSE 降幅 |
-|---|---:|---:|---:|
-| 全阶 Ξ-Shapley | 0.985959 | 0.390495 | 10.43% |
-| ΦR pair prior | 1.086247 | 0.289206 | 1.32% |
-| EI-Shapley | 0.991224 | 0.383311 | 9.95% |
-| 双输出 ΦWMS | 1.086161 | 0.290287 | 1.32% |
-| 正向 ΦSI pair prior | 1.087799 | 0.293977 | 1.17% |
-| Causal density（outgoing） | 1.089645 | 0.364071 | 1.01% |
-| Uniform ridge（α=30000） | 1.115712 | 0.346927 | -1.36% |
-| Frozen（参考） | 1.100731 | 0.291394 | 0.00% |
-| Univariate（既有参考） | 1.001663 | 0.291394 | 9.00% |
-
-Ξ 的平均测试 nRMSE 点估计最低；与 EI-Shapley 的差异区间跨零，不能从点估计排序断言显著优于它。SI 与 CD 的点估计也低于 Frozen；这包含普通线性校准收益，不能全部归因于信息 prior。
-
-以下差值为“比较方法 nRMSE − Ξ nRMSE”，正值表示Ξ更好，与图B符号相反。
-
-| 比较方法 | 差值 | 逐项95%区间 |
-|---|---:|---:|
-| ΦR pair prior | +0.100288 | [+0.057149, +0.143080] |
-| EI-Shapley | +0.005265 | [-0.001875, +0.013414] |
-| 双输出 ΦWMS | +0.100202 | [+0.057039, +0.143206] |
-| 正向 ΦSI pair prior | +0.101840 | [+0.057682, +0.145305] |
-| Causal density（outgoing） | +0.103686 | [+0.049375, +0.156148] |
-
-固定参数下，Ξ相对ΦR、ΦWMS、正向ΦSI和CD的区间排除零；相对EI的区间跨零。后者不构成等效性证明。参数由Ξ验证集选出，这些结果回答固定参数下替换prior的问题，不能称为每个方法独立充分调参后的最优性能排名。
-
-仅替换 attribution 的 checkpoint 来源时得到以下nRMSE；观测设计输入始终使用同一个三checkpoint冻结集成，并非三次独立重训：
-
-| Attribution 来源 | 全阶 Ξ-Shapley | ΦR pair prior | EI-Shapley | 双输出 ΦWMS | 正向 ΦSI pair prior | Causal density（outgoing） |
-|---|---:|---:|---:|---:|---:|---:|
-| Checkpoint 1 | 0.986282 | 1.071890 | 0.988999 | 1.070788 | 1.073915 | 1.064254 |
-| Checkpoint 2 | 0.983465 | 1.094519 | 0.990684 | 1.094679 | 1.096470 | 1.092946 |
-| Checkpoint 3 | 0.982381 | 1.083619 | 0.978615 | 1.083424 | 1.082912 | 1.060449 |
-
-Ξ相对SI与CD的方向在三个checkpoint attribution中一致；相对EI在checkpoint3发生反转。因此对低幅度差异保持保守解释。
-
-### H.2 指标接入与权重
-
-| 指标 | 原始信息量/归因 | 目标分辨率 |
-|---|---|---|
-| 全阶 Ξ-Shapley | 全2048联盟总EI扣除单源EI，精确Shapley | target × lead |
-| EI-Shapley | 联盟总EI，精确Shapley，不扣单源项 | target × lead |
-| ΦR / ΦWMS | 指定双过去源—双未来读出，55边各半分配 | lead，广播至目标 |
-| 正向 ΦSI | 分块未来给定自身过去的条件熵和，减联合条件熵；同55边半分配 | lead，广播至目标 |
-| Causal density | 全系统cross-source条件TE平均，按outgoing发送源分配；不含对角self MI | lead，广播至目标 |
-
-源块、读出缓存与代理channel一致，但原始指标需要的目标条件化和归因范围不同，不能将上述设计称为目标分辨率完全匹配的纯定义比较。尤其CD的outgoing分配和各pair prior均广播到目标；它们没有Ξ与EI的target-specific惩罚。原生定义、方向、归因与这些限制见[文献扩展报告](earth.md#unicm-prior-definitions)。
-
-对某个target–lead单元，令源attribution为 $c_m$、源均值为 $\bar c$：
-
-$$
-\epsilon=\max(0.05\bar c,10^{-12}),\qquad
-r_m=\frac{c_m+\epsilon}{\bar c+\epsilon},\qquad
-p_m=\frac{r_m^{-\gamma}}{\frac1{11}\sum_{n=1}^{11}r_n^{-\gamma}}.
-\tag{H.2.1}
-$$
-
-同一源的四个特征共用惩罚 $\alpha p_m$。α控制总体收缩，γ控制不同源惩罚差异；floor_fraction固定，不另搜索。该权重只决定拟合系数的收缩，最终预测由拟合系数生成。归一化抹去共同尺度，所以总信息量较大本身不保证预测更好。
-
-Univariate仍只是目标自身冻结预测的截距/斜率校准，并非Unique EI加权。已移除的 MIM 在当前干预分布下就是单源 EI；该等同关系不表示 singleton EI 惩罚与全联盟 EI-Shapley 惩罚相同。互信息的数学定义仍成立，但这里不保留其作为普通观测 MI 的竞争身份。
-
-### H.3 ΦR、WMS与Uniform此前相等的诊断
-
-历史允许γ=0时，ΦR、WMS、Uniform均选择α=1000、γ=0；全部25,344个预测逐项相同，nRMSE均为1.012753597030。式（H.2.1）在γ=0下给出均匀惩罚，所以相等来自关闭加权，不能解释为指标相同。该选项已从当前信息方法的选择范围排除。
-
-当前固定γ=3后，ΦR=1.086247161、WMS=1.086161116、Uniform=1.115712360，预测均不同。ΦR的MMI双重冗余修正确实算入边权；ΦR/WMS归一化源份额相关0.998446、惩罚相关0.998865，因而效果接近。ΦR加回冗余的理论意义不等于监督预测优化保证。完整公式、历史选参表及逐项诊断保存在[五项历史报告](../log/unicm_information_prior_comparison_five_methods_historical.md)。
-
-新增正向SI同样没有误接成WMS：3960条边满足SI=WMS+输出TC，最大误差1.11e-15 bit。相关残差可使SI增加，不能将SI当成纯协同。
-
-### H.4 验证及主图
-
-复用三checkpoint各16384个独立bounded-uniform完整12月历史、bound4、January initialization、sampling seed20260901的原干预预测缓存。仅重建72个小型affine读出，使用同一degree-1 Gaussian TM、covariance ridge1e-6。此前新增 SI 与 CD 的补算没有重新调用或训练 Transformer；本次移除 MIM 仅复用已有评估与 bootstrap 数组重绘。
-
-沿用253 fit、36 validation、96 test起报以及时间空档；上游归一化拟合期1980-01—2003-12，44维下游标准化和nRMSE分母只取fit。bootstrap seed20261001、12月块、4000次共享重采样。六项信息prior与Uniform的校准容量相同；Frozen和Univariate仅为既有参考。
-
-15项解析检查通过，新增独立复制、交叉传递、SI相关残差、CD与Gaussian Schur-complement条件MI核对。非负容差1e-8 bit，容差内归零数和显著负值数均为0；Shapley闭合最大1.78e-15 bit，半边闭合最大7.11e-15 bit。旧八项attribution与原缓存逐项相同，当前保留方法及参考的25个可对应评估数组、包括预测和bootstrap数组均逐项复现。
-
-Earth主图i已同步为图1A的九行结果；底部高度比例由2.0增至2.4、画布高由11.6增至12.0英寸，底部i/j宽度仍为1.3:1。整体图已检查，标签/数值分离，热图与树保留原数据，j仍是原Ξ打乱对照，两个主图PNG副本逐字节相同。
-
-![更新后的Earth主图](assets/unicm_main_with_hypergraph.png)
-
-### H.5 复现与证据
-
-- [指标定义、文献与候选筛选](earth.md#unicm-prior-definitions)
-- [本轮实验约定](../log/unicm_literature_prior_expansion_contract.md)
-- [搜索查询与失败URL记录](../log/unicm_literature_search_provenance_20261002.json)
-- [当前摘要](../../results/unicm_information_prior_comparison_literature_shared_xi_n16384/summary.json)、[评估数组](../../results/unicm_information_prior_comparison_literature_shared_xi_n16384/evaluation_arrays.npz)、[attribution缓存](../../results/unicm_information_prior_comparison_literature_shared_xi_n16384/information_centralities.npz)、[复现及绘图审计](../../results/unicm_information_prior_comparison_literature_shared_xi_n16384/literature_expansion_verification.json)
-- [五项历史结果与重合诊断](../log/unicm_information_prior_comparison_five_methods_historical.md)、[此前O/WMS/PED可行性记录](earth.md#unicm-prior-candidates)
-- [实验入口](../../scripts/run_unicm_information_prior_comparison.py)和[解析测试](../../tests/test_unicm_information_prior_comparison.py)
-
-```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg .venv/bin/python scripts/run_unicm_information_prior_comparison.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg .venv/bin/python scripts/compose_unicm_main_hypergraph.py
-```
-
-默认固定Ξ参数；再次运行复用 attribution 缓存，仅拟合当前六项先验。历史 MIM 的 attribution、预测及 bootstrap 数组作为内部追溯缓存保留，不进入当前方法表或图表。当前缓存中 MIM 与 EI-Shapley 减 Ξ-Shapley 的最大差为 `6.66e-16` bit；保留方法的摘要数值、预测与 bootstrap 数组未变。显式独立选参入口仍保留，仅允许正γ网格，未在本轮使用。
-
-<a id="unicm-prior-definitions"></a>
-
-## 附录 I：历史先验定义、文献依据与排除理由
-
-本报告保存分布修正前的定义核查。自然观测版已沿用文献公式、改用真实历史和真实未来，加入全阶 SURD；实现、结果及计时见[新比较报告](earth.md#unicm-observational-priors)。下文“当前”指本报告记录的历史干预版。
-
-2026-10-02。当前比较已移除 Conditional MI + self MI 及 MIM，保留新增的正向 stochastic interaction、causal density。MIM 使用同一最大熵干预分布，其读数等于 singleton EI，因此不作为普通观测互信息的独立对照。统一采用原 Ξ-Shapley 验证最优 α=30000、γ=3；[实测结果和图](earth.md#unicm-historical-priors)。
-
-### I.1 被移除项是不是新构造
-
-条件互信息和自历史—未来互信息本身都是既有信息量；此前使用的完整 prior 是本实验构造的接口：对目标自身历史使用普通 MI，对其他源使用仅条件于目标历史的 CMI。
-
-$$
-c_{j,\ell,m}^{\mathrm{old}}=
-\begin{cases}
-I(\mathbf h_j;Y_{j,\ell}),&m=j,\\
-I(\mathbf h_m;Y_{j,\ell}\mid\mathbf h_j),&m\ne j.
-\end{cases}
-\tag{I.1.1}
-$$
-
-核对的原文没有将式（I.1.1）定义为名为“Conditional MI + self MI”的独立指标。因此它不应作为一项直接来自文献的竞争定义，现已从当前图、拟合方法列表和排序移除。这里不声称已经证明所有历史文章都不存在相同组合。旧缓存与[此前五项报告](../log/unicm_information_prior_comparison_five_methods_historical.md)保留追溯。
-
-对所有保留方法也采用同一标准：**文献信息量定义**与**本实验的 attribution → ridge 惩罚映射**分开陈述。后者用于统一比较，不声称各原论文已经提出同样的冻结 Transformer 校准流程。
-
-### I.2 当前新增指标与已移除的单源读数
-
-所有信息量单位为 bit。$\mathbf h_m$ 是模态 $m$ 的完整12月历史；$Y_{j,\ell}$ 是同一冻结模型对目标 $j$、lead $\ell$ 的读出。各方法使用同一独立干预分布及 degree-1 Gaussian affine TM 代理，未改用不同观测估计器。
-
-#### I.2.1 已移除的 MIM：在当前分布下等于单源 EI
-
-$$
-c^{\mathrm{MIM}}_{j,\ell,m}=I(\mathbf h_m;Y_{j,\ell}).
-\tag{I.2.1}
-$$
-
-[Brown、Pocock、Zhao、Luján（2012）](https://www.jmlr.org/papers/volume13/brown12a/brown12a.pdf)式（1）明确采用该 relevance score，并列出其 Lewis（1992）来源。原方法按 MI 排序选特征；当前实验保持44维校准容量，仅将同一分数映射为源分组惩罚。它保留 target-specific 分辨率，不做 Shapley，也不减单源信息。
-
-当前干预分布下，式（I.2.1）就是缓存中的 singleton EI，已从主图、比较图及当前方法列表移除；保留公式仅说明删除理由和历史缓存含义。它仍是互信息，删除的是其作为普通观测 MI 的独立竞争身份。它与既有 Univariate 不同：Univariate 只拟合目标自身冻结预测的一个系数和截距；历史 MIM 使用全部44个特征、按11个源的 singleton EI 分配惩罚；既有 EI-Shapley 使用全联盟归因，二者的惩罚和预测并非完全相同。也不能将普通 MI 无条件称为任意 PID 定义下的 unique information。
-
-#### I.2.2 正向 stochastic interaction：ΦSI
-
-[Kitazono、Kanai、Oizumi（2018）](https://doi.org/10.3390/e20030173)附录A式（A7）—（A10）给出正向条件分布分区及 stochastic interaction。对同一双源边采用
-
-$$
-q^{\mathrm{SI}}_{ab,\ell}
-=H(Y_{a,\ell}\mid\mathbf h_a)+H(Y_{b,\ell}\mid\mathbf h_b)
--H(\boldsymbol y_{ab,\ell}\mid\mathbf h_a,\mathbf h_b),
-\quad \boldsymbol y_{ab,\ell}=(Y_{a,\ell},Y_{b,\ell})^{\mathsf T}.
-\tag{I.2.2}
-$$
-
-全部55对仍从完整同一 channel 边缘化其他源，每条边各半分给两端，随后广播到目标；与 ΦR/ΦWMS 使用相同配对和归因接口，不执行全系统 MIP 搜索。将12月历史作为过去源块、不同 lead 作为未来读出是本实验的应用约定。
-
-当前 pair WMS 与式（I.2.2）满足
-
-$$
-q^{\mathrm{SI}}_{ab,\ell}=q^{\mathrm{WMS}}_{ab,\ell}
- +\operatorname{TC}(Y_{a,\ell},Y_{b,\ell}).
-\tag{I.2.3}
-$$
-
-因此这个正向版本形成不同对照。它也会计入输出、包括相关残差造成的依赖，不能解释为纯预测协同或 PEID Syn。注意方向：Mediano等（2019）的 $\widetilde\Phi$ 使用过去给定未来的条件熵；其与 WMS 的差为过去 TC。当前源独立时，**反向版本**会与 WMS 重合，所以当前图明确标注 forward，不能把两种方向混称。
-
-#### I.2.3 Causal density：条件信息传递的平均
-
-[Seth、Barrett、Barnett（2011）](https://doi.org/10.1098/rsta.2011.0079)讨论 causal density；本次实现采用 [Mediano、Seth、Barrett（2019）](https://doi.org/10.3390/e21010017)式（29）—（31）的条件 transfer entropy 形式，条件中包括目标历史和其他全部源历史：
-
-$$
-T_{m\to j,\ell}=I(\mathbf h_m;Y_{j,\ell}\mid\mathbf h_{-m}),\quad m\ne j,
-\qquad
-\operatorname{CD}_{\ell}=\frac{1}{11\cdot10}\sum_{m\ne j}T_{m\to j,\ell}.
-\tag{I.2.4}
-$$
-
-将原 CD 总量按 outgoing 发送源分配：
-
-$$
-c^{\mathrm{CD}}_{\ell,m}=\frac{1}{11\cdot10}\sum_{j\ne m}T_{m\to j,\ell},
-\qquad \sum_m c^{\mathrm{CD}}_{\ell,m}=\operatorname{CD}_{\ell}.
-\tag{I.2.5}
-$$
-
-式（I.2.5）是将已发表 CD 接入当前实验的归因选择，广播到各预测目标；不是新定义的“CD + self MI”。CD 原生排除自连接，本次没有填回对角 self MI。相对式（I.1.1），它还增加了对其他全部源的条件化。
-
-这里使用有限历史、1—24月读出、冻结模型的干预 channel，不是从 ORAS5 原始观测序列估计的一步 TE，也不直接证明气候模态之间的观测因果关系。
-
-#### I.2.4 连续变量计算
-
-在共同代理中，$\boldsymbol y=\mathbf B^{\mathsf T}\boldsymbol x+\boldsymbol\eta$，$\operatorname{Cov}(\boldsymbol x)=\mathbf I$，$\operatorname{Cov}(\boldsymbol\eta)=\boldsymbol\Sigma$。令 $\mathbf G_m=\mathbf B_m^{\mathsf T}\mathbf B_m$。CD 使用
-
-$$
-T_{m\to j,\ell}=\frac12\log_2\left(1+\frac{(\mathbf G_m)_{jj}}{(\boldsymbol\Sigma)_{jj}}\right),\quad m\ne j.
-\tag{I.2.6}
-$$
-
-历史 MIM 与当前 SI 均由同一 Gaussian 条件协方差的 log-determinant 信息量计算。非负容差1e-8 bit，超过负阈值失败；本轮容差内归零数、显著负值数均为0。CD对角置零来自排除自连接的定义，不是数值截断。
-
-### I.3 扩展搜索中没有直接加入的候选
-
-| 已发表候选 | 当前判断 | 理由 |
-|---|---|---|
-| Φ* mismatched decoding，Oizumi等2016 | 此设定下重复 ΦWMS | 独立过去块和逐块匹配 marginal decoder，使最优 mismatched information 等于分块 MI 之和 |
-| 反向 integrated stochastic interaction | 重复 ΦWMS | 与WMS差为过去TC，独立干预源TC=0 |
-| mRMR / MIFS | 退化为已移除的 singleton EI 加权 | 原始特征间MI冗余惩罚在当前独立源模型中为0；观测相关源时不成立 |
-| 几何整合信息 ΦG | 有依据，下一批候选 | 需实现受限 Gaussian KL 优化并验证收敛，不能用SI或WMS的闭式表达冒充；本轮不启动此复杂工作流 |
-| PED-Hsx synergy | 仍待统一表示 | 完整历史离散状态过多；只给PED压缩/二值化会改变比较因素，见[此前可行性报告](earth.md#unicm-prior-candidates) |
-| ΦID synergy atoms / ψ | 本轮不新增 | 必须固定 redundancy 定义和所加原子；当前ΦR已经使用MMI冗余，MMI-PID也在用户排除范围内 |
-
-Φ* 的来源为 [Oizumi等（2016）](https://doi.org/10.1371/journal.pcbi.1004654)。其重复关系是本实验条件下的推论：对于 $p(\boldsymbol h)=\prod_i p(\mathbf h_i)$、$q(\boldsymbol y\mid\boldsymbol h)=\prod_i p(Y_i\mid\mathbf h_i)$，mismatched 信息目标按部件分解。每项在β=1采用真实 marginal channel达到自身MI，故最优之和为 $\sum_i I(\mathbf h_i;Y_i)$，与WMS减项相同。这不宣称一般相关观测源下 Φ*=WMS。
-
-ΦG 原始来源：[Oizumi、Tsuchiya、Amari（2016）](https://doi.org/10.1073/pnas.1603583113)，Gaussian数值条件亦见上述Kitazono附录A。不能把候选未补算解释为它表现不佳。O-Shapley、MMI-PID、target-averaged Ξ 按用户范围继续排除，未加回来；不新增单独二阶 PEID。
-
-### I.4 搜索范围、证据及限制
-
-先通过本地 Zotero 检索 PEID 和 integrated information；重新读取 PEID全文26/26页（MYATYWAJ/Y8GH3W58）、Mediano全文30/30页（X34436WI/AI552X6K）。公开原文核对覆盖经典整合信息、条件信息传递和信息论特征选择三支，不限最近年份。
-
-检索词包括 `integrated information stochastic interaction geometric mismatched decoding`、`mutual information feature selection relevance Brown`、`causal density conditional transfer entropy information dynamics`；另外按作者、指标名和原文引用链查找 Φ*、ΦG、ΦSI、MIM、mRMR/MIFS、CD。Brown式（1）、Kitazono附录A、Mediano§2.2.8，以及Oizumi Φ*的定义/Methods均已读取。Seth2011使用PubMed元数据和摘要核对，CD数值定义采用已读Mediano全文。
-
-公共API三组检索的自动排序出现明显无关结果、未来异常年份，已做人工语义筛除，不作为证据。Semantic Scholar及arXiv部分查询遇到429，另有arXiv超时；没有循环重试。Oizumi PMC副本遇到访问检查，改读可访问PLOS原文；Seth作者PDF未取得可靠全文，未以其支持具体公式。完整API失败URL记录保存在[本轮检索记录](../log/unicm_literature_search_provenance_20261002.json)中。搜索不是穷尽性系统综述，“本轮未找到”不等于“文献中从未存在”。
-
-可复核原文：
-
-- Brown等2012，JMLR13:27–66，[全文](https://www.jmlr.org/papers/volume13/brown12a/brown12a.pdf)及[期刊记录](https://www.jmlr.org/papers/v13/brown12a.html)。
-- Kitazono等2018，Entropy20(3):173，[DOI](https://doi.org/10.3390/e20030173)及[公开全文](https://pmc.ncbi.nlm.nih.gov/articles/PMC7512690/)。
-- Mediano等2019，Entropy21(1):17，[DOI](https://doi.org/10.3390/e21010017)；本地Zotero完整PDF。
-- Seth等2011，Philosophical Transactions A369:3748–3767，[DOI](https://doi.org/10.1098/rsta.2011.0079)及[PubMed](https://pubmed.ncbi.nlm.nih.gov/21893526/)。
-- Oizumi等2016，PLOS Computational Biology12(1):e1004654，[PLOS全文](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004654)。
-- Oizumi、Tsuchiya、Amari2016，PNAS113(51):14817–14822，[DOI](https://doi.org/10.1073/pnas.1603583113)及[作者预印本](https://arxiv.org/abs/1510.04455)。
-
-<a id="unicm-prior-candidates"></a>
-
-## 附录 J：O-information／WMS／PED 的定义与适用边界
-
-本节保留早期候选核对。双输出 ΦWMS 已纳入自然观测比较（附录 G）；O-Shapley 曾完成实测，后从当前范围排除，历史分数保留于[六项历史报告](../log/unicm_information_prior_comparison_six_methods.md)。PED-Hsx 尚未接入 UniCM 预测校准，需先声明编码和指标语义。单目标全阶 WMS 与相同共同密度下的 Ξ 联盟函数同值，不构成新的竞争定义。
-
-本次完成定义核对、已有缓存检查和小型解析例子，没有新增这些候选的 UniCM 预测校准结果。当前图 A 已恢复保留方法分别选参，B、C 保留统一 α=30000、γ=3；两项已排除方法继续排除。
-
-后续实测更新：用户已指定加入 O-Shapley 和双输出 ΦWMS，两项预测校准已完成，见[六项历史结果](../log/unicm_information_prior_comparison_six_methods.md)。下文保留此前考察时的定义与核对记录；PED仍未加入实测。
-
-### J.1 已读取的证据
-
-本地 Zotero API 可用。先检索并读取 PEID 条目，再核对相关论文全文；库内证据为：
-
-| 本地 item key | 论文 | 本次证据 |
-|---|---|---|
-| MYATYWAJ | Partial Effective Information Decomposition for Synergistic Causality | PDF 全文，26/26 页；独立干预、EI 差值、条件总相关 |
-| 966HXZNJ | Gradients of O-information highlight synergy and redundancy in physiological applications | PDF 全文，8/8 页；O-information 的增量归因 |
-| WVS8LLKY | Partial entropy decomposition reveals higher-order information structures in human brain activity | 实质全文；Hsx、协同原子、离散化 |
-| 3IYZCCSM | The Partial Entropy Decomposition: Decomposing multivariate entropy and mutual information via pointwise common surprisal | PDF 全文，31/31 页；Hcs 与部分熵的符号 |
-| X34436WI | Measuring Integrated Information: Comparison of Candidate Measures in Theory and Simulation | PDF 全文，30/30 页；动态 whole-minus-sum 的分区定义 |
-
-外部补充读取 [Rosas、Mediano、Gastpar（2024）](https://arxiv.org/html/2404.07140v1)的 RSI/O-information 关系，以及 [Stramaglia 等的 dynamic O-information](https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2020.595736/full)。PED 的公开原文为 [Varley 等（2023）](https://doi.org/10.1073/pnas.2300888120)，基础 PED 定义见 [Ince（2017）](https://arxiv.org/abs/1702.01591)。部分 PMC 页面后续请求遇到访问检查，核对使用已取得的本地全文和作者公开页面。
-
-### J.2 WMS：单目标形式重复，动态双输出形式可以比较
-
-令 $\mathbf h_m$ 表示源模态 $m$ 的 12 月完整历史，$Y_{j,\ell}$ 为冻结模型对目标 $j$、lead $\ell$ 的标量读出。信息量均在当前同一干预 channel 下估计，单位 bit。
-
-单目标 whole-minus-sum 为
-
-$$
-W_{j,\ell}(S)=I(\mathbf h_S;Y_{j,\ell})-\sum_{m\in S}I(\mathbf h_m;Y_{j,\ell}).
-\tag{J.2.1}
-$$
-
-式（J.2.1）与当前 Ξ-Shapley 的联盟函数逐项相同。在相同联盟、读出、干预分布与 EI 估计器下，对它做全阶 Shapley 会得到相同 attribution，继而得到相同惩罚和校准预测。这是定义等价，不需要另跑一轮证明优劣。如果只计算两源 WMS 再 half-edge 分配，改变的是联盟阶数截断；它属于低阶控制，不构成新的全阶指标。
-
-经典动态 ΦWMS 则比较联合过去—联合未来信息与对应分块的过去—未来信息。接入当前 pair prior 时可以定义
-
-$$
-q^{W}_{ab,\ell}
-=I(\mathbf h_a,\mathbf h_b;Y_{a,\ell},Y_{b,\ell})
--I(\mathbf h_a;Y_{a,\ell})-I(\mathbf h_b;Y_{b,\ell}).
-\tag{J.2.2}
-$$
-
-它与当前 ΦR 缓存满足
-
-$$
-q^{W}_{ab,\ell}=q^{R}_{ab,\ell}
--\min_{r,s\in\{a,b\}} I(\mathbf h_r;Y_{s,\ell}).
-\tag{J.2.3}
-$$
-
-式（J.2.3）可直接用缓存的 `phi_r_edges` 和 `singleton_ei` 求出，不需要重新调用 Transformer。按原接口将全部 55 条边各分一半给两个源，得到 lead-specific prior，再广播到各 target。这里采用每个源对的指定分区，没有执行全系统 minimum-information-partition 搜索或新增分区归一化。
-
-**缓存核对结果：** 3 checkpoint × 24 lead × 55 对，共 3960 个式（J.2.2）的值，范围为 [0.001047542, 0.284084160] bit；声明容差 1e-8 bit，容差内归零数为 0，显著负值数为 0。ΦR 减去的修正项平均为 0.002544858 bit。因此候选确实不同于 ΦR，但预测表现仍需拟合后判断，不能由信息量大小推断。
-
-一般观测分布的 ΦWMS 可以为负；当前独立源条件下，联合读出 MI 不小于两源分别对联合读出的 MI 之和，后者又不小于两个对应单目标 MI 之和，因此式（J.2.2）非负。若以后改成观测版本，应另行声明有符号 prior 的权重映射，不能沿用当前非负权重接口并静默截断。
-
-### J.3 O-information：推荐多源、包含目标的联盟函数
-
-标准 O-information 是冗余与协同的净平衡，正值偏冗余、负值偏协同。它原本不区分源和目标。[Rosas 等（2019）](https://doi.org/10.1103/PhysRevE.100.032305)给出原始定义；多源定向指标与 O-information 的联系见上述 2024 年原文。
-
-当前源块由独立干预生成，所以只对输入历史计算 $\Omega(\mathbf h_S)$ 会恒为零，不能产生预测 prior。对已有 channel 更合适的接入是“加入目标后的 O-information 增量”的相反数：
-
-$$
-v^{O}_{j,\ell}(S)
-=-\left[\Omega(\mathbf h_S,Y_{j,\ell})-\Omega(\mathbf h_S)\right]
-=(k-1)I(\mathbf h_S;Y_{j,\ell})
--\sum_{m\in S}I(\mathbf h_{S\setminus\{m\}};Y_{j,\ell}),
-\quad k=|S|.
-\tag{J.3.1}
-$$
-
-空联盟设为 0，单源联盟也为 0。这里每个模态的完整历史作为一个变量块，$k$ 按源块数量计算，而不是把全部历史标量重新视作独立玩家。对式（J.3.1）的全部 2048 个联盟做精确 Shapley，即可生成 target-and-lead-specific attribution，再接入原校准器。这是本实验构造的 **target-augmented O-Shapley 接口**，并非声称 O-information 原论文已定义了同样的校准方法。
-
-**命题：** 对固定目标、固定全局联合分布及相互独立的源块，式（J.3.1）等于条件 dual total correlation：
-
-$$
-v^O(S)=\operatorname{DTC}(\mathbf h_S\mid Y)
--\operatorname{DTC}(\mathbf h_S)
-=\operatorname{DTC}(\mathbf h_S\mid Y)\geq0.
-\tag{J.3.2}
-$$
-
-式（J.3.2）由 DTC 的熵展开直接得到。对集合 $S$ 新增源 $r$，条件 DTC 的增量为
-
-$$
-\operatorname{DTC}(\mathbf h_{S\cup\{r\}}\mid Y)
--\operatorname{DTC}(\mathbf h_S\mid Y)
-=\sum_{m\in S} I(\mathbf h_m;\mathbf h_r\mid
-\mathbf h_{S\setminus\{m\}},Y)\geq0.
-\tag{J.3.3}
-$$
-
-因此在当前独立源设定下，这个联盟函数单调，精确 Shapley 也非负，可接入现有非负惩罚接口。数值实现仍须声明 1e-8 bit 容差并审计，超阈值失败；一般有符号 O-information 不具有这些无条件结论。
-
-当 $k=2$ 时，式（J.3.1）恰好等于式（J.2.1）的二源 WMS；因此不能把逐对 O-information 当作新的二源定义。$k\geq3$ 时，两者一般不同。小型精确检查使用三独立 fair bits、目标为三元 XOR：全阶 WMS 为 1 bit，式（J.3.1）为 2 bit，O 增量恒等式在全部非空联盟上的误差为 0。这也说明 O 分数不受目标 MI 的同一上界约束，不能解释为 PEID 总整合有效信息本身。
-
-**计算可行性：** 式（J.3.1）只用联盟 MI，可沿用现有 affine degree-1 TM 和同一干预预测。无需离散化或换模型；归因预算仍是 2048 个联盟。原信息缓存没有保存全部 coalition EI，因此需要复用预测缓存重建联盟表，但不需要再次运行冻结 Transformer。
-
-原论文的 **dynamic O-information** 还条件化目标历史。若采用该版本，应令目标自身历史作为条件、外部模态作为玩家，写清自预测 prior 的处理；不能直接把式（J.3.1）称为标准 dynamic O-information。这会改变自历史接口，适合作为另外明确命名的条件版本。
-
-### J.4 PED synergy：可作结构 prior，先确定具体 PED
-
-PED 分解的是联合熵；PID/PEID 分解的是源关于目标的信息。将二者都称作 synergy 不意味着数值含义相同。PED 还需指定 shared-entropy 函数和哪些原子计入 synergy。[Varley 等（2023）](https://doi.org/10.1073/pnas.2300888120)使用离散 Hsx，并求非负 informative 原子；[Ince（2017）](https://arxiv.org/abs/1702.01591)的 Hcs 版本允许负的部分熵，不能混用两者的非负结论。
-
-仓库已经有 [HCP 的三变量 PED-Hsx 实现](../../scripts/analyze_hcp_ped_oinfo_57.py)。它将每个标量序列二值化，在 18 节点熵冗余格反演，汇总作者采用的七个协同原子。一个可行的 prior 接口是：对每个源对和共同未来目标的离散变量三元组计算同一七原子和，再 half-edge 分给源。
-
-不过完整源历史是 12 维向量。直接逐时间点二值化并将整个历史编码成一个类别，每个源就有最多 4096 个状态，两源加二值目标最多有 33554432 个联合状态；16384 个样本会非常稀疏。已有三标量二值实现不能原样处理这些历史块。若改用历史末值或固定的一维投影，则会丢掉部分历史，应明确这是压缩表示上的 prior。要比较指标本身，应在同一压缩、离散表示上同时重算其他 prior；只给 PED 换表示的结果属于整体方法对照。
-
-**语义检查：** 对全部八种等概率二值三元状态，即三个相互独立变量，现有 Hsx 实现给出联合熵 3 bit、七原子 PED synergy=0.419505871 bit，最小原子=0.018251705 bit；而两源关于独立目标的 MI 为 0。由此可见，这个 PED synergy 不专门度量目标的预测协同。做 prior 对照是有意义的，但不能把它与 Ξ 按同一信息量语义解释。建议同时查看对目标打乱后的 prior 是否仍保留大部分结构，报告原始与目标打乱值；不预先相减或截断改变指标定义。
-
-Hsx 需要离散概率事件，普通连续 MI 的 TM log-determinant 不能直接给出它的 shared-exclusion 原子。这里改用离散频率估计的理由是指标定义要求离散事件；代价是离散化损失和频数偏差。完整 11 源加目标的 PED 冗余格增长远快于 2048 个联盟，当前实用方案是局部三元 prior，不能称为全阶 PED。
-
-### J.5 实验建议
-
-| 候选 | 是否形成新的对照 | 接入路径 | 当前判断 |
-|---|---|---|---|
-| 单目标全阶 WMS-Shapley | 否，与 Ξ 相同 | 同一联盟函数 | 记录等价关系，不重复计数 |
-| 双输出 ΦWMS pair prior | 是，但与 ΦR 密切相关 | 现有边缓存 → half-edge → lead-specific prior | 可直接拟合，先做 |
-| 多源 target-augmented O-Shapley | 是，超过二源时区别出现 | TM coalition MI → O 增量 → 全阶 Shapley | 最适合作为新增的同口径对照 |
-| PED-Hsx synergy pair prior | 是，但表示与语义需声明 | 固定离散三元组 → 七原子和 → half-edge | 适合补充结构 prior，先验证编码 |
-
-后续新增对照应保留各自 validation 选参结果，并另给 α=30000、γ=3 的统一参数结果；与原方法使用相同 fit/test、44 维校准容量、共享 bootstrap。O-Shapley 和 ΦWMS 可以复用当前完整历史 channel。PED 应单独记录压缩、离散化、熵原子选择、源状态覆盖率及目标打乱诊断，避免同时改变多个因素后把误差变化归因于指标定义。
-
-本次只做可行性考察；上表没有新增预测分数，也没有将候选加入当前排序。
+整理依据（2026-10-17）：当前正文的 UniCM 结构与校准、补充 SLP 结果保留；旧干预先验比较、弃用候选定义与后续搜索建议已移除。当前自然观测先验与全阶 Gaussian SURD 的方法、结果和限制见附录 B、G。稿件定位及版本边界见[报告入口](README.md#稿件依据与维护范围)；本次未改计算或估计定义。
