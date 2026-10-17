@@ -8,10 +8,13 @@ import sys
 from pathlib import Path
 
 import matplotlib as mpl
+
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.path import Path as MplPath
 from matplotlib.patches import Ellipse, FancyArrowPatch, Polygon, Rectangle
+from matplotlib.transforms import Bbox
 from PIL import Image, ImageChops, ImageDraw
 
 
@@ -59,6 +62,10 @@ SYSTEM_RESULT_PATHS = {
 KURAMOTO_HIERARCHY_RESULT = (
     ROOT / "results" / "mixed_order_kuramoto_kout_main" / "summary.json"
 )
+AB_FIGURE = ROOT / "paper_assets/figure1_ab_synergy_only.png"
+THREE_EXAMPLE_FIGURE = ROOT / "docs/reports/assets/kuramoto_hierarchy/spt_three_example_comparison.png"
+MAIN_FIGURE = ROOT / "paper_assets/figure1_peid_spt_main.png"
+HIERARCHY_SUPPLEMENT = ROOT / "paper_assets/figure_s2_kuramoto_hierarchy.png"
 
 
 COMPOSITE_STYLE = {
@@ -167,16 +174,21 @@ def panel_border(fig: plt.Figure, bounds: tuple[float, float, float, float]) -> 
     ))
 
 
-def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, float]) -> None:
+def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, float], *, unified=False) -> None:
     """Redraw the existing causal schematic at the size used in the composite."""
     ax = fig.add_axes(bounds)
     ax.set(xlim=(0, 1), ylim=(0, 1))
     ax.axis("off")
-    blue, red, ink = "#315F9E", "#C9574A", "#303841"
+    blue, causal, ink = "#315F9E", "#C9574A", "#303841"
+    if unified:
+        from scripts.compose_spt_three_examples import BLUE, TEAL, INK
+        blue, causal, ink = BLUE, TEAL, INK
+    def font(size):
+        return 9.0 if unified else size
 
     def arrow(start, end, color, *, dashed=False, rad=0, width=1.35, zorder=1):
         ax.add_patch(FancyArrowPatch(
-            start, end, arrowstyle="-|>", mutation_scale=7.3,
+            start, end, arrowstyle="-|>", mutation_scale=9.0 if unified else 7.3,
             connectionstyle=f"arc3,rad={rad}", lw=width, color=color,
             linestyle=(0, (3, 2)) if dashed else "solid", zorder=zorder,
         ))
@@ -192,20 +204,29 @@ def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, flo
         [MplPath.MOVETO] + [MplPath.CURVE4] * 6,
     )
     ax.add_patch(FancyArrowPatch(
-        path=confounder_path, arrowstyle="-|>", mutation_scale=7.3,
+        path=confounder_path, arrowstyle="-|>", mutation_scale=9.0 if unified else 7.3,
         lw=1.35, color=blue, linestyle=(0, (3, 2)), zorder=1,
     ))
-    ax.text(.245, .54, r"$0.8\beta$", color=blue, fontsize=7.2, ha="center")
-    ax.text(.245, .18, r"$0.8\beta$", color=blue, fontsize=7.2, ha="center")
-    ax.text(.70, .82, r"$0.1\beta$", color=blue, fontsize=7.2, ha="center")
+    ax.text(.245, .54, r"$0.8\beta$", color=blue, fontsize=font(7.2), ha="center")
+    ax.text(.245, .18, r"$0.8\beta$", color=blue, fontsize=font(7.2), ha="center")
+    ax.text(.70, .82, r"$0.1\beta$", color=blue, fontsize=font(7.2), ha="center")
 
-    # The red links retain the joint x,y -> sin(xy) -> z hyperedge semantics.
-    arrow((.410, .77), (.628, .55), red, rad=-.28, width=1.65)
-    arrow((.410, .23), (.628, .45), red, rad=.28, width=1.65)
-    arrow((.742, .50), (.877, .50), red, width=1.65)
-    for start, end in [((.49, .88), (.43, .845)), ((.26, .02), (.345, .135)),
-                       ((.995, .88), (.94, .585)), ((.005, .91), (.085, .59))]:
+    # Use synergy teal in the main plate; reserve red for incorrect merges.
+    arrow((.410, .77), (.628, .55), causal, rad=-.28, width=1.65)
+    arrow((.410, .23), (.628, .45), causal, rad=.28, width=1.65)
+    arrow((.742, .50), (.877, .50), causal, width=1.65)
+    # Anchor each noise label to its own arrow tail with a fixed point gap.
+    # Shorter outer arrows keep each noise source visually local to its node.
+    for start, end, label, offset, ha, va in [
+        ((.49, .88), (.43, .845), r"$\eta^x$", (3, 2), "left", "bottom"),
+        ((.285, .08), (.345, .135), r"$\eta^y$", (-3, -2), "right", "top"),
+        ((.970, .76), (.94, .585), r"$\eta^z$", (0, 3), "center", "bottom"),
+        ((.055, .76), (.085, .59), r"$\eta^w$", (0, 3), "center", "bottom"),
+    ]:
         arrow(start, end, ink, width=1.05, zorder=4)
+        ax.annotate(label, xy=start, xycoords="axes fraction", xytext=offset,
+                    textcoords="offset points", fontsize=font(7.1), color=ink,
+                    ha=ha, va=va, zorder=4)
 
     for point, label, face, edge in [
         (w, r"$w$", "#DCE8F7", blue),
@@ -215,21 +236,17 @@ def draw_hyperedge_panel(fig: plt.Figure, bounds: tuple[float, float, float, flo
     ]:
         ax.scatter(*point, s=540, marker="o", facecolor=face, edgecolor=edge,
                    linewidth=1.45, transform=ax.transAxes, zorder=3)
-        ax.text(*point, label, ha="center", va="center", fontsize=9.3,
+        ax.text(*point, label, ha="center", va="center", fontsize=font(9.3),
                 weight="bold", color=ink, transform=ax.transAxes, zorder=4)
     ax.add_patch(Ellipse(h, .135, .25, transform=ax.transAxes,
-                         facecolor="#FBE7E4", edgecolor=red, lw=1.5,
+                         facecolor="#E1EFEC" if unified else "#FBE7E4", edgecolor=causal, lw=1.5,
                          linestyle=(0, (3, 2)), zorder=3))
-    ax.text(*h, r"$\sin(xy)$", ha="center", va="center", color="#9D382F",
-            fontsize=8.1, weight="bold", transform=ax.transAxes, zorder=4)
-    for px, py, label in [(.54, .84, r"$\eta^x$"), (.23, .035, r"$\eta^y$"),
-                          (.965, .93, r"$\eta^z$"), (.015, .94, r"$\eta^w$")]:
-        ax.text(px, py, label, fontsize=7.1, color=ink, ha="center", va="center",
-                transform=ax.transAxes)
+    ax.text(*h, r"$\sin(xy)$", ha="center", va="center", color=causal if unified else "#9D382F",
+            fontsize=font(8.1), weight="bold", transform=ax.transAxes, zorder=4)
     ax.plot([.55, .61], [.09, .09], color=blue, lw=1.35, ls=(0, (3, 2)))
-    ax.text(.625, .09, "Confounder", fontsize=6.8, va="center", color=ink)
-    ax.plot([.55, .61], [.025, .025], color=red, lw=1.65)
-    ax.text(.625, .025, "Causal hyperedge", fontsize=6.8, va="center", color=ink)
+    ax.text(.625, .09, "Confounder", fontsize=font(6.8), va="center", color=ink)
+    ax.plot([.55, .61], [.025, .025], color=causal, lw=1.65)
+    ax.text(.625, .025, "Causal hyperedge", fontsize=font(6.8), va="center", color=ink)
 
 
 def confounder_result_in_nats() -> tuple[dict, dict]:
@@ -262,6 +279,80 @@ def confounder_result_in_nats() -> tuple[dict, dict]:
                 row[key] = NATS_PER_BIT * float(value)
     # SHAP, PCMCI, Neural Granger and Liang flow retain their native scores.
     return result, base["liang_result"]
+
+
+def draw_confounder_synergy_panel(
+    fig: plt.Figure,
+    bounds: tuple[float, float, float, float],
+    *, unified=False,
+) -> tuple[plt.Axes, plt.Axes]:
+    """Enlarge the original lower readout panel, using unchanged cached means."""
+    from scripts.compare_granger_peid_mlp import _BETA_NCS_METHOD_STYLES
+    if unified:
+        from scripts.compose_spt_three_examples import BLUE, ORANGE, TEAL
+        colors = {"observational": BLUE, "mmi_pid": "#8065A0", "surd": "#66737D",
+                  "mlp_peid": TEAL, "shap": ORANGE}
+        linestyles = {"observational": "--", "mmi_pid": "-.", "surd": ":",
+                      "mlp_peid": "-", "shap": "--"}
+
+    result, _ = confounder_result_in_nats()
+    rows = sorted(result["summary"], key=lambda row: row["beta"])
+    beta = np.asarray([row["beta"] for row in rows])
+    ax = fig.add_axes(bounds)
+    shap_ax = ax.twinx()
+    handles = []
+    for column, label, method, marker in [
+        ("observational_wms_mean", "WMS", "observational", "D"),
+        ("mmi_pid_xy_synergy_mean", "MMI-PID", "mmi_pid", "P"),
+        ("surd_xy_synergy_mean", "SURD", "surd", "o"),
+        ("mlp_peid_xy_synergy_mean", "MLP+PEID", "mlp_peid", "^"),
+        ("shap_xy_mean_abs_interaction_mean", "MLP+SHAP", "shap", "o"),
+    ]:
+        style = _BETA_NCS_METHOD_STYLES[method]
+        highlight = method == "mlp_peid"
+        target = shap_ax if method == "shap" else ax
+        line, = target.plot(
+            beta, [row[column] for row in rows], label=label,
+            color=colors[method] if unified else ("#007A58" if highlight else style["color"]),
+            alpha=1.0 if unified else style["alpha"],
+            linewidth=(1.8 if highlight else 1.0) if unified else (1.4 if highlight else .65),
+            linestyle=linestyles[method] if unified else "-",
+            marker=marker, markevery=max(1, (len(rows) - 1) // 5),
+            markersize=(3.4 if highlight else 2.6) if unified else (2.6 if highlight else 1.6),
+            markeredgecolor="white", markeredgewidth=.25,
+            zorder=20 if highlight else 2,
+        )
+        handles.append(line)
+    ax.axhline(0, color="#6b7280", linestyle="--", linewidth=.45)
+    ax.set(xlim=(-.01, 1.01), xlabel=r"$\beta$: common-driver strength",
+           ylabel="Information (nats)")
+    ax.set_xticks(np.linspace(0, 1, 6))
+    shap_ax.set_ylabel("MLP+SHAP")
+    for axis in (ax, shap_ax):
+        axis.tick_params(labelsize=8.5 if unified else 5.6, width=.5, length=2, pad=1.5)
+        axis.xaxis.label.set_size(9.0 if unified else 6.0)
+        axis.yaxis.label.set_size(9.0 if unified else 6.0)
+        axis.spines.top.set_visible(False)
+    ax.spines.right.set_visible(False)
+    shap_ax.spines.right.set_visible(True)
+    if unified:
+        shap_ax.tick_params(axis="y", colors=colors["shap"])
+        shap_ax.yaxis.label.set_color(colors["shap"])
+        shap_ax.spines.right.set_color(colors["shap"])
+        shap_ax.set_yticks([.3, .4, .5])
+    # Keep PEID above the SHAP twin, as in the original lower panel.
+    ax.set_zorder(10)
+    ax.patch.set_visible(False)
+    legend = ax.legend(
+        handles=handles, loc="lower center", bbox_to_anchor=(.5, 1.045),
+        ncol=3, frameon=False, fontsize=8.5 if unified else 5.4, handlelength=1.8,
+        handletextpad=.45, columnspacing=.9, borderaxespad=0,
+    )
+    for text in legend.get_texts():
+        if text.get_text() == "MLP+PEID":
+            text.set_color(colors["mlp_peid"] if unified else "#007A58")
+            text.set_fontweight("bold")
+    return ax, shap_ax
 
 
 def prepare_large_text_sources() -> None:
@@ -298,6 +389,7 @@ def prepare_large_text_sources() -> None:
         compact_xlabels=True,
         legend_position="top",
     )
+    # Retain the full readout source for the detailed experiment report.
     confounder, liang = confounder_result_in_nats()
     _plot_sine_beta_combined_readout_sweep(
         confounder,
@@ -316,7 +408,7 @@ def prepare_large_text_sources() -> None:
     )
 
 
-def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
+def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict, show_total: bool = True) -> None:
     """Draw cached complete trees with local Syn as a share of each root Xi."""
     from scripts.run_mixed_order_kuramoto_kout_main import (
         NAMES, NETWORK_POSITIONS, WITHIN_COUPLING, pairwise_ring_weights,
@@ -406,8 +498,9 @@ def draw_kuramoto_hierarchy_panel(fig: plt.Figure, *, payload: dict) -> None:
                                 facecolor=_blend_with_white("#267A70", .10+.52*strength) if internal else "#F4F6F8",
                                 edgecolor="#267A70" if internal else "#8B96A1"))
         draw(tree)
-        axis.text(.5, 1.055, rf"$\Xi={NATS_PER_BIT * record['root_xi_bits']:.2f}$ nats",
-                  transform=axis.transAxes, ha="center", fontsize=6.1)
+        if show_total:
+            axis.text(.5, 1.055, rf"$\Xi={NATS_PER_BIT * record['root_xi_bits']:.2f}$ nats",
+                      transform=axis.transAxes, ha="center", fontsize=6.1)
         axis.set(xlim=(-.7, 5.7), ylim=(-max_depth-.32, .42))
         axis.axis("off")
 
@@ -419,9 +512,6 @@ def build_figure() -> plt.Figure:
     intervention = trim_white(load_rgb(INTERVENTION_DIAGRAM), tolerance=10, pad=4)
     systems = trim_white(load_rgb(SYSTEM_BENCHMARK_LARGE_TEXT), tolerance=8, pad=4)
 
-    # Retain both original panels: pairwise readouts above and interaction /
-    # synergy readouts below.
-    confounder = trim_white(load_rgb(CONFOUNDER_BENCHMARK_LARGE_TEXT), tolerance=8, pad=4)
     hierarchy_sweep = json.loads(
         KURAMOTO_HIERARCHY_RESULT.read_text(encoding="utf-8")
     )
@@ -433,7 +523,7 @@ def build_figure() -> plt.Figure:
 
     panel_letter(fig, x=.030, y=.707, letter="b")
     draw_hyperedge_panel(fig, (.047, .446, .435, .250))
-    image_panel(fig, (.514, .436, .452, .267), confounder)
+    draw_confounder_synergy_panel(fig, (.566, .469, .354, .185))
 
     panel_letter(fig, x=.540, y=.980, letter="c")
     image_panel(fig, (.546, .741, .422, .226), systems)
@@ -444,21 +534,127 @@ def build_figure() -> plt.Figure:
     return fig
 
 
+def build_ab_figure() -> plt.Figure:
+    """Export the requested a/b strip without changing either schematic."""
+    fig = plt.figure(figsize=(10.0, 50 / 25.4), facecolor="white")
+    intervention = trim_white(load_rgb(INTERVENTION_DIAGRAM), tolerance=10, pad=4)
+    panel_letter(fig, x=.012, y=.966, letter="a")
+    image_panel(fig, (.024, .105, .346, .790), intervention)
+    panel_letter(fig, x=.390, y=.966, letter="b")
+    draw_hyperedge_panel(fig, (.400, .065, .280, .875))
+    draw_confounder_synergy_panel(fig, (.735, .190, .227, .565))
+    return fig
+
+
+def draw_intervention_panel(fig, bounds):
+    """Native set schematic with the same definitions, using shared typography.
+
+    The coloured regions are qualitative PID labels, never proportional areas.
+    Source independence is shown by separated source circles after intervention.
+    """
+    from scripts.compose_spt_three_examples import BLUE, ORANGE, TEAL, INK, GRAY, tint
+    ax = fig.add_axes(bounds)
+    ax.set(xlim=(0, 8.9), ylim=(-.05, 3.1), aspect="equal")
+    ax.axis("off")
+    for cx1, cx2, cy in ((1.3, 2.5, 1.9), (5.68, 7.72, 6.7)):
+        xx, yy = np.meshgrid(np.linspace(cx1 - 1.0, cx2 + 1.0, 550),
+                             np.linspace(.05, 2.85, 360))
+        r = .9
+        s1 = (xx - cx1) ** 2 + (yy - 1.0) ** 2 <= r ** 2
+        s2 = (xx - cx2) ** 2 + (yy - 1.0) ** 2 <= r ** 2
+        target = (xx - cy) ** 2 + (yy - 1.9) ** 2 <= r ** 2
+        cap = target & (yy > 1.9 + .40 * (1 - ((xx - cy) / r) ** 2))
+        region = np.zeros_like(xx, dtype=int)
+        region[s1] = 1
+        region[s2] = 2
+        region[s1 & s2] = 3
+        region[target & ~s1 & ~s2] = 5
+        region[target & s1 & ~s2] = 6
+        region[target & s2 & ~s1] = 7
+        region[target & s1 & s2] = 8
+        region[cap] = 4
+        ax.contourf(xx, yy, region, levels=np.arange(-.5, 9., 1.), antialiased=True,
+                    colors=["white", tint(BLUE, .10), tint(ORANGE, .10), "#F0EDF4",
+                            "#F4F6F8", tint(TEAL, .22), tint(BLUE, .26),
+                            tint(ORANGE, .26), "#DDD3E9"])
+        for center, color in (((cx1, 1.0), BLUE), ((cx2, 1.0), ORANGE), ((cy, 1.9), GRAY)):
+            outline = Ellipse(center, 1.8, 1.8, fc="none", ec=color, lw=1.0)
+            ax.add_patch(outline)
+        px = np.linspace(cy - r, cy + r, 200)
+        line, = ax.plot(px, 1.9 + .40 * (1 - ((px - cy) / r) ** 2),
+                        color=GRAY, ls=(0, (2, 2)), lw=.7)
+        line.set_clip_path(outline)
+        unique_offset = .04 if cx1 < 2 else .38
+        labels = [(cy, 2.98, r"$Y$"), (cx1 - .9, .08, r"$X_1$"),
+                  (cx2 + .9, .08, r"$X_2$"), (cy, 2.54, r"$H(Y\mid X_1,X_2)$"),
+                  (cy, 2.01, "Syn"), (cx1 + unique_offset, 1.53, r"$\mathrm{Un}_1$"),
+                  (cx2 - unique_offset, 1.53, r"$\mathrm{Un}_2$")]
+        if cx1 < 2:
+            labels.append((cy, 1.22, "Red"))
+        for x, y, label in labels:
+            ax.text(x, y, label, ha="center", va="center", fontsize=9.0, color=INK)
+    ax.add_patch(FancyArrowPatch((3.65, 1.75), (4.65, 1.75), arrowstyle="->",
+                                 mutation_scale=9, color=INK, lw=.9))
+    ax.text(4.15, 2.02, r"$\mathrm{do}(\mathbf{x}\sim\mathcal{U})$",
+            ha="center", fontsize=9.0)
+    ax.text(4.15, 1.38, r"$X_1\perp X_2$", ha="center", fontsize=9.0)
+
+
+def build_three_example_figure() -> plt.Figure:
+    """Render every panel on one canvas: one font size means one physical size."""
+    from scripts.compose_spt_three_examples import (
+        FIGURE_STYLE, FONT_PANEL, INK, collect, draw_comparison,
+    )
+    with plt.rc_context(FIGURE_STYLE):
+        fig = plt.figure(figsize=(19.0, 12.5), facecolor="white")
+        lower = 9.1 / 12.5
+        top = 1 - lower
+        def bounds(x, y, w, h):
+            return x, lower + top * y, w, top * h
+        draw_intervention_panel(fig, bounds(.018, .08, .350, .82))
+        draw_hyperedge_panel(fig, bounds(.397, .065, .280, .875), unified=True)
+        draw_confounder_synergy_panel(fig, bounds(.735, .17, .227, .64), unified=True)
+        for letter, x in (("a", .004), ("b", .384)):
+            fig.text(x, lower + top * .98, letter, fontsize=FONT_PANEL, weight="bold",
+                     ha="left", va="top", color=INK)
+        _, cases = collect()
+        draw_comparison(fig, cases, bounds=(0, 0, 1, lower), panel_letters=True)
+    return fig
+
+
 def main() -> None:
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
     parser = argparse.ArgumentParser(description="Compose the cached Part 1 main figure.")
     parser.add_argument("--refresh-sources", action="store_true",
                         help="Re-render benchmark source panels from their cached results.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--panels-ab", action="store_true",
+                      help="Export only the horizontal a/b strip with the enlarged synergy plot.")
+    mode.add_argument("--three-examples", action="store_true",
+                      help="Join the a/b strip and current three-example hierarchy/score plate.")
     args = parser.parse_args()
-    if args.refresh_sources or not all(path.exists() for path in
-                                      (SYSTEM_BENCHMARK_LARGE_TEXT, CONFOUNDER_BENCHMARK_LARGE_TEXT)):
+    if not (args.panels_ab or args.three_examples) and (args.refresh_sources or not SYSTEM_BENCHMARK_LARGE_TEXT.exists()):
         prepare_large_text_sources()
     # Upstream cached-figure renderers use enlarged source fonts. Restore the
     # final composite style before adding native axes to the integrated figure.
     mpl.rcParams.update(COMPOSITE_STYLE)
-    fig = build_figure()
-    fig.savefig(OUTPUT_STEM.with_suffix(".png"), dpi=600, bbox_inches=None)
+    if args.three_examples:
+        fig = build_three_example_figure()
+        output = MAIN_FIGURE
+        supplement = plt.figure(figsize=(183 / 25.4, 180 / 25.4), facecolor="white")
+        draw_kuramoto_hierarchy_panel(
+            supplement, payload=json.loads(KURAMOTO_HIERARCHY_RESULT.read_text()), show_total=False)
+        width, height = supplement.get_size_inches()
+        supplement.savefig(HIERARCHY_SUPPLEMENT, dpi=600,
+                           bbox_inches=Bbox.from_bounds(.03 * width, .01 * height, .95 * width, .39 * height))
+        plt.close(supplement)
+    else:
+        fig = build_ab_figure() if args.panels_ab else build_figure()
+        output_stem = OUTPUT_STEM.with_name("figure1_ab_synergy_only") if args.panels_ab else OUTPUT_STEM
+        output = output_stem.with_suffix(".png")
+    fig.savefig(output, dpi=260 if args.three_examples else 600, bbox_inches=None)
     plt.close(fig)
+    print(output)
 
 
 if __name__ == "__main__":

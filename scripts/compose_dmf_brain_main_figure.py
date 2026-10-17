@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import shutil
 import sys
 
 import matplotlib
@@ -48,14 +49,17 @@ from scripts.analyze_dmf_subject_dense_windows import expanded_subject
 from scripts.run_dmf_continuous_subject_curves import (
     BASE as CONTINUOUS_CURVES, load_curve_manifest,
 )
-from scripts.plot_dmf_roi_order_attribution import output_paths as order_output_paths
+from scripts.plot_dmf_roi_order_attribution import (
+    band_percentages, output_paths as order_output_paths,
+)
 
 OUTPUT = ROOT / "fig/dmf_schaefer100/dmf_brain_main_composite"
+REPORT_IMAGE = ROOT / "docs/reports/assets/dmf_brain_main_composite_high_order.png"
 ROI = CORRECTED_ROI
 TREE_SEED = 4
 TREE_COUPLINGS = [0., 1.3, 10.]
 # Physical dimensions, in millimetres, keep final type sizes meaningful.
-WIDTH, HEIGHT = 190., 305.
+WIDTH, HEIGHT = 190., 255.
 PAIRWISE = ROOT / "results/dmf_schaefer100/natural_pairwise_phi_r"
 
 
@@ -135,19 +139,40 @@ def cortex_crops(threshold=50):
     in its summary. The common padded pixel extent preserves inter-panel scale.
     No recoloring, rotation, contrast adjustment, segmentation or stretching.
     """
-    cache, surface = order_output_paths(threshold)
-    record = json.loads((cache/'summary.json').read_text())
-    if (record['threshold_roi_order'] != threshold
-            or record['source_roi_sha256'] != digest(ROI/'roi_shapley.npz')
-            or record['source_summary_sha256'] != digest(ROI/'summary.json')
-            or record['tree_summary_sha256'] != digest(PAIRED_SUMMARY)
+    cache, base_surface = order_output_paths(threshold)
+    source = json.loads((cache/'summary.json').read_text())
+    surface = base_surface.with_name(base_surface.name+'_band_percent')
+    record = json.loads((cache/'summary_band_percent.json').read_text())
+    if (source['threshold_roi_order'] != threshold
+            or source['source_roi_sha256'] != digest(ROI/'roi_shapley.npz')
+            or source['source_summary_sha256'] != digest(ROI/'summary.json')
+            or source['tree_summary_sha256'] != digest(PAIRED_SUMMARY)
+            or record['threshold_roi_order'] != threshold
+            or record['source_summary_sha256'] != digest(cache/'summary.json')
+            or record['source_cache_sha256'] != digest(cache/'roi_order_attribution.npz')
             or record['figure_sha256'] != digest(surface.with_suffix('.png'))):
         raise ValueError('Order-band surface provenance differs from the main map')
-    if record['nonnegative_audit']['violation_count']:
+    if source['nonnegative_audit']['violation_count']:
         raise ArithmeticError('Significant negative order-band contribution')
     plot = record['plot']
-    if plot.get('unit') != 'nats':
-        raise ValueError('Current order-band maps must display absolute nats')
+    if (plot.get('unit') != 'percent' or plot.get('normalization') != 'linear'
+            or record['G'] != TREE_COUPLINGS or record['seeds'] != [3, 4, 5]):
+        raise ValueError('Expected the three-G within-band percentage maps')
+    with np.load(cache/'roi_order_attribution.npz') as a:
+        percentages, valid, audit = band_percentages(
+            a['roi_attribution_nats'], a['band_totals_nats'], record['tolerance_nats'])
+    counts = valid.sum(2)
+    if counts.tolist() != record['percentage_audit']['valid_seed_counts']:
+        raise ValueError('Within-band percentage validity differs from the source')
+    means = np.full(percentages.shape[:2]+percentages.shape[3:], np.nan)
+    np.divide(np.where(valid[..., None], percentages, 0.).sum(2), counts[..., None],
+              out=means, where=counts[..., None] > 0)
+    if (not np.allclose(means.sum(-1)[counts > 0], 100., rtol=0, atol=1e-8)
+            or not np.isclose(np.nanmax(means), plot['vmax'], rtol=0, atol=1e-10)
+            or plot['vmin'] != 0.):
+        raise ValueError('Within-band percentages or shared color limits differ')
+    print('Within-band cortex audit:', dict(**audit, valid_seed_counts=counts.tolist(),
+        source_figure_sha256=record['figure_sha256']))
     original = np.asarray(Image.open(surface.with_suffix('.png')).convert("RGB"))
     h, w = original.shape[:2]
     slots = []
@@ -557,28 +582,28 @@ def draw(dpi, threshold=50):
                      rotation=270, va='bottom')
         colorbars.append(cb)
 
-        for band, (offset, prefix, letters) in enumerate([(0,'low','ijk'),(50,'high','lmn')]):
-            label = f'Low order: < {threshold} ROI' if band == 0 else f'High order: ≥ {threshold} ROI'
-            text_mm(fig, 3, 148+offset, label+' · mean across 3 seeds',
-                    fontsize=6.6, weight='bold')
-            for i,x in enumerate(starts):
-                row = order_summary['by_G'][i]
-                letter(fig,x,153+offset,letters[i])
-                text_mm(fig,x+30,153+offset,
-                        f"Total: {row[prefix+'_mean_nats']:.3f} ± {row[prefix+'_seed_sd_nats']:.3f} nats",
-                        fontsize=6.1,ha='center')
-                for view in range(4):
-                    ax = axes_mm(fig,x+(view%2)*29,157+offset+(view//2)*18.2,28,17.2)
-                    ax.imshow(images[12*band+4*i+view],interpolation='none')
-                    ax.axis('off')
+        text_mm(fig, 3, 148,
+                f'High order: ≥ {threshold} ROI · within-band % · mean across 3 seeds',
+                fontsize=6.6, weight='bold')
+        for i,x in enumerate(starts):
+            row = order_summary['by_G'][i]
+            letter(fig,x,153,'ijk'[i])
+            note = ("N/A: high-order total = 0" if
+                    not order_summary['percentage_audit']['valid_seed_counts'][1][i] else
+                    f"Total: {row['high_mean_nats']:.3f} ± {row['high_seed_sd_nats']:.3f} nats")
+            text_mm(fig,x+30,153,note,fontsize=6.1,ha='center')
+            for view in range(4):
+                ax = axes_mm(fig,x+(view%2)*29,157+(view//2)*18.2,28,17.2)
+                ax.imshow(images[12+4*i+view],interpolation='none')
+                ax.axis('off')
         cb = fig.colorbar(plt.cm.ScalarMappable(
             norm=Normalize(order_summary['plot']['vmin'],order_summary['plot']['vmax']),cmap='viridis'),
-            cax=axes_mm(fig,179,166,1.6,68),orientation='vertical')
+            cax=axes_mm(fig,179,160,1.6,32),orientation='vertical')
         cb.set_ticks(np.linspace(order_summary['plot']['vmin'],order_summary['plot']['vmax'],5))
-        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.3f"))
+        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
         cb.ax.tick_params(labelsize=6.0, length=1.5, pad=1.2)
         cb.outline.set_linewidth(.5)
-        cb.set_label('ROI allocation (nats)', fontsize=6.2, labelpad=3,
+        cb.set_label('ROI share within high order (%)', fontsize=6.2, labelpad=3,
                      rotation=270, va='bottom')
         colorbars.append(cb)
         # One stacked network comparison per G, aligned to the tree/cortex
@@ -595,12 +620,12 @@ def draw(dpi, threshold=50):
                 Patch(facecolor='#777777', edgecolor='none', label=r'Within-network $\Xi$'),
                 Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///', linewidth=.4,
                       label='Between-network Shapley')],
-                loc='center', bbox_to_anchor=(90/WIDTH, 1-251.2/HEIGHT), ncol=2,
+                loc='center', bbox_to_anchor=(90/WIDTH, 1-201.2/HEIGHT), ncol=2,
                 fontsize=6.1, frameon=False, handlelength=1.6, columnspacing=1.7)
             for i, (x, coupling) in enumerate(zip([v+15 for v in starts], TREE_COUPLINGS)):
                 within, between = network_means[i, :, order].T
                 combined = within + between
-                ax = axes_mm(fig, x, 262, 40, 32)
+                ax = axes_mm(fig, x, 212, 40, 32)
                 ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
                 ax.barh(ypos, between, left=within, height=.72, color=faded,
                         edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
@@ -617,9 +642,9 @@ def draw(dpi, threshold=50):
                 ax.tick_params(axis='x', labelsize=6.1)
                 ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
                 ax.grid(axis='x', color='.91', lw=.5, zorder=0)
-                letter(fig, starts[i], 258, 'opq'[i])
-                text_mm(fig, starts[i]+28.5, 258, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
-                text_mm(fig, starts[i]+28.5, 303,
+                letter(fig, starts[i], 208, 'lmn'[i])
+                text_mm(fig, starts[i]+28.5, 208, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
+                text_mm(fig, starts[i]+28.5, 253,
                         f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
                         ha='center', fontsize=5.7, color='.35')
 
@@ -649,11 +674,62 @@ def draw(dpi, threshold=50):
             raise ValueError('Hit-window note overlaps the axis label')
         print('Vertical guide audit:', dict(colorbars=len(colorbars),
             all_guides_within_canvas=True, no_data_overlap=True,
-            canvas_mm=[WIDTH, HEIGHT], previous_height_mm=269.))
+            canvas_mm=[WIDTH, HEIGHT], previous_height_mm=305.))
         for suffix in (".png", ".pdf"):
             path = OUTPUT.with_suffix(suffix)
             fig.savefig(path, dpi=dpi, bbox_inches=None)
             print("Saved:", path)
+        plt.close(fig)
+        REPORT_IMAGE.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(OUTPUT.with_suffix('.png'), REPORT_IMAGE)
+        print('Updated report image:', REPORT_IMAGE)
+
+
+def draw_low_order_detail(dpi, threshold=50):
+    """Appendix row: unaltered low-band crops with the main figure's scale."""
+    images, summary = cortex_crops(threshold)
+    width, height = WIDTH, 66.
+    _, base = order_output_paths(threshold)
+    output = base.with_name(base.name+'_low_band_percent')
+    with plt.rc_context({'font.family':'sans-serif', 'font.sans-serif':['Arial','DejaVu Sans'],
+                         'font.size':7, 'pdf.fonttype':42, 'savefig.facecolor':'white'}):
+        fig = plt.figure(figsize=(width/25.4, height/25.4), facecolor='white')
+        fig.text(3/width, 1-4/height,
+                 f'Low order: < {threshold} ROI · within-band % · mean across 3 seeds',
+                 va='center', fontsize=8, weight='bold')
+        for i,x in enumerate([3, 62, 121]):
+            fig.text((x+28.5)/width, 1-11/height, rf'$G={TREE_COUPLINGS[i]:g}$',
+                     ha='center', va='center', fontsize=9)
+            row = summary['by_G'][i]
+            fig.text((x+28.5)/width, 1-23/height,
+                     f"Total: {row['low_mean_nats']:.3f} ± {row['low_seed_sd_nats']:.3f} nats",
+                     ha='center', va='center', fontsize=6.7)
+            for view in range(4):
+                ax = fig.add_axes([(x+(view%2)*29)/width,
+                    1-(27+(view//2)*18.2+17.2)/height, 28/width, 17.2/height])
+                ax.imshow(images[4*i+view], interpolation='none')
+                ax.axis('off')
+        cb = fig.colorbar(plt.cm.ScalarMappable(
+            norm=Normalize(summary['plot']['vmin'], summary['plot']['vmax']), cmap='viridis'),
+            cax=fig.add_axes([179/width, 1-61/height, 1.6/width, 32/height]))
+        cb.set_ticks(np.linspace(summary['plot']['vmin'], summary['plot']['vmax'], 5))
+        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.2f'))
+        cb.ax.tick_params(labelsize=6, length=2, pad=1.5)
+        cb.outline.set_linewidth(.5)
+        cb.set_label('ROI share within low order (%)', fontsize=6.2,
+                     rotation=270, va='bottom', labelpad=3)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        guide = cb.ax.get_tightbbox(renderer)
+        if (not fig.bbox.contains(guide.x0, guide.y0) or not fig.bbox.contains(guide.x1, guide.y1)
+                or any(guide.overlaps(a.get_window_extent()) for a in fig.axes if a is not cb.ax)):
+            raise ValueError('Appendix colorbar clips or overlaps a cortex panel')
+        if any(cb.ax.yaxis.label.get_window_extent(renderer).overlaps(
+                tick.get_window_extent(renderer)) for tick in cb.ax.get_yticklabels()):
+            raise ValueError('Appendix colorbar label overlaps its tick labels')
+        for suffix in ('.png', '.pdf'):
+            fig.savefig(output.with_suffix(suffix), dpi=dpi, bbox_inches=None)
+            print('Saved:', output.with_suffix(suffix))
         plt.close(fig)
 
 
@@ -689,4 +765,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with threadpool_limits(limits=1):
         draw(args.dpi,args.roi_order_threshold)
-        draw_g0_detail(args.dpi)
+        draw_low_order_detail(args.dpi,args.roi_order_threshold)
