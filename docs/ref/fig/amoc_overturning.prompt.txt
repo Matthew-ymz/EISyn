@@ -1,0 +1,24 @@
+Mode: built-in image_gen
+Purpose: Original conceptual figure for 大西洋经向翻转环流_AMOC.md
+Generated: 2026-10-18 (Asia/Shanghai)
+
+Use case: scientific-educational.
+Asset type: one polished Chinese educational infographic for a Markdown explainer about the Atlantic Meridional Overturning Circulation (AMOC), general educated audience.
+Primary request: Show normal overturning, why warming and freshening can weaken it, and its consequences, with scientifically correct arrow directions. Create a premium editorial science illustration, soft painterly ocean cutaway with crisp vector-like arrows and very legible Simplified Chinese typography. Landscape canvas about 3:2, generous white space, ivory background, navy headings, ocean teal and deep blue, restrained warm coral for warm water. Flat readable diagram with subtle illustrative depth, no photorealism, no decorative clutter.
+Layout: title at top, large main ocean cross-section taking the upper 55%; a slim horizontal causal chain below; four evenly spaced impact cards along the bottom. Small A/B/C section letters. Chinese copy precisely rendered with no invented text.
+Title (verbatim): “AMOC：海洋如何‘翻转’”
+Subtitle (verbatim): “表层北上 · 高纬下沉 · 深层南返”
+A main section heading: “A  正常循环”
+Main ocean cross-section is an abstract SOUTH to NORTH section, with SOUTH on LEFT and NORTH on RIGHT. Label left upper edge “南大洋”, middle upper edge “热带—副热带大西洋”, right upper edge “北大西洋高纬”. It is a conceptual section, NOT an east-west map. Leave air above ocean for tiny sun over tropics and upward wavy heat arrows over the northern sea. Show faint seafloor shape, clear surface and deep layers. Label heat release “向大气放热”.
+Continuous warm CORAL arrow flows near surface from middle tropical Atlantic toward RIGHT/north; label beside arrow with clear separation “① 暖而较咸的海水北上”. At right/north, cooling produces dense water and a BLUE arrow descends smoothly to deep water; label outside flow “② 冷却增密，形成深水”. Continuous deep BLUE arrow flows from right to LEFT/south; label “③ 深层冷水南返”. At far LEFT ONLY, a dashed TEAL curved upward arrow indicates distant distributed upwelling and mixing in the Southern Ocean and connected global circulation; label “④ 上升流与混合，连接全球循环”. A small note below A says “概念剖面，非实际航线；风与混合也参与维持环流”.
+B middle section heading: “B  为什么会减弱？”
+A single simple left-to-right causal chain with 4 clean rounded pale cards and arrows in gaps, exact labels: “变暖＋淡水增加” → “表层变轻、分层增强” → “深水形成受抑制” → “翻转环流减弱”. This is a POSSIBLE WARMING RESPONSE, distinct from normal circulation above. No collapse claim in this chain.
+C bottom heading: “C  减弱后的影响”
+Four elegant equal cards, simple small line icons (thermometer, coast/wave, rain cloud, fish and molecule), labels each with title and one subtitle:
+“区域气温” / “北大西洋及邻近地区升温受抑”
+“沿岸海平面” / “美国东岸部分地区额外上升”
+“降水与季风” / “热带雨带与干湿格局改变”
+“海洋生态” / “氧、营养盐和碳输送改变”
+Footer, verbatim: “减弱不等于崩溃；是否越过临界点仍有不确定性。”
+Constraints: all Chinese text must be crisp and accurate; arrows must NEVER be reversed. Surface northward to right, deep southward to left, sinking on north/right, upwelling at far south/left. Do not depict a sudden reversal of currents. Do not show numerical data or quantified predictions. Avoid labels on arrows, overlapping labels, faux charts, misleading world geography, disaster scenes, logos, watermarks.
+
