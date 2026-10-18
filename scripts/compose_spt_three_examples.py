@@ -290,7 +290,8 @@ def draw_topology(ax, kind, weak_bridges=False):
     ax.axis("off")
 
 
-def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False):
+def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False,
+                    panel_labels=("c", "d")):
     """Draw native axes within a region without scaling the physical text size."""
     x0, y0, width, height = bounds
     def point(x, y):
@@ -326,14 +327,16 @@ def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False)
         fig.text(*point(.019, .168), "Module F1 ↑", fontsize=FONT_HEADER, weight="bold", color=INK)
         ax = fig.add_axes(rectangle(.018, .024, .969, .124))
         ax.axis("off")
-        order = ("spt", "mic", "mic_fit", "mi_hac", "dcor_hac", "correlation_hac", "ward")
-        columns = ["Example", "SPT", "MIC (data)", "MIC (shared fit)", "Pairwise MI",
+        # Shared-fit MIC is a Glauber-only diagnostic, retained in the report
+        # and manuscript supplement rather than the cross-example table.
+        order = ("spt", "mic", "mi_hac", "dcor_hac", "correlation_hac", "ward")
+        columns = ["Example", "SPT", "MIC (data)", "Pairwise MI",
                    "Distance corr.", "Absolute corr.", "Ward"]
         rows = [[c["id"] + "  " + c["name"],
                  *[f"{c['scores'][name]:.3f}" + ("†" if c['approximate'] and name == "spt" else "")
                    if name in c["scores"] else "—" for name in order]] for c in cases]
         table = ax.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center",
-                         colWidths=[.18] + [.82 / 7] * 7, bbox=(0, 0, 1, 1))
+                         colWidths=[.18] + [.82 / len(order)] * len(order), bbox=(0, 0, 1, 1))
         table.auto_set_font_size(False)
         table.set_fontsize(FONT_BODY)
         for (r, c), cell in table.get_celld().items():
@@ -354,7 +357,7 @@ def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False)
         fig.text(*point(.019, .981), "Border:", fontsize=FONT_BODY)
         fig.text(*point(.986, .981), "SPT fill: Syn share (%)", ha="right", fontsize=FONT_BODY)
         if panel_letters:
-            for letter, y in (("c", .998), ("d", .185)):
+            for letter, y in zip(panel_labels, (.998, .185)):
                 fig.text(*point(.004, y), letter, fontsize=FONT_PANEL, weight="bold",
                          ha="left", va="top", color=INK)
 
@@ -398,9 +401,9 @@ def write_report(raw, cases):
              "| `learned-component approximation`、`generic spin model`、`numerical checks passed` | 拟合通道的实现方式及数值积分检查；具体限制保留在下文。 |",
              "| `10/10`、`0/10`、`1/10` | II 在十个新数据种子上的精确根恢复次数，属于独立确认结果，不能当作 F1。 |",
              "| `local Syn / whole-tree Ξ` | 节点百分比的定义；现在简写为 `Syn share (%)`。Ξ 是所有内部节点局部 Syn 之和，其绝对数值已从图中删除。 |", "",
-             "保留的 `MIC (data)` 表示直接对样本计算组互信息并构树；`MIC (shared fit)` 表示使用与 SPT 相同的拟合通道，作为控制比较。绿色表示恢复的真实模块，红色表示错误合并，灰色表示不计分的根、叶子或模块内部细分。F1 越大越好，1 为完全恢复；表中的破折号表示该项未提供，不能读作零。", "",
+             "图中的 `MIC (data)` 表示直接对样本计算组互信息并构树。`MIC (shared fit)` 使用与 SPT 相同的拟合通道，只在 II 做了这一附加控制；其得分保留在下表及论文补充材料中，不占主图比较表的一列。绿色表示恢复的真实模块，红色表示错误合并，灰色表示不计分的根、叶子或模块内部细分。F1 越大越好，1 为完全恢复；下表中的破折号表示该项未提供，不能读作零。", "",
              "## 统一评分", "",
-             "模块 F1 = 2TP/(预测的可评分模块数＋真实模块数)。I/II 真值为 123、456；III 为 123、1234、56。共同六源根和单点叶子不评分；原生最小模块内部的二叉细分没有唯一真值，沿用嵌套实验口径而排除；其他错误合并计为假阳性。因而不能把 123 内部的任意配对标红。本版仅展示层级方法；右下角额外小树也已移除，共享拟合通道 MIC 的控制分数仍保留在表中。", "",
+             "模块 F1 = 2TP/(预测的可评分模块数＋真实模块数)。I/II 真值为 123、456；III 为 123、1234、56。共同六源根和单点叶子不评分；原生最小模块内部的二叉细分没有唯一真值，沿用嵌套实验口径而排除；其他错误合并计为假阳性。因而不能把 123 内部的任意配对标红。本版仅展示层级方法；右下角额外小树也已移除，共享拟合通道 MIC 的控制分数保留在本报告的下表中。", "",
              "| 方法 | I Kuramoto | II Glauber | III Kuramoto |", "|---|---:|---:|---:|"]
     for name, label in [("spt", "SPT：模块 F1"), *zip(METHODS, LABELS),
                         ("mic_fit", "MIC：共享拟合通道 F1")]:

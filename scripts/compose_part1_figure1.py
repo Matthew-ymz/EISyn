@@ -255,7 +255,7 @@ def confounder_result_in_nats() -> tuple[dict, dict]:
     readout = json.loads(CONFOUNDER_READOUT_RESULT.read_text(encoding="utf-8"))
     result = copy.deepcopy(readout["updated_full_result"])
     if result["config"]["intervention_samples"] != 5120:
-        raise ValueError("Figure 1b requires the documented 5,120-sample readout.")
+        raise ValueError("The confounder comparison requires the documented 5,120-sample readout.")
     # This display audit declares a strict tolerance; it does not retrospectively
     # change the estimator or silently project cached values onto zero.
     tolerance_nats = 0.0
@@ -266,7 +266,7 @@ def confounder_result_in_nats() -> tuple[dict, dict]:
     if violations.any():
         raise ValueError(f"Syn minimum={values.min():.6g} nats; threshold="
                          f"{-tolerance_nats:g}; affected count={violations.sum()}")
-    print(f"Figure 1b Syn display audit: tolerance={tolerance_nats:g} nats; "
+    print(f"Confounder Syn display audit: tolerance={tolerance_nats:g} nats; "
           f"minimum={values.min():.6g}; numerical-zero-band count=0; "
           "significant violation count=0; no clipping")
     information_prefixes = (
@@ -614,11 +614,12 @@ def build_three_example_figure() -> plt.Figure:
         draw_intervention_panel(fig, bounds(.018, .08, .350, .82))
         draw_hyperedge_panel(fig, bounds(.397, .065, .280, .875), unified=True)
         draw_confounder_synergy_panel(fig, bounds(.735, .17, .227, .64), unified=True)
-        for letter, x in (("a", .004), ("b", .384)):
+        for letter, x in (("a", .004), ("b", .384), ("c", .696)):
             fig.text(x, lower + top * .98, letter, fontsize=FONT_PANEL, weight="bold",
                      ha="left", va="top", color=INK)
         _, cases = collect()
-        draw_comparison(fig, cases, bounds=(0, 0, 1, lower), panel_letters=True)
+        draw_comparison(fig, cases, bounds=(0, 0, 1, lower), panel_letters=True,
+                        panel_labels=("d", "e"))
     return fig
 
 
@@ -631,7 +632,7 @@ def main() -> None:
     mode.add_argument("--panels-ab", action="store_true",
                       help="Export only the horizontal a/b strip with the enlarged synergy plot.")
     mode.add_argument("--three-examples", action="store_true",
-                      help="Join the a/b strip and current three-example hierarchy/score plate.")
+                      help="Join the intervention/schematic/result strip and current hierarchy/score plate.")
     args = parser.parse_args()
     if not (args.panels_ab or args.three_examples) and (args.refresh_sources or not SYSTEM_BENCHMARK_LARGE_TEXT.exists()):
         prepare_large_text_sources()
