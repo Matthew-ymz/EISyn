@@ -22,6 +22,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 OUT = ROOT / "results/six_node_data_driven_tpm"
+CONFIRMATION_ID = "data_only_tpm_paired_confirmation_v1"
+CONFIRMATION_SEEDS = (1, 2)
+SAMPLE_BUDGETS = (4800, 48000)
 STATE_COUNT = 64
 STATES = (2 * ((np.arange(STATE_COUNT)[:, None] >> np.arange(6)) & 1) - 1).astype(float)
 
@@ -205,7 +208,8 @@ def information_summary(kernel, test_counts, oracle):
                 root_syn_bits=result["tree"]["syn_bits"])
 
 
-def run_seed(seed=0, sample_count=4800, config=MLPConfig(), output=OUT):
+def run_seed(seed=0, sample_count=4800, config=MLPConfig(), output=OUT,
+             *, confirmation=False, include_ctmc=False):
     import torch
     from threadpoolctl import threadpool_limits
     from scripts import search_six_node_mixed_dynamics as benchmark
@@ -235,12 +239,18 @@ def run_seed(seed=0, sample_count=4800, config=MLPConfig(), output=OUT):
     # The independent test set is first generated after all model selection/refitting.
     _, _, test_counts = benchmark.draw_joint(oracle, 20000+seed, sample_count)
     kernels = dict(empirical=direct_tpm(counts), smoothed=direct_tpm(counts, shrinkage), mlp=learned)
+    ctmc_fit = None
     if cached is not None:
         theta = np.array([cached["fit"]["coefficients"]["".join(map(str, term))]
                           for term in benchmark.TERMS])
         with threadpool_limits(limits=1):
             from scipy.linalg import expm
             kernels["ctmc_prior"] = expm(selected["config"]["tau"] * benchmark.generic_generator(theta)[0])
+        ctmc_fit = dict(source="hash-verified original cached fit", **cached["fit"])
+    elif include_ctmc:
+        started = time.monotonic()
+        kernels["ctmc_prior"], fit = benchmark.fit_ctmc(counts, tau=selected["config"]["tau"], penalty=10.)
+        ctmc_fit = dict(source="refit all endpoint pairs", elapsed_seconds=time.monotonic()-started, **fit)
 
     methods = {name: information_summary(kernel, test_counts, oracle) for name, kernel in kernels.items()}
     methods["oracle"] = information_summary(oracle, test_counts, oracle)
@@ -249,10 +259,12 @@ def run_seed(seed=0, sample_count=4800, config=MLPConfig(), output=OUT):
         if (actual["spt"]["groups"] != cached["fitted_spt"]["groups"]
                 or abs(actual["heldout_nll_nats"] - cached["heldout_nll_nats"]) > 1e-10):
             raise RuntimeError("Reconstructed CTMC does not reproduce cached predictions")
-    payload = dict(schema_version=1, seed=seed, sample_count=sample_count,
-                   protocol="single-seed pilot; no confirmation claim", configuration=selected["config"],
+    payload = dict(schema_version=2, seed=seed, sample_count=sample_count,
+                   protocol=CONFIRMATION_ID if confirmation else "single-seed pilot; no confirmation claim",
+                   role="confirmation" if confirmation else "pilot",
+                   configuration=selected["config"],
                    sample_budget_role=("original matched endpoint budget" if sample_count == 4800
-                                       else "exploratory larger-sample follow-up; original 4800-pair failure retained"),
+                                       else "larger-sample budget selected on seed-0 pilot; frozen before confirmation"),
                    source_intervention="independent uniform six-bit input q(x)=1/64",
                    target="complete joint six-spin endpoint at lag tau=2",
                    ei_units="bits", loss_units="nats per transition", syn_tolerance_bits=benchmark.TOL,
@@ -269,21 +281,203 @@ def run_seed(seed=0, sample_count=4800, config=MLPConfig(), output=OUT):
                                   prior="training-only future marginal with half-count smoothing"),
                    mlp=dict(architecture=[6, config.width, config.width, 64], activation="SiLU",
                             config=asdict(config), initialization_seed=42000+seed,
-                            selection=selection, refit=refit), methods=methods,
+                            selection=selection, refit=refit), ctmc_fit=ctmc_fit, methods=methods,
                    manuscript=dict(parent="P6UJCVG8", main="DXGC7JEA", supplement="MWIWKSVG",
-                                   checked_on="2026-10-20", explicit_version=None,
+                                   checked_on="2026-10-21", explicit_version=None,
                                    relevant="main Methods (5)-(12); SI S1.1 (S1)-(S3), S5/Algorithm S1",
                                    limitation="Unique indexed attachments have no explicit draft date; SI lacks new Example II. Local 2026-10-20 Overleaf snapshot and existing code supply its settings."))
     stem = output/f"n{sample_count}_seed{seed}"
     np.savez_compressed(stem.with_suffix(".npz"), initial=initial, future=future,
                         train_indices=np.array(split["train_indices"]),
                         validation_indices=np.array(split["validation_indices"]),
-                        test_counts=test_counts, **kernels)
+                        test_counts=test_counts, oracle=oracle, **kernels)
     stem.with_suffix(".json").write_text(json.dumps(payload, indent=2, allow_nan=False)+"\n")
     for name, result in methods.items():
         print(name, "root", result["spt"]["groups"], "F1", result["module_f1"],
               "NLL", result["heldout_nll_nats"], "Xi", result["root_xi_bits"], flush=True)
     print(stem.with_suffix(".json"), flush=True)
+    return payload
+
+
+def numeric_summary(values):
+    values = np.asarray(values, dtype=float)
+    if values.ndim != 1 or not len(values) or not np.isfinite(values).all():
+        raise ValueError("A summary requires finite, nonempty seed-level measurements")
+    return dict(mean=float(values.mean()), sd=float(values.std(ddof=1)) if len(values)>1 else None,
+                minimum=float(values.min()), maximum=float(values.max()), values=values.tolist())
+
+
+def summarize_confirmation(records):
+    """Independent replication unit is the data seed; seed 0 is excluded."""
+    methods = ("empirical", "smoothed", "mlp", "ctmc_prior", "oracle")
+    summary = dict(protocol=CONFIRMATION_ID, seeds=list(CONFIRMATION_SEEDS),
+                   sample_budgets=list(SAMPLE_BUDGETS), pilot_seed_excluded=0,
+                   replication_unit="independent endpoint dataset / data seed",
+                   pairing="same endpoints and test counts for all methods within each seed and budget",
+                   between_budget_pairing="different, non-nested endpoint draws; no paired budget-effect claim",
+                   model_selection="validation NLL only; fixed architecture and optimizer; final full-data refit",
+                   recovery_interval="95% Wilson score interval for seed-level binary outcomes; descriptive at n=2",
+                   conditions=[])
+    for sample_count in SAMPLE_BUDGETS:
+        rows = sorted([row for row in records if row["sample_count"] == sample_count], key=lambda row: row["seed"])
+        if [row["seed"] for row in rows] != list(CONFIRMATION_SEEDS):
+            raise ValueError(f"Missing, duplicated or unexpected confirmation seeds at n={sample_count}")
+        for row in rows:
+            if row["protocol"] != CONFIRMATION_ID or row["mlp"]["config"] != asdict(MLPConfig()):
+                raise ValueError("Confirmation protocol/configuration mismatch")
+            if set(row["methods"]) != set(methods) or row["final_refit_count"] != sample_count:
+                raise ValueError("Unmatched method availability or endpoint budget")
+        result = dict(sample_count=sample_count, methods={}, paired_mlp_minus_ctmc={})
+        for name in methods:
+            scores = [row["methods"][name] for row in rows]
+            success = sum(score["spt"]["exact_original_two_groups"] for score in scores)
+            n = len(scores)
+            z, rate = 1.959963984540054, success/n
+            denominator = 1 + z*z/n
+            center = (rate+z*z/(2*n))/denominator
+            half = z*math.sqrt(rate*(1-rate)/n + z*z/(4*n*n))/denominator
+            finite = [score["heldout_nll_nats"] is not None for score in scores]
+            if not all(finite) and any(finite):
+                # Do not average a finite subset of a method with infinite losses.
+                nll = dict(status="mixed_finite_and_infinite", finite_count=sum(finite), infinite_count=n-sum(finite))
+            elif all(finite):
+                nll = dict(status="finite", **numeric_summary([
+                    score["heldout_nll_nats"]-row["methods"]["oracle"]["heldout_nll_nats"]
+                    for row, score in zip(rows, scores)]))
+            else:
+                nll = dict(status="all_infinite_zero_probability", finite_count=0, infinite_count=n)
+            result["methods"][name] = dict(
+                root_recovery_count=int(success), total=n, root_recovery_rate=rate,
+                root_recovery_wilson_95=[center-half, center+half],
+                module_f1=numeric_summary([score["module_f1"] for score in scores]),
+                subset_ei_mae_bits=numeric_summary([score["mean_absolute_subset_ei_error_bits"] for score in scores]),
+                excess_test_nll_nats=nll,
+                root_xi_bits=numeric_summary([score["root_xi_bits"] for score in scores]),
+                root_syn_bits=numeric_summary([score["root_syn_bits"] for score in scores]),
+                actual_root_partitions=[score["spt"]["groups"] for score in scores],
+                minimum_candidate_syn_bits=min(score["spt"]["syn_audit"]["minimum_syn_bits"] for score in scores),
+                tolerance_band_negative_count=sum(score["spt"]["syn_audit"]["small_negative_count"] for score in scores),
+                significant_violation_count=sum(score["spt"]["syn_audit"]["violation_count"] for score in scores))
+        for key in ("module_f1", "heldout_nll_nats", "mean_absolute_subset_ei_error_bits"):
+            result["paired_mlp_minus_ctmc"][key] = numeric_summary([
+                row["methods"]["mlp"][key] - row["methods"]["ctmc_prior"][key] for row in rows])
+        summary["conditions"].append(result)
+    return summary
+
+
+def checked_cached_confirmation(path, seed, sample_count, configuration):
+    """Reject stale/mismatched support artifacts instead of trusting file presence."""
+    from scripts import search_six_node_mixed_dynamics as benchmark
+    row = json.loads(path.read_text())
+    if (row["protocol"] != CONFIRMATION_ID or row["mlp"]["config"] != asdict(MLPConfig())
+            or row["seed"] != seed or row["sample_count"] != sample_count
+            or row["configuration"] != configuration):
+        raise ValueError("Cached configuration differs from the frozen confirmation protocol")
+    with np.load(path.with_suffix(".npz")) as arrays:
+        initial, future = arrays["initial"], arrays["future"]
+        if (len(initial) != sample_count or benchmark.digest(initial) != row["source_sha256"]
+                or benchmark.digest(future) != row["future_sha256"]):
+            raise ValueError("Cached endpoint arrays differ from their recorded hashes")
+        train_indices, validation_indices = arrays["train_indices"], arrays["validation_indices"]
+        if (sorted(np.r_[train_indices, validation_indices].tolist()) != list(range(sample_count))
+                or benchmark.digest(train_indices) != row["split_sha256"]):
+            raise ValueError("Cached training/validation split is incomplete, overlapping or changed")
+        if "oracle" not in arrays:
+            from threadpoolctl import threadpool_limits
+            with threadpool_limits(limits=1):
+                oracle = benchmark.spin_kernel(**configuration)
+        for name, result in row["methods"].items():
+            kernel = validate_kernel(oracle if name == "oracle" and "oracle" not in arrays else arrays[name])
+            nll = negative_log_likelihood(kernel, arrays["test_counts"])
+            if result["heldout_nll_nats"] is None:
+                matches = math.isinf(nll) and result["heldout_nll_status"] == "infinite_zero_probability"
+            else:
+                matches = abs(nll-result["heldout_nll_nats"]) < 1e-12
+            ei = benchmark.exact_ei(kernel)
+            if not matches or any(abs(value-result["spt"]["ei_bits"]["".join(map(str, subset))])>1e-12
+                                  for subset, value in ei.items()):
+                raise ValueError("Cached TPM does not reproduce saved EI or predictive loss")
+    return row
+
+
+def run_confirmation(output=OUT/"confirmation"):
+    """Paired comparison, reduced by the user to fixed first two seeds 1 and 2."""
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    from scripts import search_six_node_mixed_dynamics as benchmark
+    configuration = json.loads((benchmark.OUT/"selected_ctmc_population.json").read_text())["config"]
+    records, failures = [], []
+    for count in SAMPLE_BUDGETS:
+        for seed in CONFIRMATION_SEEDS:
+            print(f"CONFIRMATION n={count} seed={seed}", flush=True)
+            try:
+                saved = output/f"n{count}_seed{seed}.json"
+                if saved.exists() and saved.with_suffix(".npz").exists():
+                    records.append(checked_cached_confirmation(saved, seed, count, configuration))
+                    print("Reused matching saved dataset and fitted channels", flush=True)
+                else:
+                    records.append(run_seed(seed, count, output=output, confirmation=True, include_ctmc=True))
+            except Exception as exc:
+                failure = dict(sample_count=count, seed=seed, error_type=type(exc).__name__, message=str(exc))
+                failures.append(failure)
+                (output/f"failure_n{count}_seed{seed}.json").write_text(json.dumps(failure, indent=2)+"\n")
+                print("FAILED", failure, flush=True)
+    if failures:
+        raise RuntimeError(f"Confirmation incomplete: {len(failures)} failed datasets; all failure records retained")
+    summary = summarize_confirmation(records)
+    (output/"summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False)+"\n")
+    return summary
+
+
+def evaluate_clustering_baselines(output=OUT/"confirmation"):
+    """Re-evaluate the original endpoint-block baselines; never retrain a model."""
+    from scripts import search_six_node_mixed_dynamics as benchmark
+    from scripts.compose_spt_three_examples import module_f1
+    output = Path(output)
+    configuration = json.loads((benchmark.OUT/"selected_ctmc_population.json").read_text())["config"]
+    records = []
+    names = ("mic", "mi_hac", "dcor_hac", "correlation_hac", "ward")
+    for count in SAMPLE_BUDGETS:
+        for seed in CONFIRMATION_SEEDS:
+            stem = output/f"n{count}_seed{seed}"
+            fitted = checked_cached_confirmation(stem.with_suffix(".json"), seed, count, configuration)
+            with np.load(stem.with_suffix(".npz")) as arrays:
+                counts = transition_counts(arrays["initial"], arrays["future"])
+                layers = {}
+                for layer, probability in (("data", counts.ravel()/counts.sum()),
+                                           ("shared_mlp", arrays["mlp"].ravel()/64)):
+                    result = benchmark.discrete_methods(probability, "transition")
+                    for method in result["methods"].values():
+                        method["module_f1"] = (module_f1(method["tree"], [[1, 2, 3], [4, 5, 6]])
+                                               if method["kind"] == "hierarchy" else None)
+                    layers[layer] = result
+            records.append(dict(sample_count=count, seed=seed, view="complete initial-future node blocks",
+                                source_sha256=fitted["source_sha256"], future_sha256=fitted["future_sha256"],
+                                layers=layers, spt_mlp=fitted["methods"]["mlp"]))
+    summary = []
+    for count in SAMPLE_BUDGETS:
+        rows = [row for row in records if row["sample_count"] == count]
+        condition = dict(sample_count=count, layers={})
+        for layer in ("data", "shared_mlp"):
+            methods = {}
+            for name in names:
+                scores = [row["layers"][layer]["methods"][name] for row in rows]
+                methods[name] = dict(root_recovery_count=sum(score["exact_original_two_groups"] for score in scores),
+                                     total=len(rows), module_f1=numeric_summary([score["module_f1"] for score in scores]),
+                                     actual_root_partitions=[score["groups"] for score in scores])
+            condition["layers"][layer] = methods
+        summary.append(condition)
+    payload = dict(seeds=list(CONFIRMATION_SEEDS),
+                   source="same saved endpoints and MLP channels; no new transitions or fitting",
+                   primary_view="complete per-node initial-future endpoint blocks, fixed before evaluation",
+                   shared_fit="q(x)P_mlp(y|x), q(x)=1/64; exactly the SPT learned joint",
+                   conditions=records, summary=summary)
+    (output/"clustering_baselines_two_seeds.json").write_text(json.dumps(payload, indent=2, allow_nan=False)+"\n")
+    for condition in summary:
+        for layer, methods in condition["layers"].items():
+            print(condition["sample_count"], layer,
+                  {name: (f"{result['root_recovery_count']}/{result['total']}", result["module_f1"]["mean"])
+                   for name, result in methods.items()}, flush=True)
     return payload
 
 
@@ -293,8 +487,18 @@ def main():
     parser.add_argument("--samples", type=int, default=4800)
     parser.add_argument("--max-epochs", type=int, default=MLPConfig.max_epochs)
     parser.add_argument("--output", type=Path, default=OUT)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--confirmation", action="store_true", help="Run/reuse fixed seeds 1 and 2 at both sample budgets")
+    mode.add_argument("--baselines-only", action="store_true", help="Evaluate original clustering methods on saved data/channels")
     args = parser.parse_args()
-    run_seed(args.seed, args.samples, MLPConfig(max_epochs=args.max_epochs), args.output)
+    if args.confirmation:
+        if args.seed != 0 or args.samples != 4800 or args.max_epochs != MLPConfig.max_epochs:
+            parser.error("Confirmation uses the frozen seeds, budgets and MLP config; omit single-seed overrides")
+        run_confirmation(args.output/"confirmation")
+    elif args.baselines_only:
+        evaluate_clustering_baselines(args.output/"confirmation")
+    else:
+        run_seed(args.seed, args.samples, MLPConfig(max_epochs=args.max_epochs), args.output)
 
 
 if __name__ == "__main__":

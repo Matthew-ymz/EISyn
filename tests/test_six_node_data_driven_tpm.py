@@ -73,3 +73,88 @@ def test_exact_ei_matches_identity_channel_without_synergy_projection():
     assert result['syn_audit']['candidate_count'] == 301
     assert result['syn_audit']['violation_count'] == 0
     assert result['syn_audit']['clipping'] is False
+
+
+def confirmation_fixture():
+    from dataclasses import asdict
+    rows = []
+    for count in m.SAMPLE_BUDGETS:
+        for seed in m.CONFIRMATION_SEEDS:
+            methods = {}
+            for name in ('empirical', 'smoothed', 'mlp', 'ctmc_prior', 'oracle'):
+                success = name in ('ctmc_prior', 'oracle') or (name == 'mlp' and count == 48000)
+                methods[name] = dict(
+                    module_f1=1. if success else .5,
+                    heldout_nll_nats=None if name == 'empirical' else 3.+.01*seed,
+                    mean_absolute_subset_ei_error_bits=.01*seed, root_xi_bits=.04,
+                    root_syn_bits=.001,
+                    spt=dict(exact_original_two_groups=success,
+                             groups=[[1, 2, 3], [4, 5, 6]] if success else [[1, 2, 4, 5, 6], [3]],
+                             syn_audit=dict(minimum_syn_bits=.0001, small_negative_count=0, violation_count=0)))
+            rows.append(dict(seed=seed, sample_count=count, protocol=m.CONFIRMATION_ID,
+                             mlp=dict(config=asdict(m.MLPConfig())), final_refit_count=count, methods=methods))
+    return rows
+
+
+def test_two_seed_summary_uses_only_requested_replications_and_preserves_infinity():
+    summary = m.summarize_confirmation(confirmation_fixture())
+    assert summary['seeds'] == [1, 2]
+    assert summary['pilot_seed_excluded'] == 0
+    low, high = summary['conditions']
+    assert low['methods']['mlp']['root_recovery_count'] == 0
+    assert high['methods']['mlp']['root_recovery_count'] == 2
+    assert high['methods']['mlp']['total'] == 2
+    assert low['methods']['empirical']['excess_test_nll_nats']['infinite_count'] == 2
+    assert high['paired_mlp_minus_ctmc']['module_f1']['values'] == [0., 0.]
+
+
+def test_summary_rejects_extra_or_duplicate_seeds():
+    rows = confirmation_fixture()
+    with pytest.raises(ValueError, match='Missing, duplicated or unexpected'):
+        m.summarize_confirmation(rows + [rows[0]])
+    rows[0]['seed'] = 0
+    with pytest.raises(ValueError, match='Missing, duplicated or unexpected'):
+        m.summarize_confirmation(rows)
+
+
+def test_summary_never_averages_only_finite_test_losses():
+    rows = confirmation_fixture()
+    rows[0]['methods']['smoothed']['heldout_nll_nats'] = None
+    stats = m.summarize_confirmation(rows)['conditions'][0]['methods']['smoothed']['excess_test_nll_nats']
+    assert stats['status'] == 'mixed_finite_and_infinite'
+    assert stats['infinite_count'] == 1 and stats['finite_count'] == 1
+    assert 'mean' not in stats
+
+
+def test_cache_validation_supports_legacy_oracle_and_rejects_changed_results(tmp_path):
+    import json
+    from dataclasses import asdict
+    from threadpoolctl import threadpool_limits
+    from scripts import search_six_node_mixed_dynamics as benchmark
+    configuration = dict(family='glauber_ctmc', beta=1., triad=1., tau=2., cross=.04)
+    with threadpool_limits(limits=1):
+        oracle = benchmark.spin_kernel(**configuration)
+    initial, future, _ = benchmark.draw_joint(oracle, 1, 80)
+    _, _, test_counts = benchmark.draw_joint(oracle, 20001, 80)
+    kernel = np.full((64, 64), 1/64)
+    train_indices, validation_indices = np.arange(64), np.arange(64, 80)
+    methods = {}
+    for name, value in [('mlp', kernel), ('oracle', oracle)]:
+        methods[name] = dict(heldout_nll_nats=m.negative_log_likelihood(value, test_counts),
+                             spt=dict(ei_bits={''.join(map(str, key)): ei
+                                              for key, ei in benchmark.exact_ei(value).items()}))
+    row = dict(protocol=m.CONFIRMATION_ID, seed=1, sample_count=80, configuration=configuration,
+               mlp=dict(config=asdict(m.MLPConfig())), source_sha256=benchmark.digest(initial),
+               future_sha256=benchmark.digest(future), split_sha256=benchmark.digest(train_indices), methods=methods)
+    path = tmp_path/'cached.json'
+    path.write_text(json.dumps(row))
+    # Earlier archives contain fitted TPMs but not the oracle, which is rebuilt.
+    np.savez(path.with_suffix('.npz'), initial=initial, future=future, train_indices=train_indices,
+             validation_indices=validation_indices, test_counts=test_counts, mlp=kernel)
+    assert m.checked_cached_confirmation(path, 1, 80, configuration) == row
+    with pytest.raises(ValueError, match='Cached configuration'):
+        m.checked_cached_confirmation(path, 1, 80, {**configuration, 'tau': 3.})
+    row['methods']['mlp']['heldout_nll_nats'] += 1
+    path.write_text(json.dumps(row))
+    with pytest.raises(ValueError, match='does not reproduce'):
+        m.checked_cached_confirmation(path, 1, 80, configuration)

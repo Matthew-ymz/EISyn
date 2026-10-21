@@ -40,7 +40,7 @@ FIGURE_STYLE = {"font.family": "sans-serif", "font.sans-serif": ["Arial", "DejaV
                 "axes.unicode_minus": False, "text.color": INK, "axes.labelcolor": INK,
                 "xtick.color": INK, "ytick.color": INK}
 METHODS = ("mic", "mi_hac", "dcor_hac", "correlation_hac", "ward")
-LABELS = ("Group MI (MIC)", "Pairwise MI", "Distance correlation", "Absolute correlation", "Ward")
+LABELS = ("MIC", "MI-HAC", "dCor-HAC", "AbsCorr-HAC", "Ward")
 MODEL_EXPLANATION = r"""## Glauber 动力学的数学表达
 
 此例采用连续时间、逐个自旋翻转的 Glauber（heat-bath）动力学。六个节点的状态为 $x_i\in\{-1,+1\}$，记 $P=\{1,2,3\}$、$T=\{4,5,6\}$，能量函数为
@@ -303,7 +303,7 @@ def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False,
                                top=point(0, .925)[1], bottom=point(0, .205)[1],
                                width_ratios=(1.12, 1.40, 1.10, 1.10, 1.10, 1.10, 1.10),
                                hspace=.16, wspace=.12)
-        headers = ("Interaction topology", "SPT", *LABELS)
+        headers = ("", "SPT", *LABELS)
         for j, title in enumerate(headers):
             box = grid[0, j].get_position(fig)
             fig.text((box.x0 + box.x1) / 2, point(0, .953)[1], title, ha="center", va="center",
@@ -324,14 +324,13 @@ def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False,
                 fig.add_artist(Line2D([point(.018, 0)[0], point(.987, 0)[0]], [y, y], transform=fig.transFigure,
                                       color="#E0E5E9", lw=.7))
 
-        fig.text(*point(.019, .168), "Module F1 ↑", fontsize=FONT_HEADER, weight="bold", color=INK)
+        fig.text(*point(.019, .168), "Module F1", fontsize=FONT_HEADER, weight="bold", color=INK)
         ax = fig.add_axes(rectangle(.018, .024, .969, .124))
         ax.axis("off")
         # Shared-fit MIC is a Glauber-only diagnostic, retained in the report
         # and manuscript supplement rather than the cross-example table.
         order = ("spt", "mic", "mi_hac", "dcor_hac", "correlation_hac", "ward")
-        columns = ["Example", "SPT", "MIC (data)", "Pairwise MI",
-                   "Distance corr.", "Absolute corr.", "Ward"]
+        columns = ["Example", "SPT", *LABELS]
         rows = [[c["id"] + "  " + c["name"],
                  *[f"{c['scores'][name]:.3f}" + ("†" if c['approximate'] and name == "spt" else "")
                    if name in c["scores"] else "—" for name in order]] for c in cases]
@@ -354,7 +353,6 @@ def draw_comparison(fig, cases, *, bounds=(0., 0., 1., 1.), panel_letters=False,
                   Patch(fc="white", ec=GRAY, lw=1.0, label="Unscored")]
         fig.legend(handles=legend, loc="upper left", bbox_to_anchor=point(.05, .995), ncol=3,
                    frameon=False, fontsize=FONT_BODY, handlelength=1.2, columnspacing=2)
-        fig.text(*point(.019, .981), "Border:", fontsize=FONT_BODY)
         fig.text(*point(.986, .981), "SPT fill: Syn share (%)", ha="right", fontsize=FONT_BODY)
         if panel_letters:
             for letter, y in zip(panel_labels, (.998, .185)):

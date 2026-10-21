@@ -2577,9 +2577,9 @@ def _sample_uniform_states(spec: ModelSpec, *, samples: int, seed: int) -> np.nd
 def _method_plot_specs() -> list[tuple[str, str, str, str]]:
     return [
         ("wms", "WMS", "#0072B2", "o"),
-        ("surd_synergy", "SURD synergy", "#595959", "s"),
-        ("shap_interaction", "MLP+SHAP interaction", "#E69F00", "^"),
-        ("peid_synergy", "MLP+PEID synergy", "#009E73", "D"),
+        ("surd_synergy", "SURD", "#595959", "s"),
+        ("shap_interaction", "MLP+SHAP", "#E69F00", "^"),
+        ("peid_synergy", "MLP+PEID", "#009E73", "D"),
     ]
 
 
@@ -2588,7 +2588,7 @@ def _oracle_peid_plot_spec() -> tuple[str, str, str, str]:
 
 
 def _mmi_pid_plot_spec() -> tuple[str, str, str, str]:
-    return ("mmi_pid_synergy", "MMI-PID synergy", "#CC79A7", "P")
+    return ("mmi_pid_synergy", "MMI-PID", "#CC79A7", "P")
 
 
 def _method_linestyle(key: str) -> object:
@@ -5697,7 +5697,7 @@ def _plot_panel(
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
     if separate_surd_axis:
-        surd_axis.set_ylabel("SURD synergy (nats)", color="#6F757A")
+        surd_axis.set_ylabel("SURD (nats)", color="#6F757A")
         surd_axis.tick_params(axis="y", colors="#6F757A")
         surd_axis.spines["top"].set_visible(False)
         surd_axis.spines["right"].set_color("#6F757A")
@@ -5873,7 +5873,7 @@ def run_part1_combined_synergy_figure(
         title_fontsize=title_font_size,
         annotation_fontsize=0.88 * font_size,
     )
-    axes[0].set_ylabel("Information (nats)\n/ SHAP native")
+    axes[0].set_ylabel("Information (nats)\n/ MLP+SHAP native")
     _plot_panel(
         axes[1],
         wilson_cowan_refractory_summary,
@@ -5905,7 +5905,7 @@ def run_part1_combined_synergy_figure(
         title_fontsize=title_font_size,
         annotation_fontsize=0.88 * font_size,
     )
-    axes[3].set_ylabel("Information (nats)\n/ SHAP native")
+    axes[3].set_ylabel("Information (nats)\n/ MLP+SHAP native")
     _plot_panel(
         axes[4],
         ikeda_summary,
