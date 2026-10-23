@@ -2,7 +2,7 @@
 
 ![UniCM 二源协同超边、层级分解及预测验证](assets/unicm_main_with_hypergraph.png)
 
-*图 1. 冻结 UniCM 的联合信息结构及其预测用途。a—c，预测时距 $\ell=1,8,24$ 个月的前十条二源协同超边，强度为三个 checkpoint 的等权均值。d—f，相同时距下 checkpoint 2 的十一模态 Synergy Partition Tree（SPT）。g，逐树汇总、再跨 checkpoint 平均的绝对 order mass，单位为 nats。h，十一源模态对联合未来状态的平均 $\Xi$-Shapley 份额，白点表示均值首位。i，原独立选参流程中，真实 $\Xi$-Shapley 先验及其 200 个标签打乱对照相对 Frozen 的测试 nRMSE 降幅。j，Frozen、既有 Univariate 参考，以及固定 $\alpha=30000,\gamma=3$ 的 Uniform ridge、六种信息先验与直接分组 SHAP 相对 Frozen 的测试 nRMSE 降幅；正值表示改善，负值表示变差，Frozen 为零。$\Xi$-Shapley 紧列 Frozen 下方，SHAP 紧随其后，EI-Shapley 留在附录 B.5。参数来自原 $\Xi$ 的验证最优，各先验使用自己的归因；SHAP 为小预算置换近似，详见附录 B.7。i 与 j 的选参口径不同。a—h 及 j 中 $\Xi$ 使用独立均匀干预历史及冻结预测；j 中五项观测信息先验只用 253 条自然历史—真实未来配对，全阶 SURD 采用 Gaussian 密度近似；SHAP 仅用拟合历史及冻结输出。*
+*图 1. 冻结 UniCM 的联合信息结构及其预测用途。a—c，预测时距 $\ell=1,8,24$ 个月的前十条二源协同超边，强度为三个 checkpoint 的等权均值。d—f，相同时距下 checkpoint 2 的十一模态 Synergy Partition Tree（SPT）。g，逐树汇总、再跨 checkpoint 平均的绝对 order mass，单位为 nats。h，十一源模态对联合未来状态的平均 $\Xi$-Shapley 份额，白点表示均值首位。i，真实 $\Xi$-Shapley 先验及其 200 个标签打乱对照在七个指定模态上的测试 nRMSE 降幅。200个原打乱拟合及其参数保持不变。j，Frozen、既有 Univariate 参考，以及固定 $\alpha=30000,\gamma=3$ 的 Uniform ridge、六种信息先验与直接分组 SHAP 在相同七模态上的测试 nRMSE 相对 Frozen 降幅；正值表示改善，负值表示变差，Frozen 为零。$\Xi$-Shapley 紧列 Frozen 下方，SHAP 紧随其后，EI-Shapley 留在附录 B.5。参数来自原 $\Xi$ 的验证最优，各先验使用自己的归因；SHAP 为小预算置换近似，详见附录 B.7。i—j仅改变最终测试评分范围，保留原先验、预测、参数及原十一模态验证选参。a—h 及 j 中 $\Xi$ 使用独立均匀干预历史及冻结预测；j 中五项观测信息先验只用 253 条自然历史—真实未来配对，全阶 SURD 采用 Gaussian 密度近似；SHAP 仅用拟合历史及冻结输出。*
 
 本文以图 1 为主要研究对象，依次解释模型中的联合读出、信息指标的实际计算方式，以及这些读数作为预测校准先验的证据。SLP 观测场实验、UniCM 的单项诊断和其余可视化均放入附录。全文以 $\ell$ 表示预测时距；正文 UniCM 的单位为月，附录 SLP 的单位为周，两个实验的相同数值不代表相同物理时长。
 
@@ -186,36 +186,34 @@ $$
 
 ## 4. 预测校准结果应怎样解释
 
-图 1j 使用同一 44 维线性校准器：11 个模态的冻结集成预测，加上各模态历史末值、均值与趋势。信息先验只决定各组系数的 ridge 惩罚，真正输出预测的是拟合后的截距和系数。ORAS5 月气候态与尺度只用 `1980-01—2003-12` 拟合资料估计并冻结；测试起报为 `2009—2016` 的 96 个月份，测试目标及测试期均不参与选参或归一化。完整方法见附录 B。
+本轮只修改最终测试评分：仅对 **ENSO、NPMM、SPMM、IOB、IOD、SIOD、TNA** 七个模态取平均。前面的十一模态输入／输出、协同与联合信息计算、图1a—h、全部信息先验、44维校准器、校准预测及超参数都保持原样；固定 $\alpha=30000,\gamma=3$、`floor_fraction=0.05`，不重新选参。Univariate也保留原拟合与参数。此前七维联合target及重新调参方案不纳入当前结果。
 
-**图 1j 已完成当前划分下全部测试样本的评价。** 每种方法均覆盖 `2009-01—2016-12` 的全部 96 个起报月份、11 个模态和 1—24 月全部预测时距，共 `96×11×24=25,344` 个预测—观测配对；最长时距的实际目标延伸至 `2018-12`。这些配对存在窗口重叠，不代表 25,344 个独立样本。表中保留原始 nRMSE，并列出图 1j 显示的降幅 $100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$；正值表示改善，数值越大越好。这是总体平均 nRMSE 的比率，不是先逐单元计算降幅再平均。nRMSE 的计算为：先按模态用拟合期目标标准差归一化误差，在每个模态—时距单元上对全部 96 个起报计算 RMSE，再对 264 个单元等权平均。这是当前固定参数方案的完整测试结果；后文计时中的批次外推不涉及预测误差，253 条自然配对和 16,384 条干预历史也分别属于先验估计，而非测试子集。
+评价覆盖 `2009-01—2016-12` 的全部96个测试起报、七个模态和1—24月时距，共 `96×7×24=16,128` 个预测—观测配对，最长目标到 `2018-12`。这些配对存在窗口重叠。先在每个模态—时距单元上，以原拟合期标准差归一化误差并对96次起报计算RMSE，再对 `7×24=168` 个单元等权平均。相对Frozen的降幅是总体平均nRMSE之比，而非逐单元百分比的平均。原253/36/96时间划分及上游fit-only预处理均未改变。
 
-| 图 1j 方法 | 测试 nRMSE ↓ | 相对 Frozen 降幅 ↑ |
+| 图1j方法 | 七模态测试 nRMSE ↓ | 相对 Frozen 降幅 ↑ |
 |---|---:|---:|
-| Frozen | 1.100731 | 0.00% |
-| 全阶 $\Xi$-Shapley | 0.985959 | 10.43% |
-| 直接分组 SHAP（探索性） | 1.003601 | 8.82% |
-| Univariate（既有参考） | 1.001663 | 9.00% |
-| Uniform ridge，$\alpha=30000$ | 1.115712 | -1.36% |
-| 观测 $\Phi^R$ pair prior | 1.093445 | 0.66% |
-| 观测 $\Phi^{\mathrm{WMS}}$ pair prior | 1.048667 | 4.73% |
-| 观测正向 $\Phi_{\mathrm{SI}}$ pair prior | 1.090129 | 0.96% |
-| 观测 causal density（outgoing） | 1.111842 | -1.01% |
-| 观测全阶 Gaussian SURD synergy | 1.062660 | 3.46% |
+| Frozen | 1.253259 | 0.00% |
+| 全阶 $\Xi$-Shapley | 1.119827 | 10.65% |
+| 直接分组 SHAP（探索性） | 1.145166 | 8.62% |
+| Univariate（既有参考） | 1.140220 | 9.02% |
+| Uniform ridge，$\alpha=30000$ | 1.274901 | -1.73% |
+| 观测 $\Phi^R$ pair prior | 1.257525 | -0.34% |
+| 观测 $\Phi^{\mathrm{WMS}}$ pair prior | 1.203389 | 3.98% |
+| 观测正向 $\Phi_{\mathrm{SI}}$ pair prior | 1.258277 | -0.40% |
+| 观测 causal density（outgoing） | 1.271705 | -1.47% |
+| 观测全阶 Gaussian SURD synergy | 1.214108 | 3.12% |
 
-在共同参数 $\alpha=30000,\gamma=3$ 下，$\Xi$ 相对 Uniform 的 nRMSE 改善为 `0.129753`，共享 4000 次、12 月时间块 bootstrap 的逐项 95% 区间为 `[0.065675, 0.188591]`。相对全阶 Gaussian SURD 的改善为 `0.076701`，区间为 `[0.040684, 0.113574]`；相对三种观测 $\Phi$ pair prior 及 causal density 的区间也排除零。EI-Shapley 的结果与差异区间暂存附录 B.5。共同参数由 $\Xi$ 选出，因此结果只检验固定参数下替换先验的效果。
+**Ξ-Shapley的七模态平均nRMSE为 `1.119827`，相对Frozen降低 `10.65%`，该降幅的95%时间块区间为 `[6.57%, 14.63%]`。** 相对同参数Uniform及Gaussian SURD分别降低 `12.16%` 和 `7.77%`。这些分母各为相应比较方法的平均nRMSE。
 
-**在这一固定参数比较中，$\Xi$-Shapley 的完整测试集平均 nRMSE 最低，为 `0.985959`。** 相对冻结模型、同参数 Uniform ridge 和全阶 Gaussian SURD，平均 nRMSE 分别降低 `10.43%`、`11.63%` 和 `7.22%`。这些百分比以各比较方法的 nRMSE 为分母；结果支持总体平均误差上的优势，不表示所有模态、时距或气候事件都改善，也不能据此认定其显著优于附录 B.5 保留的 EI-Shapley。
+Ξ相对同参数Uniform的绝对nRMSE改善为 `0.155074`，逐项95%区间 `[0.090665, 0.214950]`；相对Gaussian SURD的改善为 `0.094281`，逐项95%区间 `[0.049353, 0.142478]`。区间复用原4000次、12月循环时间块bootstrap的相同月份权重，未调整多重性。Ξ相对SHAP和EI-Shapley的差异区间均跨零，不能认定其显著优于这两项。共同参数仍来自原Ξ的十一模态验证选择，因此此处仅评价已固定预测在七个指定输出上的表现。
 
-分布修正并未使所有竞争方法同向变化。$\Phi^{\mathrm{WMS}}$ 的 nRMSE 从 `1.086161` 降至 `1.048667`，$\Phi^R$、$\Phi_{\mathrm{SI}}$ 与 causal density 则分别从 `1.086247/1.087799/1.089645` 变为 `1.093445/1.090129/1.111842`。WMS 的变化同时包含自然分布下有符号归因的显式 ridge 映射，不能仅归因于数据分布。SURD 相对同参数 Uniform 的改善为 `0.053053`，区间 `[0.011453, 0.086111]`。详细结果与逐 lead 曲线见附录 B.5。
+原验证选择的Uniform参考（α=1000）也只重评分：其nRMSE为 `1.168399`；Ξ的额外改善为 `0.048573`（`4.16%`），共享时间块95%区间为 `[0.005758, 0.090912]`。这不是在七模态上重新挑选的Uniform参数。
 
-历史独立选参时，Uniform 取 $\alpha=1000$，测试 nRMSE 为 `1.012754`；$\Xi$ 的额外改善只有 `0.026794`，即 `2.65%`，时间块 bootstrap 区间略跨零。图 1i 沿用这一历史流程：200 个对照保留归因数值、打乱源模态标签，各自用相同预算重新选参，没有一个达到真实先验，有限随机检验 $P=(0+1)/(200+1)=0.00498$。图中横轴使用相对 Frozen 的降幅，真实先验约为 `10.43%`；它不是相对 Uniform 的增益。
+图1i复用原200个标签打乱拟合。每个对照原本固定α=30000、γ=3；本轮不搜索或改变其参数。由于原缓存未保存逐对照预测，本轮按原seed、完整十一目标设计及原参数恢复预测，原十一模态分数最大复现误差为 `2.22e-16`，随后只评七个输出。没有一个对照达到真实先验，条件标签排名为 `1/201=0.00498`。该固定参数排名未校正真实先验的选参过程，不宜解释为完成选参校正的严格置换检验。真实先验在图中相对Frozen的降幅为 `10.65%`。
 
-两个检验分别反映收益幅度的不确定性和源模态标签结构的信息，不能相互替代。$\Xi$ 的平均 ACC 为 `0.390`，高于同参数 Uniform 的 `0.347`，却低于历史独立选参 Uniform 的 `0.414`；历史流程中 $\ell=7$—10 相对 Uniform 的平均增益点估计仍为负。因此，目前证据支持平均幅值误差上的校准用途，尚未证明中期联合信息峰值转化为稳定的中期预测收益。
+Ξ的七模态平均ACC为 `0.355591`，同参数Uniform为 `0.291064`，原α=1000 Uniform参考为 `0.361411`。相对该原Uniform参考，第7—10个月的平均nRMSE增益点估计为 `0.013075`，95%区间 `[-0.058244, 0.086177]` 跨零。因此，不能据此确认中期信息峰值带来稳定的中期预测收益。
 
-三种 $\Phi$ prior 使用双输出逐对归因，causal density 使用 outgoing 汇总，四者均广播到全部 target；$\Xi$、EI 和 SURD 使用全联盟及 target-specific 归因。观测先验已统一自然数据窗口，EI／$\Xi$ 保留干预定义。主图比较包含评价分布、估计器及归因接口差异，不是只替换信息公式的实验。
-
-补充的直接分组 SHAP 对照使用同一冻结 Transformer 和校准器，测试 nRMSE 为 `1.003601`，相对同参数 Uniform 改善 `10.05%`；与 $\Xi$ 的差异区间跨零。这说明普通输出归因也能生成有用的权重，当前结果尚不能把校准收益解释为整合有效信息的独有优势。该小预算探索性对照、归因定义及精度边界见附录 B.7。
+先验定义继续保持原口径：Φ类双输出pair与outgoing causal density广播到原十一目标；Ξ、EI、SURD及SHAP保留原target-specific归因。七模态筛选仅发生在最终测试误差及相关统计汇总处，没有重估或删改先验。完整分数与来源见[七模态重评分摘要](../../results/unicm_forecast_scoring_seven_modes/summary.json)。
 
 ## 附录 A. UniCM 补充机制分析
 
@@ -503,31 +501,25 @@ $$
 
 逐月气候态和全场异常尺度只用 `1980-01`—`2003-12` 的拟合期资料估计，随后固定应用于验证和测试月份。因而测试期既不参与 Modeformer 输入与目标的上游归一化，也不参与下游 44 维特征标准化、nRMSE 分母、校准系数或超参数的估计。$\Xi$-Shapley 权重来自冻结模型在独立最大熵干预历史上的响应，不读取任何 ORAS5 验证或测试观测；其 16,384 个干预样本只提高机制权重的估计精度，不能替代真实时间留出样本。
 
-主指标是 nRMSE。先在每个 target—lead 单元内计算测试 RMSE，再除以该模态在拟合段的标准差，最后对全部 264 个单元等权平均。每个模态和每个 lead 对总指标具有相同权重。图 1j 将这一总指标换算为相对 Frozen 的降幅百分比，越高越好；原始 nRMSE 仍以越低越好解释。
+主指标是 nRMSE。原先验估计、验证选参和264个已拟合target—lead校准单元保持不变。仅最终测试评分选取 ENSO、NPMM、SPMM、IOB、IOD、SIOD、TNA，先在每个target—lead单元计算测试RMSE，再除以原拟合段标准差，最后对七模态×24时距的168个单元等权平均。图 1j 将这一总指标换算为相对 Frozen 的降幅百分比，越高越好；原始 nRMSE 仍以越低越好解释。
 
-### B.4 随机化对照与历史选参
+### B.4 随机化对照与原参数保留
 
-$\Xi$-Shapley prior 与 uniform ridge 的比较只能说明非均匀正则化的点估计更低，不能判断正确的模态对应关系是否优于任意一种非均匀分配。图 1i 因而在每个 target—lead 单元内保留 11 个 $\Xi$-Shapley 数值，只随机打乱它们对应的源模态标签。这样既保留了权重分布，又破坏了“哪个模态应当少收缩”的结构。随机对照数量在完整运行前固定为 200；每个对照都使用与真实先验相同的特征、参数量、数据划分和超参数搜索预算，并在验证段重新选择 $\alpha$ 与 $\gamma$。
+图1i在每个原target—lead单元中保留11个Ξ-Shapley数值，只打乱其对应的源标签。原缓存有200组固定参数拟合，`each_null_retuned_on_validation=false`，均使用真实先验原验证所选α=30000、γ=3；旧文称每个null单独重调的描述与实际缓存不符，此处据缓存更正。更正文字不改变任何原先验、拟合参数或预测。
 
-原独立选参流程中，真实 $\Xi$-Shapley 相对其选参后的 uniform ridge 的 nRMSE 改善为 `0.02679`；200 个独立打乱并重新调参的随机先验中，没有一个达到真实先验。有限随机检验因此为
+本轮按原seed=20260908及完整十一目标设计恢复这200个拟合，先逐项复现原十一模态分数，再对七个指定输出评分。没有一个对照达到真实先验，条件排名仍为 `(0+1)/(200+1)=0.00498`。这一固定参数诊断不包含真实先验超参数选择的不确定性。
 
-$$
-P=\frac{0+1}{200+1}=0.00498.
-$$
+对原α=1000 Uniform参考，Ξ的七模态绝对改善为 `0.048573`，95%时间块区间为 `[0.005758, 0.090912]`。各方法在七模态上没有再次选择参数；此结果只衡量保留原方法后改变最终评分范围的效果。
 
-这一原独立选参流程的随机化结果说明正确的源模态映射优于保持同一权重分布但打乱标签的先验。不过，它与同一历史流程中略跨 0 的时间块 bootstrap 回答不同问题：前者检验模态标签结构，后者反映有限测试年份下增益幅度的不确定性。因此，固定参数图 1j与原随机化图 1i支持把 $\Xi$-Shapley 作为有信息的结构先验，但对其相对 uniform ridge 的收益幅度仍应保守解释。
-
-这一结论仍限定在平均 nRMSE。$\Xi$-Shapley prior 的平均 ACC 为 `0.390`，高于当前同参数 uniform ridge 的 `0.347`；历史独立选参 uniform 的 ACC 为 `0.414`；不同 target 和 lead 的收益也不一致；历史独立选参下，lead 7—10 相对其选参后的Uniform基线的平均增益点估计为负。因此，图 1i—j 支持的是“$\Xi$-Shapley 引导的正则化改善全模态平均幅值误差”，而不是“每个高 $\Xi$-Shapley 模态都会预测得更准”，也不是已证明的中期或业务预测增益。
-
-固定参数比较见正文第 4 节及[自然观测与 SURD 报告](earth.md#unicm-observational-priors)。图 1i 的随机化对照属于历史独立选参流程。
+所有区间均使用原4000组12月循环时间块的共享重采样权重，未做多重性调整。总体误差改善不代表每个模态或每个lead都有改善。
 
 ### B.5 自然观测先验及全阶 SURD 的补充结果
 
-EI-Shapley 暂从图 1j 移出，原结果保留于本节及图 B1。它与 $\Xi$-Shapley 共享干预样本、冻结预测和固定参数 $\alpha=30000,\gamma=3$，测试 nRMSE 为 `0.991224`；与 $\Xi$ 的差异区间跨零，不能据此认定 $\Xi$ 显著优于 EI-Shapley。此次调整只改变展示范围和顺序，未重新估计先验或校准预测。
+EI-Shapley 暂从图 1j 移出，原结果保留于本节及图 B1。它与 $\Xi$-Shapley 共享干预样本、冻结预测和固定参数 $\alpha=30000,\gamma=3$，七模态测试 nRMSE 为 `1.126129`；与 $\Xi$ 的差异区间跨零，不能据此认定 $\Xi$ 显著优于 EI-Shapley。本轮仅把测试评价改为七模态，未重新估计先验、校准参数或预测。
 
 | 暂存对照 | 测试 nRMSE ↓ |
 |---|---:|
-| EI-Shapley | 0.991224 |
+| EI-Shapley | 1.126129 |
 
 五项观测先验只消费拟合段的真实历史和真实未来；共同校准器仍消费同一 frozen ensemble 预测特征。信息先验无需调用动力学模型，与下游预测器的特征来源是两个不同环节。Gaussian 联合密度保留自然源相关，132 维历史相对于 253 个重叠窗口存在有限样本和共线性限制；ridge 固定为 $10^{-6}$，没有用测试集调整。
 
@@ -535,9 +527,9 @@ SURD 对 264 个标量 target—lead 单元逐项分解全部 2047 个非空源�
 
 自然 WMS 的 `24×55=1320` 条原始边中有 `83` 条为负，最小值 `−1.339187` bit；源归因在广播前有 `8/264` 条负值，广播到所有 target 后为 `88/2904`。11 target × 2 lead 共 `22/264` 个源向量使用共同偏移，最大偏移 `0.950910` bit。其余观测方法本次无需偏移。原始有符号数组与映射记录均保存；这些负值属于 WMS，不能称为 PEID Syn 的非负性违例。
 
-![自然观测指标与全阶 SURD 的固定参数比较](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/information_prior_comparison.png)
+![自然观测指标与全阶 SURD 的固定参数比较](../../results/unicm_forecast_scoring_seven_modes/information_prior_comparison.png)
 
-*图 B1. a，固定 $\alpha=30000,\gamma=3$ 的测试 nRMSE。b，比较方法相对 $\Xi$ 的 nRMSE 改善；正值有利于比较方法，横线为共享 4000 次、12 月循环时间块 bootstrap 的逐项 95% 区间，未作多重性调整。c，相对同参数 Uniform 的逐 lead 改善点估计。EI／$\Xi$ 使用三个 checkpoint 的干预先验；其余五项使用同一自然拟合期资料，全阶 SURD 为 Gaussian 密度分解。图例位于数据轴外右侧。*
+*图 B1. 全部面板只评七个指定模态；原先验、参数和预测不变。a，固定 $\alpha=30000,\gamma=3$ 的测试 nRMSE。b，比较方法相对 $\Xi$ 的 nRMSE 改善；正值有利于比较方法，横线为共享 4000 次、12 月循环时间块 bootstrap 的逐项 95% 区间，未作多重性调整。c，相对同参数 Uniform 的逐 lead 改善点估计。EI／$\Xi$ 使用三个 checkpoint 的干预先验；其余五项使用同一自然拟合期资料，全阶 SURD 为 Gaussian 密度分解。图例位于数据轴外右侧。*
 
 ### B.6 附加计算记录
 
@@ -588,27 +580,27 @@ $$
 
 $c^{\mathrm{SHAP}}$ 的单位是模型输出单位，校准器使用同一 target—lead 内的相对权重。取绝对值是预先声明的重要性汇总，不是 Syn 非负修正。它衡量输出归因；论文已知动力学部分的二阶 **SHAP interaction** 衡量交互贡献，本轮没有将普通 SHAP 改称 interaction。置换方法依据见 [SHAP 官方说明](https://shap.readthedocs.io/en/stable/generated/shap.PermutationExplainer.html)。
 
-SHAP 权重接入原 44 维校准器，固定 $\alpha=30000,\gamma=3$、`floor_fraction=0.05`，沿用原时间划分和拟合期标准化；不重新选参。评价覆盖全部 96 个测试起报、11 个模态及 24 个 lead。既有方法的预测保持原值；下表中改善定义为“比较方法 nRMSE 减 SHAP nRMSE”，正值有利于 SHAP。区间直接复用原 4000 次、12 月循环时间块 bootstrap 权重，均为未作多重性调整的逐项 95% 区间。
+SHAP 权重接入原44维校准器，固定 $\alpha=30000,\gamma=3$、`floor_fraction=0.05`，原先验、拟合、预测、参数与时间划分均不改变。仅将最终测试评价改为七个指定模态×24lead、全部96个起报。下表正改善表示SHAP误差更低；区间复用原4000组12月循环时间块权重。
 
-| 方法 | 测试 nRMSE ↓ | ACC ↑ | SHAP 相对该方法的改善 | 95% 区间 |
+| 方法 | 七模态测试 nRMSE ↓ | ACC ↑ | SHAP相对该方法的改善 | 95%区间 |
 |---|---:|---:|---:|---:|
-| Frozen | 1.100731 | 0.291394 | +0.097130 | [+0.024865, +0.175636] |
-| 全阶 $\Xi$-Shapley | 0.985959 | 0.390495 | -0.017642 | [-0.046571, +0.012525] |
-| 直接分组 SHAP（探索性） | 1.003601 | 0.371339 | — | — |
-| Univariate | 1.001663 | 0.291394 | -0.001938 | [-0.029446, +0.030360] |
-| 同参数 Uniform ridge | 1.115712 | 0.346927 | +0.112111 | [+0.065430, +0.149432] |
-| EI-Shapley | 0.991224 | 0.383311 | -0.012377 | [-0.046860, +0.023863] |
-| 全阶 Gaussian SURD | 1.062660 | 0.344958 | +0.059059 | [+0.026335, +0.089084] |
+| Frozen | 1.253259 | 0.248091 | +0.108093 | [+0.026565, +0.183061] |
+| 全阶 $\Xi$-Shapley | 1.119827 | 0.355591 | -0.025339 | [-0.059380, +0.008424] |
+| 直接分组 SHAP（探索性） | 1.145166 | 0.345897 | — | — |
+| Univariate（既有参考） | 1.140220 | 0.248091 | -0.004946 | [-0.043803, +0.034462] |
+| Uniform ridge，$\alpha=30000$ | 1.274901 | 0.291064 | +0.129735 | [+0.082297, +0.167109] |
+| EI-Shapley | 1.126129 | 0.349449 | -0.019037 | [-0.060179, +0.021705] |
+| 观测全阶 Gaussian SURD synergy | 1.214108 | 0.314598 | +0.068942 | [+0.036191, +0.098124] |
 
-**直接 SHAP 先验的测试 nRMSE 为 `1.003601`，相对 Frozen 和同参数 Uniform 分别降低 `8.82%` 和 `10.05%`。** 两项绝对改善的逐项区间均排除零；SHAP 相对全阶 Gaussian SURD 也有正改善。$\Xi$-Shapley 的 nRMSE 点估计更低，两者差为 `0.017642`，但“$\Xi$ 减 SHAP”的区间为 `[-0.046571, 0.012525]`，跨越零，不能确认 $\Xi$ 显著优于 SHAP。SHAP 与 EI-Shapley、Univariate 的差异区间同样跨零。此结果支持普通模型归因也能生成有用的校准权重，不能将校准收益全部解释为协同信息所独有。
+SHAP相对Frozen降低 `8.62%`，相对同参数Uniform降低 `10.18%`。Ξ的点估计更低，但两者差异区间跨零，不能认定Ξ显著优于SHAP。SHAP与EI-Shapley、Univariate的差异区间也跨零；SHAP优于Frozen、同参数Uniform及Gaussian SURD的逐项区间排除零。
 
-![直接分组 SHAP 的完整测试集预测校准比较](../../results/unicm_frozen_shap_prior_fit253_pilot/shap_prior_comparison.png)
+![直接分组SHAP的七模态预测评分比较](../../results/unicm_forecast_scoring_seven_modes/shap_prior_comparison.png)
 
-*图 B3. Frozen Transformer 的普通分组 SHAP 先验比较。a，完整测试集平均 nRMSE；$\Xi$-Shapley 紧列 Frozen 下方，EI-Shapley 在附录保留。b，SHAP 相对四项比较方法的 nRMSE 改善及配对时间块 bootstrap 逐项 95% 区间；正值有利于 SHAP。c，相对同参数 Uniform 的逐 lead 改善点估计，图例位于轴外右侧。SHAP 使用小样本置换近似，其余方法复用既有结果。*
+*图 B3. 只修改最终评价目标。a，七模态平均nRMSE；b，SHAP相对四项比较方法的nRMSE改善及逐项95%时间块区间；c，相对原同参数Uniform的逐lead改善。先验及其预算保持原样，图例在数据轴外。*
 
 权重本身与 $\Xi$ 也不相同。先在每个 target—lead 内将 11 个源份额归一化，再对 264 个单元等权平均，SHAP 的前三项为 ENSO `13.36%`、nino4 `11.49%` 和 NPMM `11.26%`，$\Xi$ 则为 NPMM `11.55%`、SPMM `11.34%` 和 IOD `10.34%`。逐单元源排序的 Spearman 相关中位数为 `0.473`，范围 `−0.291—0.945`，表明两类归因存在部分一致，也有明显差异。此处是校准标量 target 的相对权重汇总，与图 1h 的联合 target 系统份额不同，不能用来替换图 1h 或推断气候因果强度。
 
-半预算（仅第一组正反排列）给出 nRMSE `1.003172`，全预算为 `1.003601`，相差 `0.000429`；源份额平均绝对变化为 `0.584` 个百分点，最大为 `4.077` 个百分点。这个单次嵌套检查尚不能证明 SHAP 收敛：仅有 16 个前景、4 个背景和两组排列，未跨抽样 seed 重复，也未覆盖全部 2048 联盟。bootstrap 区间只反映测试月份重采样，不包含归因估计误差。参数原由 $\Xi$ 选出，SHAP 与 $\Xi$ 的输入分布及价值函数也不同，因此结论限定为当前固定参数、小预算直接归因方案。
+相同半预算与全预算预测只重新评分：七模态nRMSE分别为 `1.145248` 和 `1.145166`，全减半为 `-0.000082`；源份额平均绝对变化为 `0.584` 个百分点，最大为 `4.077` 个百分点。这个单次嵌套检查尚不能证明 SHAP 收敛：仅有 16 个前景、4 个背景和两组排列，未跨抽样 seed 重复，也未覆盖全部 2048 联盟。bootstrap 区间只反映测试月份重采样，不包含归因估计误差。参数原由 $\Xi$ 选出，SHAP 与 $\Xi$ 的输入分布及价值函数也不同，因此结论限定为当前固定参数、小预算直接归因方案。
 
 合并重复端点后，每 checkpoint 实际计算 2560 条新历史，三个 checkpoint 共 7680 条；直接预测实测总计 `1850.6 s`（约 `30.84 min`）。三次小批次推理与原冻结缓存的最大差均小于 `1.8×10⁻⁶` 模型输出单位；局部归因加和恒等式最大误差为零，全部 264 个先验向量均为有限且正总量。原 Syn 使用的 $10^{-8}$ bit 容差与既有审计保持不变，本轮不新增 Syn 估计。可复用预测链、先验及评价数组保存在原生 NPZ 中，抽样索引和模型散列记录于 JSON；完整方案与稿件阅读边界见[计算记录](../log/unicm_frozen_shap_comparison_plan.md)。
 
@@ -618,13 +610,11 @@ SHAP 权重接入原 44 维校准器，固定 $\alpha=30000,\gamma=3$、`floor_f
 
 ![相对 Frozen 的 nRMSE 降幅与去除评价归一化的 RMSE 对比](assets/unicm_rmse_display_comparison.png)
 
-*图 B4. 同一组测试预测的两种显示方式。a，$100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$，保留原有模态—时距等权评价，越高越好；零线为 Frozen，负值表示变差。b，在缓存的模型指数单位中计算每个模态—时距单元的 RMSE，再对 264 个单元等权平均，省去评价阶段按模态拟合标准差的归一化，越低越好。b 仍包含输入预处理时的场标准化，并非恢复物理单位的 RMSE。两图均为点估计，沿用主图方法范围，不含 EI-Shapley。*
+*图 B4. 同一组测试预测的两种显示方式。a，$100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$，保留原有模态—时距等权评价，越高越好；零线为 Frozen，负值表示变差。b，在缓存的模型指数单位中计算每个模态—时距单元的 RMSE，再对七模态×24lead的168个单元等权平均，省去评价阶段按模态拟合标准差的归一化，越低越好。b 仍包含输入预处理时的场标准化，并非恢复物理单位的 RMSE。两图均为点估计，沿用主图方法范围，不含 EI-Shapley。*
 
-主图采用方案 a：$\Xi$-Shapley、SHAP 和 Univariate 的降幅分别为 `10.43%`、`8.82%`、`9.00%`，同参数 Uniform 为 `−1.36%`。这是原 nRMSE 的线性换算，排序和统计证据均不改变；$\Xi$ 与 SHAP 的差为 `1.60` 个百分点，不表示差异具有统计显著性。两个位置的百分比轴含义一致，但图 1i 仍沿用历史逐对照选参，图 1j 仍使用共同固定参数。
+主图采用方案a，最终只评七个指定模态：Ξ、SHAP及Univariate相对Frozen的降幅分别为 `10.65%`、`8.62%`、`9.02%`，同参数Uniform为 `-1.73%`。Ξ与SHAP的差为 `2.02` 个百分点，但配对区间跨零。图1i—j均采用相同七模态评分，原预测和参数均保持不变。
 
-方案 b 的模型指数 RMSE 分别为 Frozen `1.170692`、$\Xi$ `1.031501`、SHAP `1.048058`、Univariate `1.053168` 和 Uniform `1.169735`。完整范围仅为 `1.0315—1.1707`，并未明显解决小数值难比较的问题。去掉评价归一化会使变幅较大的模态对总体误差贡献更大：SHAP 与 Univariate 的排序互换，Uniform 也由略差于 Frozen 变为略好。因此，这不是单纯的显示单位调整。
-
-缓存中的 SST 模态先除以拟合期场尺度 `0.537148`，WWV 来源场先除以 `12.923097`；后续按模态的拟合标准差范围为 `0.4126—2.4003`。恢复物理单位会同时包含 SST 温度与 WWV 来源场的不同量纲，不能直接取一个跨模态的物理 RMSE 均值来替代当前主图。若需要物理误差，应另按模态分别报告。此次只读取已有预测和评价缓存，未重新训练、选参或生成冻结预测。
+方案b在同一七模态评分范围内的模型指数RMSE为：Frozen `1.019622`、Ξ `0.890484`、SHAP `0.906831`、Univariate `0.914339`、Uniform `1.015180`。去掉评价归一化会改变不同模态的相对权重，故主图继续保留原nRMSE定义。
 
 ## 附录 C. 已有起始月份扫描及其适用边界
 
@@ -986,7 +976,7 @@ $$
 | 时间是否来自缓存读取 | [计时与结果摘要](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/summary.json) | 三次重算；缓存读取、预测批次实测与全规模外推分别记录 |
 | 月份扫描是否完成 | [历史 8192 样本结果](../../results/unicm_start_month_sweep/full_n8192/summary.json) | 864 单元；采用历史估计口径，未混入当前先验比较 |
 
-**当前图的版本：** 图 1j 使用 `unicm_observational_prior_comparison_fit253_surd_allorders`，主图包括五项自然观测先验、$\Xi$ 干预先验及直接分组 SHAP（`unicm_frozen_shap_prior_fit253_pilot`），$\Xi$-Shapley 紧列 Frozen 下方；EI-Shapley 暂存附录 B.5，完整七项结果缓存保持不变；MIM 和拼接 Conditional MI + self MI 继续排除。g、h 保持原布局；原 i（预测比较）与原 j（打乱对照）的位置交换，现在 i 为打乱对照，j 为相对 Frozen 的 nRMSE 降幅比较；去除评价归一化的候选显示见附录 B.8。各面板的计算来源未改变。
+**当前图的版本（2026-10-23，仅改评分）：** 图1i—j与预测评价附图读取 `unicm_forecast_scoring_seven_modes` 的七模态评分；原预测、先验、参数及图1a—h不变（a—h与旧图逐像素一致）。图 1j 的原预测使用 `unicm_observational_prior_comparison_fit253_surd_allorders`，主图包括五项自然观测先验、$\Xi$ 干预先验及直接分组 SHAP（`unicm_frozen_shap_prior_fit253_pilot`），$\Xi$-Shapley 紧列 Frozen 下方；EI-Shapley 暂存附录 B.5，完整七项结果缓存保持不变；MIM 和拼接 Conditional MI + self MI 继续排除。g、h 保持原布局；原 i（预测比较）与原 j（打乱对照）的位置交换，现在 i 为打乱对照，j 为相对 Frozen 的 nRMSE 降幅比较；去除评价归一化的候选显示见附录 B.8。所有上游计算来源未改变，只有最终测试评分按七模态汇总。
 
 此前计算核查时 Zotero 插件不可用，未能读取当时的主参考稿 *Emergent hierarchical organization of causal interactions in complex systems* 的最新全文；PEID 沿用仓库已有定义与来源，未声称完成最新稿与代码的一致性核查。本次已核对公开的 Mediano 等（2019、2025）全文，并读取 SURD 原文及固定 commit 的作者实现；不能把已有本地阅读记录记作本次重新读取。Gaussian SURD 的状态积分依据、估计边界和实现核查另见[新比较报告](earth.md#unicm-observational-priors)。
 
@@ -1004,6 +994,7 @@ $$
 - SLP 60-PC SPT 的跨尺度无文字全貌图：`fig/earth_slp_pc60_xi_hierarchy_vertical_comparison.png`
 - SLP 60-PC SPT 的带标签图：`fig/earth_slp_pc60_xi_hierarchy_H001.png`、`fig/earth_slp_pc60_xi_hierarchy_H010.png`、`fig/earth_slp_pc60_xi_hierarchy_H060.png`
 - SLP 60-PC SPT 的全阶组合数归一化对照图：`fig/earth_slp_pc60_xi_hierarchy_vertical_comparison_allorder_normalized.png`
+- 七模态最终评分入口及缓存：`scripts/rescore_unicm_seven_modes.py`、`results/unicm_forecast_scoring_seven_modes/`；原十一输出预测与全部先验保持原文件。
 - 图 1 PNG：`docs/reports/assets/unicm_main_with_hypergraph.png`，同步绘图副本为 `fig/earth_unicm_hierarchy_overview.png`；j 的固定参数比较来自 `results/unicm_observational_prior_comparison_fit253_surd_allorders/summary.json`，新增 SHAP 来自 `results/unicm_frozen_shap_prior_fit253_pilot/summary.json`，i 的原打乱对照来自 `results/unicm_target_xi_shapley_prior_normfit_1980_2003_n16384/summary.json`。
 - 图 1g 的 SPT order-mass 脚本、缓存与审计：`scripts/compute_unicm_spt_order_mass.py`、`results/unicm_spt_order_mass/`
 - UniCM SPT order-mass 比例图与全联盟均值附录图：`fig/earth_unicm_spt_order_mass_share.png`、`fig/earth_unicm_all_coalition_order_mean.png`
@@ -1030,7 +1021,7 @@ $$
 - 当前主图的预测来源及面板口径：`results/unicm_pair_hypergraph_independent/composite_provenance_audit.json`
 - 图 A5 的历史归一化 SPT：`results/unicm_xi_hierarchy_tree_allorder_normalized/summary.json`；同口径原始树为 `results/unicm_xi_hierarchy_tree/summary.json`
 - 图 C1—C2 与月份扫描结果：`fig/unicm_start_month_sweep/`、`results/unicm_start_month_sweep/full_n8192/`
-- 当前图 1j 的先验与评估缓存：`results/unicm_observational_prior_comparison_fit253_surd_allorders/{information_priors,evaluation_arrays}.npz`、同目录 `summary.json` 和 `inference_timing.json`
+- 原十一模态先验与预测缓存（保持不变，当前图1j从这些预测取七模态评分）：`results/unicm_observational_prior_comparison_fit253_surd_allorders/{information_priors,evaluation_arrays}.npz`、同目录 `summary.json` 和 `inference_timing.json`
 - 图 B3 的直接 SHAP 入口、结果及比较图：`scripts/run_unicm_frozen_shap_prior.py`、`results/unicm_frozen_shap_prior_fit253_pilot/`；先验与评价缓存为 `shap_priors.npz`、`evaluation_arrays.npz`。
 - 图 B1—B2 的执行入口及报告：`scripts/run_unicm_observational_prior_comparison.py`、[自然观测与 SURD 比较](earth.md#unicm-observational-priors)
 
@@ -1077,35 +1068,26 @@ $$
 
 ### G.1 结果及其适用范围
 
-固定 α=30000、γ=3、floor_fraction=0.05；参数来自原 Ξ 的验证最优，没有再次搜索。相同 44 维校准器、253/36/96 时间划分、fit-only 标准化及 nRMSE 分母。测试期为 2009—2016 的 96 个起报月份，264 个 target—lead 单元等权平均。
+固定原α=30000、γ=3、floor_fraction=0.05，原44维校准器、253/36/96时间划分、fit-only标准化、信息先验及所有预测保持不变。仅最终测试评分选ENSO、NPMM、SPMM、IOB、IOD、SIOD、TNA，对七模态×24lead的168个单元等权平均。96个起报构成16,128个存在重叠的预测—观测配对；最长目标到2018-12。原信息计算依然覆盖十一目标，不因评分筛选而重算。
 
-**本表是当前固定参数方案在完整测试集上的结果。** 各方法均使用 `2009-01—2016-12` 的全部 96 个起报月份、11 个模态和 1—24 月全部预测时距，共 25,344 个预测—观测配对，最长目标延伸至 `2018-12`。窗口重叠意味着这些配对不是独立样本。每个模态使用拟合期资料的目标标准差归一化误差，在每个模态—时距单元上以全部 96 个起报计算 RMSE，再将 264 个单元等权平均为表中的 nRMSE。
-
-253 条自然配对用于估计观测先验，三个 checkpoint 各 16,384 条干预历史用于估计 EI／Ξ；二者均不是测试样本数。第 G.5 节的“完整规模未重新实测”仅指预测生成的耗时测量，测试误差没有采用小批次外推。已从保存的完整预测数组复算本表全部十项 nRMSE，与结果摘要一致。
-
-| 方法 | 测试 nRMSE ↓ | ACC ↑ | 相对同参数 Uniform 改善 | Ξ 相对该方法的改善之 95% 区间 |
+| 方法 | 七模态测试 nRMSE ↓ | ACC ↑ | 相对同参数Uniform改善 | Ξ相对该方法改善的95%区间 |
 |---|---:|---:|---:|---:|
-| Frozen | 1.100731 | 0.291394 | 0.014982 | [0.060940, 0.170184] |
-| Univariate | 1.001663 | 0.291394 | 0.114050 | [0.005899, 0.026691] |
-| Uniform ridge | 1.115712 | 0.346927 | 0.000000 | [0.065675, 0.188591] |
-| Ξ-Shapley（全阶） | 0.985959 | 0.390495 | 0.129753 | [0.000000, 0.000000] |
-| 观测 ΦR pair | 1.093445 | 0.298221 | 0.022268 | [0.057397, 0.154115] |
-| EI-Shapley | 0.991224 | 0.383311 | 0.124488 | [-0.001875, 0.013414] |
-| 观测 ΦWMS pair | 1.048667 | 0.323467 | 0.067045 | [0.020482, 0.105391] |
-| 观测正向 ΦSI pair | 1.090129 | 0.267535 | 0.025584 | [0.056898, 0.151283] |
-| 观测 causal density | 1.111842 | 0.348044 | 0.003871 | [0.063904, 0.184669] |
-| 观测 Gaussian SURD（全阶） | 1.062660 | 0.344958 | 0.053053 | [0.040684, 0.113574] |
+| Frozen | 1.253259 | 0.248091 | 0.021642 | [0.079968, 0.178716] |
+| Univariate（既有参考） | 1.140220 | 0.248091 | 0.134681 | [0.010869, 0.030955] |
+| Uniform ridge，$\alpha=30000$ | 1.274901 | 0.291064 | 0.000000 | [0.090665, 0.214950] |
+| 全阶 $\Xi$-Shapley | 1.119827 | 0.355591 | 0.155074 | [0.000000, 0.000000] |
+| 观测 $\Phi^R$ pair prior | 1.257525 | 0.233105 | 0.017376 | [0.084141, 0.186965] |
+| EI-Shapley | 1.126129 | 0.349449 | 0.148772 | [-0.002418, 0.015135] |
+| 观测 $\Phi^{\mathrm{WMS}}$ pair prior | 1.203389 | 0.267035 | 0.071512 | [0.036049, 0.134571] |
+| 观测正向 $\Phi_{\mathrm{SI}}$ pair prior | 1.258277 | 0.210407 | 0.016624 | [0.085170, 0.190696] |
+| 观测 causal density（outgoing） | 1.271705 | 0.289903 | 0.003196 | [0.089022, 0.211481] |
+| 观测全阶 Gaussian SURD synergy | 1.214108 | 0.314598 | 0.060793 | [0.049353, 0.142478] |
 
+Ξ的nRMSE为 `1.119827`，相对Frozen、同参数Uniform及Gaussian SURD分别降低 `10.65%`、`12.16%`、`7.77%`。Ξ相对SURD绝对改善为 `0.094281`，逐项95%区间 `[0.049353, 0.142478]`。Ξ与EI、SHAP的差异区间跨零，不能宣称其显著优于两项。
 
-**Ξ-Shapley 的完整测试集平均 nRMSE 最低，为 0.985959。** 相对 Frozen、同参数 Uniform ridge 和全阶 Gaussian SURD，平均 nRMSE 分别降低 10.43%、11.63% 和 7.22%；百分比以各比较方法的 nRMSE 为分母。Ξ 相对 SURD 的绝对改善为 0.076701，95% 区间 [0.040684, 0.113574]，相对三项 Φ pair prior 及 causal density 的区间也排除零。EI 与 Ξ 的差异区间跨零，不能宣称 Ξ 显著优于 EI。
+SURD相对同参数Uniform改善为 `0.060793`，逐项95%区间 `[0.029585, 0.086302]`。所有区间来自原4000组12月循环时间块的共享权重，seed=20261001，逐项、未作多重性调整。整体改善不保证逐模态、时距或事件改善。
 
-全阶 Gaussian SURD 的 nRMSE 为 1.062660，相对 Uniform 的改善为 0.053053，95% 区间 [0.011453, 0.086111]。区间来自共享 4000 次、12 月循环时间块 bootstrap，seed20261001，均为未作多重性调整的逐项区间。总体平均误差优势不代表每个模态、时距或气候事件均有收益。
-
-这些结果支持固定 Ξ 参数下的先验用途比较，不能推成各方法独立充分调参后的最优排名。相同校准器使用冻结预测特征；“观测先验不使用动力学”专指信息估计阶段。
-
-![七项先验固定参数比较](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/information_prior_comparison.png)
-
-*图 1. a，测试 nRMSE；b，比较方法相对 Ξ 的改善及逐项 95% 区间，正值有利于比较方法；c，相对同参数 Uniform 的逐 lead 改善点估计。观测方法共享实际拟合配对；EI／Ξ 使用三个 checkpoint 的独立干预历史。SURD 为 Gaussian 密度估计，覆盖全部源阶数。图例位于轴外右侧。*
+253条自然配对和三个checkpoint各16,384条干预历史均是原信息估计范围，不是测试子集。本次直接读取原预测重评分，没有重估先验、重训或重新选参。完整十一模态历史评分仍保存在原结果目录；当前七模态评分见[新摘要](../../results/unicm_forecast_scoring_seven_modes/summary.json)。G.2之后的信息定义、归因、非负审计及计时记录均维持原口径。
 
 ### G.2 分布修正后的变化
 
@@ -1188,7 +1170,7 @@ unique／redundant 与 synergy 原子之和闭合到全联盟 MI，最大误差 
 
 - [实验入口](../../scripts/run_unicm_observational_prior_comparison.py)：核心计时重算，预测批次计时可复用同配置 JSON，避免重复数分钟推理测量。
 - [观测估计及 SURD 分配](../../scripts/unicm_observational_information.py)、[解析与分布检查](../../tests/test_unicm_observational_information.py)。本轮相关检查共 21 项通过。
-- [结果摘要](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/summary.json)：输入哈希、fit 索引、逐方法分布、非负／映射审计、完整计时和区间。
+- [原上游结果摘要](../../results/unicm_observational_prior_comparison_fit253_surd_allorders/summary.json)及[当前七模态评分](../../results/unicm_forecast_scoring_seven_modes/summary.json)：输入哈希、fit 索引、逐方法分布、非负／映射审计、完整计时和区间。
 - 同目录 `information_priors.npz` 保存先验、原始有符号归因、SURD 全联盟 MI 与原子；`evaluation_arrays.npz` 保存预测和配对 bootstrap；`inference_timing.json` 保存批次实测及配置。
 - [主图来源审计](../../results/unicm_pair_hypergraph_independent/composite_provenance_audit.json)记录干预面板 a—h 与修正先验面板 i 的不同来源。
 

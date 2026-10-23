@@ -564,8 +564,10 @@ def compute_sem_effects(edges: Sequence[LaggedEdge], *, n_components: int, max_l
     denom = max(1, n - 1)
     direct_abs_max = np.max(np.abs(coefficient_source_target[1:]), axis=0) if tau_max > 0 else np.zeros((n, n), dtype=float)
     for component in range(n):
-        outgoing = float(np.sum(ce_max_abs[component, :]) / denom)
-        incoming = float(np.sum(ce_max_abs[:, component]) / denom)
+        # ACE/ACS average over the other N-1 components (Runge et al., Eqs. 11-12).
+        other_components = np.arange(n) != component
+        outgoing = float(np.sum(ce_max_abs[component, other_components]) / denom)
+        incoming = float(np.sum(ce_max_abs[other_components, component]) / denom)
         gateway_rows.append(
             {
                 "component": component,

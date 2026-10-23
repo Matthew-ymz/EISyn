@@ -17,6 +17,8 @@ from scripts.plot_earth_system_main_figures import (
     UNICM_MAIN_PRIOR_METHODS,
     UNICM_MAIN_METHOD_KEYS,
     UNICM_SHAP_PRIOR_SUMMARY,
+    UNICM_SCORING_SUMMARY,
+    load_unicm_scored_comparison,
 )
 
 OUT=ROOT/'docs/reports/assets/unicm_main_with_hypergraph.png'
@@ -24,6 +26,7 @@ FIGURE_OUT=ROOT/'fig/earth_unicm_hierarchy_overview.png'
 
 def main():
     comparison=json.loads(UNICM_INFORMATION_PRIOR_SUMMARY.read_text())
+    scoring=load_unicm_scored_comparison()
     shap_prior=json.loads(UNICM_SHAP_PRIOR_SUMMARY.read_text())
     tree=json.loads((ROOT/'results/unicm_xi_hierarchy_uniform_n16384/summary.json').read_text())
     shap=json.loads((ROOT/'results/unicm_11mode_shapley_affine_n16384_independent/summary.json').read_text())
@@ -72,7 +75,11 @@ def main():
             panel_j=dict(summary=str(UNICM_INFORMATION_PRIOR_SUMMARY.relative_to(ROOT)),
                          displayed_metric='100 * (1 - mean_cell_nrmse_method / mean_cell_nrmse_frozen)',
                          metric_unit='percent; higher is better; negative means worse than Frozen',
-                         aggregation='same mean over 264 normalized target-lead RMSE cells as source summaries',
+                         aggregation='mean over 168 normalized target-lead RMSE cells: seven scored modes x 24 leads; original eleven-output predictions unchanged',
+                         scoring_summary=str(UNICM_SCORING_SUMMARY.relative_to(ROOT)),
+                         scoring_summary_sha256=hashlib.sha256(UNICM_SCORING_SUMMARY.read_bytes()).hexdigest(),
+                         scored_mode_names=scoring['scored_mode_names'],
+                         upstream_fits_priors_and_hyperparameters_changed=False,
                          sha256=hashlib.sha256(UNICM_INFORMATION_PRIOR_SUMMARY.read_bytes()).hexdigest(),
                          parameter_mode=comparison['parameter_mode'],
                          shared_hyperparameters=comparison['shared_hyperparameters'],
@@ -89,7 +96,7 @@ def main():
                          prior_data_audit=comparison['prior_data_audit'],
                          references=['frozen','univariate','uniform']),
             panel_g='Tree-wise SPT order mass; original panel g.',
-            panel_i='Original panel j: Xi-Shapley shuffled-prior control; percentage reduction versus frozen ensemble.',
+            panel_i='Same original Xi-Shapley shuffled-prior fits rescored on seven outputs; original eleven-mode null scores reproduced before rescoring.',
             note='EI/Xi use 16,384 independent intervention histories per checkpoint. PhiR, WMS, SI, causal density and all-order Gaussian SURD use only 253 natural fit histories paired with actual future observations; no frozen predictions enter these observational priors. Direct grouped SHAP uses 16 fit foregrounds and 4 fit backgrounds, with two antithetic permutation pairs per frozen checkpoint; its approximation is declared in appendix B.7. Calibration evaluation retains its chronological fit/validation/test split.'),
         action='SPT, SPT-selected order mass, exact Shapley, and pair hypergraphs share the corrected estimator and identical intervention samples.')
     audit=ROOT/'results/unicm_pair_hypergraph_independent/composite_provenance_audit.json'

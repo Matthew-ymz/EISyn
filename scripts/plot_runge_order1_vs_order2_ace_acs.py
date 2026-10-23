@@ -77,7 +77,7 @@ def aggregate_hyper_ace_acs(
         subset = parse_subset(row.subset)
         if order == 1:
             for src in subset:
-                if 0 <= int(src) < n:
+                if 0 <= int(src) < n and int(src) != target:
                     value = abs(float(row.delta_K))
                     ace_order1[int(src)] += value / float(order)
                     acs_order1[target] += value
@@ -234,8 +234,8 @@ def main() -> None:
     axes = [fig.add_subplot(grid[0, idx], projection="mollweide") for idx in range(2)]
     draw_ace_acs_panel(axes[0], original_nodes, labels, original_norm, cmap, land, coastlines)
     draw_ace_acs_panel(axes[1], total_nodes, labels, ridge_norm, cmap, land, coastlines)
-    axes[0].set_title("Runge 2015 method (PC-stable)", fontsize=9, fontweight="bold", pad=8)
-    axes[1].set_title("Ridge+PEID: first- and second-order composite", fontsize=9, fontweight="bold", pad=8)
+    axes[0].set_title("Linear causal effects: ACE and ACS", fontsize=9, fontweight="bold", pad=8)
+    axes[1].set_title("First- and second-order EI-based node scores", fontsize=9, fontweight="bold", pad=8)
     if args.suptitle:
         fig.suptitle(args.suptitle, fontsize=10, fontweight="bold")
     for letter, ax in zip(["a", "b"], axes):
@@ -246,7 +246,7 @@ def main() -> None:
         axes[1],
         ridge_norm,
         cmap,
-        label="PEID composite (nats): Hyper-ACS (inner) and Hyper-ACE (outer), clipped",
+        label="HACS (inner) and HACE (outer), nats; extended upper scale",
         extend="max",
     )
 
@@ -276,9 +276,9 @@ def main() -> None:
                 "original_gateway_scores": relpath_for_manifest(args.original_gateway),
                 "original_mediator_scores": relpath_for_manifest(args.original_mediator),
                 "hyperedges": relpath_for_manifest(args.hyperedges),
-                "panel_a": "Runge 2015 PC-stable reproduction ACE/ACS on 1948-2026 data",
-                "panel_b": "Ridge+PEID order1 averaged by n-1 plus significant order2 averaged by per-node significant hyperedge count",
-                "definition": "order1 terms are divided by n-1; order2 ACE is mean |Syn|/|K| over significant outgoing hyperedges involving the source; order2 ACS is mean |Syn| over significant incoming hyperedges for the target; empty order2 sets contribute 0",
+                "panel_a": "Linear causal effects ACE/ACS, excluding self effects, on 1948-2026 data",
+                "panel_b": "EI-based node scores: cross-component order1 averaged by n-1 plus surrogate-screened order2 averaged by per-node selected term count",
+                "definition": "order1 excludes source=target and is divided by n-1; order2 HACE is mean absolute signed Mobius increment / 2 over selected outgoing terms involving the source; order2 HACS is the mean absolute signed Mobius increment over selected incoming terms; empty order2 sets contribute 0. Signed increments are not PEID Syn.",
                 "significance_z": float(args.significance_z),
                 "colorbar_mode": "panel a uses the Runge ACE/ACS scale; panel b uses the Ridge+PEID robust clipped scale",
                 "runge_vmax": original_vmax,

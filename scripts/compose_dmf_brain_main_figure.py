@@ -29,7 +29,7 @@ from threadpoolctl import threadpool_limits
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.plot_dmf_subject_fixed_window import BASE, read_inputs
-from scripts.dmf_curve_shape import METHOD_COLORS, METHOD_LABELS
+from scripts.dmf_curve_shape import METHOD_COLORS
 from scripts.plot_dmf_schaefer100_tree_examples import NETWORK_COLORS, audit_tree
 from scripts.analyze_dmf_schaefer100_xi_hierarchy_tree import (
     render_tree, _blend_with_white, SPLIT_COLOR,
@@ -61,6 +61,11 @@ TREE_COUPLINGS = [0., 1.3, 10.]
 # Physical dimensions, in millimetres, keep final type sizes meaningful.
 WIDTH, HEIGHT = 190., 255.
 PAIRWISE = ROOT / "results/dmf_schaefer100/natural_pairwise_phi_r"
+METHOD_LABELS = {
+    "xi": r"$\Xi$ (PEID)",
+    "phi_r": r"$\Phi^R$ ($\Phi$ID)",
+    "wms": "WMS",
+}
 
 
 def axes_mm(fig, x, top, width, height):
@@ -422,7 +427,144 @@ def load_inputs():
     return g, values, rho, scenario, labels, membership, network_names, summary, conditions
 
 
-def draw(dpi, threshold=50):
+def draw_condition_rows(fig, threshold, conditions, labels, membership,
+                        network_names, images, order_summary, network_sizes,
+                        network_means, component_sd, total_sd):
+    """Preview: one coupling per row, with three aligned evidence columns.
+
+    Reuses the original tree renderers, native cortex pixels, network order,
+    normalization and uncertainty. Panel letters follow reading order.
+    """
+    colorbars = []
+    tree_x, cortex_x, bar_x = 3., 64., 145.
+    headers = [(30., 'SPT hierarchy'),
+               (91.5, 'High-order cortical allocation'),
+               (157.5, 'Functional-network contributions')]
+    for x, title in headers:
+        text_mm(fig, x, 95.5, title, fontsize=7.1, weight='bold', ha='center')
+    text_mm(fig, 91.5, 100.4,
+            f'≥ {threshold} ROI · within-band % · 3-seed means',
+            fontsize=5.8, ha='center', color='.30')
+    network_labels = ['VIS', 'SM', 'DA', 'SA/VA', 'LIM', 'FPN', 'DMN']
+    fig.legend(handles=[Patch(facecolor=c, edgecolor='none', label=n)
+                        for c, n in zip(NETWORK_COLORS, network_labels)],
+               loc='center', bbox_to_anchor=(30./WIDTH, 1-100.4/HEIGHT),
+               ncol=7, frameon=False, fontsize=5.7, handlelength=.75,
+               handletextpad=.25, columnspacing=.65, borderaxespad=0.)
+    fig.legend(handles=[
+        Patch(facecolor='#777777', edgecolor='none', label='Within-network'),
+        Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///',
+              linewidth=.4, label='Between-network Shapley')],
+        loc='center', bbox_to_anchor=(157.5/WIDTH, 1-100.4/HEIGHT),
+        ncol=2, fontsize=5.6, frameon=False, handlelength=1.3,
+        handletextpad=.35, columnspacing=.8, borderaxespad=0.)
+
+    order = np.argsort(network_means[1, 0])[::-1]
+    ypos = np.arange(7)[::-1]
+    tick_labels = [f'{network_labels[i]} / {network_sizes[i]}' for i in order]
+    bar_colors = [NETWORK_COLORS[i] for i in order]
+    faded = [_blend_with_white(color, .24) for color in bar_colors]
+    upper = 5*np.ceil(np.max(network_means.sum(1)+total_sd)*1.06/5)
+    descriptions = ['No long-range coupling', 'Transition range', 'Extreme coupling']
+    for i, (heading, coupling, description, condition) in enumerate(zip(
+            [105., 152., 199.], TREE_COUPLINGS, descriptions, conditions)):
+        text_mm(fig, 3., heading, rf'$G={coupling:g}$  ·  {description}',
+                fontsize=7.4, weight='bold')
+        for x, panel in zip([tree_x, cortex_x, 130.], ['fgh', 'ijk', 'lmn'][i]):
+            letter(fig, x, heading+6., panel)
+
+        tree, source = condition
+        ax = axes_mm(fig, tree_x, heading+8., 54., 28.)
+        if coupling == 0:
+            audit = render_g0_trivial_tree(ax, source, membership, fontsize=6.0)
+            note = 'Cross-ROI Syn = 0 · ROI leaves'
+        elif coupling == 10:
+            audit = render_g10_one_level_tree(ax, tree, membership, fontsize=6.0)
+            note = 'One-level display · 99 binary forks condensed'
+        else:
+            audit = render_collapsed_tree(
+                tree, axis=ax, labels=labels, network_membership=membership,
+                network_names=network_names, seed=TREE_SEED, coupling_g=coupling,
+                show_heading=False, show_colorbar=False, show_roi_labels=False,
+                node_label_limit=0)
+            for line in ax.lines:
+                line.set_linewidth(.32)
+            for collection in ax.collections:
+                if collection.get_zorder() == 3:
+                    collection.set_sizes(np.full_like(collection.get_sizes(), 3.))
+                    collection.set_linewidths(.40)
+                else:
+                    collection.set_sizes(collection.get_sizes()*.20)
+                    collection.set_linewidths(collection.get_linewidths()*.55)
+            for artist in list(ax.texts):
+                artist.remove()
+            ax.set_ylim(-.07, 1.06)
+            depth = audit['display_maximum_depth']
+            original = audit['original_tree_metrics']['maximum_depth']
+            note = f"Multi-ROI forks {audit['multi_roi_fork_count']} · Depth {depth} (from {original})"
+        text_mm(fig, 30., heading+39.5, note, fontsize=5.4, ha='center', color='.30')
+        print('Condition-row tree audit:', dict(G=coupling,
+              display_leaf_count=audit['display_leaf_count'],
+              display_maximum_depth=audit['display_maximum_depth']))
+
+        record = order_summary['by_G'][i]
+        cortical_note = ('N/A: high-order total = 0' if not
+                        order_summary['percentage_audit']['valid_seed_counts'][1][i]
+                        else f"Total: {record['high_mean_nats']:.3f} ± {record['high_seed_sd_nats']:.3f} nats")
+        text_mm(fig, 92., heading+5.5, cortical_note,
+                fontsize=5.9, ha='center')
+        for view in range(4):
+            cortex = axes_mm(fig, cortex_x+1.+(view%2)*27.5,
+                             heading+9.+(view//2)*16.2, 26.5, 15.8)
+            cortex.imshow(images[12+4*i+view], interpolation='none')
+            cortex.axis('off')
+
+        within, between = network_means[i, :, order].T
+        combined = within+between
+        text_mm(fig, 165., heading+5.5,
+                f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
+                fontsize=5.6, ha='center', color='.30')
+        ax = axes_mm(fig, bar_x, heading+8., 40., 28.)
+        with plt.rc_context({'hatch.linewidth': .35}):
+            ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
+            ax.barh(ypos, between, left=within, height=.72, color=faded,
+                    edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
+        ax.errorbar(within, ypos, xerr=component_sd[i, 0, order], fmt='none',
+                    ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
+        if coupling != 0:
+            ax.errorbar(combined, ypos, xerr=total_sd[i, order], fmt='none',
+                        ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
+        ax.set(xlim=(0, upper), ylim=(-.65, 6.65),
+               xticks=np.arange(0, upper+.1, 10), yticks=ypos, yticklabels=tick_labels)
+        ax.tick_params(axis='y', labelsize=6.0, pad=1.2, length=0)
+        ax.tick_params(axis='x', labelsize=6.0)
+        ax.grid(axis='x', color='.91', lw=.5, zorder=0)
+        if i == 2:
+            ax.set_xlabel(f"Overall {METHOD_LABELS['xi']} share (%)", fontsize=6.1, labelpad=2)
+
+    tree_cmap = LinearSegmentedColormap.from_list('local_syn_rows',
+                [_blend_with_white(SPLIT_COLOR, .12), _blend_with_white(SPLIT_COLOR, .74)])
+    cb = fig.colorbar(plt.cm.ScalarMappable(norm=Normalize(0, 3), cmap=tree_cmap),
+                      cax=axes_mm(fig, 7., 246., 46., 1.4), orientation='horizontal',
+                      ticks=[0, 1, 2, 3])
+    cb.ax.tick_params(labelsize=5.6, length=1.5, pad=1.)
+    cb.outline.set_linewidth(.4)
+    text_mm(fig, 30., 253., f"Local Syn / {METHOD_LABELS['xi']} (%)",
+            fontsize=5.8, ha='center')
+    colorbars.append(cb)
+    cb = fig.colorbar(plt.cm.ScalarMappable(
+        norm=Normalize(order_summary['plot']['vmin'], order_summary['plot']['vmax']),
+        cmap='viridis'), cax=axes_mm(fig, 68., 246., 47., 1.4), orientation='horizontal')
+    cb.set_ticks(np.linspace(order_summary['plot']['vmin'], order_summary['plot']['vmax'], 5))
+    cb.ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.2f'))
+    cb.ax.tick_params(labelsize=5.6, length=1.5, pad=1.)
+    cb.outline.set_linewidth(.4)
+    text_mm(fig, 91.5, 253., 'ROI share within high order (%)', fontsize=5.8, ha='center')
+    colorbars.append(cb)
+    return colorbars
+
+
+def draw(dpi, threshold=50, condition_layout='columns'):
     g, values, rho, scenario, labels, membership, network_names, summary, conditions = load_inputs()
     images, order_summary = cortex_crops(threshold)
     network_names, network_sizes, network_means, component_sd, total_sd = read_three_g_network_comparison()
@@ -449,8 +591,8 @@ def draw(dpi, threshold=50):
                    columnspacing=1.2, borderaxespad=0.)
         specifications = [
             ("a", "rate", 13, 14, "Independent order parameter"),
-            ("b", "xi", 80, 14, r"$\Xi$ · continuous TM"),
-            ("c", "phi_r", 13, 50, r"Pairwise $\Phi^R$"),
+            ("b", "xi", 80, 14, METHOD_LABELS["xi"]),
+            ("c", "phi_r", 13, 50, f"Pairwise {METHOD_LABELS['phi_r']}"),
             ("d", "wms", 80, 50, "Signed source WMS"),
         ]
         for panel, name, x, top, title in specifications:
@@ -490,7 +632,9 @@ def draw(dpi, threshold=50):
                     bbox=dict(facecolor="white", edgecolor="none", pad=.6))
         ax.axvline(50, color=".65", ls=":", lw=.65, zorder=0)
         ax.set(xlim=(0, 100), ylim=(-.55, 2.55), xticks=[0, 50, 100],
-               yticks=[2, 1, 0], yticklabels=[METHOD_LABELS[n] for n in ("xi", "phi_r", "wms")],
+               yticks=[2, 1, 0],
+               yticklabels=[METHOD_LABELS[n].replace(" (", "\n(")
+                            for n in ("xi", "phi_r", "wms")],
                title="Transition-window hits\nAll 93 participants",
                xlabel="Hits within own window (%)")
         ax.set_title(ax.get_title(), fontsize=7.5, pad=3.5)
@@ -500,153 +644,161 @@ def draw(dpi, threshold=50):
         hit_note = text_mm(fig, 169.5, 86.5, "Window width: 0.5 $G$\nPost hoc; $\Delta G=0.1$",
                 fontsize=6.4, color=".35", ha="center", linespacing=1.4)
 
-        # Shared state columns couple hierarchy and anatomy without extra empty cells.
-        starts = [3, 62, 121]
-        descriptions = ["No long-range coupling", "Transition range", "Extreme coupling"]
-        couplings = [0, 1.3, 10]
-        for i, (x, coupling, description, condition) in enumerate(zip(starts, couplings, descriptions, conditions)):
-            tree, source = condition
-            text_mm(fig, x+28.5, 95, rf"$G={coupling:g}$  ·  {description}",
-                    ha="center", fontsize=7.7)
-            ax = axes_mm(fig, x, 101, 57, 31)
-            if coupling == 0:
-                print('G=0 trivial tree display audit:', render_g0_trivial_tree(ax, source, membership))
-                letter(fig, x, 101, 'f')
-                text_mm(fig, x+28.5, 134.5, 'Cross-ROI Syn = 0 · ROI leaves',
-                    ha='center', fontsize=5.6, color='.30')
-                continue
-            if coupling == 10:
-                print('G=10 one-level display audit:', render_g10_one_level_tree(ax, tree, membership))
-                letter(fig, x, 101, 'h')
-                text_mm(fig, x+28.5, 134.5, 'One-level display · 99 binary forks condensed',
+        if condition_layout == 'rows':
+            colorbars.extend(draw_condition_rows(
+                fig, threshold, conditions, labels, membership, network_names,
+                images, order_summary, network_sizes, network_means,
+                component_sd, total_sd))
+        else:
+            # Shared state columns couple hierarchy and anatomy without extra empty cells.
+            starts = [3, 62, 121]
+            descriptions = ["No long-range coupling", "Transition range", "Extreme coupling"]
+            couplings = [0, 1.3, 10]
+            for i, (x, coupling, description, condition) in enumerate(zip(starts, couplings, descriptions, conditions)):
+                tree, source = condition
+                text_mm(fig, x+28.5, 95, rf"$G={coupling:g}$  ·  {description}",
+                        ha="center", fontsize=7.7)
+                ax = axes_mm(fig, x, 101, 57, 31)
+                if coupling == 0:
+                    print('G=0 trivial tree display audit:', render_g0_trivial_tree(ax, source, membership))
+                    letter(fig, x, 101, 'f')
+                    text_mm(fig, x+28.5, 134.5, 'Cross-ROI Syn = 0 · ROI leaves',
                         ha='center', fontsize=5.6, color='.30')
-                continue
-            condense = coupling == 1.3
-            if condense:
-                tree_audit = render_collapsed_tree(
-                    tree, axis=ax, labels=labels, network_membership=membership,
-                    network_names=network_names, seed=TREE_SEED, coupling_g=coupling,
-                    show_heading=False, show_colorbar=False, show_roi_labels=False,
-                    node_label_limit=0)
-            else:
-                render_tree(tree, None, labels=labels, network_membership=membership,
-                            network_names=network_names, seed=TREE_SEED, coupling_g=coupling, dpi=dpi,
-                            axis=ax, network_colors=NETWORK_COLORS, information_unit="nats",
-                            node_value_mode="root_share", syn_color_max=3, show_colorbar=False,
-                            show_roi_labels=False, show_network_strip_label=False, node_label_limit=0)
-                tree_audit = layout_audit(tree, collapse=False)
-            # Existing renderer styles are tuned for a standalone 15-inch tree.
-            # Scale marks/strokes for this 57-mm panel; every node is retained.
-            for line in ax.lines:
-                line.set_linewidth(.32)
-            for collection in ax.collections:
-                if collection.get_zorder() == 3:
-                    # Local Syn percentage is encoded by color only; uniform
-                    # node size/stroke avoids singling out particular nodes.
-                    collection.set_sizes(np.full_like(collection.get_sizes(), 3.))
-                    collection.set_linewidths(.40)
+                    continue
+                if coupling == 10:
+                    print('G=10 one-level display audit:', render_g10_one_level_tree(ax, tree, membership))
+                    letter(fig, x, 101, 'h')
+                    text_mm(fig, x+28.5, 134.5, 'One-level display · 99 binary forks condensed',
+                            ha='center', fontsize=5.6, color='.30')
+                    continue
+                condense = coupling == 1.3
+                if condense:
+                    tree_audit = render_collapsed_tree(
+                        tree, axis=ax, labels=labels, network_membership=membership,
+                        network_names=network_names, seed=TREE_SEED, coupling_g=coupling,
+                        show_heading=False, show_colorbar=False, show_roi_labels=False,
+                        node_label_limit=0)
                 else:
-                    collection.set_sizes(collection.get_sizes()*.20)
-                    collection.set_linewidths(collection.get_linewidths()*.55)
-            # Remove the standalone title/statistics band. All tree nodes are
-            # rendered as markers, without numerical labels or badges.
-            for artist in list(ax.texts):
-                artist.remove()
-            ax.set_ylim(-.07, 1.06)
-            tree_audit['display_label_count'] = 0
-            tree_audit['percentage_encoding'] = 'color only; uniform node size and stroke'
-            letter(fig, x, 101, "fgh"[i])
-            print("Displayed tree audit:", source, {k:v for k,v in tree_audit.items()
-                  if k not in {"nodes", "roi_order", "original_tree_metrics"}})
-            original_depth = tree_audit['original_tree_metrics']['maximum_depth']
-            depth = str(tree_audit['display_maximum_depth'])
-            if condense:
-                depth += f" (from {original_depth})"
-            text_mm(fig, x+28.5, 134.5,
-                    f"Multi-ROI forks {tree_audit['multi_roi_fork_count']} · Display depth {depth}",
-                    ha="center", fontsize=5.6, color=".30")
-        network_labels = ["VIS", "SM", "DA", "SA/VA", "LIM", "FPN", "DMN"]
-        fig.legend(handles=[Patch(facecolor=c, edgecolor="none", label=n)
-                            for c, n in zip(NETWORK_COLORS, network_labels)],
-                   loc="center left", bbox_to_anchor=(3/WIDTH, 1-(140.5)/HEIGHT),
-                   ncol=7, frameon=False, fontsize=6.4, handlelength=.8,
-                   handletextpad=.35, columnspacing=.9, borderaxespad=0.)
-        tree_cmap = LinearSegmentedColormap.from_list("local_syn",
-                    [_blend_with_white(SPLIT_COLOR, .12), _blend_with_white(SPLIT_COLOR, .74)])
-        cb = fig.colorbar(plt.cm.ScalarMappable(norm=Normalize(0, 3), cmap=tree_cmap),
-                          cax=axes_mm(fig, 179, 104, 1.6, 24), orientation="vertical",
-                          ticks=[0, 1, 2, 3])
-        cb.ax.tick_params(labelsize=5.4, length=1.5, pad=1.)
-        cb.outline.set_linewidth(.4)
-        cb.set_label(r"g: Local Syn / $\Xi$ (%)", fontsize=5.9, labelpad=3,
-                     rotation=270, va='bottom')
-        colorbars.append(cb)
+                    render_tree(tree, None, labels=labels, network_membership=membership,
+                                network_names=network_names, seed=TREE_SEED, coupling_g=coupling, dpi=dpi,
+                                axis=ax, network_colors=NETWORK_COLORS, information_unit="nats",
+                                node_value_mode="root_share", syn_color_max=3, show_colorbar=False,
+                                show_roi_labels=False, show_network_strip_label=False, node_label_limit=0)
+                    tree_audit = layout_audit(tree, collapse=False)
+                # Existing renderer styles are tuned for a standalone 15-inch tree.
+                # Scale marks/strokes for this 57-mm panel; every node is retained.
+                for line in ax.lines:
+                    line.set_linewidth(.32)
+                for collection in ax.collections:
+                    if collection.get_zorder() == 3:
+                        # Local Syn percentage is encoded by color only; uniform
+                        # node size/stroke avoids singling out particular nodes.
+                        collection.set_sizes(np.full_like(collection.get_sizes(), 3.))
+                        collection.set_linewidths(.40)
+                    else:
+                        collection.set_sizes(collection.get_sizes()*.20)
+                        collection.set_linewidths(collection.get_linewidths()*.55)
+                # Remove the standalone title/statistics band. All tree nodes are
+                # rendered as markers, without numerical labels or badges.
+                for artist in list(ax.texts):
+                    artist.remove()
+                ax.set_ylim(-.07, 1.06)
+                tree_audit['display_label_count'] = 0
+                tree_audit['percentage_encoding'] = 'color only; uniform node size and stroke'
+                letter(fig, x, 101, "fgh"[i])
+                print("Displayed tree audit:", source, {k:v for k,v in tree_audit.items()
+                      if k not in {"nodes", "roi_order", "original_tree_metrics"}})
+                original_depth = tree_audit['original_tree_metrics']['maximum_depth']
+                depth = str(tree_audit['display_maximum_depth'])
+                if condense:
+                    depth += f" (from {original_depth})"
+                text_mm(fig, x+28.5, 134.5,
+                        f"Multi-ROI forks {tree_audit['multi_roi_fork_count']} · Display depth {depth}",
+                        ha="center", fontsize=5.6, color=".30")
+            network_labels = ["VIS", "SM", "DA", "SA/VA", "LIM", "FPN", "DMN"]
+            fig.legend(handles=[Patch(facecolor=c, edgecolor="none", label=n)
+                                for c, n in zip(NETWORK_COLORS, network_labels)],
+                       loc="center left", bbox_to_anchor=(3/WIDTH, 1-(140.5)/HEIGHT),
+                       ncol=7, frameon=False, fontsize=6.4, handlelength=.8,
+                       handletextpad=.35, columnspacing=.9, borderaxespad=0.)
+            tree_cmap = LinearSegmentedColormap.from_list("local_syn",
+                        [_blend_with_white(SPLIT_COLOR, .12), _blend_with_white(SPLIT_COLOR, .74)])
+            cb = fig.colorbar(plt.cm.ScalarMappable(norm=Normalize(0, 3), cmap=tree_cmap),
+                              cax=axes_mm(fig, 179, 104, 1.6, 24), orientation="vertical",
+                              ticks=[0, 1, 2, 3])
+            cb.ax.tick_params(labelsize=5.4, length=1.5, pad=1.)
+            cb.outline.set_linewidth(.4)
+            cb.set_label(f"g: Local Syn / {METHOD_LABELS['xi']} (%)", fontsize=5.9, labelpad=3,
+                         rotation=270, va='bottom')
+            colorbars.append(cb)
 
-        text_mm(fig, 3, 148,
-                f'High order: ≥ {threshold} ROI · within-band % · mean across 3 seeds',
-                fontsize=6.6, weight='bold')
-        for i,x in enumerate(starts):
-            row = order_summary['by_G'][i]
-            letter(fig,x,153,'ijk'[i])
-            note = ("N/A: high-order total = 0" if
-                    not order_summary['percentage_audit']['valid_seed_counts'][1][i] else
-                    f"Total: {row['high_mean_nats']:.3f} ± {row['high_seed_sd_nats']:.3f} nats")
-            text_mm(fig,x+30,153,note,fontsize=6.1,ha='center')
-            for view in range(4):
-                ax = axes_mm(fig,x+(view%2)*29,157+(view//2)*18.2,28,17.2)
-                ax.imshow(images[12+4*i+view],interpolation='none')
-                ax.axis('off')
-        cb = fig.colorbar(plt.cm.ScalarMappable(
-            norm=Normalize(order_summary['plot']['vmin'],order_summary['plot']['vmax']),cmap='viridis'),
-            cax=axes_mm(fig,179,160,1.6,32),orientation='vertical')
-        cb.set_ticks(np.linspace(order_summary['plot']['vmin'],order_summary['plot']['vmax'],5))
-        cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
-        cb.ax.tick_params(labelsize=6.0, length=1.5, pad=1.2)
-        cb.outline.set_linewidth(.5)
-        cb.set_label('ROI share within high order (%)', fontsize=6.2, labelpad=3,
-                     rotation=270, va='bottom')
-        colorbars.append(cb)
-        # One stacked network comparison per G, aligned to the tree/cortex
-        # columns above. Hatch distinguishes between-network attribution.
-        order = np.argsort(network_means[1, 0])[::-1]  # freeze the G=1.3 within order
-        ypos = np.arange(7)[::-1]
-        short = ['VIS', 'SM', 'DA', 'SA/VA', 'LIM', 'FPN', 'DMN']
-        rows = [f'{short[i]} / {network_sizes[i]}' for i in order]
-        bar_colors = [NETWORK_COLORS[i] for i in order]
-        faded = [_blend_with_white(color, .24) for color in bar_colors]
-        upper = 5 * np.ceil(np.max(network_means.sum(1) + total_sd) * 1.06 / 5)
-        with plt.rc_context({'hatch.linewidth': .35}):
-            fig.legend(handles=[
-                Patch(facecolor='#777777', edgecolor='none', label=r'Within-network $\Xi$'),
-                Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///', linewidth=.4,
-                      label='Between-network Shapley')],
-                loc='center', bbox_to_anchor=(90/WIDTH, 1-201.2/HEIGHT), ncol=2,
-                fontsize=6.1, frameon=False, handlelength=1.6, columnspacing=1.7)
-            for i, (x, coupling) in enumerate(zip([v+15 for v in starts], TREE_COUPLINGS)):
-                within, between = network_means[i, :, order].T
-                combined = within + between
-                ax = axes_mm(fig, x, 212, 40, 32)
-                ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
-                ax.barh(ypos, between, left=within, height=.72, color=faded,
-                        edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
-                # Internal endpoint SD uses the within share; outer endpoint SD
-                # uses each seed's combined share, preserving their covariance.
-                ax.errorbar(within, ypos, xerr=component_sd[i, 0, order], fmt='none',
-                            ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
-                if coupling != 0:  # At G=0 this is the same endpoint/SD already drawn.
-                    ax.errorbar(combined, ypos, xerr=total_sd[i, order], fmt='none',
+            text_mm(fig, 3, 148,
+                    f'High order: ≥ {threshold} ROI · within-band % · mean across 3 seeds',
+                    fontsize=6.6, weight='bold')
+            for i,x in enumerate(starts):
+                row = order_summary['by_G'][i]
+                letter(fig,x,153,'ijk'[i])
+                note = ("N/A: high-order total = 0" if
+                        not order_summary['percentage_audit']['valid_seed_counts'][1][i] else
+                        f"Total: {row['high_mean_nats']:.3f} ± {row['high_seed_sd_nats']:.3f} nats")
+                text_mm(fig,x+30,153,note,fontsize=6.1,ha='center')
+                for view in range(4):
+                    ax = axes_mm(fig,x+(view%2)*29,157+(view//2)*18.2,28,17.2)
+                    ax.imshow(images[12+4*i+view],interpolation='none')
+                    ax.axis('off')
+            cb = fig.colorbar(plt.cm.ScalarMappable(
+                norm=Normalize(order_summary['plot']['vmin'],order_summary['plot']['vmax']),cmap='viridis'),
+                cax=axes_mm(fig,179,160,1.6,32),orientation='vertical')
+            cb.set_ticks(np.linspace(order_summary['plot']['vmin'],order_summary['plot']['vmax'],5))
+            cb.ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
+            cb.ax.tick_params(labelsize=6.0, length=1.5, pad=1.2)
+            cb.outline.set_linewidth(.5)
+            cb.set_label('ROI share within high order (%)', fontsize=6.2, labelpad=3,
+                         rotation=270, va='bottom')
+            colorbars.append(cb)
+            # One stacked network comparison per G, aligned to the tree/cortex
+            # columns above. Hatch distinguishes between-network attribution.
+            order = np.argsort(network_means[1, 0])[::-1]  # freeze the G=1.3 within order
+            ypos = np.arange(7)[::-1]
+            short = ['VIS', 'SM', 'DA', 'SA/VA', 'LIM', 'FPN', 'DMN']
+            rows = [f'{short[i]} / {network_sizes[i]}' for i in order]
+            bar_colors = [NETWORK_COLORS[i] for i in order]
+            faded = [_blend_with_white(color, .24) for color in bar_colors]
+            upper = 5 * np.ceil(np.max(network_means.sum(1) + total_sd) * 1.06 / 5)
+            with plt.rc_context({'hatch.linewidth': .35}):
+                fig.legend(handles=[
+                    Patch(facecolor='#777777', edgecolor='none',
+                          label=f"Within-network {METHOD_LABELS['xi']}"),
+                    Patch(facecolor='#EEEEEE', edgecolor='#777777', hatch='///', linewidth=.4,
+                          label='Between-network Shapley')],
+                    loc='center', bbox_to_anchor=(90/WIDTH, 1-201.2/HEIGHT), ncol=2,
+                    fontsize=6.1, frameon=False, handlelength=1.6, columnspacing=1.7)
+                for i, (x, coupling) in enumerate(zip([v+15 for v in starts], TREE_COUPLINGS)):
+                    within, between = network_means[i, :, order].T
+                    combined = within + between
+                    ax = axes_mm(fig, x, 212, 40, 32)
+                    ax.barh(ypos, within, height=.72, color=bar_colors, linewidth=0, zorder=2)
+                    ax.barh(ypos, between, left=within, height=.72, color=faded,
+                            edgecolor=bar_colors, hatch='///', linewidth=.35, zorder=2)
+                    # Internal endpoint SD uses the within share; outer endpoint SD
+                    # uses each seed's combined share, preserving their covariance.
+                    ax.errorbar(within, ypos, xerr=component_sd[i, 0, order], fmt='none',
                                 ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
-                ax.set(xlim=(0, upper), ylim=(-.65, 6.65), xticks=np.arange(0, upper+.1, 10),
-                       yticks=ypos, yticklabels=rows, xlabel=r'Overall $\Xi$ share (%)')
-                ax.tick_params(axis='y', labelsize=6.1, pad=1.2, length=0)
-                ax.tick_params(axis='x', labelsize=6.1)
-                ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
-                ax.grid(axis='x', color='.91', lw=.5, zorder=0)
-                letter(fig, starts[i], 208, 'lmn'[i])
-                text_mm(fig, starts[i]+28.5, 208, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
-                text_mm(fig, starts[i]+28.5, 253,
-                        f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
-                        ha='center', fontsize=5.7, color='.35')
+                    if coupling != 0:  # At G=0 this is the same endpoint/SD already drawn.
+                        ax.errorbar(combined, ypos, xerr=total_sd[i, order], fmt='none',
+                                    ecolor='#202020', elinewidth=.55, capsize=1.1, capthick=.55, zorder=3)
+                    ax.set(xlim=(0, upper), ylim=(-.65, 6.65), xticks=np.arange(0, upper+.1, 10),
+                           yticks=ypos, yticklabels=rows,
+                           xlabel=f"Overall {METHOD_LABELS['xi']} share (%)")
+                    ax.tick_params(axis='y', labelsize=6.1, pad=1.2, length=0)
+                    ax.tick_params(axis='x', labelsize=6.1)
+                    ax.set_xlabel(ax.get_xlabel(), fontsize=6.3, labelpad=2)
+                    ax.grid(axis='x', color='.91', lw=.5, zorder=0)
+                    letter(fig, starts[i], 208, 'lmn'[i])
+                    text_mm(fig, starts[i]+28.5, 208, rf'$G={coupling:g}$', fontsize=7.4, ha='center')
+                    text_mm(fig, starts[i]+28.5, 253,
+                            f'Within {within.sum():.1f}% · Between {between.sum():.1f}%',
+                            ha='center', fontsize=5.7, color='.35')
 
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         # Audit final renderer extents of vertical guides and outside legends.
@@ -672,17 +824,20 @@ def draw(dpi, threshold=50):
                     raise ValueError(f'Vertical colorbar or legend overlaps panel label: {artist.get_text()}')
         if hit_note.get_window_extent(renderer).overlaps(hit_xlabel.get_window_extent(renderer)):
             raise ValueError('Hit-window note overlaps the axis label')
-        print('Vertical guide audit:', dict(colorbars=len(colorbars),
+        print('Figure guide audit:', dict(colorbars=len(colorbars),
             all_guides_within_canvas=True, no_data_overlap=True,
-            canvas_mm=[WIDTH, HEIGHT], previous_height_mm=305.))
+            canvas_mm=[WIDTH, HEIGHT], condition_layout=condition_layout))
+        output = (OUTPUT.with_name(OUTPUT.name+'_by_G')
+                  if condition_layout == 'rows' else OUTPUT)
         for suffix in (".png", ".pdf"):
-            path = OUTPUT.with_suffix(suffix)
+            path = output.with_suffix(suffix)
             fig.savefig(path, dpi=dpi, bbox_inches=None)
             print("Saved:", path)
         plt.close(fig)
-        REPORT_IMAGE.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(OUTPUT.with_suffix('.png'), REPORT_IMAGE)
-        print('Updated report image:', REPORT_IMAGE)
+        if condition_layout == 'columns':
+            REPORT_IMAGE.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(output.with_suffix('.png'), REPORT_IMAGE)
+            print('Updated report image:', REPORT_IMAGE)
 
 
 def draw_low_order_detail(dpi, threshold=50):
@@ -744,7 +899,8 @@ def draw_g0_detail(dpi):
         fig = plt.figure(figsize=(7.48, 2.55), facecolor='white')
         ax = fig.add_axes([.035, .23, .93, .66])
         render_g0_trivial_tree(ax, record, membership, fontsize=10)
-        fig.text(.5, .99, rf'$G=0$, seed 4 · overall $\Xi={record["full_xi_nats"]:.3f}$ nats',
+        fig.text(.5, .99,
+                 f'$G=0$, seed 4 · overall {METHOD_LABELS["xi"]} $={record["full_xi_nats"]:.3f}$ nats',
                  ha='center', va='top', fontsize=10)
         fig.text(.5, .17, 'Each ROI leaf contains E/I coordinates. Cross-ROI Syn = 0.',
                  ha='center', fontsize=8.5, color='.30')
@@ -762,7 +918,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dpi", type=int, default=450)
     parser.add_argument('--roi-order-threshold',type=int,default=50)
+    parser.add_argument('--condition-layout', choices=['columns', 'rows'], default='columns')
     args = parser.parse_args()
     with threadpool_limits(limits=1):
-        draw(args.dpi,args.roi_order_threshold)
-        draw_low_order_detail(args.dpi,args.roi_order_threshold)
+        draw(args.dpi,args.roi_order_threshold,args.condition_layout)
+        if args.condition_layout == 'columns':
+            draw_low_order_detail(args.dpi,args.roi_order_threshold)

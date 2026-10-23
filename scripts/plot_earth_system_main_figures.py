@@ -71,6 +71,7 @@ UNICM_INFORMATION_PRIOR_SUMMARY = (
 )
 # EI-Shapley remains in the complete comparison cache and appendix figure.
 UNICM_SHAP_PRIOR_SUMMARY = ROOT / "results/unicm_frozen_shap_prior_fit253_pilot/summary.json"
+UNICM_SCORING_SUMMARY = ROOT / "results/unicm_forecast_scoring_seven_modes/summary.json"
 UNICM_MAIN_PRIOR_METHODS = (
     "xi_shapley", "shap", "phi_r", "phi_wms", "phi_si", "causal_density", "surd",
 )
@@ -848,6 +849,17 @@ def plot_runge_figure(
     return outputs
 
 
+def load_unicm_scored_comparison() -> dict:
+    """Evaluation-only revision; original calibration/attribution remains fixed."""
+    result = json.loads(UNICM_SCORING_SUMMARY.read_text())
+    if (result['scoring_revision'] != 'evaluation_only_seven_modes'
+            or result['scored_mode_names'] != ['ENSO','NPMM','SPMM','IOB','IOD','SIOD','TNA']
+            or result['shared_hyperparameters'] != {'alpha':30000.,'gamma':3.}
+            or result['fit_or_tuning_changed'] or result['priors_changed']):
+        raise ValueError('Main figure requires scoring-only seven-mode results.')
+    return result
+
+
 def plot_unicm_rmse_display_comparison(output_base: Path) -> list[Path]:
     """Compare baseline-relative nRMSE with RMSE in cached model-index units.
 
@@ -856,21 +868,20 @@ def plot_unicm_rmse_display_comparison(output_base: Path) -> list[Path]:
     """
     from scripts.run_unicm_information_prior_comparison import COLORS
 
-    comparison = json.loads(UNICM_INFORMATION_PRIOR_SUMMARY.read_text())
-    shap = json.loads(UNICM_SHAP_PRIOR_SUMMARY.read_text())
-    entries = {**comparison["methods"], "shap": shap["methods"]["shap"]}
+    comparison = load_unicm_scored_comparison()
+    entries = comparison['methods']
     labels = UNICM_MAIN_METHOD_LABELS
     keys = UNICM_MAIN_METHOD_KEYS
     nrmse = np.asarray([entries[k]["test_nrmse"] for k in keys])
     reductions = 100.0 * (1.0 - nrmse / entries["frozen"]["test_nrmse"])
-    with np.load(UNICM_SHAP_PRIOR_SUMMARY.parent / "evaluation_arrays.npz") as cache:
+    with np.load(UNICM_SCORING_SUMMARY.parent / "evaluation_arrays.npz") as cache:
         raw = np.asarray([
             np.sqrt(np.mean((cache[f"prediction_{k}"] - cache["test_target"]) ** 2, axis=0)).mean()
             for k in keys
         ])
         cached_nrmse = np.asarray([
             (np.sqrt(np.mean((cache[f"prediction_{k}"] - cache["test_target"]) ** 2, axis=0))
-             / cache["target_scale"].reshape(11, 1)).mean()
+             / cache["target_scale"].reshape(7, 1)).mean()
             for k in keys
         ])
     if not np.allclose(cached_nrmse, nrmse, rtol=0, atol=1e-9):
@@ -1075,7 +1086,8 @@ def plot_unicm_figure(
 
     metrics = calibration["test_metrics"]
     method_keys = UNICM_MAIN_METHOD_KEYS
-    comparison_entries = {**prior_comparison["methods"], "shap": shap_prior["methods"]["shap"]}
+    scored_comparison = load_unicm_scored_comparison()
+    comparison_entries = scored_comparison['methods']
     for key in ("uniform", *UNICM_MAIN_PRIOR_METHODS):
         entry = comparison_entries[key]
         if entry["alpha"] != 30000.0 or entry["gamma"] != 3.0 or len(entry["validation_scores"]) != 1:
@@ -1113,7 +1125,7 @@ def plot_unicm_figure(
         )
     ax_f.set_yticks(method_y, method_labels)
     ax_f.tick_params(axis="y", labelsize=6.5)
-    ax_f.set_xlabel("Test nRMSE reduction vs Frozen (%) · higher is better")
+    ax_f.set_xlabel("Seven-mode test nRMSE reduction vs Frozen (%) · higher is better")
     ax_f.axvline(0.0, color="#686F78", linewidth=0.7, linestyle="--", zorder=1)
     ax_f.text(1.0, 1.02, r"Shared $\Xi$ settings: $\alpha=30000$, $\gamma=3$", transform=ax_f.transAxes,
               ha="right", va="bottom", fontsize=5.8, color=MID_GREY)
@@ -1129,15 +1141,15 @@ def plot_unicm_figure(
     add_panel_label(ax_f, "j", x=-0.38, y=1.04)
 
     ax_g = fig.add_subplot(bottom_grid[0, 0])
-    frozen_score = float(metrics["frozen"]["mean_cell_nrmse"])
-    xi_score = float(xi_calibration["test_nrmse"]["target_xi_shapley_prior"])
+    frozen_score = float(comparison_entries['frozen']['test_nrmse'])
+    xi_score = float(comparison_entries['xi_shapley']['test_nrmse'])
     xi_reduction_pct = (frozen_score - xi_score) / frozen_score * 100.0
     random_scores = np.asarray(
-        xi_calibration["shuffled_xi_control"]["scores"],
+        scored_comparison["shuffled_xi_control"]["scores"],
         dtype=float,
     )
     random_p = float(
-        xi_calibration["shuffled_xi_control"]["fraction_null_at_least_as_good"]
+        scored_comparison["shuffled_xi_control"]["fraction_null_at_least_as_good"]
     )
     null_reductions_pct = (frozen_score - random_scores) / frozen_score * 100.0
     visible_null = null_reductions_pct
@@ -1192,7 +1204,7 @@ def plot_unicm_figure(
     ax_g.set_xlim(0.0, max(11.0, xi_reduction_pct + 0.5))
     ax_g.set_ylim(-0.42, 1.42)
     ax_g.grid(axis="x", color=LIGHT_GREY, linewidth=0.5)
-    ax_g.set_xlabel("Test RMSE reduction vs frozen ensemble (%)")
+    ax_g.set_xlabel("Seven-mode test nRMSE reduction vs frozen ensemble (%)")
     add_panel_label(ax_g, "i", x=-0.18, y=1.04)
     output = output_base.with_suffix(".png")
     output.parent.mkdir(parents=True, exist_ok=True)
