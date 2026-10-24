@@ -52,8 +52,9 @@ class DisplayNode:
         return len(self.represented) >= 2
 
 
-def display_tree(root, *, collapse=True):
+def display_tree(root, *, collapse=True, protected_groups=()):
     """Contract maximal >=2-step singleton runs, retaining terminal pairs."""
+    protected = {frozenset(group) for group in protected_groups}
     order = _leaf_order(root)
     leaf_x = {index: position for position, index in enumerate(order)}
 
@@ -61,8 +62,10 @@ def display_tree(root, *, collapse=True):
         if not node.children:
             return DisplayNode(node.indices)
         current, steps, exits = node, [], []
-        if collapse:
+        if collapse and frozenset(node.indices) not in protected:
             while current.children and current.size > 2:
+                if frozenset(current.indices) in protected:
+                    break
                 large, small = sorted(current.children, key=lambda c: (-c.size, c.indices))
                 if small.size != 1:
                     break
@@ -108,9 +111,10 @@ def display_tree(root, *, collapse=True):
     return display, nodes, order, positions, levels
 
 
-def layout_audit(root, *, collapse=True):
+def layout_audit(root, *, collapse=True, protected_groups=()):
     original = audit_tree(root, root.xi_bits)
-    _, nodes, order, positions, levels = display_tree(root, collapse=collapse)
+    _, nodes, order, positions, levels = display_tree(
+        root, collapse=collapse, protected_groups=protected_groups)
     internal = [n for n in nodes if n.children]
     return {**original, "original_tree_metrics": _tree_metrics(root),
             "collapsed": collapse, "display_internal_node_count": len(internal),
@@ -143,9 +147,10 @@ def add_colorbar(figure, axis, maximum, fontsize=7):
 
 def render_collapsed_tree(root, *, axis, labels, network_membership, network_names, seed, coupling_g,
                           network_colors=NETWORK_COLORS, color_max=3., show_heading=True,
-                          show_colorbar=False, show_roi_labels=True, node_label_limit=12):
-    audit = layout_audit(root)
-    _, nodes, order, positions, levels = display_tree(root)
+                          show_colorbar=False, show_roi_labels=True, node_label_limit=12,
+                          protected_groups=()):
+    audit = layout_audit(root, protected_groups=protected_groups)
+    _, nodes, order, positions, levels = display_tree(root, protected_groups=protected_groups)
     tolerance = audit["syn_nonnegative_tolerance_bits"]
     membership = np.asarray(network_membership, dtype=int)
     if (len(membership) != root.size or len(labels) != root.size

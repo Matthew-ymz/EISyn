@@ -641,10 +641,17 @@ def draw(dpi, threshold=50, condition_layout='columns'):
         ax.set_xlabel(ax.get_xlabel(), fontsize=6.6, labelpad=2)
         hit_xlabel = ax.xaxis.label
         letter(fig, 144, 10.7, "e")
-        hit_note = text_mm(fig, 169.5, 86.5, "Window width: 0.5 $G$\nPost hoc; $\Delta G=0.1$",
+        hit_note = text_mm(fig, 169.5, 89.5 if condition_layout == 'focus' else 86.5,
+                "Window width: 0.5 $G$\nPost hoc; $\Delta G=0.1$",
                 fontsize=6.4, color=".35", ha="center", linespacing=1.4)
 
-        if condition_layout == 'rows':
+        if condition_layout == 'focus':
+            from scripts.dmf_main_roi_focus_layout import draw_focus_layout
+            colorbars.extend(draw_focus_layout(
+                fig, threshold, conditions, labels, membership, network_names,
+                images, order_summary, network_sizes, network_means,
+                component_sd, total_sd))
+        elif condition_layout == 'rows':
             colorbars.extend(draw_condition_rows(
                 fig, threshold, conditions, labels, membership, network_names,
                 images, order_summary, network_sizes, network_means,
@@ -824,10 +831,29 @@ def draw(dpi, threshold=50, condition_layout='columns'):
                     raise ValueError(f'Vertical colorbar or legend overlaps panel label: {artist.get_text()}')
         if hit_note.get_window_extent(renderer).overlaps(hit_xlabel.get_window_extent(renderer)):
             raise ValueError('Hit-window note overlaps the axis label')
+        if condition_layout == 'focus':
+            # Check rendered labels as well as guides; the compact rightmost
+            # control must leave room for the final x tick at the canvas edge.
+            visible_texts = list(fig.texts)
+            for a in fig.axes:
+                visible_texts.extend(a.texts)
+                if a.axison:
+                    visible_texts.extend([a.title, a.xaxis.label, a.yaxis.label,
+                                          *a.get_xticklabels(), *a.get_yticklabels()])
+            for artist in visible_texts:
+                if not artist.get_visible() or not artist.get_text():
+                    continue
+                box = artist.get_window_extent(renderer)
+                if (box.x0 < -.5 or box.y0 < -.5 or box.x1 > fig.bbox.width+.5
+                        or box.y1 > fig.bbox.height+.5):
+                    raise ValueError(f'Figure label exceeds canvas: {artist.get_text()}')
+            print('Focus-layout text boundary audit passed')
         print('Figure guide audit:', dict(colorbars=len(colorbars),
             all_guides_within_canvas=True, no_data_overlap=True,
             canvas_mm=[WIDTH, HEIGHT], condition_layout=condition_layout))
-        output = (OUTPUT.with_name(OUTPUT.name+'_by_G')
+        output = (OUTPUT.with_name(OUTPUT.name+'_roi_focus_preview')
+                  if condition_layout == 'focus' else
+                  OUTPUT.with_name(OUTPUT.name+'_by_G')
                   if condition_layout == 'rows' else OUTPUT)
         for suffix in (".png", ".pdf"):
             path = output.with_suffix(suffix)
@@ -918,7 +944,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dpi", type=int, default=450)
     parser.add_argument('--roi-order-threshold',type=int,default=50)
-    parser.add_argument('--condition-layout', choices=['columns', 'rows'], default='columns')
+    parser.add_argument('--condition-layout', choices=['columns', 'rows', 'focus'], default='columns')
     args = parser.parse_args()
     with threadpool_limits(limits=1):
         draw(args.dpi,args.roi_order_threshold,args.condition_layout)
