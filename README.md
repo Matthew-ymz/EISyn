@@ -78,6 +78,7 @@ transport-map EI 与连续动力学实验，包括：
 
 ### 连续动力学与 TM-EI
 
+- [docs/ref/kuramoto_synchronization_reproduction.md](docs/ref/kuramoto_synchronization_reproduction.md)：全局耦合 `N=64` Kuramoto 同步转变图的代码定位、完整运行命令和预期数值；显式固定截图所用的 19 个耦合值与两个种子。
 - [exp/linear_gaussian_benchmark.ipynb](exp/linear_gaussian_benchmark.ipynb)：线性高斯 benchmark 与 Mediano 指标族比较。
 - [exp/TM/tm_nonlinear.ipynb](exp/TM/tm_nonlinear.ipynb)：非线性动力学下 TM-MI 协同估计。
 - [exp/TM/tm_ei_l_baseline.ipynb](exp/TM/tm_ei_l_baseline.ipynb)：EI 的 `L` 敏感性与 baseline 支持集对照。
@@ -214,7 +215,7 @@ python scripts/export_research_framework_pdf.py
 - 实验图例不要遮挡线、点、柱或置信区间；密集图优先把 legend 放在轴外右侧。
 - 实验结果默认先产出可直接查看的 PNG；除非文档构建或用户明确要求，不默认导出 PDF / SVG / TIFF 伴随文件。
 - 长实验仅在重算成本高或用户要求时持久化机器可读缓存。
-- PEID、EI/Syn、SPT 相关任务应先通过 Zotero 阅读《Emergent hierarchical organization of causal interactions in complex systems》的最新相关稿件，并核对论文方法与代码行为的一致性；文献或全文不可用时需明确说明。
+- PEID、EI/Syn、SPT 相关任务应先通过 Zotero 阅读《Revealing hierarchies of synergistic causal interactions in complex systems》的最新相关稿件，并核对论文方法与代码行为的一致性；文献或全文不可用时需明确说明。
 
 ## 数据说明
 
