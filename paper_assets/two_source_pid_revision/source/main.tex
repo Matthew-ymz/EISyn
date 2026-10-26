@@ -1,0 +1,918 @@
+\documentclass[fleqn,10pt]{wlscirep}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{CJKutf8}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5\baselineskip}
+\usepackage{xcolor}
+\usepackage{amsthm}
+\usepackage{xr-hyper}
+\externaldocument[][nocite]{supplementary}[supplementary.pdf]
+\makeatletter
+\global\expandafter\let\csname r@LastPage\endcsname\relax
+\makeatother
+\newcommand{\rev}[1]{\textcolor{red}{#1}}
+\newtheoremstyle{naturetheorem}
+  {0.75\baselineskip} % Space above
+  {0.75\baselineskip} % Space below
+  {\normalfont}       % Body font
+  {}                  % Indentation
+  {\bfseries}         % Heading font
+  {.}                 % Punctuation after heading
+  {0.5em}             % Space after heading
+  {}                  % Default heading format
+
+\theoremstyle{naturetheorem}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
+% \title{Revealing Hierarchical Higher-order Synergistic Causality in Complex Systems via Partial Effective Information Decomposition}
+% \title{Emergent hierarchical organization of high-order causal interactions in complex systems}
+\title{Revealing hierarchies of synergistic causal interactions in complex systems}
+
+\author[1]{Mingzhe Yang}
+\author[2]{Zhao Chang}
+\author[2]{Changsong Zhou}
+\author[1,*]{Jiang Zhang}
+\author[1,*]{Jingfang Fan}
+\author[1,*]{Weiwei Gu}
+\affil[1]{School of Systems Science, Beijing Normal University, Beijing, 100875, China}
+\affil[2]{Department of Physics, Centre for Nonlinear Studies and Beijing-Hong Kong-Singapore Joint Centre for Nonlinear and Complex Systems (Hong Kong), Institute of Computational and Theoretical Studies, Hong Kong Baptist University, Hong Kong, China;}
+\affil[*]{Corresponding Author}
+
+
+
+
+\begin{abstract}
+%太长的版本
+% Complex systems often exhibit collective behaviours that cannot be reduced to individual components or pairwise interactions, yet identifying their higher-order causal contributions and resolving their hierarchical organization remain challenging. Observed statistical dependencies do not necessarily reflect genuine joint causal effects, while exhaustive partial-information decompositions face combinatorial growth as the number of source variables increases. Here we develop Partial Effective Information Decomposition (PEID), an intervention-based information-theoretic framework that decomposes joint effective information into non-negative synergistic contributions associated with specific variable combinations and interaction orders. Building on its hierarchical additivity, we further develop the Synergy Partition Tree (SPT), which recursively resolves this information into contributions from specific variable groups and interaction orders without enumerating the full partial-information lattice. Controlled benchmarks show that the PEID–SPT framework is robust to
+% confounding, generalizes across various diverse nonlinear systems, and recovers planted pairwise and triadic interaction structures. Across brain dynamics, climate modelling and urban mobility, our framework reveals how higher-order causal organization varies with system state and scale. In the brain, synergy is redistributed across functional networks and dynamical states; in the pretrained AI climate model UniCM, PEID uncovers forecast-horizon-dependent hierarchies among coupled climate modes; and in urban mobility, it identifies the integration of recent, daily and weekly dynamics across city regions. The synergistic structure extracted from UniCM further provides a structural prior for an independently fitted forecast calibrator, improving held-out prediction. These findings suggest a common organizing principle of complex systems: collective behaviour reflects not only the magnitude of synergy but also its hierarchical organization and reconfiguration.
+
+%ncs要求的字数版本
+
+Complex systems often exhibit collective behaviours that cannot be reduced to individual components or pairwise interactions. Identifying their higher-order causal contributions requires distinguishing genuine joint causal effects from observational dependence, while resolving their hierarchical organization faces the combinatorial complexity of exhaustive information decompositions. Here we develop Partial Effective Information Decomposition (PEID), which quantifies non-negative integrated effective information under factorized maximum-entropy interventions. We further introduce the Synergy Partition Tree (SPT), which recursively resolves this information into a hierarchy of contributions from variable groups and interaction orders without enumerating the full partial-information lattice. Controlled benchmarks show that the PEID–SPT framework is robust to
+confounding, generalizes across diverse nonlinear systems, and recovers planted pairwise and triadic interaction structures. In the brain, synergy peaks near a dynamical transition, dominated by cross-network contributions. In the pretrained AI climate model UniCM, we uncover forecast-horizon-dependent hierarchies among coupled climate modes; extracted synergy informs an independently fitted calibrator, improving held-out prediction. In urban mobility, three-way synergy among recent, daily and weekly histories dominates, with nested temporal structure. PEID–SPT thus establishes a computational framework that connects higher-order causal contributions with their hierarchical organization and predictive utility, advancing our understanding of collective dynamics across complex systems.
+
+% Here we develop Partial Effective Information Decomposition (PEID), an intervention-based information-theoretic framework that decomposes joint effective information into non-negative synergistic contributions associated with specific variable combinations and interaction orders. We further develop the Synergy Partition Tree (SPT), which recursively resolves this information into contributions from specific variable groups and interaction orders without enumerating the full partial-information lattice. 
+
+% Across brain dynamics, climate modelling and urban mobility, our framework reveals how higher-order causal organization varies with system state and scale. In the brain, synergy is redistributed across functional networks and dynamical states; in the pretrained AI climate model UniCM, PEID uncovers forecast-horizon-dependent hierarchies among coupled climate modes; and in urban mobility, it identifies the integration of recent, daily and weekly dynamics across city regions. The synergistic structure extracted from UniCM further provides a structural prior for an independently fitted forecast calibrator, improving held-out prediction. These findings suggest a common organizing principle of complex systems: collective behaviour reflects not only the magnitude of synergy but also its hierarchical organization and reconfiguration.
+
+
+
+
+
+%如果字数超了可以考虑的版本
+% Applications to brain dynamics, climate models and urban mobility reveal how synergistic information is reorganized across dynamical states, interaction scales and temporal contexts. In a pretrained climate model, the recovered hierarchy further improves forecast calibration. Together, PEID and SPT provide a tractable framework for uncovering the hierarchical organization of higher-order causal information in complex systems.
+
+
+% Complex systems often exhibit collective behaviours that cannot be reduced to individual components or pairwise interactions, yet identifying their higher-order causal contributions and resolving their hierarchical organization remain challenging. Observed statistical dependencies do not necessarily reflect genuine joint causal effects, while exhaustive partial-information decompositions face combinatorial growth as the number of source variables increases. Here we develop Partial Effective Information Decomposition (PEID), an intervention-based information-theoretic framework that decomposes joint effective information into non-negative synergistic contributions associated with specific variable combinations and interaction orders. We further introduce the Synergy Partition Tree (SPT), which recursively organizes these contributions into a hierarchical representation without enumerating the full partial-information lattice. Controlled benchmarks show that the PEID–SPT framework is robust to confounding, generalizes across six diverse nonlinear systems, and recovers planted pairwise and triadic interaction structures. Across biological, Earth and social systems, our framework reveals that higher-order causal organization is not fixed, but changes with system state and scale. In the brain, synergy is redistributed across functional networks and \rev{dynamical} states; in the Earth system, it forms forecast-horizon-dependent hierarchies among coupled climate modes encoded by the pretrained AI climate model UniCM; and in urban mobility, it integrates recent, daily and weekly dynamics across city regions. The organization recovered from UniCM can further be transferred to an independent predictor, improving held-out prediction. Our results reveal a common organizational feature of complex systems: system-level behaviour is shaped by the hierarchical organization and reconfiguration of synergistic interactions among distributed components.
+
+
+
+% To avoid enumerating the full partial-information lattice, we develop the Synergy Partition Tree (SPT), a hierarchical algorithm that recursively assigns these contributions to variable groups and interaction orders. Under factorized maximum-entropy interventions, PEID separates synergistic causal information from single-source effects and applies to analytical or learned transition mechanisms. In controlled nonlinear systems, PEID remained stable when confounding altered observational dependence, tracked mechanism-dependent synergy across six canonical dynamics, and recovered pairwise versus triadic organization from learned trajectories. Across applications, the framework showed how whole-brain synergy changes across transitions and tasks, identified an ENSO–IOD-centered hierarchy in a pretrained climate model, and measured cross-time-scale integration in urban mobility forecasting. These results show that synergy is organized across interaction order, scale, and dynamical context rather than summarized by a single global magnitude. PEID quantifies synergistic causal effects and identifies which variable groups contribute to them, while its conclusions remain conditional on the intervention distribution, variable representation, and fidelity of any learned transition model. 
+
+\end{abstract}
+
+\keywords{partial effective information decomposition; synergistic causality; effective information; higher-order interactions; complex systems; intervention-based analysis}
+
+
+\begin{document}\flushbottom
+\maketitle
+
+
+\thispagestyle{empty}
+
+\section*{Highlights}
+
+We introduce Partial Effective Information Decomposition (PEID), an intervention-based framework that resolves joint effective information into non-negative synergistic causal contributions under maximum-entropy interventions on models.
+
+The Synergy Partition Tree (SPT) recursively organizes these non-negative synergistic contributions across specific variable groups and interaction orders, providing a tractable hierarchical representation without enumerating the full partial-information lattice.
+
+Across brain dynamics, AI climate modelling and urban mobility, PEID–SPT reveals the hierarchical organization and reconfiguration of higher-order causal interactions across components, interaction orders, states and scales, while synergy-derived structural information further improves climate forecast calibration.
+
+
+\section*{Introduction}
+Explaining how system-level behavior emerges from interactions among components remains a central problem in complex systems \cite{Boccaletti2014MultilayerNetworks,Battiston2020BeyondPairwise}. The difficulty lies in identifying collective effects that depend on several components acting together but cannot be attributed to individual components or pairwise interactions. In the Earth system, whether an El Niño--Southern Oscillation (ENSO) event terminates after a single year or persists over multiple years depends on coordinated interactions across several ocean basins, not solely on conditions in the tropical Pacific \cite{Cai2019Pantropical,Kim2022Pantropical}. In the brain system, groups of three or four cortical regions jointly encode information gained during trial-and-error learning that cannot be recovered from any individual region or pair \cite{Combrisson2025HigherOrder,Wang2021SegregationIntegrationBalance}. In social systems, intersecting identities such as race and sex jointly carry information about income that cannot be recovered from either identity alone \cite{Varley2022UntanglingSynergisticEffects}. How can these irreducible higher-order contributions be identified and quantified? Information theory describes them as synergistic information—information available only when multiple components are considered jointly \cite{luppi2022synergistic,griffith2014quantifying,Varley2024Synergistic,Yang2025QuantifyingSS}.
+
+Classical information-theoretic measures include multi-information (total correlation) \cite{Watanabe1960MultivariateCorrelation}, interaction information \cite{McGill1954MultivariateInformation} (equivalently, co-information up to a sign convention \cite{Bell2003CoInformationLattice}), O-information \cite{Rosas2019OInformation}, and Whole-Minus-Sum (WMS) \cite{Mediano2019MeasuringIntegratedInformation}. These measures provide aggregate descriptions of statistical dependence but do not generally separate synergistic from redundant contributions \cite{Timme2014MultivariateInformation,Rosas2019OInformation,Mediano2019MeasuringIntegratedInformation}. Partial Information Decomposition (PID) separates the information that multiple sources provide about a target into unique, redundant and synergistic contributions, while Integrated Information Decomposition ($\Phi$ID) extends this framework to multiple past sources and future targets \cite{Williams2010NonnegativeDO,Mediano2025TowardAU}. Synergistic--Unique--Redundant Decomposition (SURD) reduces the decomposition complexity by assigning non-negative contributions to source subsets rather than enumerating the full PID redundancy lattice \cite{MartnezSnchez2024DecomposingCI}.
+
+Two challenges nevertheless remain: establishing the causal meaning of synergy and resolving its higher-order structure in high-dimensional systems. First, when evaluated on observational distributions, these measures characterize statistical dependencies, which do not by themselves establish irreducible joint effects under intervention \cite{Pearl2009CausalII,Oizumi2014FromPhenomenology,Santoro2026ChartingHOI}. Second, exhaustive decompositions face combinatorial growth: a five-source PID already contains 7,579 atoms, while the corresponding $\Phi$ID across five past and five future variables contains more than 57 million \cite{Williams2010NonnegativeDO,Mediano2025TowardAU}. For example, representative applications of $\Phi$ID to brain dynamics quantify synergy and redundancy between pairs of regions, without jointly decomposing interactions among larger groups \cite{luppi2022synergistic,luppi2024synergistic}. Although SURD reduces the complexity of full decompositions, the number of source subsets still grows exponentially, limiting exhaustive analysis in high-dimensional systems \cite{MartnezSnchez2024DecomposingCI}. These limitations motivate a framework that quantifies synergy under explicit interventions on a specified dynamical model and resolves its hierarchical structure without exhaustive enumeration.
+
+% Although SURD reduces this burden, the number of source subsets still grows exponentially, limiting exhaustive analysis at higher dimensions \cite{MartnezSnchez2024DecomposingCI}. These limitations motivate a framework that quantifies synergy under explicit interventions on a specified dynamical model and resolves its hierarchical structure without exhaustive enumeration.
+
+% Early efforts to characterize the multivariate information structure associated with higher-order effects relied on classical information theoretic measures, including multi-information \cite{Watanabe1960MultivariateCorrelation}, interaction information \cite{McGill1954MultivariateInformation}, O-information \cite{Rosas2019OInformation},  and co-information \cite{Bell2003CoInformationLattice}. These quantities are constructed from combinations of Shannon entropies or mutual informations, but they do not generally distinguish synergistic from redundant contributions \cite{Timme2014MultivariateInformation}.
+% % Whole-Minus-Sum (WMS) was introduced to capture information present in the whole system but absent from its parts \cite{Mediano2019MeasuringIntegratedInformation,Oizumi2016MeasuringII}. However, WMS reflects the net balance between synergy and redundancy rather than synergy alone, and can therefore be negative when redundancy dominates \cite{Mediano2025TowardAU}. 
+% Whole-Minus-Sum (WMS) was introduced to quantify the difference between the information provided by a system as a whole and the sum of its individual contributions \cite{Mediano2019MeasuringIntegratedInformation,Oizumi2016MeasuringII}. This difference, however, reflects the net balance between synergy and redundancy rather than synergy alone, and can therefore be negative when redundancy dominates \cite{Mediano2025TowardAU}.
+% Partial Information Decomposition (PID) addresses this ambiguity by separating the information that multiple sources provide about a target into unique, redundant and synergistic contributions. Integrated Information Decomposition ($\Phi$ID) extends this framework to dynamical systems by decomposing information across multiple past sources and future targets, providing the non-negative measure of integrated information $\Phi^{\mathrm{R}}$. Despite these advances, extending PID-based frameworks beyond two sources remains difficult. The number of information atoms grows combinatorially with the number of sources: a five-source PID already comprises 7,579 atoms, while the corresponding $\Phi$ID decomposition across five past and five future variables contains more than 57 million atoms \cite{Williams2010NonnegativeDO,Mediano2025TowardAU,MartnezSnchez2024DecomposingCI}. Recent theoretical results reveal a more fundamental restriction: beyond two sources, several commonly adopted PID axioms become mutually incompatible, ruling out a decomposition that satisfies them simultaneously \cite{Lyu2026StructuralImpossibility,Lyu2026MultivariatePID,Matthias2025NovelInconsistency}. PID-based frameworks therefore face both computational scalability challenges and fundamental axiomatic constraints in resolving higher-order synergy.
+
+% % To mitigate this computational bottleneck while retaining an explicit decomposition of higher-order interactions, Martínez-Sánchez et al. introduced Synergistic--Unique--Redundant Decomposition (SURD) \cite{MartnezSnchez2024DecomposingCI}. SURD decomposes the time-directed information provided by a multivariate past about a future target into non-negative redundant, unique, and synergistic components, thereby making irreducible joint influence an explicit and computable object. 
+
+
+% To mitigate this computational bottleneck while retaining an explicit decomposition of higher-order information contributions, Martínez-Sánchez et al. introduced Synergistic--Unique--Redundant Decomposition (SURD) \cite{MartnezSnchez2024DecomposingCI}. SURD decomposes the time-directed information provided by a multivariate past about a future target into non-negative redundant, unique, and synergistic contributions, allowing irreducible joint information to be explicitly identified and quantified.
+% By restricting the admissible components to source subsets rather than enumerating the full PID redundancy lattice, SURD substantially reduces the number of information atoms required for multivariate analysis. Despite this advance, SURD and earlier information-theoretic approaches characterize dependencies in observed data rather than the response of the underlying dynamics to intervention \cite{Granger1969CausalRelations,Pearl2009CausalII,Oizumi2014FromPhenomenology,Santoro2026ChartingHOI}. Higher-order statistical dependencies may therefore arise from the observational distribution without reflecting irreducible joint causal effects of the underlying dynamics \cite{Mediano2025TowardAU,Levin1998Ecosystems}.
+
+% However, SURD and the preceding approaches still infer information structure from observed state transitions rather than the mechanisms that generate them \cite{Granger1969CausalRelations,Pearl2009CausalII,Oizumi2014FromPhenomenology,Santoro2026ChartingHOI}. However, higher-order statistical dependencies in observed data do not necessarily reflect the joint causal effects of the underlying dynamics \cite{Mediano2025TowardAU,Levin1998Ecosystems}.
+
+% From this causal perspective, the key question is not merely whether the joint state of multiple variables carries information unavailable from any variable alone, but whether and through what mechanisms their joint action exerts an irreducible influence on the system’s future state. To this end, effective information (EI) quantifies causal influence under maximally entropic interventions \cite{Hoel2013QuantifyingCE,Hoel2017WhenTM,Tononi2003MeasuringII,Yuan2024EmergenceAC}. Intervention is foundational to causal inference: unlike Granger causality, which infers predictive influence from observed trajectories, it examines how a system responds to controlled manipulations \cite{Pearl2009CausalII}. 
+
+% Whether the joint state of multiple variables exerts an irreducible causal influence on a system's future cannot be established from observational dependence alone. 
+% Effective information (EI) , by contrast, quantifies causal influence under maximum-entropy interventions \cite{Hoel2013QuantifyingCE,Hoel2017WhenTM,Tononi2003MeasuringII,Yuan2024EmergenceAC}. Unlike Granger causality, which assesses predictive relationships in observed trajectories, EI evaluates causal influence through interventions on a specified transition mechanism \cite{Pearl2009CausalII}. Computing EI, however, requires a specified transition mechanism. Modern graph-learning methods can encode complex relational structure, including multilayer network organization, into latent representations \cite{gu2025deep,jiang2027learning}.
+
+% Neural networks can learn representations for prediction and optimization from data \cite{gu2025deep,jiang2027learning}.
+
+% Although the underlying dynamics of complex systems are often unknown, data-driven approaches can learn both relational structure and state evolution from observations, capturing complex network organization in latent representations \cite{gu2025deep,jiang2027learning} and approximating transition dynamics through neural models \cite{Yang2025FindingEI}. 
+
+Effective information (EI) quantifies causal influence under maximum-entropy interventions \cite{Hoel2013QuantifyingCE,Hoel2017WhenTM,Tononi2003MeasuringII,Yuan2024EmergenceAC}. Unlike Granger causality, which infers predictive influence from observed trajectories, EI evaluates the effects of interventions on system states under a fixed transition mechanism \cite{Pearl2009CausalII}. Although the underlying dynamics of complex systems are often unknown, data-driven approaches can learn transition models from observed trajectories \cite{Schmid2010DMD,Brunton2016SINDy,Chen2018NeuralODE}, allowing EI to be computed on the learned dynamics \cite{Yang2025FindingEI}. Maximum-entropy interventions can then be applied to the learned transition model, although the interpretation of the resulting EI depends on how faithfully the model represents the underlying dynamics. EI alone does not distinguish unique, redundant, and synergistic information contributions. Varley and colleagues combined EI with PID to resolve these contributions \cite{Varley2022UntanglingSynergisticEffects,Varley2024Synergistic}, while Jansma developed a related framework for decomposing interventional causal effects \cite{Jansma2025DecomposingInterventionalCausality}. These approaches advance the decomposition of causal influence, but PID-based formulations depend on the chosen redundancy function, while the combinatorial growth of the redundancy lattice limits exhaustive decomposition in high-dimensional systems. A key challenge is therefore to quantify synergistic causal contributions involving more than two source variables and resolve their hierarchical organization without enumerating the full partial-information lattice.
+
+% These approaches advance the decomposition of causal influence, but the resulting unique, redundant and synergistic contributions depend on the chosen redundancy function. Moreover, the combinatorial growth of the redundancy lattice limits the scalability of full decompositions to systems with many variables.
+
+% These studies advance the attribution of causal influence among interacting variables, but do not directly resolve how synergistic contributions are organized into nested groups across a system. Moreover, the combinatorial growth of the PID redundancy lattice limits the scalability of such decompositions to larger systems.
+
+
+
+% Beyond decomposing causal information into its constituent contributions, a further question is how synergistic interactions are hierarchically organized across variable groups and interaction orders without enumerating the full PID lattice.
+
+%previous one
+% Maximum-entropy interventions can then be propagated through the learned model. When EI is estimated through a learned transition model, it describes interventions on that model rather than discovering causal relations directly from observational data. Its interpretation therefore depends on how faithfully the model represents the underlying dynamics. Varley and colleagues combined EI with PID to distinguish unique, redundant, and synergistic causal contributions \cite{Varley2022UntanglingSynergisticEffects,Varley2024Synergistic}. Relatedly, Jansma proposed a framework for decomposing interventional causal effects into synergistic, unique, and redundant components \cite{Jansma2025DecomposingInterventionalCausality}. However, these decompositions remain contingent on the chosen redundancy function and the PID axioms, motivating a more general framework for decomposing higher-order causal information.
+
+% Maximum-entropy interventions can then be evaluated on the learned transition model, with the resulting EI depending on how faithfully the model represents the underlying dynamics.
+
+
+% When the dynamics are unknown, modern deep-learning methods can learn surrogate dynamics from observed trajectories, as demonstrated by the NIS+ framework \cite{Yang2025FindingEI}; maximum-entropy interventions can then be propagated through the learned model. When EI is estimated through a learned transition model, it describes interventions on that model rather than discovering causal relations directly from observational data. Its interpretation therefore depends on how faithfully the model represents the underlying dynamics. Varley and colleagues combined EI with PID to distinguish unique, redundant, and synergistic causal contributions \cite{Varley2022UntanglingSynergisticEffects,Varley2024Synergistic}. Relatedly, Jansma proposed a framework for decomposing interventional causal effects into synergistic, unique, and redundant components \cite{Jansma2025DecomposingInterventionalCausality}. However, these decompositions remain contingent on the chosen redundancy function and the PID axioms, motivating a more general framework for decomposing higher-order causal information.
+
+% Here we introduce Partial Effective Information Decomposition (PEID), an intervention-based framework that resolves joint effective information into non-negative synergistic contributions associated with specific variable groups. These contributions add exactly across nested partitions. Building on this additivity, we introduce the Synergy Partition Tree (SPT) as a distinct methodological contribution. SPT recursively organizes synergistic contributions by interaction order, providing a constructive route that avoids exhaustive enumeration of the partial-information lattice and its combinatorial explosion while revealing higher-order organization in complex systems. 
+
+
+% [Previous wording — preserved for review]
+% Here we introduce Partial Effective Information Decomposition (PEID), an intervention-based framework that resolves joint effective information into non-negative synergistic contributions associated with specific variable groups. Motivated by the axiomatic framework of PID \cite{Bertschinger2013SharedInformation}, PEID quantifies synergy directly from effective information under a common factorized maximum-entropy intervention, without specifying a redundancy function. These contributions are exactly additive across nested partitions, enabling the construction of the Synergy Partition Tree (SPT) which captures their hierarchical organization across variable groups and interaction orders without enumerating the full partial-information lattice.
+% [Revised wording]
+Here we introduce Partial Effective Information Decomposition (PEID), an intervention-based framework that resolves joint effective information into non-negative synergistic contributions associated with specific variable groups. \rev{PEID quantifies synergy directly from effective information under a common factorized maximum-entropy intervention. Its two-source expression coincides with PID synergy for redundancy measures satisfying non-negativity, Identity and probabilistic left monotonicity \cite{Harder2013BivariateRedundancy,Rauh2017ExtractableSharedInformation}.} These contributions are exactly additive across nested partitions, enabling the construction of the Synergy Partition Tree (SPT) which captures their hierarchical organization across variable groups and interaction orders without enumerating the full partial-information lattice.
+We first validate PEID--SPT framework in controlled nonlinear systems, assessing its robustness to confounding, and its ability to recover known interaction hierarchies across distinct dynamical mechanisms. We then apply the framework to dynamical models of biological, Earth and social systems to examine how synergistic causal information is organized across components, states and scales. In the brain, we reveal how synergy is distributed within and between functional networks and reorganized across dynamical states. In the Earth system, we identify forecast-horizon-dependent hierarchies among coupled climate modes encoded by the pretrained UniCM model \cite{yuan2026learning}, and show that independently computed $\Xi$-Shapley attributions can improve held-out prediction through a separately fitted calibrator. In urban mobility, we uncover higher-order integration across recent, daily and weekly dynamics and its spatial organization across city regions. Across these systems, our results reveal that higher-order synergistic contributions form hierarchical structures that are dynamically reorganized across components, states and scales.
+
+
+\section*{Results}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{figure1_peid_spt_main.png}
+\caption{\textbf{Synergistic causality and its hierarchical organization in controlled dynamical systems.}
+% [Previous wording — preserved for review]
+% \textbf{a}, Factorized uniform interventions remove source dependence while preserving the transition mechanism. Under the adopted PID axioms, redundancy vanishes and two-source synergy equals joint effective information minus the two single-source contributions.
+% [Revised wording]
+\textbf{a}, Factorized uniform interventions remove source dependence while preserving the transition mechanism. \rev{Under non-negativity, Identity and probabilistic left monotonicity, independent sources have zero redundancy, and two-source PID synergy equals joint effective information minus the single-source contributions.}
+\textbf{b}, Controlled nonlinear system with a fixed $\sin(xy)$ interaction and a common driver $w$, whose influence varies with $\beta$.
+\textbf{c}, Responses of MLP+PEID, WMS, minimum-mutual-information partial information decomposition (MMI-PID), SURD and MLP-based Shapley additive explanations interaction attribution (MLP+SHAP). Lines and bands show means and SD. The upper axis reports information in nats; the lower axis retains the native MLP+SHAP scale.
+\textbf{d}, Generating topologies and paired SPT and mutual-information clustering (MIC) hierarchies for three six-node benchmarks: I, mixed pairwise/triadic Kuramoto; II, Glauber dynamics on the same interaction support; III, nested Kuramoto with $\{1,2,3\}\subset\{1,2,3,4\}$ and module $\{5,6\}$, connected by two weak pairwise bridges. Blue solid, orange dashed and grey borders mark recovered planted modules, unsupported merges and unscored roots or refinements, respectively. SPT numbers and fills show local Syn as a percentage of total integrated effective information $\Xi$. Complete baseline hierarchies are shown in Supplementary Fig.~\ref{fig:six_node_full_hierarchies}.
+\textbf{e}, Module $F_1$ for all six methods. Singleton leaves, the common root and refinements within primitive planted modules are excluded from scoring. Methods and benchmark protocols are described in Supplementary Sections~\ref{app:comparison_methods} and~\ref{app:six_node_hierarchy_comparison}.}
+    \label{fig:synergy_overview}
+\end{figure*}
+
+\subsection*{Partial Effective Information Decomposition}
+
+PEID evaluates synergistic causal information under a common factorized maximum-entropy intervention on a specified dynamical model (Fig.~\ref{fig:synergy_overview}a). This intervention renders the source variables statistically independent while keeping the transition mechanism fixed. By removing dependencies inherited from the observational source distribution, it provides a consistent basis for comparing and decomposing effective information across source groups.
+
+For two sources, this independence implies that the joint effective information minus the sum of the two single-source contributions equals the conditional mutual information between the sources given the future target. This identity yields a non-negative expression for two-source PEID synergy (Supplementary Section~\ref{app:proof_integrated_ei_nonnegativity}):
+
+\begin{equation}
+\mathrm{Syn}_{\ell}^{\mathrm{EID}}
+\!\left(
+X_{t-\ell}^{(1)},X_{t-\ell}^{(2)};\mathbf{X}_t
+\right)
+=
+\mathrm{EI}\!\left(
+(X_{t-\ell}^{(1)},X_{t-\ell}^{(2)})
+\to\mathbf{X}_t
+\right)
+-
+\mathrm{EI}\!\left(
+X_{t-\ell}^{(1)}\to\mathbf{X}_t
+\right)
+-
+\mathrm{EI}\!\left(
+X_{t-\ell}^{(2)}\to\mathbf{X}_t
+\right).
+\end{equation}
+Here, \(\ell\) denotes the prediction lag, \(\mathbf{X}_t=(X_t^{(1)},X_t^{(2)})\) the system state at time \(t\), and \(\mathrm{EI}(A\to\mathbf{X}_t)\) the mutual information between the intervened source \(A\) and the resulting state \(\mathbf{X}_t\) under a maximum-entropy intervention. For more than two sources, however, the PID lattice grows combinatorially, and the residual joint information can no longer be identified with a single multivariate synergy atom. We therefore define a system-level quantity that captures the effective information available jointly from the full source set but not from any source individually:
+\begin{equation}
+\Xi_{\ell}(\mathbf{X}_{t-\ell};\mathbf{X}_t)
+=
+\mathrm{EI}(\mathbf{X}_{t-\ell}\rightarrow\mathbf{X}_t)
+-\sum_{i=1}^{n}
+\mathrm{EI}\left(
+X_{t-\ell}^{(i)}\rightarrow\mathbf{X}_t
+\right).
+\end{equation}
+We show that \(\Xi_{\ell}\) remains non-negative for arbitrary numbers of source variables and is bounded above by the joint effective information (Methods and Supplementary Section~\ref{app:proof_integrated_ei_nonnegativity}). For more than two sources, \(\Xi_{\ell}\) should therefore be interpreted as an integrated measure of synergistic causal information rather than as a single multivariate PID atom.
+
+The scalar \(\Xi_{\ell}\) determines how much joint causal information is present, but not which variables generate it jointly or at what interaction order. Resolving this organization requires a decomposition that remains consistent across nested groups. PEID provides exactly this property. For any bipartition \(A=L\mathbin{\dot\cup}R\) and any target subsystem \(B\) of \(\mathbf{X}_t\) (typically \(B=\mathbf{X}_t\)),
+\begin{equation}
+\Xi_{\ell}(A\rightarrow B)
+=
+\Xi_{\ell}(L\rightarrow B)
++\Xi_{\ell}(R\rightarrow B)
++\mathrm{Syn}_{\ell}^{\mathrm{EID}}(L,R\rightarrow B).
+\end{equation}
+Thus, the integrated information of a group is conserved exactly between the integrated contributions retained within its two subgroups and the synergistic contribution between them.
+
+SPT uses this additive identity to construct a hierarchy. At each node, it partitions the source set $A$ into $L$ and $R$ to maximize the integrated effective information retained within the child groups, while the residual non-negative term quantifies synergy between them. Keeping the target set $B$ and prediction lag $\ell$ fixed, SPT then recursively decomposes $\Xi_\ell(L\to B)$ and $\Xi_\ell(R\to B)$ until singleton source groups are reached. This procedure resolves the total integrated effective information into a hierarchy of non-negative contributions associated with specific variable groups and interaction orders, providing a hierarchical representation of synergistic causal information without enumerating the full partial-information lattice (Methods and Supplementary Sections~\ref{app:spt_implementation} and~\ref{app:peid_pid_representation}).
+
+
+\subsection*{Controlled benchmarks of synergistic causality}
+
+% \rev{For the common-driver and six-node benchmarks, we first generated transition data from the specified dynamics and fitted multilayer perceptron (MLP) transition models. We then evaluated PEID under factorized maximum-entropy interventions on the fitted models.}
+
+We first evaluated PEID and SPT in controlled nonlinear systems with known dynamical mechanisms and planted interaction structures. These benchmarks tested whether PEID could distinguish a fixed synergistic interaction from confounding-induced dependence and whether SPT could recover pairwise, higher-order and nested interaction hierarchies across different dynamics. We generated transition data from the specified systems, fitted multilayer perceptron (MLP) transition models and evaluated PEID under factorized maximum-entropy interventions on the learned dynamics. These controlled tests provide a basis for subsequent applications to more complex brain and Earth-system models.
+
+\subsubsection*{PEID distinguishes synergistic causality from confounding-induced dependence}
+
+A key challenge in quantifying synergistic causality is to distinguish genuine joint causal effects from statistical dependence induced by confounding. A robust measure should preserve the strength of synergistic causality when observational dependencies change without altering the underlying joint interaction. To examine this distinction, we constructed a four-variable nonlinear system in which $x_t$ and $y_t$ jointly influence $z_{t+1}$ through a fixed $\sin(x_t y_t)$ term, while $w_t$ acts as a common driver of $x_t$, $y_t$, and $z_{t+1}$ (Fig.~\ref{fig:synergy_overview}b). By varying the common-driver strength $\beta$ while keeping the nonlinear interaction term fixed, we assessed how synergy estimates respond to changes in observational dependence.
+
+%  A key challenge in quantifying synergistic causality is to distinguish genuine
+% higher-order causal interactions from statistical dependence induced by
+% confounding. A robust measure should preserve the strength of synergistic causality when external factors alter observational dependencies without modifying the
+% underlying causal mechanism. To evaluate this property, we constructed a
+% four-variable nonlinear system containing a fixed synergistic causal interaction
+% $\sin(x_t y_t)\rightarrow z_{t+1}$ and a confounder $w_t$ influencing
+% $x_t$, $y_t$, and $z_{t+1}$ (Fig.~\ref{fig:synergy_overview}b). We varied only
+% the confounding strength $\beta$, which increased the dependence induced by the
+% common driver while leaving the underlying synergistic causal interaction
+% unchanged. This controlled perturbation provides a stringent test of whether a
+% method captures irreducible synergistic causality or instead responds to changes
+% in observational dependence.
+
+
+We compared MLP+PEID with observational information measures, including WMS \cite{Oizumi2016MeasuringII}, MMI-PID \cite{barrett2015exploration} and SURD \cite{MartnezSnchez2024DecomposingCI}, as well as SHAP interaction attribution \cite{lundberg2017unified} applied to the same fitted MLP (MLP+SHAP). Since these methods measure different aspects of multivariate interactions, we compared how their estimates changed with confounding strength rather than their absolute magnitudes. Although the underlying $\sin(x_t y_t)$ interaction remained fixed, the methods showed different trends as $\beta$ increased (Fig.~\ref{fig:synergy_overview}c). WMS and MMI-PID declined at higher values of $\beta$, SURD showed a non-monotonic response, and MLP+SHAP increased overall. In contrast, MLP+PEID remained comparatively stable throughout the sweep. This result suggests that factorized interventions help distinguish the joint causal contribution of the underlying dynamics from confounding-induced statistical dependence. We further evaluated PEID across six nonlinear dynamical systems, examining how synergistic information responds to changes in coupling and other dynamical parameters (Supplementary Section~\ref{app:canonical_dynamics} and Fig.~\ref{fig:canonical_dynamics_comparison}). In a separate Kuramoto synchronization experiment, integrated effective information $\Xi$ peaked near the synchronization transition, capturing changes in collective dynamics (Supplementary Section~\ref{app:kuramoto-criticality} and Fig.~\ref{fig:kuramoto-criticality-ei}).
+
+
+% Although the underlying $\sin(x_t y_t)$ interaction remained fixed, estimates from the comparison methods varied substantially with confounding strength (Fig.~\ref{fig:synergy_overview}c). In contrast, MLP+PEID remained positive and approximately stable across the same sweep. By evaluating the sources under a factorized intervention distribution, MLP+PEID distinguished the planted synergistic causality from confounder-induced dependence, supporting its robustness to confounding under the tested protocol.
+
+% The methods exhibited markedly different responses to increasing confounding strength (Fig.~\ref{fig:synergy_overview}c). WMS and MMI-PID declined sharply at higher values of $\beta$, while SURD showed a non-monotonic response followed by a similar decline. In contrast, MLP+SHAP attribution increased with confounding strength, despite the fixed nonlinear interaction term. MLP+PEID remained positive and comparatively stable throughout the sweep. These contrasting responses indicate that the estimated strength of a joint interaction can be substantially affected by common-driver dependence, whereas PEID is less sensitive to this perturbation under the tested conditions.
+
+
+\subsubsection*{Resolving interaction hierarchies with the Synergy Partition Tree}
+
+% A central methodological innovation of PEID is the hierarchical resolution of synergistic causality by variable group and interaction order. The integrated effective information $\Xi$ gives the system-level joint contribution; the Synergy Partition Tree (SPT) recursively decomposes it across nested partitions into non-negative group-specific contributions. 
+
+% PEID quantifies synergistic causal information within a given set of variables, whereas understanding how these contributions are organized across nested groups requires a hierarchical representation. To resolve this organization, we propose the Synergy Partition Tree (SPT), which recursively partitions the source variables and decomposes their integrated effective information $\Xi$ into non-negative synergistic contributions at successive levels of the hierarchy. We evaluated whether SPT could recover known interaction hierarchies using three six-node dynamics based on two interaction topologies (Fig.~\ref{fig:synergy_overview}d). The first topology combined asymmetric pairwise interactions within $\{1,2,3\}$ and a triadic interaction within $\{4,5,6\}$, with weak pairwise connections between the groups. We examined this topology under both Kuramoto phase dynamics~\cite{Kuramoto1984Chemical,Lucas2020Multiorder,Tang2022Optimizing} (I) and continuous-time Glauber spin dynamics~\cite{Glauber1963TimeDependent} (II), testing whether the same interaction structure could be recovered across different dynamical mechanisms. To further test whether SPT could resolve nested interaction hierarchies, we constructed a second topology (III) with a triadic interaction $\{1,2,3\}$ embedded within a four-body interaction $\{1,2,3,4\}$, alongside the pair $\{5,6\}$, with two weak pairwise links connecting the groups.
+
+
+PEID quantifies synergistic causal information within a given set of variables, whereas understanding how these contributions are organized across nested groups requires a hierarchical representation. We therefore propose the Synergy Partition Tree (SPT), which exploits the exact additivity of integrated effective information $\Xi$ to recursively partition the source variables and resolve their synergistic contributions across successive levels of the hierarchy. We evaluated whether SPT could recover known interaction hierarchies in three six-node dynamical systems with two prescribed interaction topologies (Fig.~\ref{fig:synergy_overview}d). The first topology combined asymmetric pairwise interactions within $\{1,2,3\}$ and a triadic interaction within $\{4,5,6\}$, connected by weak pairwise links. We examined this topology under both Kuramoto phase dynamics~\cite{Kuramoto1984Chemical,Lucas2020Multiorder,Tang2022Optimizing} (I) and continuous-time Glauber spin dynamics~\cite{Glauber1963TimeDependent} (II) to assess the recovery of the same interaction structure across distinct dynamical mechanisms. The second topology (III) was designed to test the recovery of nested interaction structures, with a triadic interaction $\{1,2,3\}$ embedded within a four-body interaction $\{1,2,3,4\}$, alongside the pair $\{5,6\}$ connected to the larger group by two weak pairwise links.
+
+% We evaluated whether this hierarchy could recover planted modules in three six-node benchmarks on two interaction topologies (Fig.~\ref{fig:synergy_overview}d). The first topology contained asymmetric pairwise interactions within $\{1,2,3\}$ and a genuine triadic interaction within $\{4,5,6\}$, with weak pairwise links between the groups. We used this support for both Kuramoto phase dynamics~\cite{Kuramoto1984Chemical,Lucas2020Multiorder,Tang2022Optimizing} (I) and continuous-time Glauber spin dynamics~\cite{Glauber1963TimeDependent} (II). The second topology embedded a triadic interaction $\{1,2,3\}$ inside a four-body interaction $\{1,2,3,4\}$, alongside the pair $\{5,6\}$, with two weak bridges connecting the groups (III). 
+% We compared the complete SPT with five hierarchical baselines: mutual-information clustering (MIC)~\cite{Kraskov2005HierarchicalMI}, average-linkage hierarchical clustering using pairwise mutual information (MI-HAC)~\cite{Kraskov2004EstimatingMI,Mullner2011Hierarchical}, distance correlation (dCor-HAC)~\cite{Szekely2007DistanceCorrelation}, or absolute Pearson correlation (AbsCorr-HAC)~\cite{deHoon2004OpenSourceClustering}, and Ward's minimum-variance hierarchical clustering (Ward)~\cite{Ward1963HierarchicalGrouping}. Within each benchmark, SPT was constructed from an MLP fitted to the same simulated transitions used by the baselines, while each method retained its modelling assumptions and input representation. In II, the MLP learned the joint future-state distribution using 64-class cross-entropy. 
+
+We compared SPT with five hierarchical clustering baselines covering different measures of statistical dependence and similarity: groupwise mutual-information clustering (MIC)~\cite{Kraskov2005HierarchicalMI}, average-linkage clustering based on pairwise mutual information (MI-HAC)~\cite{Kraskov2004EstimatingMI,Mullner2011Hierarchical}, distance correlation (dCor-HAC)~\cite{Szekely2007DistanceCorrelation}, absolute Pearson correlation (AbsCorr-HAC)~\cite{deHoon2004OpenSourceClustering}, and Ward's minimum-variance clustering (Ward)~\cite{Ward1963HierarchicalGrouping}.
+% [Previous wording]
+% \rev{All methods used the same simulated transition data, with each baseline retaining its input representation and clustering criterion.}
+% [Revised wording]
+\rev{All methods used the same simulated transition data, with each baseline retaining its input representation and clustering criterion (Supplementary Section~\ref{app:hierarchical_baselines}).}
+
+% Figure~\ref{fig:synergy_overview}d pairs SPT with MIC in each benchmark, with unsupported merges marked in orange. SPT recovered both planted modules in the Kuramoto (I) and Glauber (II) examples. In the nested Kuramoto example (III), with the $1$--$5$ and $4$--$6$ bridge weights fixed at $0.02$ and within-group couplings unchanged, SPT recovered $\{1,2,3\}\subset\{1,2,3,4\}$ alongside $\{5,6\}$. MIC introduced cross-module merges in II and recovered only the two outer modules in III, missing the inner triple. The complete trees for all five baselines are shown in Supplementary Fig.~\ref{fig:six_node_full_hierarchies}. Node percentages express each local synergistic contribution as a share of the system's total integrated effective information $\Xi$. In these examples, the dominant contributions within each module coincided with its main planted pairwise or triadic term, providing an information-based indication of its relative influence.
+Figure~\ref{fig:synergy_overview}d shows the hierarchies recovered by SPT and MIC for each system, with unsupported merges highlighted in orange. SPT recovered the planted modules in both the Kuramoto (I) and Glauber (II) systems, despite their different dynamical mechanisms. In the nested Kuramoto system (III), with the $1$--$5$ and $4$--$6$ bridge weights fixed at $0.02$, SPT recovered the nested groups $\{1,2,3\}\subset\{1,2,3,4\}$ alongside $\{5,6\}$. By comparison, MIC introduced cross-module merges in II and missed the inner three-node group in III. The complete hierarchies for all five baselines are provided in Supplementary Fig.~\ref{fig:six_node_full_hierarchies}. Beyond recovering the interaction structure, SPT quantified the local synergistic contribution at each level of the hierarchy as a fraction of the total integrated effective information $\Xi$. For example, the contribution associated with $\{1,2\}$ accounted for 27.2\% of $\Xi$ in I and 65.0\% in II, while the nested groups $\{1,2,3,4\}$ and $\{1,2,3\}$ contributed 41.4\% and 30.8\%, respectively, in III.
+
+% We quantified recovery of the planted interaction hierarchies using module $F_1$ (Fig.~\ref{fig:synergy_overview}e). SPT achieved $F_1=1.000$ in all three benchmarks and was the only method to recover the complete planted module hierarchy in every case. These scores demonstrate SPT's overall advantage in consistently resolving interaction hierarchies across different network topologies and dynamical models, including the nested organization in III.
+We quantified the recovery of planted interaction hierarchies using module $F_1$ (Fig.~\ref{fig:synergy_overview}e). SPT achieved % [Previous wording]
+% $F_1=1.000$
+% [Revised wording]
+\rev{$F_1=1.00$} in all three systems and was the only method to recover the complete planted hierarchy in every case. These results demonstrate that SPT consistently identifies interaction hierarchies across different dynamical mechanisms and nested higher-order structures, while resolving the relative contributions of synergistic interactions at different levels.
+
+% \rev{Complementary tests across six nonlinear systems retain the mechanism-related response comparisons for chaotic maps, neural gain, phase locking, optical feedback and ecological saturation (Supplementary Section~\ref{app:canonical_dynamics} and Fig.~\ref{fig:canonical_dynamics_comparison}). The original Kuramoto coupling sweep is retained in Supplementary Fig.~\ref{fig:kuramoto_coupling_hierarchies}, separating coupling-driven reorganization of one system from the cross-dynamics hierarchy comparison in Fig.~\ref{fig:synergy_overview}d,e.}
+
+
+\subsection*{Application in the brain}
+
+% The brain exhibits a rich multiscale organization, from neural populations and cortical regions to distributed functional networks. Anatomical parcellations and connectivity maps describe its components and links, but do not directly quantify how their joint causal contributions are organized across scales. We therefore applied PEID to a structure-constrained whole-brain model to characterize this organization across regions, interaction orders and functional networks, and to examine how it changes near a dynamical transition.
+
+% Complementary resting-state and seven-task fMRI analyses in 57 Human Connectome Project participants are reported in Supplementary Section~\ref{app:hcp_results}.
+
+Brain function depends on both specialized processing within cortical regions and coordinated activity across distributed networks. Although anatomical connectivity constrains these interactions, it does not by itself reveal how groups of regions jointly influence future brain activity. To examine these contributions, we used a whole-brain dynamic mean-field model in which each cortical region comprises coupled excitatory and inhibitory populations, with interactions between regions constrained by empirical structural connectivity \cite{Deco2014LocalEIRatio}. By varying global coupling, we followed the model through a collective dynamical transition and applied PEID and SPT to quantify how synergistic causal contributions reorganize across cortical regions, interaction orders and functional networks.
+
+% Brain function depends on both specialized processing within cortical regions and coordinated activity across distributed networks. Although anatomical connectivity constrains these interactions, it does not reveal which groups of regions contribute jointly to future brain activity or how these contributions reorganize near a collective dynamical transition. We therefore applied PEID and SPT to a structurally constrained whole-brain model to quantify synergistic causality and resolve its hierarchical organization across cortical regions, interaction orders and functional networks.
+
+\begin{figure*}[p]
+\centering\includegraphics[width=0.99\textwidth,height=0.75\textheight,keepaspectratio]{dmf_brain_main_composite_abcd.pdf}
+\caption{\textbf{Transition correspondence, hierarchy and high-order allocation in the brain DMF model.} \textbf{a}, Mean excitatory firing rate used as an independent order parameter. \textbf{b--d}, $\Xi$ (PEID), pairwise Gaussian-MMI $\Phi^R$ ($\Phi$ID) and signed source WMS, respectively, evaluated at a prediction horizon of 300 ms. Thin curves show means across three seeds for 93 native connectomes, colored by SC spectral radius; dashed black curves show a mean-SC simulation. \textbf{e}, Transition-window hits for the three measures: 71/93, 29/93 and 28/93, respectively (window width $0.5$ in $G$; grid step $0.1$). \textbf{f}, Mean-SC SPT at $G=1.3$, with intact E/I ROI blocks and post hoc Yeo labels. A--D mark recurrent ROI groups, enlarged below; counts give participants meeting the transition-window criterion (Supplementary Section~\ref{app:dmf_sc_topology_comparison}). Node colors encode local Syn/root $\Xi$; condensed segments show the maximum original value. \textbf{g}, ROI Shapley shares within the high-order component ($\geq50$ ROI blocks), normalized per seed before averaging. \textbf{h}, Within-network $\Xi$ (solid) and between-network Shapley allocation (hatched), normalized by $\Xi$; bars jointly sum to 100\%. \textbf{i,j}, Corresponding hierarchies, cortical maps and network contributions at $G=0$ and $G=10$, respectively, on shared scales. Zero cross-ROI joins are merged in \textbf{i}; 99 nonzero binary forks are condensed in \textbf{j}. Gray cortex denotes a zero high-order budget. High-order totals show mean $\pm$ SD across three repetitions. Methods: Supplementary Section~\ref{app:dmf_schaefer100}.}
+    \label{fig:dmf_schaefer100_summary}
+\end{figure*}
+
+
+\subsubsection*{Structural connectomes and whole-brain dynamics}
+
+% Different cortical regions support specialized computations, while coordinated behaviour requires interactions across those regions. The hypothesis that the brain operates near a transition between weakly and strongly coordinated regimes offers a dynamical account of this balance \cite{WilliamsGarcia2014Quasicritical,Toker2022Consciousness}. Using a structurally constrained whole-brain dynamic mean-field model, Mediano et al. \cite{Mediano2025TowardAU} showed that pairwise $\Phi^R$ peaked near the firing-rate transition, whereas $\Phi^{\mathrm{WMS}}$ became negative. Building on this experimental paradigm, we compared intervention-based synergistic causality with observational information measures across \rev{models constrained by }individual connectomes. We asked whether PEID could more reliably locate each individual's transition and reveal how joint causal contributions are organized across regions, interaction orders and functional networks.
+The brain has been proposed to operate near a transition between weakly and strongly coordinated regimes, potentially balancing regional specialization and large-scale integration \cite{WilliamsGarcia2014Quasicritical,Toker2022Consciousness}. Using a structurally constrained whole-brain dynamic mean-field model, Mediano et al. \cite{Mediano2025TowardAU} showed that pairwise $\Phi^R$ peaked near the firing-rate transition, whereas $\Phi^{\mathrm{WMS}}$ became negative. Building on this work, we examined whether PEID could more reliably identify participant-specific transition regions than observational information measures in models constrained by individual structural connectomes.
+
+% We used 93 participant-specific diffusion-MRI connectomes from healthy controls in the UCLA Consortium for Neuropsychiatric Phenomics LA5c dataset \cite{Poldrack2016PhenomeWide}, represented in the 100-region Schaefer cortical parcellation \cite{Schaefer2018LocalGlobal}. Each region contained coupled excitatory and inhibitory populations following the dynamic mean-field framework \cite{Deco2014LocalEIRatio}. We simulated each individual connectome and, separately, their element-wise arithmetic mean. Feedback inhibition was calibrated once and held fixed as the global coupling $G$ varied from 0 to 4 in steps of 0.1. The mean-connectome simulation provided representative examples of hierarchical organization, while participant-level comparisons used the individual connectomes. At each coupling, $\Xi$ measured the effective information available from the neural-state variables jointly, beyond the sum of their individual effective-information contributions. All information terms used the full 200-dimensional E/I state 300 ms later as the common target(Supplementary Section~\ref{app:dmf_schaefer100}).
+We used 93 participant-specific diffusion-MRI connectomes from healthy controls in the UCLA Consortium for Neuropsychiatric Phenomics LA5c dataset \cite{Poldrack2016PhenomeWide}, represented using the 100-region Schaefer cortical parcellation \cite{Schaefer2018LocalGlobal}. Each cortical region was modelled by coupled excitatory and inhibitory populations within a dynamic mean-field framework \cite{Deco2014LocalEIRatio}. We simulated the dynamics of each individual connectome and, separately, their element-wise mean. Feedback inhibition was calibrated at $G=1$ and held fixed as the global coupling strength $G$ varied from 0 to 4 in steps of 0.1. The individual connectomes were used for participant-level comparisons, whereas the mean connectome provided representative examples of hierarchical organization, including a separate extreme-coupling condition at $G=10$. At each coupling strength, $\Xi$ quantified the joint effective information beyond the sum of individual-source contributions, using the full 200-dimensional excitatory/inhibitory state 300 ms later as the common target (Supplementary Section~\ref{app:dmf_schaefer100}).
+
+% The mean-connectome simulation supplies representative organization examples and does not enter the participant-level comparison.
+
+% \rev{At each coupling, $\Xi$ quantified information about the full 200-dimensional E/I state 300 ms later that exceeded the summed contributions of individual scalar sources. Independent uniform interventions sampled the neural-state inputs, and a common affine transport-map model supplied the joint and marginal information queries. We compared $\Xi$ with natural-state pairwise Gaussian-MMI $\Phi^R$ and signed source WMS \cite{Mediano2025TowardAU}. These observational baselines describe dependence under the model's naturally correlated states. Together, the analyses test transition correspondence and then resolve the information budget into source coalitions, cortical locations and functional-network contributions (Supplementary Section~\ref{app:dmf_schaefer100}).}
+
+
+\subsubsection*{Whole-brain synergy identifies participant-specific dynamical transitions}
+
+% We used mean excitatory firing rate as an order parameter for the collective transition in each participant-specific model (Fig.~\ref{fig:dmf_schaefer100_summary}a). Its steepest increase defined a reference transition region independently of the information measures. Across connectomes, the firing-rate curves followed a broadly shared transition pattern, but the transition occurred at different coupling strengths. These differences were systematically associated with the spectral radius of the structural-connectivity matrix: connectomes with larger spectral radii tended to transition at lower $G$.
+We used mean excitatory firing rate as an order parameter to identify the collective transition in each participant-specific model(Fig.~\ref{fig:dmf_schaefer100_summary}a). The steepest increase in firing rate defined the reference transition region independently of the information measures. Across connectomes, the firing-rate curves showed similar transition patterns, although the transitions occurred at different coupling strengths. Connectomes with larger spectral radii of the structural-connectivity matrices tended to transition at lower values of $G$.
+
+
+
+% We compared $\Xi$ with observational source WMS and pairwise Gaussian-MMI $\Phi^R$, whose definitions and implementation in this experiment are described in Supplementary Sections~\ref{app:wms} and~\ref{app:dmf_schaefer100}. WMS measures the net balance between synergistic and redundant contributions and can become negative when redundancy dominates. The definition of $\Xi$ retains the same joint-minus-sum form but replaces the natural source distribution with a factorized maximum-entropy intervention. This removes source dependence and yields a non-negative measure of joint information beyond individual-source contributions. Here, $\Phi^R$ was computed separately for every pair of E/I state variables and averaged across pairs. This pairwise aggregation cannot resolve contributions that require larger source groups jointly.
+To assess how well synergistic information identifies participant-specific dynamical transitions, we compared $\Xi$ with two observational measures, source WMS and pairwise Gaussian-MMI $\Phi^R$ (Supplementary Sections~\ref{app:wms} and~\ref{app:phi_r}). WMS shares the joint-minus-sum formulation of $\Xi$ but is evaluated under the observational source distribution, where redundancy can outweigh synergy and produce negative values. By contrast, PEID evaluates $\Xi$ under a factorized maximum-entropy intervention, yielding a non-negative joint information contribution. The pairwise $\Phi^R$ was computed for each pair of E/I state variables and then averaged, without explicitly resolving joint contributions involving larger groups of variables.
+
+% Across participants, $\Xi$ showed a broadly shared rise-and-fall response as coupling increased, with peaks concentrated around individual transition regions (Fig.~\ref{fig:dmf_schaefer100_summary}b--d). Its transition-window hit rate reached $76.3\%$, significantly exceeding those of $\Phi^R$ ($31.2\%$) and WMS ($30.1\%$) under the fixed-window analysis (Fig.~\ref{fig:dmf_schaefer100_summary}e). These results support the value of retaining system-wide joint information, including contributions beyond pairwise relationships, for more accurate transition localization. Its enrichment near the transition further motivated our examination of regional hierarchies and functional-network organization.
+
+Across the 93 participant-specific structure connectomes, $\Xi$ exhibited a rise-and-fall pattern with increasing coupling, typically peaking near the independently defined transition regions (Fig.~\ref{fig:dmf_schaefer100_summary}b--d). Under the fixed-window criterion, $\Xi$ achieved a transition-window hit rate of 76.3\% (71/93 participants), significantly exceeding those of $\Phi^R$ (31.2\%, 29/93) and WMS (30.1\%, 28/93) by 45.2 and 46.2 percentage points, respectively (Fig.~\ref{fig:dmf_schaefer100_summary}e). This marked improvement suggests that system-level synergistic causality provides a more consistent indicator of participant-specific dynamical transitions than either comparator. We next examined how this synergy is distributed among cortical regions and organized across interaction orders and functional networks.
+
+
+\subsubsection*{Hierarchical and functional organization of brain synergy}
+
+% \rev{For each coupling ($G=0$, $1.3$ and $10$), Fig.~\ref{fig:dmf_schaefer100_summary} presents the SPT hierarchy, high-order cortical allocation and functional-network contributions in the same row. The SPTs show how joint information is assembled across cortical regions (Fig.~\ref{fig:dmf_schaefer100_summary}f,i,l).} At $G=0$, cross-ROI Syn was zero and all retained information lay within local E/I blocks. At $G=1.3$, the representative tree contained eight splits separating two multi-ROI children, revealing nested regional coalitions. At $G=10$, both joint effective information and $\Xi$ were markedly reduced. This is consistent with strong coupling driving the system toward a synchronized, less differentiated response, so that the future state retains little information about distinct initial configurations. This chain was condensed to one level for display. The transition-range example therefore exhibits a branching hierarchy absent from the two endpoint examples, rather than simply a larger scalar information value.
+
+
+The interplay between regional specialization and large-scale coordination is central to theories of brain organization, yet the peak in whole-brain $\Xi$ near the dynamical transition does not reveal how synergistic contributions are organized across cortical regions. We therefore applied SPT to resolve contributions within individual regions and across % [Previous wording]
+% nested regional coalitions
+% [Revised wording]
+\rev{nested regional groups}, examining the mean-connectome model under no long-range coupling ($G=0$), transition-range coupling ($G=1.3$) and extreme coupling ($G=10$) \rev{(Fig.~\ref{fig:dmf_schaefer100_summary}f,i,j)}. With each cortical region represented by an E/I block, the SPT at $G=0$ showed that all synergistic contributions were confined to individual regions, with no synergy across regions (Fig.~\ref{fig:dmf_schaefer100_summary}i). Near the dynamical transition ($G=1.3$), the hierarchy contained eight forks separating pairs of multi-region subgroups, revealing % [Previous wording]
+% nested cortical coalitions
+% [Revised wording]
+\rev{nested cortical groups} with nonzero synergistic contributions (Fig.~\ref{fig:dmf_schaefer100_summary}f). Under extreme coupling ($G=10$), both joint effective information and $\Xi$ were markedly reduced (Fig.~\ref{fig:dmf_schaefer100_summary}j); the underlying binary branches were condensed to a single level for visualization. The transition-range model thus exhibited not only substantial synergistic information but also a hierarchy of contributions involving multiple cortical regions, providing a basis for examining how these contributions are distributed across the cortex.
+
+The highlighted branches suggest how local functional specialization can be embedded within broader coordination in the model (Fig.~\ref{fig:dmf_schaefer100_summary}f). A somatomotor group (A) is nested % [Previous wording]
+% within a larger coalition
+% [Revised wording]
+\rev{within a larger regional group} that includes a salience/ventral-attention region (B). Other branches link somatomotor and dorsal-attention regions (C), and salience/ventral-attention and default-mode regions (D). These groups met the transition-window selection criterion with varying prevalence across participant-specific models (Supplementary Section~\ref{app:dmf_sc_topology_comparison}). Together, they provide a concrete representation of how integration within specialised networks can coexist with joint contributions spanning network boundaries. % [Previous wording]
+% The identified coalitions offer
+% [Revised wording]
+\rev{The identified regional groups offer} specific candidates for task-based or perturbational studies testing how attentional demands reshape sensorimotor synergy and how salience and default-mode systems jointly contribute to brain dynamics.
+
+% Each cortical region was treated as an E/I block. At $G=0$, joint information was retained within individual regions, with no synergy across regions. Near the transition ($G=1.3$), the SPT revealed nested regional coalitions, including eight forks separating two multi-region subgroups. These branches resolved how synergistic contributions were organized among cortical groups, rather than merely indicating a larger value of $\Xi$. Under extreme coupling ($G=10$), both joint effective information and $\Xi$ were markedly reduced, consistent with a less differentiated dynamical response. Although the corresponding tree was condensed to a single level for visualization, its underlying binary branches remained present. The transition-range condition therefore combined substantial joint information with a distinguishable hierarchy of contributions across cortical regions.
+
+% [Previous wording — preserved for review]
+% Regional attribution localized the synergistic contributions associated with large coalitions (Fig.~\ref{fig:dmf_schaefer100_summary}i--k).
+% [Revised wording]
+% \rev{Regional attribution localized the synergistic contributions associated with large coalitions (Fig.~\ref{fig:dmf_schaefer100_summary}g,j,m).} For a coarse descriptive separation of interaction scales, we grouped contributions from SPT nodes containing at least 50 ROI blocks as high order. Each seed's ROI Shapley allocations were normalized by its own high-order total before averaging. At $G=1.3$, the left hemisphere accounted for $71.84\%$ of high-order attribution, with the largest individual parcel share in left visual cortex. Low-order attribution instead favored right somatomotor and salience/ventral-attention parcels (Supplementary Section~\ref{app:dmf_low_order_results}). One possible explanation is that hemispheric differences in connectivity and network organization influence the coalition sizes at which regional contributions emerge, consistent with connectivity-based accounts of functional lateralization \cite{Karolis2019Lateralisation,GonzalezAlam2022Gradients}. At $G=10$, high-order shares became more uniform, while their absolute total decreased to approximately $1/15.8$ of the transition-range value. At $G=0$, the high-order total was zero.
+% [Previous panel reference — preserved for review]
+% We next used ROI-level Shapley attribution to examine how the synergistic contributions identified by SPT were distributed across cortical regions (Fig.~\ref{fig:dmf_schaefer100_summary}g,j,m).
+% [Revised panel reference]
+We next used ROI-level Shapley attribution to examine how the synergistic contributions identified by SPT were distributed across cortical regions (Fig.~\ref{fig:dmf_schaefer100_summary}g,i,j). % [Previous wording]
+% To distinguish contributions associated with different coalition sizes, we defined a descriptive high-order component using SPT nodes containing at least 50 ROI blocks.
+% [Revised wording]
+\rev{To distinguish contributions associated with % [Previous wording]
+% different coalition sizes
+% [Revised wording]
+\rev{different group sizes}, we defined a descriptive high-order component using SPT nodes containing at least 50 ROI blocks (Supplementary Sections~\ref{app:exact_shapley_attribution} and~\ref{app:dmf_order_bands}).} Near the dynamical transition ($G=1.3$), this component accounted for % [Previous wording]
+% $8.320\pm0.142$
+% [Revised wording]
+\rev{$8.32\pm0.14$} nats and showed a pronounced spatial asymmetry: 71.84\% of its normalized attribution was assigned to the left hemisphere, with the largest individual parcel share in left visual cortex. By comparison, lower-order contributions were more prominent in right somatomotor and salience/ventral-attention regions (Supplementary Section~\ref{app:dmf_low_order_results}). At $G=10$, the high-order contribution decreased to % [Previous wording]
+% $0.525\pm0.008$
+% [Revised wording]
+\rev{$0.53\pm8\times10^{-3}$} nats, approximately 16-fold smaller than at $G=1.3$, although its relative distribution across cortical regions became more uniform. No high-order contribution was detected at $G=0$. These results show that the % [Previous wording]
+% large-coalition synergy
+% [Revised wording]
+\rev{synergy involving large regional groups} identified by SPT varies not only in magnitude but also in its cortical allocation across dynamical regimes.
+
+% \rev{At the functional-network level, we separated overall $\Xi$ into within-network contributions and a between-network residual, allocating the latter across the seven Yeo networks by exact Shapley attribution (Fig.~\ref{fig:dmf_schaefer100_summary}h,k,n).} At $G=1.3$, between-network contributions accounted for approximately two-thirds of the total. Visual and Somatomotor networks had the largest within-network contributions, whereas Default-mode and Salience/ventral-attention received the largest between-network allocations, followed by Dorsal-attention and Frontoparietal-control. This \rev{model-derived }distribution suggests complementary roles for specialized processing within sensory and motor networks and distributed coordination across association, attention and control networks, consistent with evidence linking association cortex to synergistic integration and brain function to the coexistence of segregation and integration \cite{luppi2022synergistic,Wang2021SegregationIntegrationBalance}. Between-network contributions were absent at $G=0$. At $G=10$, their relative share increased despite a substantially smaller absolute information budget, showing that a larger cross-network fraction need not indicate more informative coordination. The transition-range condition thus combined substantial synergistic causality with differentiated contributions within and across functional networks.
+
+Near the dynamical transition ($G=1.3$), the distribution of $\Xi$ revealed complementary roles for specialized sensory–motor networks and higher-order association networks (Fig.~\ref{fig:dmf_schaefer100_summary}h). Visual and Somatomotor networks, dedicated to specific sensory and motor functions, showed the largest within-network synergistic contributions. In contrast, Default-mode and Salience/ventral-attention networks, associated with more complex cognitive functions, contributed most strongly to cross-network synergy. This division provides an information-theoretic account of how integration within specialized systems combines with coordination across functional networks to organize whole-brain dynamics \cite{luppi2022synergistic,Wang2021SegregationIntegrationBalance}.
+
+% The cortical attribution maps identify where contributions from large regional coalitions are concentrated, but do not establish how whole-brain synergy is distributed within and across established functional networks. We therefore examined this complementary level of organization using the seven Yeo networks, separating $\Xi$ into within-network contributions and a between-network residual, with the latter allocated by exact Shapley attribution (Fig.~\ref{fig:dmf_schaefer100_summary}h,i,j). At $G=1.3$, between-network contributions accounted for 66.2\% of total $\Xi$, while 33.8\% was retained within individual networks. Visual and Somatomotor networks showed the largest within-network contributions, whereas Default-mode and Salience/ventral-attention networks received the largest between-network allocations. This distribution provides an information-theoretic perspective on the coexistence of functional segregation and integration, distinguishing information retained within individual networks from joint contributions spanning network boundaries \cite{luppi2022synergistic,Wang2021SegregationIntegrationBalance}. Notably, the between-network share increased to 85.3\% under extreme coupling ($G=10$), despite a substantial reduction in overall $\Xi$. Thus, a larger relative contribution from across-network interactions does not necessarily imply stronger system-wide synergy.
+
+% [Previous wording — moved to Supplementary Section \ref{app:hcp_results}]
+% \subsubsection*{Task engagement reconfigures whole-brain synergy}
+% 
+% \begin{figure*}[!t]
+%     \centering
+%     \includegraphics[width=0.96\textwidth,height=0.70\textheight,keepaspectratio]{hcp_schaefer1000_behavior_main_57.png}
+%     \caption{\textbf{Task-dependent integrated effective information and selective behavioral associations in 57 participants.} \textbf{a}, System-level \(\Xi\) during REST and seven tasks. Points denote participants, boxes show medians and interquartile ranges, and diamonds denote means; asterisks mark two-sided paired Wilcoxon tests against REST after BH correction across the seven contrasts. \textbf{b}, Mean SPT order mass, computed by summing all tree nodes of the same order within each participant and then averaging across the 57 participants. \textbf{c}, Mean conserved Yeo-7 network attribution as a percentage of system-level \(\Xi\); each state column sums to 100\%, and the colorbar reports network attribution (\%). \textbf{d,e}, LANGUAGE-state coalition Syn versus Story and Math accuracy, respectively, after cohort-blocked rank residualization; the displayed values are pointwise Spearman statistics. \textbf{f}, SOCIAL Visual--Limbic--Control Syn versus finite-trial-corrected \(d'\), with age and sex removed in rank space; the max-\(T\) \(P\) value accounts for selection across 120 coalitions. \textbf{g}, EMOTION Limbic--Control--Default Syn versus face-specific speed after adjustment for Shape speed, age, sex, and cohort; the displayed \(P\) value is pointwise. \textbf{h}, Nine MOTOR coalitions with negative pointwise permutation \(P<0.05\); points are adjusted Spearman correlations, intervals are stratified-bootstrap 95\% confidence intervals, and printed \(P\) values are uncorrected pointwise tests. Lines in \textbf{d--g} are visual guides only. Panels \textbf{d,e,g,h} are exploratory; \textbf{f} is the only displayed behavioral association corrected for coalition selection. Full screening and multiplicity details are provided in Supplementary Section~\ref{app:hcp_attribution}.} 
+%     \label{fig:hcp_behavior_main}
+% \end{figure*}
+% 
+% Building on the observation that whole-brain synergy exhibits multiscale organization near a dynamical transition, we asked whether cognitive state changes are likewise accompanied by a reorganization of synergistic structure in the human brain. Task engagement provides a natural test because different cognitive demands recruit distinct patterns of large-scale neural coordination. Across 57 participants, system-level $\Xi$ was lower during task states than during REST, with all paired contrasts surviving false-discovery-rate correction (Supplementary Section~\ref{app:bh_correction}). However, a reduction in total synergy alone does not reveal whether the change reflects a global loss of joint information or a reorganization of its underlying multiscale structure. \rev{We therefore used SPT to compare how synergy was distributed across interaction orders and the seven Yeo functional networks in each state.} 
+% 
+% 
+% \rev{When SPT contributions were summed separately at each interaction order, fifth- and sixth-order groups contributed most across states, indicating that whole-brain synergy was organized predominantly through high-order, large-scale coordination (Fig.~\ref{fig:hcp_behavior_main}b).} \rev{REST showed a larger root contribution involving all seven networks than any task state}, consistent with a stronger tendency toward fully coupled, whole-brain integration, whereas task engagement redistributed synergy toward state-specific lower-order configurations. \rev{At the network level, the share of total \(\Xi\) assigned to each Yeo-7 network also varied across states (Fig.~\ref{fig:hcp_behavior_main}c).} The Limbic network consistently received the smallest share, while \rev{the Control network's assigned share increased from 12.2\% in REST to 14.1--19.2\% across tasks and peaked during LANGUAGE.} The relatively limited Limbic contribution is consistent with prior information-decomposition results locating synergistic processing predominantly in default-mode and frontoparietal association cortices~\cite{luppi2022synergistic}. Together, panels a--c show that task engagement reduces global $\Xi$ while reorganizing the remaining synergistic information across interaction orders and functional networks.
+% 
+% We next examined whether task-dependent synergistic configurations captured individual differences in cognitive performance. Behavioral associations were not explained by global changes in $\Xi$, but emerged from specific synergistic coalitions involving distinct sets of large-scale networks. In LANGUAGE, higher Story accuracy was positively associated with stronger Visual--Somatomotor--Limbic--Control Syn, whereas higher Math accuracy was positively associated with stronger Visual--Dorsal-attention--Control Syn (Fig.~\ref{fig:hcp_behavior_main}d,e). These positive relationships are consistent with more accurate language performance engaging task-specific integration among sensory, attentional, limbic, and control systems. In contrast, greater social sensitivity was negatively associated with Visual--Limbic--Control Syn, and faster face-specific responses were negatively associated with Limbic--Control--Default Syn in SOCIAL and EMOTION, respectively (Fig.~\ref{fig:hcp_behavior_main}f,g). MOTOR showed the same negative direction across several coalitions, with the strongest association spanning Visual--Somatomotor--Limbic--Control--Default networks (Fig.~\ref{fig:hcp_behavior_main}h). Thus, better social, faster face-processing, and stronger motor performance were accompanied by weaker coalition-level synergy, consistent with more selective and functionally segregated processing that reduces reliance on broad cross-network integration. Together, the opposing directions show that better performance is not uniformly associated with more synergy: accuracy in LANGUAGE covaries with stronger task-specific integration, whereas social, speeded, and motor performance covary with greater segregation across the implicated systems.
+% 
+% Task-dependent behavioral associations were not explained by global changes in integrated effective information alone, but emerged from specific synergistic configurations involving distinct functional networks. These findings suggest that the organization of joint information provides additional information about cognitive states beyond its overall magnitude. Although only the SOCIAL association survived correction for multiple comparisons across network coalitions, the remaining task-specific associations provide exploratory evidence that different cognitive abilities may rely on distinct configurations of synergistic interactions. Thus, PEID enables behavioral relevance to be linked not only to how much information is integrated across the brain, but also to how that information is organized across hierarchical and functional levels.
+
+\subsection*{Application in the Earth system}
+
+% Earth-system variability emerges from coupling among multiple climate modes across long temporal scales. Advanced Transformer-based models capture these dynamics with strong predictive skill, yet the organization of their learned cross-variable interactions remains difficult to interpret. We therefore applied PEID to released pretrained checkpoints or faithful reproductions of published models, without retraining the forecasting architectures, to measure which variable combinations and interaction orders jointly contributed to the forecasts.
+Climate variability is shaped by interactions among large scale climate modes, often spanning geographically distant ocean basins. Although data-driven forecasting models can capture these coupled dynamics, their predictive skill alone does not reveal which climate modes contribute information jointly or how these contributions change across forecast horizons. We therefore applied PEID and SPT to a pretrained climate-mode forecasting model to identify synergistic mode combinations and resolve their hierarchical organization across prediction horizons.
+
+
+\subsubsection*{Extracting synergy organization from AI climate model}
+Recent advances in AI have substantially improved data-driven weather and climate prediction. Models such as GraphCast \cite{Lam2023GraphCast} and UniCM \cite{yuan2026learning} have demonstrated strong predictive skill in global weather forecasting and coupled climate-mode prediction, respectively. Yet predictive accuracy alone does not reveal which physical variables contribute information jointly beyond their individual contributions, or how these joint contributions change across forecast horizons.
+% We applied PEID to UniCM, an AI forecasting model that learns the coupled dynamics of major climate modes spanning the Pacific, Indian and Atlantic Oceans \cite{yuan2026learning}. Because UniCM represents ENSO, IOD and related modes as an interconnected climate system rather than as isolated prediction targets, it provides a setting for examining what the model has learned about their joint dynamics beyond the contributions of individual modes. \rev{We froze three released UniCM checkpoints} and treated the learned forecasting mechanism as a fixed representation of the climate dynamics acquired during training (Supplementary Section~\ref{app:unicm_model}). PEID probed these learned dynamics through interventions on the climate-mode inputs, quantifying forecast information that emerged only when multiple modes acted jointly. SPT further resolved these synergistic effects into a hierarchy that identifies the participating climate modes and their interaction order. This hierarchy revealed how synergistic organization changed across forecast leads and prediction targets, while the dominant mode combinations aligned with established cross-basin dynamics. We next tested whether the recovered organization contained reusable dynamical structure that could inform prediction on unseen observations. \rev{Exact variable-level $\Xi$-Shapley attributions, computed over all source coalitions independently of the selected SPT, were used to construct a structural prior for an independently fitted calibrator,} thereby reintroducing the extracted synergistic organization into the forecasting process without modifying the pretrained model itself. The resulting calibrator was evaluated on held-out observations \rev{against a capacity-matched uniform-ridge control, label-shuffled priors, observational information priors and direct grouped SHAP,} providing an independent test of whether the recovered structure carried predictive information beyond its interpretive role (Fig.~\ref{fig:unicm_hierarchical_ei}).
+
+% We applied PEID and SPT to UniCM, an AI forecasting model that learns the coupled dynamics of major climate modes spanning the Pacific, Indian and Atlantic Oceans \cite{yuan2026learning}. By jointly representing ENSO, IOD and related modes, UniCM allows us to examine how physically interpretable climate variables contribute synergistically to predictions and how these contributions are organized across forecast horizons. We analyzed three released UniCM checkpoints, keeping their forecasting mechanisms fixed throughout the analysis (Supplementary Section~\ref{app:unicm_model}). PEID quantified the joint predictive information contributed by multiple climate modes under factorized interventions on the model inputs, while SPT resolved these contributions into nested mode combinations across forecast horizons and prediction targets. We further investigated whether the information extracted from the pretrained models could improve predictions on unseen observations, beyond providing an interpretation of their learned dynamics. To this end, exact variable-level $\Xi$-Shapley attributions, computed over all source coalitions independently of the selected SPT, were used to construct a structural prior for an independently fitted forecast calibrator. Its performance was evaluated on held-out observations against a capacity-matched uniform-ridge control, label-shuffled priors, observational information priors and direct grouped SHAP, without modifying the pretrained forecasting models (Fig.~\ref{fig:unicm_hierarchical_ei}).
+% We applied PEID and SPT to UniCM, an AI forecasting model that learns the coupled dynamics of major climate modes spanning the Pacific, Indian and Atlantic Oceans \cite{yuan2026learning} which allowing synergistic predictive contributions to be examined in terms of physically interpretable variables. By modelling ENSO, IOD and related modes jointly, UniCM provides a setting for examining which combinations of physically interpretable climate variables contribute synergistically to predictions and how these contributions change across forecast horizons. We analyzed three released UniCM checkpoints without retraining the forecasting models (Supplementary Section~\ref{app:unicm_model}). PEID quantified synergistic predictive information under factorized interventions on climate-mode inputs, while SPT resolved its hierarchical organization across variable combinations and interaction orders. The resulting hierarchies varied with forecast lead and prediction target, with prominent mode combinations consistent with established cross-basin interactions.
+
+
+% We applied PEID and SPT to UniCM, an AI forecasting model that learns the coupled dynamics of major climate modes across the Pacific, Indian and Atlantic Oceans \cite{yuan2026learning}. Its joint representation of these climate modes allows us to examine synergistic predictive contributions in terms of physically interpretable variables. By modelling ENSO, IOD and related modes jointly, UniCM provides a setting for examining which combinations of physically interpretable climate variables contribute synergistically to predictions and how these contributions change across forecast horizons. We analyzed three released UniCM checkpoints without retraining the forecasting models (Supplementary Section~\ref{app:unicm_model}). PEID quantified synergistic predictive information under factorized interventions on climate-mode inputs, while SPT resolved its hierarchical organization across variable combinations and interaction orders. The resulting hierarchies varied with forecast lead and prediction target, with prominent mode combinations consistent with established cross-basin interactions.
+% UniCM jointly models ENSO, IOD and related climate modes spanning the Pacific, Indian and Atlantic Oceans, allowing their synergistic predictive contributions to be examined in terms of physically interpretable variables. We applied PEID and SPT to three released UniCM checkpoints, keeping the pretrained forecasting models fixed (Supplementary Section~\ref{app:unicm_model}). Under factorized maximum-entropy interventions on the climate-mode inputs, PEID quantified synergistic predictive information beyond individual-mode contributions, while SPT resolved its hierarchical organization across variable combinations and interaction orders. The resulting hierarchies revealed how the model's synergistic predictive information was reorganized across forecast horizons and prediction targets, including a prominent nested ENSO–IOD coalition at intermediate forecast leads, consistent with established cross-basin interactions.
+UniCM jointly models ENSO, IOD and related climate modes spanning the Pacific, Indian and Atlantic Oceans, allowing synergistic predictive contributions to be examined in terms of identifiable climate-mode combinations. We applied PEID and SPT to three independently trained UniCM checkpoints, keeping the pretrained forecasting models fixed.(Supplementary Section~\ref{app:unicm_model}). Under factorized maximum-entropy interventions on the climate-mode inputs, PEID quantified synergistic predictive information beyond individual-mode contributions, while SPT resolved its hierarchical organization across variable combinations and interaction orders. The analysis revealed a marked reorganization of predictive synergy across forecast horizons and prediction targets, including a prominent nested ENSO–IOD group at intermediate leads.
+
+% UniCM jointly models ENSO, IOD and related climate modes spanning the Pacific, Indian and Atlantic Oceans, allowing synergistic predictive contributions to be examined in terms of physically interpretable variables. We applied PEID and SPT to three released UniCM checkpoints, keeping the pretrained forecasting models fixed (Supplementary Section~\ref{app:unicm_model}). Under factorized maximum-entropy interventions on the climate-mode inputs, PEID quantified synergistic predictive information beyond individual-mode contributions, while SPT resolved its hierarchical organization across variable combinations and interaction orders. We examined this organization across forecast horizons and prediction targets to determine how the model's reliance on joint information changes with prediction lead. The analysis revealed a marked reorganization of predictive synergy, from weak cross-mode contributions at short leads to nested ENSO–IOD coalitions at intermediate leads and more selective mode combinations at longer leads (Fig.~\ref{fig:unicm_hierarchical_ei}).
+
+
+% We further tested whether the extracted information contained predictive value beyond its interpretive role. Exact variable-level $\Xi$-Shapley attributions, computed over all source coalitions independently of the selected SPT, were used to construct a structural prior for an independently fitted forecast calibrator. We evaluated the calibrator on held-out observations against a capacity-matched uniform-ridge control, label-shuffled priors, observational information priors and direct grouped SHAP, while keeping the pretrained forecasting models unchanged.
+Beyond interpreting the synergistic organization learned by UniCM, we examined whether the extracted information could also improve forecasts. We computed exact variable-level $\Xi$-Shapley attributions over all source subsets, independently of the selected SPT, and used them to construct a structural prior for a separately fitted forecast calibrator. Keeping the pretrained UniCM models fixed, we evaluated the calibrator on held-out observations against a capacity-matched uniform-ridge control, label-shuffled priors, observational information priors and direct grouped SHAP. The $\Xi$-Shapley-guided calibrator reduced prediction error relative to both the frozen UniCM forecasts and the uniform-ridge control.
+\begin{figure}[p]
+% [Previous figure source — preserved for review]
+% \centering\includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{earth_unicm_hierarchy_overview.png} 
+% [Revised figure source]
+\centering\includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{unicm_main_with_hypergraph.png} 
+% [Previous wording — preserved for review]
+% \caption{\textbf{Lead-dependent synergy hierarchy and forecast calibration in UniCM.} \textbf{a--c}, Geographic embeddings at prediction leads $\ell=1$, 8, and 24 months, respectively. \textbf{d--f}, The corresponding complete SPTs. Internal node boxes report coalition size and local hierarchy Syn; terminal labels identify the individual modes, and the highlighted lead-8 subtree in \textbf{e} identifies a five-mode ENSO--IOD synergy core. \textbf{g}, Tree-wise SPT order mass across leads 1--24 months, averaged over three frozen checkpoints; third- and fourth-order mass is strongest at intermediate leads. \textbf{h}, Lead-resolved mean Shapley share assigned to each source mode; white markers denote the largest mean share at each lead. \textbf{i}, Test normalized RMSE for the frozen checkpoint ensemble, univariate calibration, capacity-matched uniform ridge, and the target-specific exact $\Xi$-Shapley prior. \textbf{j}, Test-RMSE reduction relative to the frozen ensemble for the exact $\Xi$-Shapley prior and 200 null priors obtained by independently shuffling its 11 source-mode weights within each target--lead cell. All null fits used the hyperparameters selected for the unshuffled $\Xi$-Shapley model ($\alpha=30{,}000$, $\gamma=3$), with no null-specific retuning. The exact prior reduced RMSE by 10.43\%, whereas the null distribution had a mean of 3.04\% (s.d. 0.50\%; central 95\% range 2.17--3.99\%); no null matched the observed score ($P=1/201=0.00498$). See Supplementary Section~\ref{app:unicm_model}.} 
+% [Revised wording]
+% [Previous wording — preserved for review]
+% \caption{\rev{\textbf{Lead-dependent joint information and forecast calibration in frozen UniCM.} \textbf{a--c}, The ten strongest two-source synergistic hyperedges at leads $\ell=1$, 8 and 24 months, averaged over three checkpoints; each edge targets one future mode. \textbf{d--f}, Complete checkpoint-2 SPTs for the joint 11-mode future state. Boxes show local Syn in nats; \textbf{e} highlights the nested five-mode ENSO--IOD core. \textbf{g}, Absolute SPT order mass, summed within each tree and averaged across checkpoints; each tree closes to its root $\Xi$. \textbf{h}, Exact $\Xi$-Shapley shares for the same joint target, normalized within checkpoints before averaging; white dots mark the largest mean share. \textbf{i}, Test-nRMSE reduction relative to Frozen for the original $\Xi$ prior and 200 label-shuffled priors, each independently retuned on validation ($P=1/201=0.00498$). \textbf{j}, The same reduction for Frozen, $\Xi$-Shapley, exploratory grouped SHAP, the existing Univariate reference, Uniform ridge and five observational information priors. Ridge comparisons share $\alpha=30{,}000$ and $\gamma=3$, selected for $\Xi$; Uniform has equal penalties. $\Xi$ uses independent uniform intervention histories and frozen outputs; the five observational priors use only 253 real fit-period history--future pairs, with Gaussian density estimates. SHAP uses fit-period histories and frozen outputs. Panels \textbf{i} and \textbf{j} use different parameter-selection protocols. Reduction is $100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$; positive values indicate improvement. See Supplementary Section~\ref{app:unicm_model}.}}     
+% [Revised wording]
+\caption{\rev{\textbf{Lead-dependent joint information and forecast calibration in frozen UniCM.} \textbf{a--c}, The ten strongest two-source synergistic hyperedges at leads $\ell=1$, 8 and 24 months, averaged over three checkpoints; each edge targets one future mode. \textbf{d--f}, % [Previous wording]
+% Complete checkpoint-2 SPTs
+% [Revised wording]
+\rev{Representative SPTs} for the joint 11-mode future state. Boxes show local Syn in nats; \textbf{e} highlights the nested five-mode ENSO--IOD core. \textbf{g}, Absolute SPT order mass, summed within each tree and averaged across checkpoints; each tree closes to its root $\Xi$. \textbf{h}, Exact $\Xi$-Shapley shares for the same joint target, normalized within checkpoints before averaging; white dots mark the largest mean share. \textbf{i}, Seven-mode test-nRMSE reduction relative to Frozen for the original $\Xi$ prior and 200 label-shuffled priors, using the original fixed parameters ($P=1/201=4.98\times10^{-3}$). \textbf{j}, The same reduction for Frozen, $\Xi$-Shapley, exploratory grouped SHAP, Univariate, Uniform ridge and five observational information priors. Panels \textbf{i,j} score the seven primary climate modes over 24 leads, retaining the original eleven-channel predictions and priors. Ridge fits use $\alpha=30{,}000$ and $\gamma=3$, selected for $\Xi$; Uniform has equal penalties. $\Xi$ uses independent intervention histories and frozen outputs; observational priors use 253 real fit-period history--future pairs, and SHAP uses fit-period histories and frozen outputs. Reduction is $100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$; positive values indicate improvement. Scoring details are in Supplementary Section~\ref{app:unicm_model}.}}
+% [Previous wording — preserved for review]
+% \caption{\rev{\textbf{Lead-dependent joint information and forecast calibration in frozen UniCM.} \textbf{a--c}, The ten strongest two-source synergistic hyperedges at leads $\ell=1$, 8 and 24 months, averaged over three checkpoints; each edge targets one future mode. \textbf{d--f}, Complete checkpoint-2 SPTs for the joint 11-mode future state. Boxes show local Syn in nats; \textbf{e} highlights the nested five-mode ENSO--IOD core. \textbf{g}, Absolute SPT order mass, summed within each tree and averaged across checkpoints; each tree closes to its root $\Xi$. \textbf{h}, Exact $\Xi$-Shapley shares for the same joint target, normalized within checkpoints before averaging; white dots mark the largest mean share. \textbf{i}, Test-nRMSE reduction relative to Frozen for the original $\Xi$ prior and 200 label-shuffled priors, each independently retuned on validation ($P=1/201=0.00498$). \textbf{j}, The same reduction for Frozen, $\Xi$-Shapley, exploratory grouped SHAP, the existing Univariate reference, Uniform ridge and five observational information priors. Ridge comparisons share $\alpha=30{,}000$ and $\gamma=3$, selected for $\Xi$; Uniform has equal penalties. $\Xi$ uses independent uniform intervention histories and frozen outputs; the five observational priors use only 253 real fit-period history--future pairs, with Gaussian density estimates. SHAP uses fit-period histories and frozen outputs. Panels \textbf{i} and \textbf{j} use different parameter-selection protocols. Reduction is $100(1-\mathrm{nRMSE}_{m}/\mathrm{nRMSE}_{\mathrm{Frozen}})$; positive values indicate improvement. See Supplementary Section~\ref{app:unicm_model}.}} 
+    \label{fig:unicm_hierarchical_ei}
+\end{figure}
+
+
+% At intermediate forecast leads, higher-order predictive synergy concentrated in a nested Indo-Pacific core (Fig. 3e,g). At eight months, contributions associated with three- to five-source coalitions accounted for 52.9\% of total $\Xi$. Across all three checkpoints, these coalitions formed a common five-mode core comprising ENSO, Niño 1+2, Niño 3, Niño 4 and IOD. The representative hierarchy resolved progressively larger Pacific combinations and their integration with IOD, revealing how UniCM jointly organizes Pacific spatial variability and Indian Ocean conditions into predictive information. PEID–SPT thus identifies interpretable multivariate configurations underlying intermediate-lead synergy and resolves how their contributions are assembled across hierarchical levels.
+
+\subsubsection*{Forecast-horizon-dependent reorganization of predictive synergy}
+
+% PEID and SPT provide a lead-resolved representation of how UniCM organizes predictive information across climate modes: the geographic hypergraphs localize the mode combinations involved, while the corresponding SPTs resolve their hierarchical and interaction-order structure (Fig.~\ref{fig:unicm_hierarchical_ei}a--f). This organization changes markedly with forecast horizon. At $\ell=1$ month (Fig.~\ref{fig:unicm_hierarchical_ei}a,d), the geographic hypergraph contains only weak and spatially limited cross-mode connections, and the corresponding SPT shows no strongly concentrated synergistic coalition. System-level synergy is accordingly small (averaged over the three frozen checkpoints; $\Xi=0.088$ nats), consistent with a short-range regime in which much of the predictive information is already retained within individual climate modes.
+% The geographic hypergraphs depict the strongest two-source synergistic connections among climate modes, while the corresponding SPTs resolve their nested contributions across interaction orders (Fig.~\ref{fig:unicm_hierarchical_ei}a--f). At $\ell=1$ month (Fig.~\ref{fig:unicm_hierarchical_ei}a,d), the geographic hypergraph shows weak, spatially localized cross-mode connections, and the SPT contains no dominant synergistic coalition. System-level synergy is also small ($\Xi=0.088$ nats, averaged over the three frozen checkpoints), consistent with much of the predictive information being retained within individual climate modes.
+We analyzed the three frozen UniCM checkpoints across 24 monthly forecast leads. The geographic hypergraphs show the strongest two-source synergistic connections averaged across checkpoints % [Previous wording]
+% \textbf{add SI section operation here}
+% [Revised wording]
+\rev{(Supplementary Section~\ref{app:unicm_model})}, while the corresponding SPTs resolve their hierarchical contributions and interaction orders % [Previous wording]
+% for checkpoint 2 at three illustrative leads
+% [Revised wording]
+\rev{for a representative checkpoint at three illustrative leads} of 1, 8 and 24 months (Fig.~\ref{fig:unicm_hierarchical_ei}a--f). At $\ell=1$ month (Fig.~\ref{fig:unicm_hierarchical_ei}a,d), cross-mode synergistic connections were weak and geographically localized, and the corresponding SPT showed % [Previous wording]
+% no dominant synergistic coalition
+% [Revised wording]
+\rev{no dominant synergistic group}. System-level synergy was also small (% [Previous wording]
+% $\Xi=0.088$ nats, averaged across
+% [Revised wording]
+\rev{$\Xi=0.09$ nats, averaged across} the three checkpoints), consistent with much of the predictive information being retained within individual climate modes.
+
+
+
+% [Previous wording — preserved for review]
+% By $\ell=8$ months (Fig.~\ref{fig:unicm_hierarchical_ei}b,e), both representations reorganize. Cross-basin hyperedges span the equatorial Pacific and Indian Ocean, while the SPT concentrates its strongest local synergistic contributions within a nested five-mode coalition comprising ENSO, Ni\~no~1+2, Ni\~no~3, Ni\~no~4 and IOD, with system-level synergy increasing to $\Xi=\rev{0.163}$ nats. The enhanced cross-basin connectivity is therefore not simply a collection of pairwise ENSO--IOD relationships, but is organized as a higher-order Indo-Pacific configuration. The simultaneous involvement of several Ni\~no sectors indicates that UniCM combines the zonal structure of equatorial-Pacific variability with the Indian Ocean state, so that part of the predictive information becomes available only through their joint organization. This intermediate-lead structure extends beyond the representative eight-month forecast: third- and fourth-order SPT contributions are strongest around leads 7--10 (Fig.~\ref{fig:unicm_hierarchical_ei}g), while source attribution over the same interval concentrates on the equatorial-Pacific modes, particularly Ni\~no~3, together with IOD (Fig.~\ref{fig:unicm_hierarchical_ei}h). The increase in synergy is therefore carried by selective multi-mode combinations rather than diffuse integration across the full climate-mode system. Because the forecasts are initialized in January, this interval overlaps with the seasonal development and maturation of the IOD, providing a dynamical context for the emergence of higher-order Pacific--Indian Ocean coupling. This organization is consistent with established pantropical coupling and previous evidence for synergistic ENSO--IOD influence \cite{Cai2019Pantropical,Kim2022Pantropical,Pothapakula2020Synergistic}.
+% [Revised wording]
+
+
+% \rev{By $\ell=8$ months (Fig.~\ref{fig:unicm_hierarchical_ei}b,e), cross-basin hyperedges span the equatorial Pacific and Indian Ocean, and mean system-level integrated effective information rises to $\Xi=0.163$ nats. The representative checkpoint-2 SPT concentrates its strongest local contributions in a nested coalition comprising ENSO, Ni\~no~1+2, Ni\~no~3, Ni\~no~4 and IOD. Its two- through five-mode nodes together contain 69.3\% of that tree's $\Xi$; this is a cumulative subtree contribution, rather than a single fifth-order atom. Across checkpoints, orders two through five account for 69.5\% of $\Xi$ at lead 8 after within-tree normalization (Fig.~\ref{fig:unicm_hierarchical_ei}g). Exact Shapley attribution to the same joint 11-mode target assigns 79.8\% of $\Xi$ to the five-mode core, compared with 49.0\% at lead 1 and 56.9\% at lead 24 (Fig.~\ref{fig:unicm_hierarchical_ei}h). Thus, the intermediate-lead increase is accompanied by concentration in both interaction order and source-mode attribution. The involvement of several Ni\~no sectors and IOD is consistent with the model jointly reading Pacific spatial structure and Indian Ocean background, and with established pantropical coupling and ENSO--IOD influence \cite{Cai2019Pantropical,Kim2022Pantropical,Pothapakula2020Synergistic}. These are information dependencies of the frozen model under independent uniform histories and fixed January phase. Calendar phase and forecast lead remain coupled, so the peak does not establish a universal eight-month timescale or the direction of physical cross-basin causation.}
+% By $\ell=8$ months (Fig.~\ref{fig:unicm_hierarchical_ei}b,e), mean system-level synergy increased to $\Xi=0.163$ nats, accompanied by prominent cross-basin hyperedges connecting the equatorial Pacific and Indian Ocean. The representative checkpoint-2 SPT revealed a nested coalition comprising ENSO, Ni\~no~1+2, Ni\~no~3, Ni\~no~4 and IOD, with its two- through five-mode nodes accounting for 69.3\% of the tree's total $\Xi$. This percentage represents the sum of local contributions across nested nodes, rather than a single fifth-order synergy atom. Across the three checkpoints, nodes containing two to five modes accounted for 69.5\% of total $\Xi$ on average (Fig.~\ref{fig:unicm_hierarchical_ei}g). Independently, exact $\Xi$-Shapley attribution for the joint 11-mode target assigned 79.8\% of the synergy to the five-mode core, compared with 49.0\% at one month and 56.9\% at 24 months (Fig.~\ref{fig:unicm_hierarchical_ei}h). Together, these results show that the intermediate-lead increase in synergy was concentrated within a specific nested organization of climate modes. The prominence of several Ni\~no sectors alongside IOD is consistent with established Indo-Pacific coupling \cite{Cai2019Pantropical,Kim2022Pantropical,Pothapakula2020Synergistic}. These findings describe information dependencies of the frozen model under independent uniform intervention histories with a fixed January phase; they do not establish a universal eight-month timescale or the direction of physical cross-basin causation.
+At $\ell=8$ months, mean system-level synergy increased to % [Previous wording]
+% $\Xi=0.163$ nats
+% [Revised wording]
+\rev{$\Xi=0.16$ nats}, nearly twice its one-month value, with prominent cross-basin hyperedges connecting the equatorial Pacific and Indian Ocean (Fig.~\ref{fig:unicm_hierarchical_ei}b). The corresponding SPT revealed four nested groups involving ENSO, Ni\~no~1+2, Ni\~no~3, Ni\~no~4 and IOD (Fig.~\ref{fig:unicm_hierarchical_ei}e). Together, these groups contributed 69.3\% of the tree's total $\Xi$, with synergy distributed across successive nested groups rather than concentrated in a single fifth-order interaction. To characterize the interaction-order distribution across all 24 forecast leads, we summed local SPT contributions according to the number of modes in each group and averaged across the three checkpoints (Fig.~\ref{fig:unicm_hierarchical_ei}g). At eight months, groups containing two to five modes accounted for 69.5\% of $\Xi$ after within-tree normalization. Independently of the SPT, exact $\Xi$-Shapley attribution for the joint 11-mode target assigned 79.8\% of $\Xi$ to the five modes in the nested core, compared with 49.0\% at one month and 56.9\% at 24 months (Fig.~\ref{fig:unicm_hierarchical_ei}h). Thus, the increase in synergy at intermediate leads was accompanied by a concentration of contributions among specific climate modes, with the SPT revealing their nested organization. The prominence of several Ni\~no sectors alongside IOD is consistent with established Indo-Pacific coupling \cite{Cai2019Pantropical,Kim2022Pantropical,Pothapakula2020Synergistic}, although these results characterize the frozen model's response to interventions rather than direct physical causation between ocean basins.
+
+% At $\ell=24$ months (Fig.~\ref{fig:unicm_hierarchical_ei}c,f), system-level synergy falls to $\Xi=\rev{0.077}$ nats, close to its one-month value, but the geographic and hierarchical structures do not return to their short-lead organization. Cross-basin connectivity becomes more restricted, while the SPT resolves the remaining synergy into more differentiated branches (shown for the representative checkpoint-2 tree in Fig.~\ref{fig:unicm_hierarchical_ei}f), most notably an NPMM--WWV pair and an IOD--Ni\~no~3--Ni\~no~4 coalition. The former brings together two distinct components of slower Pacific predictability---subtropical preconditioning associated with NPMM and equatorial ocean heat-content memory represented by WWV---whereas the latter preserves a more localized tropical Indo-Pacific configuration. Thus, similar levels of system-wide synergy at one and 24 months conceal different predictive organizations: short-lead predictability is supported largely by information retained within individual modes, whereas long-lead synergy is concentrated within more selective precursor and memory structures. \rev{\rev{In the learned transition model for }weekly global sea-level pressure modes, two-source synergy becomes concentrated among fewer source pairs at longer forecast horizons (Supplementary Section~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics}).}
+
+At $\ell=24$ months, system-level synergy declined to % [Previous wording]
+% $\Xi=0.077$ nats, close to its one-month value of $0.088$ nats
+% [Revised wording]
+\rev{$\Xi=0.08$ nats, close to its one-month value of $0.09$ nats}, but the underlying organization was markedly different. Cross-basin hyperedges became more restricted(Fig.~\ref{fig:unicm_hierarchical_ei}c), while the SPT identified distinct mode combinations, notably an NPMM--WWV pair and an IOD--Ni\~no~3--Ni\~no~4 group (Fig.~\ref{fig:unicm_hierarchical_ei}f). The former brings together two components associated with longer-range Pacific predictability: subtropical preconditioning represented by NPMM and equatorial ocean heat-content memory represented by WWV. The latter retains a tropical Indo-Pacific configuration involving IOD and two Ni\~no sectors. Thus, the long-lead organization is not simply a weakened version of the intermediate-lead ENSO--IOD hierarchy. Despite comparable values of $\Xi$ at one and 24 months, the underlying mode combinations differ substantially, showing that the magnitude of synergy alone does not capture its hierarchical organization. In a transition model trained on weekly global sea-level pressure modes, two-source synergy became concentrated among fewer mode pairs at longer forecast horizons % [Previous wording]
+% (Supplementary Section~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics})
+% [Revised wording]
+\rev{(Supplementary Sections~\ref{app:slp_data} and~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics})}. For UniCM, the fixed January phase means that forecast lead and target calendar month were not varied independently. The elevated synergy at eight months therefore cannot be interpreted as evidence of a universal eight-month physical timescale.
+
+% A separate analysis of weekly global sea-level pressure modes showed a related concentration of two-source synergy among fewer mode pairs at longer forecast horizons (Supplementary Section~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics}). Because the UniCM interventions were evaluated at a fixed January phase, forecast lead and calendar phase were not varied independently; the intermediate-lead peak therefore cannot be interpreted as a universal eight-month timescale.
+% [Previous wording — preserved for review]
+% \rev{In weekly global sea-level pressure modes, two-source synergy becomes concentrated among fewer source pairs at longer forecast horizons (Supplementary Section~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics}).}
+% [Revised wording appears in the paragraph above]
+
+
+
+
+% [Insertion — no previous wording]
+% [Previous wording — preserved for review]
+% \rev{In a complementary analysis of weekly global sea-level pressure modes, the leading two-source synergistic relations also reorganized with forecast horizon. Among the top 200 hyperedges, distinct source pairs fell from 173 at $H=1$ to 44 at $H=60$, while the share of positive synergy contributed by the Maritime Continent--equatorial Pacific pair rose from $0.6\%$ to $25.3\%$ (Supplementary Section~\ref{app:slp_results}; Supplementary Fig.~\ref{fig:slp_hyperedge_dynamics}).}
+% [Revised wording]
+
+
+\subsubsection*{Intervention-derived information for forecast improvement}
+
+% [Previous wording — preserved for review]
+% The preceding analysis showed that UniCM organizes predictive information through lead-dependent higher-order interactions. We next asked whether this organization was useful beyond explaining the frozen model itself: could it be extracted and reused for prediction? For each prediction target and forecast lead, we converted the exact $\Xi$-Shapley attribution into a structural prior for an independently fitted linear calibrator, while leaving UniCM unchanged. The attribution assigned to each source mode determined its regularization strength, so the recovered synergy structure entered the new predictor only through how information from different modes was weighted during fitting. The $\Xi$-Shapley calibrator and a capacity-matched uniform-ridge control used the same predictors, the same number of fitted coefficients and the same calibration procedure; only the organization of the regularization differed. This design therefore tests whether the structure recovered from UniCM carries information that remains useful after it is separated from the model that originally encoded it.
+% [Revised wording]
+
+% \rev{We next tested whether the recovered joint information could guide prediction on held-out observations. For each scalar target and lead, we evaluated all 2,048 coalitions of the 11 full-history source blocks and used their exact $\Xi$-Shapley allocations to weight a linear ridge calibrator. This scalar-target game differs from the joint-target attribution in Fig.~\ref{fig:unicm_hierarchical_ei}h and is independent of the chosen SPT path. The calibrator reads 44 features: the 11 frozen ensemble forecasts and each mode's final-history value, mean and trend. Larger attributed contributions receive weaker regularization; UniCM remains frozen. All ridge comparisons in Fig.~\ref{fig:unicm_hierarchical_ei}j use the same features, coefficient count, temporal split and $\alpha=30{,}000$, $\gamma=3$, selected on validation for the $\Xi$ prior; Uniform uses equal penalties. Five competing information priors are estimated from 253 real fit-period history--future pairs, whereas $\Xi$ uses independent intervention histories and frozen outputs. The comparison therefore includes differences in sampling distribution, density approximation and attribution interface, as well as the information measure itself (Supplementary Section~\ref{app:unicm_model}).}
+
+% all 2,048 coalitions of the 11 climate-mode histories
+% [Revised wording]
+% \rev{all 2,048 subsets of the 11 climate-mode histories} and computed exact $\Xi$-Shapley contributions separately for each predicted mode and forecast lead, rather than for the joint future state considered in Fig.~\ref{fig:unicm_hierarchical_ei}h. These contributions were independent of the selected SPT and determined the regularization penalties in a separately fitted ridge calibrator, with larger contributions receiving weaker penalties. The calibrator used 44 predictors comprising the 11 frozen UniCM ensemble forecasts and each mode's final historical value, mean and trend. To assess the benefit of attribution-guided regularization, we compared it with uniform ridge using the same predictors, coefficient count and temporal split, but equal penalties. The $\Xi$ prior used $\alpha=30{,}000$ and $\gamma=3$, selected on the original 11-output validation criterion and retained for the subsequent seven-mode evaluation; uniform ridge used the same $\alpha$. UniCM remained frozen throughout (Supplementary Section~\ref{app:unicm_model}).
+
+We next examined whether intervention-derived information from UniCM could improve forecasts on held-out observations. To construct a prior for forecast calibration, we evaluated all 2,048 coalitions of the 11 climate-mode histories and computed exact $\Xi$-Shapley contributions separately for each predicted mode and forecast lead, rather than for the joint future state considered in Fig.~\ref{fig:unicm_hierarchical_ei}h. These contributions were independent of the selected SPT and determined the regularization penalties in a separately fitted ridge calibrator, with larger contributions receiving weaker penalties. The calibrator used 44 predictors comprising the 11 frozen UniCM ensemble forecasts and each mode's final historical value, mean and trend. To assess the benefit of attribution-guided regularization, we compared it with uniform ridge using the same predictors, coefficient count and temporal split, but equal penalties. The $\Xi$ prior used $\alpha=30{,}000$ and $\gamma=3$, selected on the original 11-output validation criterion and retained for the subsequent seven-mode evaluation; uniform ridge used the same $\alpha$. UniCM remained frozen throughout (Supplementary Section~\ref{app:unicm_model}).
+
+
+
+
+
+% [Previous wording — preserved for review]
+% The extracted structure retained predictive value on held-out observations. The $\Xi$-Shapley-guided calibrator achieved a normalized RMSE of $0.986$, compared with $1.013$ for uniform ridge, $1.002$ for univariate calibration and $1.101$ for the frozen forecast (Fig.~\ref{fig:unicm_hierarchical_ei}i). To determine whether this gain depended on the specific recovered organization rather than heterogeneous regularization alone, we shuffled the $\Xi$-Shapley weights across source modes within each target--lead combination while holding the unshuffled model's validation-selected hyperparameters fixed at $\alpha=30{,}000$ and $\gamma=3$. Under this fixed-hyperparameter null, the original assignment reduced RMSE by 10.43\% relative to the frozen ensemble, whereas the 200 shuffled priors achieved a mean reduction of 3.04\% (s.d. 0.50\%; central 95\% range 2.17--3.99\%); none matched the original score ($P=1/201=0.00498$; Fig.~\ref{fig:unicm_hierarchical_ei}j). Although the 95\% block-bootstrap interval for the gain over uniform ridge included zero ($[-0.0019,0.0569]$), the shuffled-prior test shows that predictive value depends on preserving where the recovered synergy is assigned across sources, targets and forecast horizons. The result therefore goes beyond post hoc interpretation: higher-order structure learned implicitly by a large forecasting model can be made explicit, transferred outside that model and reused by a much simpler predictor.
+% [Revised wording]
+% [Previous wording — preserved for review]
+
+% \rev{On all 96 test issue dates in 2009--2016, spanning 11 targets and 24 leads, $\Xi$-Shapley achieved mean normalized RMSE $0.985959$, compared with $1.100731$ for Frozen and $1.115712$ for the same-$\alpha$ Uniform control (Fig.~\ref{fig:unicm_hierarchical_ei}j). Its 10.43\% reduction relative to Frozen exceeded those of observational $\Phi^R$ (0.66\%), $\Phi^{\mathrm{WMS}}$ (4.73\%), forward $\Phi_{\mathrm{SI}}$ (0.96\%), outgoing causal density ($-1.01$\%) and full-order Gaussian SURD synergy (3.46\%). The absolute nRMSE gain over same-parameter Uniform was $0.12975$ (95\% paired 12-month block-bootstrap interval $[0.06568,0.18859]$); the gain over Gaussian SURD was $0.07670$ ($[0.04068,0.11357]$). Because the common parameters were selected for $\Xi$, these results establish performance under that fixed setting, rather than superiority after separately optimizing each method.}
+% [Revised wording]
+% \rev{Across 96 test issue dates in 2009--2016, forecast scores averaged nRMSE over the seven primary climate modes and 24 leads (Fig.~\ref{fig:unicm_hierarchical_ei}j). $\Xi$-Shapley reduced mean nRMSE from $1.253259$ for Frozen to $1.119827$ (10.65\%), compared with $1.274901$ for same-parameter Uniform ridge. Its absolute gains over Uniform and Gaussian SURD were $0.15507$ (95\% paired 12-month block-bootstrap interval $[0.09067,0.21495]$) and $0.09428$ ($[0.04935,0.14248]$), respectively. These scores retain the original predictions, priors and validation-selected parameters; only the final scoring scope changes. The comparison therefore establishes performance under the fixed setting, rather than superiority after separately optimizing each method (Supplementary Section~\ref{app:unicm_model}).}
+
+% The intervention-derived attributions provided a measurable benefit for forecasts from the pretrained UniCM model. Across 96 held-out issue dates in 2009--2016, the $\Xi$-Shapley-guided calibrator reduced % [Previous wording]
+% % mean nRMSE from 1.253 for the frozen forecasts to 1.120
+% % [Revised wording]
+% \rev{mean nRMSE from 1.25 for the frozen forecasts to 1.12}, a 10.65\% reduction across seven primary climate modes and 24 forecast leads (Fig.~\ref{fig:unicm_hierarchical_ei}j). Under the same regularization setting, uniform ridge yielded an % [Previous wording]
+% % nRMSE of 1.275, corresponding to an absolute gain of 0.155 for $\Xi$-Shapley (95\% paired 12-month block-bootstrap interval: $[0.091,0.215]$)
+% % [Revised wording]
+% \rev{nRMSE of 1.27, corresponding to an absolute gain of 0.16 for $\Xi$-Shapley (95\% paired 12-month block-bootstrap interval: $[0.09,0.21]$)}. A separately validation-tuned uniform-ridge reference also remained less accurate % [Previous wording]
+% % (nRMSE 1.168)
+% % [Revised wording]
+% \rev{(nRMSE 1.17)}, although neither approach was retuned for the seven-mode evaluation. % [Previous wording]
+% % Among the tested calibration priors, $\Xi$-Shapley achieved the lowest prediction error, but its advantage over grouped SHAP was not resolved by the paired uncertainty analysis.
+% % [Revised wording]
+% \rev{Among the tested calibration priors, $\Xi$-Shapley achieved the lowest prediction error.} The observational information priors yielded smaller improvements or none under their respective estimation protocols, which differ from the intervention-based analysis.
+
+% The intervention-derived attributions improved forecasts from the frozen UniCM model without retraining. Across 96 held-out issue dates in 2009--2016, the $\Xi$-Shapley-guided calibrator reduced mean nRMSE from 1.253 to 1.120, a 10.65\% reduction across seven primary climate modes and 24 forecast leads (Fig.~\ref{fig:unicm_hierarchical_ei}j). Under the same regularization setting, uniform ridge yielded an nRMSE of 1.275, corresponding to an absolute gain of 0.155 for $\Xi$-Shapley (95\% paired 12-month block-bootstrap interval: $[0.091,0.215]$). Among the evaluated calibration priors, $\Xi$-Shapley achieved the lowest mean prediction error, although its difference from grouped SHAP was not statistically distinguishable from zero in the paired block-bootstrap analysis. The observational information priors yielded smaller gains or none, but differences in their estimation protocols limit attributing these performance differences to the information measures alone. The improvement over uniform ridge shows that information extracted from the pretrained model can provide useful source-specific guidance for forecast calibration beyond uniform regularization.
+The $\Xi$-Shapley-guided calibrator improved forecasts from the frozen UniCM model. Across 96 held-out issue dates in 2009--2016, mean nRMSE decreased from 1.253 for the frozen forecasts to 1.120, a 10.65\% reduction across seven primary climate modes and 24 forecast leads (Fig.~\ref{fig:unicm_hierarchical_ei}j). Uniform ridge, using the same predictors and regularization strength, yielded an nRMSE of 1.275, giving $\Xi$-Shapley an absolute advantage of 0.155 (95\% paired 12-month block-bootstrap interval: $[0.091,0.215]$). Among the evaluated calibration methods, $\Xi$-Shapley achieved the lowest mean prediction error, although the paired confidence interval for its difference from grouped SHAP included zero. The observational information priors did not match its performance under the tested protocols, but differences in data distributions and estimation procedures limit attributing this gap to the information measure alone.
+
+To test whether the predictive improvement depended on the mode-specific assignment of $\Xi$-Shapley attributions, we permuted source labels within each target--lead combination while preserving the attribution values and calibration hyperparameters. The original prior achieved lower test-set nRMSE than all 200 permuted controls ($P=1/201=4.98\times10^{-3}$; Fig.~\ref{fig:unicm_hierarchical_ei}i). This result indicates that the correspondence between attribution weights and climate modes carries predictive value beyond nonuniform regularization alone. These findings connect two uses of intervention-derived information: characterizing the joint predictive relationships learned by a pretrained AI model and using the resulting source-specific attributions to improve its forecasts without retraining the model.
+
+% To assess whether the predictive improvement depended on the source-specific information recovered from UniCM, we permuted $\Xi$-Shapley attributions across climate modes within each target--lead combination, keeping their values and calibration hyperparameters unchanged. All 200 permuted priors yielded higher test-set nRMSE than the original (% [Previous wording]
+% % $P=1/201=0.00498$; Fig.
+% % [Revised wording]
+% \rev{$P=1/201=4.98\times10^{-3}$; Fig.}~\ref{fig:unicm_hierarchical_ei}i). This sensitivity to source assignment indicates that the extracted information contributed to forecast improvement beyond the use of nonuniform regularization alone. The analysis thus extends beyond characterizing the predictive relationships learned by UniCM: it provides information that can be reused to improve forecasts from the pretrained AI model without retraining it.
+
+
+% [Previous wording — preserved for review]
+% \rev{Direct grouped SHAP also provided a useful calibration prior: its exploratory low-budget estimate reduced nRMSE by 8.82\% relative to Frozen, compared with 9.00\% for the existing Univariate reference (Fig.~\ref{fig:unicm_hierarchical_ei}j). The paired interval for the difference between SHAP and $\Xi$ included zero. These results support the predictive use of source-weight structure, but do not establish that the benefit is unique to integrated effective information or present for every mode and lead.}
+% [Revised wording]
+% \rev{Direct grouped SHAP also provided a useful calibration prior: its exploratory low-budget estimate reduced seven-mode nRMSE by 8.62\% relative to Frozen, compared with 9.02\% for the existing Univariate reference (Fig.~\ref{fig:unicm_hierarchical_ei}j). The paired interval for the difference between SHAP and $\Xi$ included zero. These results support the predictive use of source-weight structure, but do not establish that the benefit is unique to integrated effective information or present for every mode and lead.}
+
+% [Previous wording — preserved for review]
+% \rev{A separate test assessed the importance of assigning the weights to the correct source modes (Fig.~\ref{fig:unicm_hierarchical_ei}i). Each of 200 label-shuffled priors preserved the 11 attribution values within a target--lead cell and was independently retuned with the original validation-search budget; none matched the original prior ($P=1/201=0.00498$). This protocol differs from the fixed-parameter comparison in panel \textbf{j}. In the original separately tuned comparison, Uniform achieved nRMSE $1.012754$ at $\alpha=1{,}000$, leaving an additional $\Xi$ gain of $0.02679$ (2.65\%; 95\% block-bootstrap interval $[-0.00193,0.05687]$). Mean ACC was $0.390$ for $\Xi$ and $0.414$ for that tuned Uniform control. The evidence therefore supports reuse of the recovered source organization for mean amplitude-error calibration, while the magnitude of its advantage over tuned ridge and its uniqueness relative to ordinary output attribution remain unresolved.}
+% [Revised wording]
+% \rev{A separate test assessed whether the source-label assignment of the prior mattered (Fig.~\ref{fig:unicm_hierarchical_ei}i). All 200 label-shuffled priors retained the original attribution values and fixed calibration parameters. Their predictions were rescored on the same seven modes and 24 leads, and none matched the original assignment ($P=1/201=0.00498$). The result supports the predictive relevance of the recovered source organization under this fixed calibration protocol.}
+
+\section*{Application to urban mobility}
+
+Urban mobility is a collective social process shaped by recurrent routines, spatial constraints and short-term fluctuations in individual activity. Although individual trips are heterogeneous, their aggregation gives rise to regular temporal structure across the city, reflecting shared patterns of commuting, work and leisure. Recent deep learning based spatiotemporal forecasting models can exploit these regularities to predict urban flows with high accuracy, yet the dynamical organization learned by these models remains largely implicit in their internal representations. In particular, it is unclear whether predictive information from different social timescales is used independently or integrated through higher-order interactions, and whether this organization varies across urban regions and traffic states. We therefore used PEID to interrogate the learned dynamics of a pretrained urban-mobility forecasting model and resolve the multiscale organization underlying its predictions.
+
+\subsection*{Cross-time-scale integration organizes collective urban mobility}
+
+We analyzed 2023 New York City taxi trip records from the New York City Taxi and Limousine Commission (NYC TLC), aggregated into hourly inflow and outflow across 66 Manhattan taxi zones. The trajectories exhibit clear daily cycles and weekday--weekend modulation (Fig.~\ref{fig:nyc_taxi_social_multiscale}a), providing a natural multiscale setting for examining how short-term and recurrent mobility patterns are jointly organized. % [Previous wording]
+% We analyzed three independently trained and frozen checkpoints of MGSTN, a multi-granularity spatiotemporal network for citywide traffic forecasting \cite{Shi2026MGSTN}.
+% [Revised wording]
+We analyzed three independently trained and frozen checkpoints of MGSTN, a multi-granularity spatiotemporal network for citywide traffic forecasting \cite{Shi2026MGSTN}. \rev{Data and preprocessing are described in Supplementary Section~\ref{app:nyc_taxi_data}.} MGSTN predicts next-hour inflow and outflow from three temporally distinct histories: the preceding 7 consecutive hours, the corresponding hour over the previous 5 days, and the corresponding hour over the previous 7 weeks. We treated these recent, daily and weekly histories as separate PEID source groups \rev{ for interventions on the frozen models} and quantified the effective information that emerged only when histories from different temporal scales were considered jointly. This irreducible joint contribution defines the cross-time-scale synergy analyzed below.
+
+We next examined how cross-time-scale integration is distributed across the urban system and whether its spatial variation is related to the intensity of collective activity. Across the 66 zones, cross-time-scale synergy was strongly associated with mean traffic volume for both inflow and outflow (Spearman $\rho=0.86$ and $0.85$, respectively; Fig.~\ref{fig:nyc_taxi_social_multiscale}b). Human mobility is known to exhibit strong temporal regularity and predictability \cite{Gonzalez2008HumanMobility,Song2010Predictability}; our results add an organizational dimension by showing that, within the learned dynamics, these temporal histories are more strongly integrated in highly active regions. The nearly identical associations for inflow and outflow further indicate that this spatial concentration of multiscale integration is not specific to one flow direction.
+
+We next asked whether the cross-time-scale integration identified above could be explained primarily by lower-order coupling between temporal histories, or instead required the joint participation of all three scales. Across the three representative traffic states, interactions jointly spanning recent, daily and weekly histories accounted for $83.9\%$, $82.3\%$ and $77.8\%$ of target-level synergy during weekday peak, weekend midday and rainy high demand, respectively (Fig.~\ref{fig:nyc_taxi_social_multiscale}c). Thus, the synergistic component of next-hour prediction is dominated by the full three-scale contribution rather than by lower-order combinations of temporal histories. This higher-order organization remained dominant across markedly different urban states, although its relative contribution decreased in the rainy high-demand condition. The learned mobility dynamics therefore integrate immediate fluctuations with both daily and weekly context as a joint multiscale mechanism, rather than combining temporal histories primarily through independent or pairwise effects.
+
+Although three-scale interactions dominate the synergistic component of prediction, their interaction order alone does not reveal how recent, daily and weekly histories are organized internally. SPT resolves this structure by recursively partitioning the % [Previous wording]
+% temporal sources into nested coalitions
+% [Revised wording]
+\rev{temporal sources into nested groups}. In the representative weekend-midday state, recent and weekly histories formed the most closely coupled cross-scale branch, whereas the daily history remained comparatively more separable (Fig.~\ref{fig:nyc_taxi_social_multiscale}d). The dominant three-scale synergy is therefore hierarchically organized rather than an undifferentiated joint effect, with short-term fluctuations preferentially integrated with weekly context. Existing taxi-demand forecasting models have long exploited combinations of recent and periodic observations \cite{Yao2018DMVST,Yang2021DualTemporal}; SPT goes beyond their joint use as predictive inputs by resolving how these temporal histories are internally organized within the learned dynamics.
+
+We then asked whether this temporal organization also has a coherent spatial expression across the city. Cross-time-scale synergy was consistently higher across central and southern Manhattan and lower toward northern and peripheral zones, with a broadly similar spatial ordering across the three representative traffic states (Fig.~\ref{fig:nyc_taxi_social_multiscale}e). This pattern extends the zone-level association in Fig.~\ref{fig:nyc_taxi_social_multiscale}b by showing that variation in multiscale integration is spatially organized rather than scattered across individual high-activity regions. The higher-order temporal structure learned by the model therefore has a distinct spatial footprint: the same recent--daily--weekly integration is expressed with systematically different strength across the urban system.
+
+These results reveal a higher-order spatiotemporal organization within the learned model of collective urban mobility. The synergistic component of next-hour prediction is dominated by interactions spanning recent, daily and weekly histories, but these temporal scales are not integrated symmetrically: recent and weekly information forms a tighter functional group, while daily history remains more separable. This multiscale integration is also spatially structured, being stronger in high-activity regions and expressed unevenly across the city. PEID therefore moves beyond detecting recurrent mobility rhythms or assigning importance to individual temporal inputs, revealing how different social timescales are jointly, hierarchically and spatially organized within the learned dynamics of an urban system.
+
+
+\begin{figure*}[!t]
+    \centering  \includegraphics[width=0.99\textwidth,height=0.78\textheight,keepaspectratio]{nyc_taxi_multiscale_spt_composite.png} 
+  \caption{\textbf{Cross-time-scale synergy and hierarchical organization in New York City taxi demand.} \textbf{a}, Hourly inflow volumes in three representative high-activity Manhattan taxi zones over four consecutive weeks in October 2023; shaded intervals denote weekends. \textbf{b}, Relationship between mean regional traffic volume and cross-time-scale synergy across the 66 taxi zones for inflow (circles) and outflow (triangles). Spearman correlations are $\rho=0.86$ and $0.85$, respectively; curves are visual guides. \textbf{c}, Share of target-level synergy arising from interactions across recent, daily, and weekly time scales during weekday peak, weekend midday, and rainy high-demand states. Bars show means across three frozen MGSTN checkpoints and hollow points show individual checkpoints. \textbf{d}, % [Previous wording]
+% Unconstrained SPT for checkpoint seed 0 at weekend midday
+% [Revised wording]
+\rev{Unconstrained SPT for a representative checkpoint at weekend midday}, using the joint next-hour inflow--outflow target. The 198 leaves represent 66 taxi zones at recent, daily, and weekly time scales; the root joint-target increment is $\Xi=14.37$ nats, % [Previous wording]
+% coalition size is shown
+% [Revised wording]
+\rev{group size is shown} on a logarithmic scale, and node color encodes local Syn. \textbf{e}, Spatial distribution of cross-time-scale synergy across the 66 Manhattan taxi zones under the same three traffic states}
+    \label{fig:nyc_taxi_social_multiscale}
+\end{figure*}
+
+
+
+\section*{Discussion}
+
+
+% [Previous wording — preserved for review]
+% Across biological, Earth and social systems, \rev{the models examined here suggest that }collective behaviour emerges not simply from pairwise couplings, but from how causal interactions are hierarchically organized and reconfigured across variable groups, states and scales. PEID makes this organization visible by treating synergy as irreducible joint causal information under a specified intervention: independent maximum-entropy interventions strip away the redundancy induced by observed source dependence, so that the excess of joint effective information over individual contributions isolates genuinely synergistic causal atoms. The SPT then arranges these atoms into nested partitions across interaction orders without enumerating the combinatorial PID lattice, revealing not merely how much synergy exists but how it is hierarchically organized and reconfigured across states and scales.
+% [Revised wording]
+Across biological, Earth and social systems, \rev{the models examined here suggest that }collective behaviour emerges not simply from pairwise couplings, but from how causal interactions are hierarchically organized and reconfigured across variable groups, states and scales. \rev{PEID quantifies the joint causal information generated under factorized maximum-entropy interventions. For two sources, the excess of joint effective information over the single-source contributions equals conditional mutual information and, under the stated redundancy properties, PID synergy. For larger source sets, SPT resolves the integrated information into additive contributions across nested partitions, revealing how joint causal information is organized and reconfigured across states and scales.}
+
+% Controlled experiments support this mechanism-oriented interpretation. When confounding increased while the true synergistic interaction remained fixed, several dependence- or prediction-based measures drifted, and WMS even changed sign, whereas PEID remained positive and stable. Across six nonlinear systems, PEID recovered the expected responses to coupling, saturation, synchronization, and control. In mixed-order Kuramoto dynamics, the complete SPT recovered the planted pairwise and triadic modules under weak cross-module coupling and exposed their reorganization into a nested cross-module hierarchy under strong coupling. 
+Controlled dynamical models provide a particularly informative setting because their underlying interaction structures are known. Across these systems, PEID remained stable when confounding changed observed dependence without altering the underlying mechanism, while the SPT recovered how higher-order structure reorganized across dynamical regimes. In the mixed-order Kuramoto model, this reorganization appeared as a transition from separated pairwise and triadic modules to a nested cross-module hierarchy as coupling increased. Together, these results support the view that PEID captures the organization of higher-order causal interactions rather than statistical dependence alone.
+
+% Applications to brain, climate systems, and urban systems further show that synergy is not a fixed property of a variable set, but a relational structure that reorganizes across dynamical conditions, functional states, forecast horizons, and temporal scales. In the brain, integrated effective information peaked near a coupling transition, arose mainly across regions, and was selectively redistributed across networks during tasks despite a lower system-level value than at rest. In UniCM, an ENSO--IOD-centered hierarchy emerged at intermediate forecast horizons, and its target-specific exact $\Xi$-Shapley attribution provided an all-order prior for held-out forecast calibration under leakage-free preprocessing. Urban mobility models combined recent fluctuations with daily and weekly rhythms. The common message is not that more synergy is always better, but that its organization determines how a system integrates distributed information at a given scale. This structure can also be useful: the $\Xi$-Shapley prior lowered mean normalized RMSE relative to uniform ridge and all shuffled priors, while the brain and mobility analyses identified the network or time-scale combinations associated with the predictions. These findings nevertheless describe mechanisms encoded by the fitted models and do not by themselves establish equivalent real-world causal or policy effects.
+The relevance of this framework becomes more apparent in data-driven models of real-world complex systems, where the underlying interaction structure is not known a priori and may change with system state and scale. Across the brain, climate and urban mobility, PEID revealed that \rev{within these models, }synergy is not a fixed property of a variable set, but a relational structure that reorganizes with the system. This reorganization followed the relevant dynamical axis in each domain: across coupling regimes and cognitive states in the brain
+% [Insertion — no previous wording]
+ % [Previous wording]
+% \rev{(HCP results in Supplementary Section~\ref{app:hcp_results})}
+% [Revised wording]
+\rev{(HCP results and methods in Supplementary Sections~\ref{app:hcp_results} and~\ref{app:hcp_attribution})}, across forecast horizons and prediction targets in climate, and across recent, daily and weekly scales in urban mobility. The common finding is therefore not that greater synergy is necessarily beneficial, but that its organization determines how distributed information is integrated under different conditions. Importantly, this organization was not only interpretable. In climate prediction, the extracted $\Xi$-Shapley structure could be reused as a prior for an independently fitted calibrator and improved held-out prediction relative to uniform and shuffled priors, while the brain and mobility analyses localized the network and temporal-scale combinations underlying the inferred joint effects. These results show how higher-order organization recovered from fitted models can connect system interpretation with prediction, although such model-based interventions should not be equated with causal interventions in the corresponding physical systems.
+
+% PEID complements PID, PED, and $\Phi$ID rather than replacing them. Distribution-based decompositions separate redundant, unique, and synergistic information, but depend on the redundancy function and face lattice-size and axiomatic limitations with many sources \cite{Williams2010NonnegativeDO,Mediano2025TowardAU,Lyu2026StructuralImpossibility}. PEID instead specifies an intervention distribution and decomposes effective information generated by a transition mechanism. Its conclusions are therefore conditional on that intervention and on the chosen variables and representation. When the true mechanism is unknown, interventions are applied to a learned model, so unobserved confounding, model misspecification, limited support, and finite samples can affect the result; model interventions should not be equated with experiments in the physical system \cite{Pearl2009CausalII}. Maximum-entropy interventions may also generate implausible states if physical constraints are ignored, and the SPT hierarchy is an interpretable path rather than a unique global decomposition. Finally, only the SOCIAL brain--behavior association survived coalition-selection correction; the remaining behavioral findings and the urban implications are exploratory.
+PEID therefore complements rather than replaces distribution-based information decompositions, which address related but distinct questions about redundant, unique and synergistic information \cite{Williams2010NonnegativeDO,Mediano2025TowardAU,Lyu2026StructuralImpossibility}. Its interpretation depends on the specified intervention distribution, the selected variables and the representation of the system. In empirical applications, where the underlying mechanism is not directly available, interventions are performed on a fitted model and therefore inherit the fidelity of that model; such model interventions should not be equated with interventions on the physical system \cite{Pearl2009CausalII}. Independent maximum-entropy interventions may also explore states that are weakly supported by the observed system when relevant physical or physiological constraints are not explicitly imposed. Likewise, the SPT provides an interpretable hierarchical resolution of synergistic structure rather than a unique global decomposition. These considerations delimit the interpretation of the inferred structure without altering the central role of PEID in identifying how irreducible joint causal information is organized across variables, states and scales.
+
+
+Several natural extensions follow directly from the present decomposition. First, physically constrained intervention distributions---rather than unconstrained maximum-entropy perturbations---would make counterfactual interventions consistent with real-world feasibility, and uncertainty-aware estimators would enable reliable decomposition in high-dimensional continuous systems. Second, the current decomposition partitions the source side (many variables into one target); extending the framework to decompose the target side (one source into many variables) introduces a dual decomposition in which redundant contributions reappear, and will be essential for understanding how a single driver broadcasts across downstream components. Third, and most importantly, the interventions evaluated here are counterfactual and computational rather than physical; the hierarchical synergy signals identified by PEID can serve as a prescriptive index to guide real multivariate interventions---selecting which variable groups to jointly perturb in order to reshape system-level behaviour. Closing this loop from \rev{model-based} decomposition to targeted intervention would turn PEID from a descriptive tool into a control-oriented framework for complex systems.
+% [Previous wording — preserved for review]
+% Closing this loop from observational decomposition to targeted intervention would turn PEID from a descriptive tool into a control-oriented framework for complex systems.
+% [Revised wording appears in the paragraph above]
+
+
+
+\section*{Methods}
+
+\subsection*{Effective information}
+
+We consider a discrete-time Markov dynamical system with \(n\) microscopic
+variables,
+\begin{equation}
+    \boldsymbol{x}_{t+1}
+    \sim
+    p\!\left(
+        \boldsymbol{x}_{t+1}\mid\boldsymbol{x}_{t}
+    \right),
+    \qquad
+    \boldsymbol{x}_{t}
+    =
+    \left(
+        X_t^{(1)},\ldots,X_t^{(n)}
+    \right)^{\top}.
+    \label{eq:dynamics}
+\end{equation}
+Here, \(X_t^{(i)}\) denotes the \(i\)th microscopic variable at time \(t\).
+For a prediction horizon \(\ell\geq1\), let
+\(p_{\ell}(\boldsymbol{x}_{t+\ell}\mid\boldsymbol{x}_{t})\) denote the
+\(\ell\)-step transition kernel induced by Eq.~\eqref{eq:dynamics}. Throughout,
+the source is a subset of the system state at time \(t\), and the target is the
+complete state of the same process at time \(t+\ell\).
+
+To separate mechanistic causal efficacy from biases induced by the empirical
+state distribution, we introduce partial effective information decomposition
+(PEID). The framework evaluates causal efficacy under a maximum-entropy
+intervention on \(\boldsymbol{x}_{t}\). We require the intervention to
+factorize across microscopic variables as
+\(q^{\max}(\boldsymbol{x}_{t})
+=\prod_{i=1}^{n}q_i^{\max}(X_t^{(i)})\). All effective-information quantities below are evaluated as marginals of the
+same intervention-induced distribution
+\(q_{\ell}(\boldsymbol{x}_{t},\boldsymbol{x}_{t+\ell})\).
+This common-intervention requirement is essential because changing the
+intervention distribution between source subsets would invalidate the
+decomposition identities.
+
+Let \(\mathcal{V}=\{1,\ldots,n\}\), and let
+\(A,B\subseteq\mathcal{V}\) be arbitrary non-empty index sets. We denote the
+corresponding source and target subvectors by
+\(\boldsymbol{x}_{t}^{A}=(X_t^{(i)})_{i\in A}\) and
+\(\boldsymbol{x}_{t+\ell}^{B}=(X_{t+\ell}^{(j)})_{j\in B}\), respectively.
+The effective information transmitted from the source subset \(A\) at time
+\(t\) to the target subset \(B\) after \(\ell\geq1\) transition steps is
+defined as
+\begin{equation}
+    EI_{\ell}(A\rightarrow B)
+    \equiv
+    I_{q_{\ell}}
+    \left(
+        \boldsymbol{x}_{t}^{A};
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right).
+    \label{eq:ei_definition}
+\end{equation}
+Here, the mutual information is evaluated under the marginal of the common
+intervention-induced distribution
+\(q_{\ell}(\boldsymbol{x}_{t},\boldsymbol{x}_{t+\ell})\).
+Variables outside \(A\) at time \(t\) are marginalized under the same
+factorized maximum-entropy intervention, whereas variables outside \(B\) at
+time \(t+\ell\) are marginalized from the resulting future-state
+distribution. Thus, all choices of \(A\) and \(B\) remain comparable under a
+single intervention protocol. The quantity \(EI_{\ell}(A\rightarrow B)\) measures how much information about
+the intervened state of source subset \(A\) is retained by target subset \(B\)
+after \(\ell\) transition steps. The complete-future-state case used in the
+system-level analysis is recovered by setting \(B=\mathcal{V}\). For finite
+discrete systems, Eq.~\eqref{eq:ei_definition} admits an explicit
+transition-matrix representation, derived in
+% [Previous wording]
+% Appendix~\ref{app:discrete_ei}.
+% [Revised wording]
+Appendix~\ref{app:discrete_ei}. \rev{For continuous variables, intervention sampling and transport-map estimation are described in Supplementary Section~\ref{app:continuous_estimation}.}
+
+\subsection*{Synergistic causality and integrated effective information}
+
+The connection between PEID and partial information decomposition (PID)
+\cite{Williams2010NonnegativeDO} is most transparent for two source variables
+\(X_t^{(i)}\) and \(X_t^{(j)}\). The factorized intervention implies
+\(X_t^{(i)}\perp X_t^{(j)}\).
+
+\begin{proposition}[Two-source PEID]
+\label{prop:two_source_pid}
+% [Previous wording — preserved for review]
+% Under the PID axioms (Appendix~\ref{app:pid-axioms}) and the factorized maximum-entropy intervention, the PID redundancy between
+% two source variables vanishes, and their PEID synergy coincides with the
+% corresponding PID synergy:
+% [Revised wording]
+\rev{Consider a two-source PID satisfying non-negativity, Identity and probabilistic left monotonicity, as specified in Supplementary Section~\ref{app:pid-axioms}. Under the common factorized maximum-entropy intervention, with finite information terms, the two-source redundancy vanishes and PEID synergy coincides with the corresponding PID synergy:}
+\begin{equation}
+    \operatorname{Syn}^{\mathrm{EID}}_{\ell}
+    \left(
+        X_t^{(i)},X_t^{(j)};
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    =
+    EI_{\ell}(\{i,j\}\rightarrow B)
+    -
+    EI_{\ell}(\{i\}\rightarrow B)
+    -
+    EI_{\ell}(\{j\}\rightarrow B).
+    \label{eq:two_source_pid}
+\end{equation}
+\end{proposition}
+
+A complete proof is provided in
+% [Previous wording — preserved for review]
+% Supplementary Note~\ref{app:proof_two_source_pid}. This result isolates a key consequence of the intervention design. Under these axioms (Appendix~\ref{app:pid-axioms}), the factorized maximum-entropy intervention removes source--source dependence and forces the two-source redundancy term to zero. Joint effective information therefore separates directly into the two single-source EI contributions and a non-negative synergistic remainder, without requiring a separately chosen redundancy function. Motivated by Proposition~\ref{prop:two_source_pid}, we extend the same
+% [Revised wording]
+Supplementary Note~\ref{app:proof_two_source_pid}. \rev{The proof applies target data processing to the copied source pair, bounding redundancy by the mutual information between the sources. Independence makes this bound zero. The resulting two-source expression is therefore common to all redundancy functionals satisfying these properties \cite{Harder2013BivariateRedundancy,Rauh2017ExtractableSharedInformation}. The non-negativity and hierarchical additivity results for larger source sets follow directly from the factorized intervention.} We extend the same
+construction to an arbitrary non-empty source set \(A\) while keeping the
+target set \(B\) fixed. For the finest source partition
+\(\mathcal{P}_{\mathrm{fine}}(A)=\{\{i\}:i\in A\}\), we define the
+\emph{integrated effective information} as
+\begin{equation}
+    \Xi_{\ell}(A\rightarrow B)
+    \equiv
+    EI_{\ell}(A\rightarrow B)
+    -
+    \sum_{i\in A}
+    EI_{\ell}(\{i\}\rightarrow B).
+    \label{eq:integrated_ei}
+\end{equation}
+Integrated effective information quantifies the effective information that is
+available from the source variables jointly but cannot be attributed to their
+individual effective-information contributions. When \(|A|=2\),
+Eq.~\eqref{eq:integrated_ei} reduces exactly to the two-source synergy in
+Eq.~\eqref{eq:two_source_pid}.
+
+\begin{theorem}[Non-negativity of integrated effective information]
+\label{thm:integrated_ei_nonnegativity}
+Under the factorized maximum-entropy intervention, every pair of non-empty
+source and target index sets \(A,B\subseteq\mathcal{V}\) satisfies
+\begin{equation}
+    0
+    \leq
+    \Xi_{\ell}(A\rightarrow B)
+    \leq
+    EI_{\ell}(A\rightarrow B).
+    \label{eq:integrated_ei_bounds}
+\end{equation}
+
+When the source set contains exactly two variables, \(A=\{i,j\}\), integrated effective information reduces to the corresponding two-source synergy, \(\Xi_{\ell}(\{i,j\}\rightarrow B)=\operatorname{Syn}_{q_{\ell}}\!\left(X_t^{(i)},X_t^{(j)};\boldsymbol{x}_{t+\ell}^{B}\right)\geq 0\).
+\end{theorem}
+
+A complete proof is provided in
+Supplementary Note~\ref{app:proof_integrated_ei_nonnegativity}. Thus, non-negativity is a general property of integrated effective
+information, irrespective of the number of source variables. The notation
+\(\operatorname{Syn}\) is reserved for the special two-source case, in which
+the general quantity \(\Xi_{\ell}\) coincides exactly with PID synergy.
+For source sets with more than two variables, we retain the notation
+\(\Xi_{\ell}\) and interpret it as integrated effective information rather
+than as a single higher-order PID synergy atom.
+
+\begin{theorem}[Hierarchical additivity]
+\label{thm:hierarchical_additivity}
+Let \(\mathcal{P}\) be a partition of \(A\), and suppose that
+\(M^{\star}\in\mathcal{P}\) is refined by a partition \(\mathcal{R}\). For
+\(\mathcal{P}'=(\mathcal{P}\setminus\{M^{\star}\})\cup\mathcal{R}\),
+\begin{equation}
+    \begin{aligned}
+    \Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}'}\Xi_{\ell}(M\rightarrow B)
+    &=
+    \Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}}\Xi_{\ell}(M\rightarrow B)\\
+    &\quad+\Xi_{\ell}(M^{\star}\rightarrow B)-\sum_{R\in\mathcal{R}}\Xi_{\ell}(R\rightarrow B).
+    \end{aligned}    \label{eq:hierarchical_additivity}
+\end{equation}
+\end{theorem}
+
+A proof is provided in Supplementary Note~\ref{app:proof_hierarchical_additivity}.
+For any partition \(\mathcal{P}\) of \(A\), non-negativity of \(\Xi_{\ell}(M\rightarrow B)\) gives
+\(\Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}}\Xi_{\ell}(M\rightarrow B)\leq\Xi_{\ell}(A\rightarrow B)\),
+with equality for the finest singleton partition. 
+For a bipartition \(A=L\mathbin{\dot{\cup}}R\), % [Previous wording]
+% Theorem~2 reduces to
+% [Revised wording]
+\rev{Theorem~\ref{thm:hierarchical_additivity}} reduces to \(\Xi_{\ell}(A)=\Xi_{\ell}(L)+\Xi_{\ell}(R)+\operatorname{Syn}^{\mathrm{EID}}_{\ell}(L,R)\).
+This identity separates the joint increment of a parent source set into the
+increments retained within its children and the residual information that
+still requires the two children jointly.
+
+% [Insertion — no previous wording]
+\phantomsection
+\subsection*{Synergy Partition Tree (SPT)}
+% [Insertion — no previous wording]
+\label{sec:methods_spt}
+
+The Synergy Partition Tree (SPT) constructs an interpretable hierarchy without enumerating the full multivariate PID lattice. It recursively decomposes integrated effective information through binary partitions of the source set, while holding the target set \(B\) and prediction horizon \(\ell\) fixed throughout.  Let
+\(\mathfrak{B}(A)\) denote the set of unordered, non-trivial bipartitions
+\((L,R)\) satisfying \(L\mathbin{\dot{\cup}}R=A\). At each non-singleton
+source set \(A\), we select
+\begin{equation}
+    \left(
+        L_A^{\star},R_A^{\star}
+    \right)
+    \in
+    \underset{(L,R)\in\mathfrak{B}(A)}{\arg\max}
+    \left[
+        \Xi_{\ell}(L\rightarrow B)
+        +
+        \Xi_{\ell}(R\rightarrow B)
+    \right].
+    \label{eq:greedy_split}
+\end{equation}
+This criterion selects the bipartition that retains the largest integrated
+effective information within the two child source sets. Because
+\(\Xi_{\ell}(A\rightarrow B)\) is fixed at the current node, the same criterion
+is equivalent to minimizing the residual synergy between the selected
+children. The residual synergy retained at node \(A\) is written directly as
+\begin{align}
+    &\operatorname{Syn}^{\mathrm{EID}}_{\ell}
+    \left(
+        L_A^{\star},R_A^{\star}\rightarrow B
+    \right)
+    \nonumber\\
+    &\quad=
+    \Xi_{\ell}(A\rightarrow B)
+    -
+    \Xi_{\ell}(L_A^{\star}\rightarrow B)
+    -
+    \Xi_{\ell}(R_A^{\star}\rightarrow B)
+    \nonumber\\
+    &\quad=
+    EI_{\ell}(A\rightarrow B)
+    -
+    EI_{\ell}(L_A^{\star}\rightarrow B)
+    -
+    EI_{\ell}(R_A^{\star}\rightarrow B).
+    \label{eq:greedy_node_synergy}
+\end{align}
+The second equality follows because
+\(L_A^{\star}\mathbin{\dot{\cup}}R_A^{\star}=A\), so the singleton
+effective-information terms in the three occurrences of \(\Xi_{\ell}\)
+cancel exactly. No additional node-level quantity is therefore required:
+each internal node is represented directly by its corresponding
+\(\operatorname{Syn}^{\mathrm{EID}}_{\ell}\).
+
+The same procedure is applied recursively to
+\(L_A^{\star}\) and \(R_A^{\star}\). A branch terminates when it reaches a
+singleton source set, for which integrated effective information vanishes
+identically. Because the selected tree depends on both the prediction horizon
+and the target set, let \(\mathcal{I}_{\ell,B}\) denote the set of its internal
+source nodes. Summing Eq.~\eqref{eq:greedy_node_synergy} over all internal
+nodes yields the closure relation
+\begin{equation}
+    \Xi_{\ell}(\mathcal{V}\rightarrow B)
+    =
+    \sum_{A\in\mathcal{I}_{\ell,B}}
+    \operatorname{Syn}^{\mathrm{EID}}_{\ell}
+    \left(
+        L_A^{\star},R_A^{\star}\rightarrow B
+    \right).
+    \label{eq:greedy_closure}
+\end{equation}
+Indeed, every non-root integrated effective-information term appears once
+with a positive sign as a parent and once with a negative sign as a child,
+whereas all singleton terms are zero. The order of the SPT synergy associated with node \(A\) is defined
+as \(|A|\). A second-order term describes synergy between two microscopic
+sources, whereas a term with \(|A|>2\) describes information that remains
+jointly encoded across the corresponding source set along the selected
+decomposition path. These terms are path-dependent hierarchical synergies,
+not Möbius-inverted pure-order PID atoms. Different admissible binary trees
+may therefore distribute synergy differently across source sets while
+preserving the total integrated effective information in
+Eq.~\eqref{eq:greedy_closure}.
+
+\section*{Acknowledgements}
+
+This work was supported by grants from National Natural Science Foundation of China (Grant No.62503038,42450183), the Fundamental Research Funds for the Central Universities and the National Key Research and Development Program of China (2024YFB3108400);
+
+\section*{Author contributions statement}
+
+M.Y. developed the theoretical framework, performed the mathematical derivations and numerical experiments, analysed the results, and drafted the manuscript. Z.C. processed the brain data. C.Z. reviewed the brain analyses and provided feedback on the broader study. J.Z. supervised the project and guided its theoretical development. J.F. reviewed the Earth-system analyses, advised on manuscript organization, and contributed to writing and revision. W.G. contributed substantially to manuscript writing and revision, advised on experimental design and study organization, and coordinated the collaboration.
+
+
+\addtocontents{toc}{\protect\setcounter{tocdepth}{-1}}
+\bibliography{sample}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
+
+
+\end{document}

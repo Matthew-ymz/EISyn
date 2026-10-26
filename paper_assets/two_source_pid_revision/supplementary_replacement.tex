@@ -1,0 +1,125 @@
+{\color{red}
+\section{Two-source PID properties}
+\label{app:pid-axioms}
+
+This section specifies the redundancy properties used for the two-source PEID--PID correspondence. We state the axioms and their consistency construction for finite-alphabet variables. For two sources $X_1,X_2$ and a target $Y$, write
+\begin{equation}
+I(X_1,X_2;Y)=Red(X_1,X_2;Y)+Un(X_1;Y\mid X_2)
++Un(X_2;Y\mid X_1)+Syn(X_1,X_2;Y).
+\label{eq:pid_decomp_app}
+\end{equation}
+The single-source identities determine the unique contributions:
+\begin{equation}
+Un(X_1;Y\mid X_2)=I(X_1;Y)-Red(X_1,X_2;Y),
+\label{eq:pid_unique_app}
+\end{equation}
+with the analogous expression for $Un(X_2;Y\mid X_1)$. We consider non-negative bivariate decompositions satisfying the following properties. Symmetry, self-redundancy and source monotonicity follow the Williams--Beer framework \cite{Williams2010NonnegativeDO,Bertschinger2013SharedInformation}; Identity and probabilistic left monotonicity specify the class used here.
+
+\paragraph{Non-negativity (N).}
+The redundancy, both unique contributions and the synergy in Eq.~\eqref{eq:pid_decomp_app} are non-negative. In particular, $Red(X_1,X_2;Y)\geq0$.
+
+\paragraph{Symmetry (S).}
+Interchanging the two sources leaves redundancy unchanged:
+\begin{equation}
+Red(X_1,X_2;Y)=Red(X_2,X_1;Y).
+\label{eq:pid_symmetry}
+\end{equation}
+
+\paragraph{Self-redundancy (I).}
+For a single source,
+\begin{equation}
+Red(X_1;Y)=I(X_1;Y).
+\label{eq:pid_self_redundancy}
+\end{equation}
+
+\paragraph{Source monotonicity (M).}
+Adding a source cannot increase redundancy:
+\begin{equation}
+Red(X_1,X_2;Y)\leq\min\{I(X_1;Y),I(X_2;Y)\}.
+\label{eq:pid_monotonicity}
+\end{equation}
+If $X_1$ is a deterministic function of $X_2$, equality holds with $I(X_1;Y)$; the corresponding statement holds after interchanging the sources. This includes the usual source-inclusion equality.
+
+\paragraph{Identity (Id).}
+For a target that copies the joint source, we adopt the Identity property of Harder et al. \cite{Harder2013BivariateRedundancy}:
+\begin{equation}
+Red(X_1,X_2;(X_1,X_2))=I(X_1;X_2).
+\label{eq:pid_identity}
+\end{equation}
+
+\paragraph{Probabilistic left monotonicity (PLM).}
+Processing the target through a stochastic channel cannot increase redundancy. For a Markov chain $(X_1,X_2)\rightarrow T\rightarrow Z$, equivalently $Z\perp(X_1,X_2)\mid T$, we require
+\begin{equation}
+Red(X_1,X_2;Z)\leq Red(X_1,X_2;T).
+\label{eq:pid_target_dpi}
+\end{equation}
+This is the probabilistic left monotonicity introduced by Rauh et al. (Section III, following Eq.~(7)) \cite{Rauh2017ExtractableSharedInformation}. It extends deterministic left monotonicity \cite{Bertschinger2013SharedInformation} to stochastic target channels, as needed for noisy transition models. We adopt PLM as an additional redundancy property; no target chain rule for redundancy is assumed.
+
+\paragraph{Consistency of the bivariate assumptions.}
+An explicit witness shows that these properties are compatible. Define
+\begin{equation}
+R_*(X_1,X_2;Y)=\min\{I(X_1;X_2),I(X_1;Y),I(X_2;Y)\},
+\qquad R_*(X_1;Y)=I(X_1;Y).
+\label{eq:pid_consistency_witness}
+\end{equation}
+Symmetry, self-redundancy and the monotonicity bound follow immediately. If $X_1=f(X_2)$, then $I(X_1;X_2)=H(X_1)$ and $I(X_1;Y)\leq I(X_2;Y)$, giving the required equality. For the copied target, $I(X_i;Y)=H(X_i)$ for $i=1,2$. The minimum is therefore $I(X_1;X_2)$, proving Identity.
+
+Under $(X_1,X_2)\rightarrow T\rightarrow Z$, the ordinary mutual-information data processing inequality gives $I(X_i;Z)\leq I(X_i;T)$ for $i=1,2$, while $I(X_1;X_2)$ is unchanged. Hence $R_*$ satisfies PLM.
+
+To check the induced PID components, put $a=I(X_1;Y)$, $b=I(X_2;Y)$, $c=I(X_1,X_2;Y)$ and $d=I(X_1;X_2)$. The unique terms are non-negative because $R_*\leq a,b$. Moreover,
+\begin{equation}
+a+b-c=d-I(X_1;X_2\mid Y)\leq d,
+\qquad a+b-c\leq a,b,
+\label{eq:pid_witness_lower_bound}
+\end{equation}
+where the last two inequalities use $c\geq a,b$. Thus $a+b-c\leq\min\{d,a,b\}=R_*$, and the induced synergy $c-a-b+R_*$ is non-negative. This construction establishes consistency for two sources. It serves only as a witness: the independent-source result below holds for every redundancy functional in the specified class, without selecting $R_*$ as an estimator.
+}
+
+\section{Proofs of the PEID properties}
+\label{app:theoretical_proofs}
+
+{\color{red}
+We first establish the two-source information identity and its PID correspondence under the properties in Supplementary Section~\ref{app:pid-axioms}. We then prove non-negativity and the upper bound of integrated effective information for arbitrary non-empty source sets, followed by hierarchical additivity. The latter two results follow directly from mutual-information identities and the common factorized intervention. Unless stated otherwise, $A,B\subseteq\mathcal{V}$ are non-empty source and target index sets, and information quantities are evaluated under the same intervention-induced distribution $q_\ell(\boldsymbol{x}_t,\boldsymbol{x}_{t+\ell})$. Information differences are used where the participating terms are finite. The zero-redundancy bound also applies beyond finite alphabets whenever a redundancy functional satisfying N, Id and PLM is defined on the relevant variables and copied target.
+
+\subsection{Proof of the two-source PEID--PID correspondence}
+\label{app:proof_two_source_pid}
+\begin{proof}[Proof of Proposition~\ref{prop:two_source_pid}]
+Let $U=X_t^{(i)}$, $V=X_t^{(j)}$ and $\boldsymbol{y}=\boldsymbol{x}_{t+\ell}^{B}$, with all quantities evaluated under $q_\ell$. The factorized intervention gives
+\begin{equation}
+U\perp V,\qquad I_{q_\ell}(U;V)=0.
+\label{eq:supp_source_independence}
+\end{equation}
+The mutual-information chain rule, independently of any PID axioms, yields
+\begin{align}
+I_{q_\ell}(U,V;\boldsymbol{y})-I_{q_\ell}(U;\boldsymbol{y})-I_{q_\ell}(V;\boldsymbol{y})
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})-I_{q_\ell}(U;V)\nonumber\\
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})\geq0.
+\label{eq:supp_two_source_cmi_identity}
+\end{align}
+
+For the PID correspondence, regard the copied source pair $\boldsymbol{t}=(U,V)$ as an intermediate target. The conditional distribution $q_\ell(\boldsymbol{y}\mid U,V)$ defines a channel from $\boldsymbol{t}$ to $\boldsymbol{y}$, so $(U,V)\rightarrow\boldsymbol{t}\rightarrow\boldsymbol{y}$ is a Markov chain. Non-negativity, PLM and Identity give
+\begin{equation}
+0\leq Red_{q_\ell}(U,V;\boldsymbol{y})
+\leq Red_{q_\ell}(U,V;(U,V))
+=I_{q_\ell}(U;V)=0.
+\label{eq:supp_redundancy_zero}
+\end{equation}
+Consequently, the redundancy vanishes for both deterministic and stochastic transition channels. The unique contributions are
+\begin{equation}
+Un_{q_\ell}(U;\boldsymbol{y}\mid V)=EI_\ell(\{i\}\rightarrow B),
+\qquad
+Un_{q_\ell}(V;\boldsymbol{y}\mid U)=EI_\ell(\{j\}\rightarrow B).
+\label{eq:supp_unique_information}
+\end{equation}
+Substituting into Eq.~\eqref{eq:pid_decomp_app} gives
+\begin{align}
+Syn_{q_\ell}(U,V;\boldsymbol{y})
+&=EI_\ell(\{i,j\}\rightarrow B)-EI_\ell(\{i\}\rightarrow B)-EI_\ell(\{j\}\rightarrow B)\nonumber\\
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})
+=\operatorname{Syn}^{\mathrm{EID}}_\ell(U,V;\boldsymbol{y})\geq0.
+\label{eq:supp_two_source_synergy}
+\end{align}
+Thus two-source PEID equals PID synergy throughout the class specified in Supplementary Section~\ref{app:pid-axioms}.
+\end{proof}
+}
+
