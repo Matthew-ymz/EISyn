@@ -1,0 +1,1798 @@
+                                    Supplementary Information
+
+Contents
+S1 Effective information: definition and evaluation                                                                              2
+ S1.1   Discrete variables and exact evaluation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+ S1.2   Continuous variables and transport-map estimation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+ S1.3   Exact Shapley attribution of grouped synergy . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+S2 Two-source PID properties                                                                                                     5
+S3 Proofs of the PEID properties                                                                                                 6
+ S3.1   Proof of the two-source PEID–PID correspondence . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+ S3.2   Proof of the non-negativity of integrated effective information . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+ S3.3   Proof of hierarchical additivity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+S4 Synergy Partition Tree implementation and split optimization                                                                  8
+ S4.1   Node optimization and exact search . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+ S4.2   Spectral candidates for large source sets . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+ S4.3   Representation size of PEID and full PID . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+S5 Canonical nonlinear dynamical systems                                                                                         9
+ S5.1   Coupled standard map . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .         10
+ S5.2   Wilson–Cowan refractory map . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .          11
+ S5.3   Kuramoto active-rotator phase model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .        11
+ S5.4   Controlled Hénon-inspired response model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .           11
+ S5.5   Ikeda optical-cavity map . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .       11
+ S5.6   Nicholson–Bailey host–parasitoid map . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .         11
+S6 Three six-node benchmarks for hierarchical recovery                                                                        12
+S7 Comparison Methods                                                                                                         13
+ S7.1   Whole-minus-sum information (WMS) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .            13
+ S7.2   Minimum-mutual-information partial information decomposition (MMI-PID) . . . . . . . . . . . . . . . . . . .                 14
+ S7.3   Pairwise revised integrated information . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .        15
+ S7.4   Synergistic–unique–redundant decomposition (SURD) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .              15
+ S7.5   MLP-based SHAP interaction (MLP+SHAP) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .                15
+ S7.6   Hierarchical comparison methods . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .          15
+S8 Integrated-effective-information detection of the Kuramoto synchronization transition                                      16
+S9 Supplementary results                                                                                                      18
+ S9.1   Forecast-scale reorganization in global sea-level pressure . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .       18
+ S9.2   Task engagement reconfigures whole-brain synergy . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .           18
+ S9.3   Low-order ROI attribution below 50 ROI blocks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .          19
+ S9.4   High-order synergistic causal interactions versus structural rankings . . . . . . . . . . . . . . . . . . . . . . . .        19
+S10 Real-world datasets and preprocessing                                                                                     20
+ S10.1 Earth-system datasets and models . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+ S10.2 Brain data and preprocessing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+ S10.3 Urban mobility data and preprocessing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+References                                                                                                                    26
+
+
+
+
+                                                                                                                            1/33
+S1 Effective information: definition and evaluation
+Effective information quantifies how strongly a transition mechanism constrains future states under a specified maximum-
+entropy intervention. This section gives the common definition and then specializes its evaluation to discrete and continuous
+variables.
+
+S1.1 Discrete variables and exact evaluation
+For a finite discrete system, effective information has an explicit transition-matrix representation. It is useful for systems
+whose intervention-induced transition probabilities can be enumerated exactly, and establishes the discrete form of the general
+mutual-information definition in Eq. (5).
+Let A ⊆ V be a non-empty source index set. Suppose that xtA has MA possible states, ΩA = {xA1 , . . . , xAMA }, and that the complete
+future state xt+ℓ has L possible values, Ωt+ℓ = {x+            +
+                                                  1 , . . . , xL }. We define the corresponding transition-probability matrix as
+               h    i
+      PA,ℓ = pA,ℓ                pA,ℓ              +       A       A
+                                                                     
+                 ab MA ×L
+                          ,       ab ≡ qℓ xt+ℓ = xb | xt = xa .                                                                  (S1)
+
+When A is a strict subset of V , the variables outside A are marginalized under the same factorized maximum-entropy
+intervention used for all other source subsets. Thus, every matrix PA,ℓ is derived from the common intervention-induced
+distribution qℓ (xt , xt+ℓ ).
+Under a uniform intervention on the MA source states, qmax (xtA = xAa ) = 1/MA . The intervention-induced joint and future-state
+marginal probabilities are therefore
+
+                                 1 A,ℓ                           1 MA A,ℓ
+      qℓ xtA = xAa , xt+ℓ = x+                    qℓ xt+ℓ = x+
+                                                              
+                             b = M pab ,                     b = M ∑ pcb .                                                      (S2)
+                                  A                               A c=1
+
+
+Substituting Eq. (S2) into the mutual information in Eq. (5) gives
+                 MA L
+                                         qℓ xAa , x+
+                                                      
+                             A +                   b
+                                   
+      EIℓ (A) = ∑ ∑ qℓ xa , xb log max A
+                a=1 b=1                q (xa )qℓ (x+   b)
+                                           A,ℓ
+                                                 !
+                     MA L
+                  1                    MA pab
+              =      ∑   ∑   pA,ℓ
+                              ab  log   M   A,ℓ
+                                                    .                                                                           (S3)
+                 MA a=1 b=1           ∑ A p
+                                         c=1 cb
+
+
+Determinism and non-degeneracy decomposition.           The same effective information can be resolved into two complementary
+properties of the intervention-induced mechanism1, 2 . Let H0 = log L be the maximum entropy of the registered discrete target
+repertoire, using the same logarithm base as in Eq. (S3). For L > 1, define the normalized determinism and non-degeneracy as
+                     Hqℓ xt+ℓ | xtA
+                                    
+                                                   Hq (xt+ℓ )
+      Dℓ (A) = 1 −                    , Nℓ (A) = ℓ            .                                                           (S4)
+                           H0                          H0
+Here Dℓ (A) is large when each intervened source state selects a narrow distribution of future states, whereas Nℓ (A) is large
+when the intervention-induced output uses the available target repertoire broadly rather than collapsing many source states onto
+the same outcomes. The entropy identity EIℓ (A) = Hqℓ (xt+ℓ ) − Hqℓ (xt+ℓ | xtA ) then gives
+
+      EIℓ (A) = H0 [Dℓ (A) + Nℓ (A) − 1] .                                                                                      (S5)
+
+Equivalently, in unnormalized information units,
+
+     Detℓ (A) = H0 − Hqℓ xt+ℓ | xtA ,
+                                   
+                                          Degℓ (A) = H0 − Hqℓ (xt+ℓ ) ,         EIℓ (A) = Detℓ (A) − Degℓ (A),                  (S6)
+
+with Nℓ (A) = 1 − Degℓ (A)/H0 . Thus, high determinism alone does not guarantee high EI: a mechanism can map each source
+state reliably while remaining degenerate because many source states converge to the same future state. When L = 1, the
+normalized quantities are undefined, but the unnormalized identity remains valid and EIℓ (A) = 0.
+Equation (S3) depends only on the transition mechanism and the registered intervention domain, rather than on the empirical
+frequency with which the source states are naturally visited. Terms with pA,ℓab = 0 are defined by continuity as 0 log 0 = 0.
+Base-2 logarithms express effective information in bits, whereas natural logarithms express it in nats.
+
+
+                                                                                                                                2/33
+S1.2 Continuous variables and transport-map estimation
+Continuous interventions and effective information.           The definitions of effective information (EI) and integrated effective
+information extend to continuous variables once the intervention distribution is specified explicitly. Let A and B denote source
+                                                      (i)
+and target index sets, respectively, and let xtA = (Xt )i∈A be the source state. A maximum-entropy intervention on an unbounded
+domain is not defined without additional constraints. We therefore specify either a bounded intervention support or a set of
+moment constraints. Under the latter choice, the factorized maximum-entropy intervention is
+                                                           Z                          
+                                (i)
+      qmax
+        A   (xt
+               A
+                 ) =   q
+                     ∏ i max
+                              Xt      ,   q max
+                                            i    = arg  max  −    q i (x) log q i (x) dx   ,                                    (S7)
+                                                                  qi
+                     i∈A
+
+subject to normalization and the prescribed moments. With fixed mean and variance, qmax    i   is Gaussian; on a bounded interval,
+the maximum-entropy density is uniform. These choices are not interchangeable: they define different interventions and
+therefore different EI values. The factorization in Eq. (S7) is also the condition used for the source-side nonnegativity result in
+Theorem 1.
+Let qℓ denote the joint distribution induced by the chosen intervention and the lag-ℓ transition mechanism. The continuous EI
+from source set A to target set B is
+                                                                   qℓ (x, y)
+                                             Z
+      EIℓ (A → B) = Iqℓ xtA ; xt+ℓ
+                               B
+                                     
+                                         =       qℓ (x, y) log                 dx dy.                                          (S8)
+                                                                 qmax
+                                                                  A (x) qℓ (y)
+
+Here x and y denote realizations of the source and target vectors. Equation (S8) is the continuous counterpart of the discrete
+mutual-information definition. In the expressions below and throughout all continuous-variable experiments, natural logarithms
+are used and information is reported in nats.
+For continuous variables, the unnormalized decomposition in Eq. (S6) remains an exact algebraic identity after replacing
+Shannon entropies by differential entropies and using one fixed, finite reference entropy H0 for the target. In contrast to the
+discrete choice H0 = log L, this reference is not intrinsic on an unbounded domain and must be specified by the same target
+support or moment constraints throughout the comparison.
+Within a given decomposition, source subsets share the intervention support or moment constraints, prediction horizon, transition
+mechanism and sample ensemble. These choices define a common interventional estimand. The density approximation and
+numerical checks are specified for each experiment; matching samples and estimator families alone does not guarantee exact
+marginal consistency or non-negativity of the estimated difference.
+
+Density evaluation with a triangular transport map.              To evaluate the densities in Eq. (S8), let π be an unknown d-
+dimensional distribution and let η = N (0, Id ) be a standard Gaussian reference distribution. A monotone triangular transport
+map t : Rd → Rd has the form
+                                  
+                   t1 (z1 )
+              t2 (z1 , z2 )         ∂tk
+      t(z) =                      ,      > 0 (k = 1, . . . , d).                                                        (S9)
+                                  
+                       ..
+                       .            ∂ zk
+              td (z1 , . . . , zd )
+
+Thus, the kth output depends only on the first k inputs, and the positive diagonal derivatives make the map monotone and
+invertible. The map is chosen so that t # π = η, meaning that t(z) ∼ η whenever z ∼ π. This is the monotone triangular
+construction commonly known as the Knothe–Rosenblatt transport3 .
+Let Jt (z) be the Jacobian matrix of t. The change-of-variables formula gives
+                                                                              d
+                                                       d         1                 ∂tk
+      log pπ (z) = log pη (t(z)) + log |det Jt (z)| = − log(2π) − ∥t(z)∥22 + ∑ log      .                                     (S10)
+                                                       2         2           k=1   ∂ zk
+
+The final equality follows because a triangular Jacobian has determinant equal to the product of its diagonal entries.
+
+Affine transport maps.         An affine triangular map provides a Gaussian density approximation in the coordinates being fitted:
+
+                   b −1 (z − µ                              1
+                                                              d log(2π) + ∥bt aff (z)∥22 − log | det L|.
+                                                                                        
+      bt aff (z) = L         b ),    log pbaff (z) = −                                               b                        (S11)
+                                                            2
+
+                                                                                                                               3/33
+Here µb is the empirical mean and Lb is the Cholesky factor of the regularized covariance matrix. This is a computational
+approximation rather than an exact model of arbitrary non-Gaussian dependence. The affine/Gaussian approximations used
+in the brain, UniCM and urban-mobility analyses are specified in Supplementary Sections S10.2.1, S10.1.2 and S10.3. The
+low-dimensional polynomial maps and conditional neural maps are described below and in Supplementary Section S6,
+respectively.
+
+Polynomial triangular maps for low-dimensional queries.          For the common-driver comparison in main-text Fig. 1c, we fit
+densities on the original source and target coordinates. A singleton query uses (Y, Xi ), and a joint-source query uses (Y, X1 , X2 ),
+with the target placed first. The map is parameterized by polynomial conditional means:
+
+                    zk − m
+                         b k (z<k )
+      tk (z≤k ) =
+      b                             ,         b k (z<k ) = ∑ βbk,α ezα<k ,
+                                              m                              sbk > 0.                                                   (S12)
+                         sbk                                |α|≤3
+
+The standardized preceding coordinates are denoted by ez<k , and α is a multi-index. All monomials of total degree at most three
+are included. Conditional means are fitted by ridge regression with penalty 10−6 on non-intercept coefficients; the intercept is
+unpenalized. The scale sbk is the fitted residual standard deviation, with a floor of 10−8 ; the first coordinate has an intercept-only
+conditional mean. Thus the model has Gaussian conditional residuals and nonlinear conditional means. There is no separate
+source-feature lift of the form (x, x2 , x3 ) for singletons or an asymmetric five-feature lift for source pairs in this comparison.
+Other benchmarks retain their experiment-specific map configurations in Supplementary Sections S7 and S6.
+
+Mutual-information and synergy estimates.                     For paired source and target blocks u, v, the polynomial-TM estimate is
+
+                    1 M h                                                            i
+      IbTM (u; v) =   ∑   log pbUV (u(m) , v(m) ) − log pbU (u(m) ) − log pbV (v(m) ) .                                                 (S13)
+                    M m=1
+
+The joint density, fitted in target-first order, and the two block densities are fitted separately on the same samples with the same
+polynomial degree. This implementation does not apply the Gaussian log-determinant bias correction.
+For each source set A, the implementation uses IeTM (A;Y ) = max{0, IbTM (xA ;Y )} before computing the two-source difference
+
+      d EID
+      SynTM (X1 , X2 ;Y ) = ITM ({1, 2};Y ) − ITM ({1};Y ) − ITM ({2};Y ).
+                            e                 e              e                                                                          (S14)
+
+All three terms use the same intervention samples, target outputs and map family, although separately fitted densities need not
+be exact marginals of a common joint model. The estimate is therefore subject to approximation error, and Syn itself is not
+clipped. The number and construction of interventions are given in Supplementary Section S7.
+
+S1.3 Exact Shapley attribution of grouped synergy
+The Earth-system and brain analyses use the same Shapley attribution framework for groups of source variables. For a subset S
+of the M groups, integrated effective information between groups is computed as
+                                                  { j}
+      Ξℓ (S) = EI(xtS → xt+ℓ ) − ∑ EI(xt                 → xt+ℓ ).                                                                      (S15)
+                                        j∈S
+
+Thus Ξℓ (S) is the EI provided jointly by the groups in S beyond the sum of their individual EIs, with Ξℓ (∅) = Ξℓ ({ j}) = 0.
+The exact attribution to group i is
+
+                                    |S|! (M − |S| − 1)!
+      Shapleyi,ℓ (Ξ) =         ∑                        [Ξℓ (S ∪ {i}) − Ξℓ (S)] ,         N = {1, . . . , M}.                           (S16)
+                           S⊆N \{i}
+                                            M!
+
+
+The weighted sum averages the additional information contributed by group i over all possible orderings of the source groups.
+This increment can depend on which groups are already included. Groups with identical marginal contributions across
+corresponding source subsets receive equal attributions. The attributions sum to the information of the complete source set:
+       M
+      ∑ Shapleyi,ℓ (Ξ) = Ξℓ (N ).                                                                                                       (S17)
+      i=1
+
+
+
+                                                                                                                                        4/33
+Percentage panels report each Shapley attribution divided by Ξℓ (N ) and multiplied by 100.
+For UniCM, the 11 climate modes form the source groups, each represented by its 12-month history, with the joint 11-mode
+forecast as the target. We evaluate all 211 = 2,048 source subsets for every checkpoint and forecast lead. Main-text Figure 3h
+shows attributions normalized within each checkpoint and lead, then averaged across the three checkpoints. This joint-target
+analysis differs from the calibration prior, which evaluates source subsets separately for each of the 11 scalar targets and 24
+leads (Supplementary Section S10.1.2).
+For the DMF analysis, the 100 ROIs form the source groups, each containing its excitatory and inhibitory state variables.
+For an ROI subset S, the information to be attributed is Ξ(S) = EI(xA(S) → y) − ∑a∈A(S) EI(xa → y), where A(S) contains
+the scalar indices of the selected ROIs and y is the complete 200-dimensional future state. Because the subtraction uses
+individual scalar-source EIs, a single ROI can retain information arising jointly from its E/I variables. We approximate
+each ROI’s attribution by averaging its marginal information increment over 512 random source-group orderings and their
+reverses. Attribution of overall Ξ is independent of the selected SPT. For the high-order maps in main-text Fig. 2g,i,j and the
+supplementary low-order maps, we instead attribute the two components of the selected SPT separately and normalize by their
+respective totals (Supplementary Section S10.2.1).
+For the HCP functional analysis, we evaluate all 27 = 128 subsets of the seven Yeo networks. Each network’s total attribution
+combines its within-network information with its Shapley share of the information spanning network boundaries:
+                                                         7
+      Attributioni = Ξwithin
+                      i      + Shapleycross
+                                      i     (Ξ),        ∑ Attributioni = Ξ.                                                 (S18)
+                                                        i=1
+
+
+
+S2 Two-source PID properties
+This section specifies the redundancy properties used for the two-source PEID–PID correspondence. We state the axioms and
+their consistency construction for finite-alphabet variables. For two sources X1 , X2 and a target Y , write
+
+      I(X1 , X2 ;Y ) = Red(X1 , X2 ;Y ) +Un(X1 ;Y | X2 ) +Un(X2 ;Y | X1 ) + Syn(X1 , X2 ;Y ).                               (S19)
+
+The single-source identities determine the unique contributions:
+
+      Un(X1 ;Y | X2 ) = I(X1 ;Y ) − Red(X1 , X2 ;Y ),                                                                       (S20)
+
+with the analogous expression for Un(X2 ;Y | X1 ). We consider non-negative bivariate decompositions satisfying the following
+properties. Symmetry, self-redundancy and source monotonicity follow the Williams–Beer framework4, 5 ; Identity and
+probabilistic left monotonicity specify the class used here.
+
+Non-negativity (N).      The redundancy, both unique contributions and the synergy in Eq. (S19) are non-negative. In particular,
+Red(X1 , X2 ;Y ) ≥ 0.
+
+Symmetry (S).      Interchanging the two sources leaves redundancy unchanged:
+
+      Red(X1 , X2 ;Y ) = Red(X2 , X1 ;Y ).                                                                                  (S21)
+
+Self-redundancy (I).      For a single source,
+
+      Red(X1 ;Y ) = I(X1 ;Y ).                                                                                              (S22)
+
+Source monotonicity (M).         Adding a source cannot increase redundancy:
+
+      Red(X1 , X2 ;Y ) ≤ min{I(X1 ;Y ), I(X2 ;Y )}.                                                                         (S23)
+
+If X1 is a deterministic function of X2 , equality holds with I(X1 ;Y ); the corresponding statement holds after interchanging the
+sources. This includes the usual source-inclusion equality.
+
+Identity (Id).   For a target that copies the joint source, we adopt the Identity property of Harder et al.6 :
+
+      Red(X1 , X2 ; (X1 , X2 )) = I(X1 ; X2 ).                                                                              (S24)
+
+
+                                                                                                                             5/33
+Probabilistic left monotonicity (PLM).  Processing the target through a stochastic channel cannot increase redundancy. For a
+Markov chain (X1 , X2 ) → T → Z, equivalently Z ⊥ (X1 , X2 ) | T , we require
+
+      Red(X1 , X2 ; Z) ≤ Red(X1 , X2 ; T ).                                                                                        (S25)
+
+This is the probabilistic left monotonicity introduced by Rauh et al. (Section III, following Eq. (7))7 . It extends deterministic left
+monotonicity5 to stochastic target channels, as needed for noisy transition models. We adopt PLM as an additional redundancy
+property; no target chain rule for redundancy is assumed.
+
+Consistency of the bivariate assumptions.                An explicit witness shows that these properties are compatible. Define
+
+      R∗ (X1 , X2 ;Y ) = min{I(X1 ; X2 ), I(X1 ;Y ), I(X2 ;Y )},       R∗ (X1 ;Y ) = I(X1 ;Y ).                                    (S26)
+
+Symmetry, self-redundancy and the monotonicity bound follow immediately. If X1 = f (X2 ), then I(X1 ; X2 ) = H(X1 ) and
+I(X1 ;Y ) ≤ I(X2 ;Y ), giving the required equality. For the copied target, I(Xi ;Y ) = H(Xi ) for i = 1, 2. The minimum is therefore
+I(X1 ; X2 ), proving Identity.
+Under (X1 , X2 ) → T → Z, the ordinary mutual-information data processing inequality gives I(Xi ; Z) ≤ I(Xi ; T ) for i = 1, 2,
+while I(X1 ; X2 ) is unchanged. Hence R∗ satisfies PLM.
+To check the induced PID components, put a = I(X1 ;Y ), b = I(X2 ;Y ), c = I(X1 , X2 ;Y ) and d = I(X1 ; X2 ). The unique terms
+are non-negative because R∗ ≤ a, b. Moreover,
+
+      a + b − c = d − I(X1 ; X2 | Y ) ≤ d,        a + b − c ≤ a, b,                                                                (S27)
+
+where the last two inequalities use c ≥ a, b. Thus a + b − c ≤ min{d, a, b} = R∗ , and the induced synergy c − a − b + R∗ is
+non-negative. This construction establishes consistency for two sources. It serves only as a witness: the independent-source
+result below holds for every redundancy functional in the specified class, without selecting R∗ as an estimator.
+
+
+S3 Proofs of the PEID properties
+We first establish the two-source information identity and its PID correspondence under the properties in Supplementary
+Section S2. We then prove non-negativity and the upper bound of integrated effective information for arbitrary non-empty
+source sets, followed by hierarchical additivity. The latter two results follow directly from mutual-information identities and the
+common factorized intervention. Unless stated otherwise, A, B ⊆ V are non-empty source and target index sets, and information
+quantities are evaluated under the same intervention-induced distribution qℓ (xt , xt+ℓ ). Information differences are used where
+the participating terms are finite. The zero-redundancy bound also applies beyond finite alphabets whenever a redundancy
+functional satisfying N, Id and PLM is defined on the relevant variables and copied target.
+
+S3.1 Proof of the two-source PEID–PID correspondence
+                                       (i)        ( j)            B , with all quantities evaluated under q . The factorized intervention
+Proof of Proposition 1. Let U = Xt , V = Xt              and y = xt+ℓ                                      ℓ
+gives
+
+      U ⊥ V,        Iqℓ (U;V ) = 0.                                                                                                (S28)
+
+The mutual-information chain rule, independently of any PID axioms, yields
+
+      Iqℓ (U,V ; y) − Iqℓ (U; y) − Iqℓ (V ; y) = Iqℓ (U;V | y) − Iqℓ (U;V )
+                                              = Iqℓ (U;V | y) ≥ 0.                                                                 (S29)
+
+For the PID correspondence, regard the copied source pair t = (U,V ) as an intermediate target. The conditional distribution
+qℓ (y | U,V ) defines a channel from t to y, so (U,V ) → t → y is a Markov chain. Non-negativity, PLM and Identity give
+
+      0 ≤ Redqℓ (U,V ; y) ≤ Redqℓ (U,V ; (U,V )) = Iqℓ (U;V ) = 0.                                                                 (S30)
+
+Consequently, the redundancy vanishes for both deterministic and stochastic transition channels. The unique contributions are
+
+      Unqℓ (U; y | V ) = EIℓ ({i} → B),          Unqℓ (V ; y | U) = EIℓ ({ j} → B).                                                (S31)
+
+
+                                                                                                                                    6/33
+Substituting into Eq. (S19) gives
+      Synqℓ (U,V ; y) = EIℓ ({i, j} → B) − EIℓ ({i} → B) − EIℓ ({ j} → B)
+                        = Iqℓ (U;V | y) = SynEID
+                                             ℓ (U,V ; y) ≥ 0.                                                           (S32)
+Thus two-source PEID equals PID synergy throughout the class specified in Supplementary Section S2.
+
+S3.2 Proof of the non-negativity of integrated effective information
+Proof of Theorem 1. The proof strategy parallels the information-theoretic argument used by Oizumi et al. to establish the
+lower and upper bounds of integrated information8 . Let A, B ⊆ V be arbitrary non-empty source and target index sets. By
+definition,
+      Ξℓ (A → B) = EIℓ (A → B) − ∑ EIℓ ({i} → B).                                                                       (S33)
+                                     i∈A
+
+Expanding the mutual information terms in entropy form gives
+     Ξℓ (A → B) = Hqℓ xtA − Hqℓ xtA | xt+ℓ
+                                        B
+                                          
+                                                   
+                               (i)             (i)  B
+                  − ∑ Hqℓ Xt + ∑ Hqℓ Xt | xt+ℓ          .                                                               (S34)
+                         i∈A               i∈A
+
+
+The factorized maximum-entropy intervention implies
+                               
+                            (i)
+      qmax xtA = ∏ qmax
+              
+                     i   X t      ,                                                                                     (S35)
+                   i∈A
+
+and hence
+                           
+                        (i)
+      Hqℓ xtA = ∑ Hqℓ Xt .
+             
+                                                                                                                        (S36)
+                  i∈A
+
+The unconditional entropy terms in Eq. (S34) therefore cancel, yielding
+                                    
+                             (i)   B
+                                        − Hqℓ xtA | xt+ℓ
+                                                     B
+                                                         
+     Ξℓ (A → B) = ∑ Hqℓ Xt | xt+ℓ
+                     i∈A
+                                        
+                            (i)      B
+                  = TCqℓ {Xt }i∈A | xt+ℓ   .                                                                            (S37)
+
+The conditional total correlation admits the Kullback–Leibler representation
+                              "                                       !#
+                                                                   
+                                                            (i)
+      Ξℓ (A → B) = Eqℓ (xB ) DKL qℓ xtA | xt+ℓB                   B
+                                                 
+                            t+ℓ
+                                                    ∏ qℓ Xt | xt+ℓ        ≥ 0.                                          (S38)
+                                                      i∈A
+
+This establishes the lower bound. The upper bound follows directly from Eq. (S33), because every singleton effective
+information is non-negative:
+      Ξℓ (A → B) ≤ EIℓ (A → B).                                                                                         (S39)
+
+It remains to identify the two-source special case. If A = {i, j}, Eq. (S37) reduces to
+                                           
+                               (i)  ( j) B
+      Ξℓ ({i, j} → B) = Iqℓ Xt ; Xt | xt+ℓ
+                        = EIℓ ({i, j} → B) − EIℓ ({i} → B) − EIℓ ({ j} → B).                                            (S40)
+Within the bivariate class specified in Supplementary Section S2, Proposition 1 identifies this expression with PID synergy.
+Therefore,
+                                             
+                                  (i)  ( j) B
+      Ξℓ ({i, j} → B) = Synqℓ Xt , Xt ; xt+ℓ    ≥ 0.                                                                  (S41)
+
+Thus, integrated effective information is non-negative for arbitrary source sets. For two sources it equals conditional mutual
+information and, under the stated bivariate properties, the PID synergy.
+
+
+                                                                                                                         7/33
+S3.3 Proof of hierarchical additivity
+Proof of Theorem 2. Let P be a partition of A, and let M ⋆ ∈ P be refined by another partition R = {R1 , . . . , Rk }. Define
+P ′ = (P \ {M ⋆ }) ∪ R.
+Because P ′ replaces M ⋆ with the blocks in R,
+
+      Ξℓ (A → B) −    ∑ Ξℓ (M → B) = Ξℓ (A → B) −             ∑      Ξℓ (M → B)
+                     M∈P ′                              M∈P\{M ⋆ }
+
+                                           − ∑ Ξℓ (R → B).                                                                  (S42)
+                                            R∈R
+
+
+Adding and subtracting Ξℓ (M ⋆ → B) gives
+                                       "                                        #
+      Ξℓ (A → B) −    ∑ Ξℓ (M → B) = Ξℓ (A → B) − ∑ Ξℓ (M → B)
+                     M∈P ′                                M∈P
+                                            "                                       #
+                                                    ⋆
+                                           + Ξℓ (M → B) − ∑ Ξℓ (R → B) .                                                    (S43)
+                                                              R∈R
+
+This proves hierarchical additivity under partition refinement.
+
+                            ˙ R, refinement to the finest partitions within L and R yields
+As a special case, if A = L ∪
+
+      Ξℓ (A → B) = Ξℓ (L → B) + Ξℓ (R → B) + SynEID
+                                                ℓ (L, R → B).                                                               (S44)
+
+
+S4 Synergy Partition Tree implementation and split optimization
+SPT is a recursive sequence of finite bipartition problems; it uses neither gradient descent nor a continuous optimizer. The
+horizon ℓ, target B, intervention distribution, and EI estimator are fixed before tree construction.
+
+S4.1 Node optimization and exact search
+                                                                                         ˙ R. Define
+At a non-singleton node A, each candidate is an unordered, non-trivial bipartition A = L ∪
+
+      SA (L, R) = Ξℓ (L → B) + Ξℓ (R → B),                                                                                  (S45)
+      rA (L, R) = Ξℓ (A → B) − SA (L, R).                                                                                   (S46)
+
+Standard SPT maximizes SA , equivalently minimizes the raw residual rA , which is stored without clipping as the node synergy.
+Candidates are ranked deterministically by decreasing SA , increasing rA , and then lexicographically by their source-index tuples.
+The latter fields settle only numerical or exact ties.
+For m = |A| ≤ mexact , the optimizer enumerates all 2m−1 − 1 unordered bipartitions: the first source is fixed in one child, all
+subsets of the other m − 1 sources are enumerated, and the full set is excluded. The selected split is therefore globally optimal
+among admissible splits at that node. Recursive selection remains greedy over the space of complete binary trees.
+
+S4.2 Spectral candidates for large source sets
+For larger nodes, a pairwise-synergy affinity matrix is computed once per experimental condition and its principal submatrix is
+reused:
+                                                          −1/2       −1/2
+      Wi j = Ξℓ ({i, j} → B),   Wii = 0,        LA = I − DA      WA DA      ,   DA = diag(WA 1).                            (S47)
+
+The inverse square root is set to zero for isolated vertices. A symmetric eigh decomposition of the normalized Laplacian
+is used. Sources are stably sorted by each of the first four non-constant eigenvectors (or all available ones if fewer exist),
+yielding the Fiedler ordering and up to three additional low-frequency orderings. Eigenvector sign does not affect the unordered
+candidate set because reversing an order exchanges every prefix with its complement.
+
+
+                                                                                                                             8/33
+Two further orderings are included. Average-linkage clustering is applied to di j = 1 −Wi j / max p,q Wpq , with zero diagonal and
+optimal leaf ordering; the original source order is retained as a deterministic fallback. For every ordering π, all m − 1 prefix
+cuts {π1 , . . . , πk } | A \ {π1 , . . . , πk } are formed and duplicate unordered splits are removed. Hence the present spectral route
+evaluates at most 6(m − 1) candidates before deduplication, rather than all 2m−1 − 1, and does not supplement every possible
+singleton split. The chosen split is exact only within this candidate set.
+Domain-constrained SPT changes only the candidate generator. For example, an intact three-block root evaluates its three legal
+one-versus-two-block splits; a fixed split supplies one candidate. All legal candidates use the same score and deterministic
+ranking above. An optional sensitivity analysis instead ranks rA /[(2|L| − 1)(2|R| − 1)].
+
+    Algorithm S1. Synergy Partition Tree.
+    Input: ordered sources V ; fixed (ℓ, B); cached Ξ oracle; mexact ; candidate policy.
+    Build(A, d):
+       1. Query xA ← Ξℓ (A → B); if |A| = 1, return a leaf.
+       2. Generate all unordered splits when |A| ≤ mexact , otherwise the spectral, average-linkage, and original-order prefix
+          cuts; for a constrained tree, use only legal splits.
+       3. For each (L, R), query xL , xR , compute r = xA − xL − xR , and select the deterministic maximizer of xL + xR .
+       4. Return (A, xA , r, d, Build(L, d + 1), Build(R, d + 1)).
+    Output: Build(V , 0).
+
+
+S4.3 Representation size of PEID and full PID
+For a fixed target set B and N source variables, PEID can report one single-source EI quantity for each source and one
+finest-partition synergy quantity Ξℓ (A → B) for each source subset A with |A| ≥ 2. The resulting number of quantities is
+             N  
+                  N
+       N+ ∑          = 2N − 1.
+            k=2 k
+
+A full N-source PID instead assigns atom labels to the non-trivial antichains of source subsets4 . If M(N) is the Dedekind
+number, its atom-label count is M(N) − 2, excluding the empty antichain and the antichain containing only the empty set.
+
+                              Number of Single-source   Source-subset    Total PEID       Full PID
+                              sources N EI quantities synergy quantities quantities atom labels M(N) − 2
+                                       2            2                  1           3                    4
+                                       3            3                  4           7                   18
+                                       4            4                11          15                   166
+                                       5            5                26          31                 7,579
+                                       6            6                57          63             7,828,352
+                                       7            7               120         127    2,414,682,040,996
+
+Table 1. Representation size of source-side PEID and full PID for a fixed target. The PEID count includes one quantity per
+non-empty source subset; the full PID count refers to atom labels in the redundancy lattice. Dedekind numbers are from OEIS
+A000372 (https://oeis.org/A000372).
+
+The PEID quantities for different source subsets can overlap and are not mutually exclusive PID atoms. Table 1 compares
+representation size, not runtime or equal descriptive resolution. SPT selects a hierarchy of bipartitions from PEID quantities; its
+tree nodes and evaluated split candidates have separate counts.
+
+
+S5 Canonical nonlinear dynamical systems
+This section collects the background, governing equations and mechanism-related comparisons for six nonlinear benchmarks
+(Supplementary Fig. 1). The coupled standard map and the controlled Hénon-inspired response model are deliberate extensions
+or modifications of their classical antecedents. The comparison methods are whole-minus-sum information (WMS), minimum-
+mutual-information partial information decomposition (MMI-PID), synergistic–unique–redundant decomposition (SURD), and
+Shapley additive explanations (SHAP) interaction attribution applied to an MLP (MLP+SHAP).
+
+
+                                                                                                                                   9/33
+Figure 1. Synergy and interaction measures across six nonlinear dynamical systems. WMS, MMI-PID, SURD,
+MLP+PEID and MLP+SHAP are compared within each system. Curves and shading denote means and standard deviations
+across three data seeds. MLP+SHAP retains its native scale. The standard-map ordinate is symlog, and Kuramoto SURD uses a
+separate right axis.
+
+
+PEID followed the parameter-dependent trends in all six models. Synergy increased with rotor coupling in the standard
+map, peaked with neural gain in the Wilson–Cowan model, and showed the expected onset and saturation in the Ikeda and
+Nicholson–Bailey systems. The Kuramoto and controlled Hénon models were more discriminating because redundancy or
+single-source information changed alongside the joint effect. In the Kuramoto model, increasing redundancy drove WMS
+below zero even though the joint coupling persisted; PEID retained a positive joint contribution. In the controlled Hénon model,
+the explicit joint term weakened as a separable channel strengthened. PEID declined accordingly, whereas MMI-PID moved in
+the opposite direction.
+Two further contrasts separated synergy attributable to the specified transition mechanism from other quantities. SURD reported
+its largest value at the weakest standard-map coupling, whereas MLP+SHAP continued to increase with output scale after the
+information-theoretic estimates had plateaued in the Ikeda system. WMS reflects the balance between synergy and redundancy,
+MMI-PID depends on the adopted redundancy definition, SURD decomposes predictive influence and MLP+SHAP attributes
+changes in model output. These response differences limit interpreting every score as the strength of an irreducible joint
+mechanism.
+
+S5.1 Coupled standard map
+The standard map is an area-preserving Poincaré map of a periodically kicked rotor and a canonical model of resonance overlap
+and Hamiltonian chaos9 . We coupled two rotors through an antisymmetric sinusoidal kick,
+
+         I1,t = K sin q1,t + J sin(q2,t − q1,t ),                                                                         (S48)
+         I2,t = K sin q2,t − J sin(q2,t − q1,t ),                                                                         (S49)
+      pi,t+1 = wrap(pi,t + Ii,t ),                                                                                        (S50)
+      qi,t+1 = wrap(qi,t + pi,t+1 ),                                                                                      (S51)
+
+where wrap(a) = ((a + π) mod 2π) − π. The sweep varied the inter-rotor coupling J and evaluated {q1,t , q2,t } → I1,t ; K
+controls the single-rotor kick.
+
+
+                                                                                                                         10/33
+S5.2 Wilson–Cowan refractory map
+The Wilson–Cowan model describes the mean activities E and I of interacting excitatory and inhibitory neural populations,
+with a sigmoid converting net synaptic input into population activation10 . We used the refractory form
+         Ė = −E + (1 − ρE)S(g(wEE E − wEI I + PE )) ,                                                                      (S52)
+          I˙ = −I + (1 − ρI)S(g(wIE E − wII I + PI )) ,                                                                     (S53)
+                     −z −1
+      S(z) = (1 + e ) .                                                                                                     (S54)
+The one-step target was obtained by forward Euler integration with ∆t = 0.05. We fixed ρ = 0.5, (wEE , wEI , wIE , wII ) =
+(3.2, 2.6, 2.4, 1.7), and (PE , PI ) = (0.35, −0.20), varied the sigmoid gain g, and evaluated {Et , It } → Et+∆t .
+
+S5.3 Kuramoto active-rotator phase model
+Active-rotator models combine a periodic phase potential with sinusoidal phase-difference coupling and describe locking
+transitions of self-sustained oscillators or excitable elements11 . The directed two-rotator system used here was
+      θ̇1 = 1.0 + 0.2 sin θ1 + K sin(θ2 − θ1 ),                                                                             (S55)
+      θ̇2 = 0.9 + 0.2 sin θ2 .                                                                                              (S56)
+
+We varied K and evaluated {θ1,t , θ2,t } → θ̇1,t . At K = 0, the second rotator is absent from the target mechanism; increasing K
+introduces a joint phase-difference response while phase locking also increases observational redundancy.
+
+S5.4 Controlled Hénon-inspired response model
+The classical Hénon map combines quadratic folding with dissipative contraction to generate a two-dimensional strange
+attractor12 . Our benchmark is not the unmodified Hénon iteration. It is a controlled two-output response model based on its
+quadratic nonlinearity,
+                1 − 1.4xt2 + κ(λ )xt yt
+                                       
+       zt+1 =                             , εt ∼ N (0, 0.52 ).                                                        (S57)
+                     γ(λ )yt + εt
+Along λ : 0 → 1, κ(λ ) decreases linearly from 0.5 to 0.1, whereas γ(λ ) increases linearly from 0.3 to 2.0. This path weakens
+the explicit two-source interaction while strengthening a separate single-source channel, thereby separating synergy from
+unique information.
+
+S5.5 Ikeda optical-cavity map
+The Ikeda map originates from an optical ring cavity containing a nonlinear medium; its intensity-dependent feedback phase
+can generate multistability, instability, and chaotic responses13 . We used
+                        6
+        θt = 0.4 −               ,                                                                                          (S58)
+                   1 + xt2 + yt2
+      xt+1 = 1 + u(xt cos θt − yt sin θt ),                                                                                 (S59)
+      yt+1 = u(xt sin θt + yt cos θt ).                                                                                     (S60)
+We varied the retained feedback amplitude u and evaluated {xt , yt } → yt+1 . The case u = 0 is a structural zero; for u > 0, both
+sources enter through the intensity-dependent phase response.
+
+S5.6 Nicholson–Bailey host–parasitoid map
+The Nicholson–Bailey model is a classical discrete-generation model of host–parasitoid dynamics. Its exponential escape
+probability follows from the assumption that parasitoids search for hosts randomly and independently14 . We used
+      Ht+1 = RHt e−aPt ,                                                                                                    (S61)
+                         −aPt
+                                
+       Pt+1 = Ht 1 − e              ,   R = 1.6.                                                                            (S62)
+We varied the attack efficiency a and evaluated {Ht , Pt } → Ht+1 . At a = 0, Pt is absent from the host update; for a > 0, host
+and parasitoid densities jointly determine host survival through the exponential gate.
+
+
+                                                                                                                            11/33
+S6 Three six-node benchmarks for hierarchical recovery
+The hierarchical baselines are mutual-information clustering (MIC), average-linkage hierarchical clustering using pairwise
+mutual information (MI-HAC), distance correlation (dCor-HAC), or absolute Pearson correlation (AbsCorr-HAC), and Ward’s
+minimum-variance hierarchical clustering (Ward). Main-text Figure 1d,e compares SPT with hierarchical baselines on three
+six-node benchmarks. Examples I and II share two planted modules: pairwise interactions within P = {1, 2, 3}, a triadic
+interaction within T = {4, 5, 6} and nine weak pairwise links between them. Example I uses stochastic Kuramoto dynamics,
+whereas Example II uses continuous-time single-spin Glauber dynamics. Example III uses a nested Kuramoto system with
+planted groups {1, 2, 3} ⊂ {1, 2, 3, 4} and {5, 6}, connected by fixed weak links {1, 5} and {4, 6}.
+
+Mixed-order Kuramoto dynamics.            In Example I, the six phases follow a stochastic extension of higher-order Kuramoto
+dynamics15, 16 :
+         dθi = fi (θ ) dt + σ dWi ,
+                                               Kout
+                       ∑ wi j sin(θ j − θi ) +
+                                                    ∑ sin(θ j − θi ), i ∈ P,
+                      
+                       j∈P                      3 j∈T                                                                    (S63)
+      fi (θ ) = ωi + j̸=i
+                                                 Kout
+                      K3 sin(θ j + θk − 2θi ) +       ∑ sin(θℓ − θi ), {i, j, k} = T.
+                      
+                      
+                                                   3 ℓ∈P
+                               √                     √                 √
+We fixed Kout = 0.04, w12 = 1.5, w13 = w23 = 1.5/4, K3 = 1.5/ 2 ≈ 1.06, ω = (−0.4, 0, 0.4, −0.4, 0, 0.4)T and σ = 0.08.
+Thus, P contains pairwise interactions, T contains a triadic interaction, and every cross-module pair has weight Kout /3.
+We generated 4,800 transitions from independent uniform initial phases on (−π, π)6 , with prediction horizon τ = 0.20 and
+time step 0.01. Drift was integrated by fourth-order Runge–Kutta, with Gaussian noise added at each step and phases wrapped
+to (−π, π]. An MLP with two 48-unit SiLU hidden layers used the first and second sine/cosine harmonics of each phase to
+predict the complete wrapped phase increment. Inputs and targets were standardized on the 80% training split; AdamW training
+used 800 epochs, learning rate 3 × 10−3 and weight decay 10−5 . After fitting, 4,000 independent uniform phase interventions
+were propagated through the learned channel. Gaussian response noise used the full held-out residual covariance with a 10−6
+diagonal numerical ridge. Every source subset retained the same six-dimensional wrapped future phase-increment target.
+Conditional neural transport maps were fitted for dependency components identified from MLP permutation effects using a
+threshold of 0.25 output standard deviations, without imposing the planted partition. The maps used 100 training epochs, 512
+scrambled Sobol evaluation points and 256 marginal-completion samples, with a fixed context dictionary of circular, pairwise,
+triadic and candidate cross-edge Fourier features. The largest cross-module effect was approximately 0.19, below the threshold;
+the fitted information model therefore separates the two components despite their nonzero physical coupling. All 63 non-empty
+source-subset EIs were evaluated consistently under this component approximation.
+
+Glauber dynamics and MLP transition fitting.           For xi ∈ {−1, +1}, the mixed-order Hamiltonian is
+                                               Kout
+      H(x) = − ∑ wi j xi x j − J3 x4 x5 x6 −        ∑ ∑ xi x j .                                                            (S64)
+                     i< j                       3 i∈P j∈T
+                    i, j∈P
+               √                     √
+We fixed w12 = 1.5, w13 = w23 = 1.5/4, J3 = 1, Kout = 0.04 and inverse temperature β = 1. There are no within-T pairwise
+Hamiltonian terms. If x(i) flips only spin i, its unit-attempt-rate heat-bath transition is
+                                1
+      [Q]x,x(i) =                                ,      [Q]x,x = − ∑[Q]x,x(i) ,   Pτ = exp(τQ),    τ = 2.                   (S65)
+                    1 + exp{β [H(x(i) ) − H(x)]}                    i
+
+The 64 × 64 matrix exponential gives finite-time transition probabilities without time-step error. Each displayed dataset contains
+48,000 endpoint pairs with independent, equiprobable initial spins. A generic MLP with two 64-unit SiLU hidden layers maps
+the six initial spins to a joint softmax distribution over all 64 future configurations. Training minimizes 64-class cross-entropy
+using AdamW with learning rate 3 × 10−3 and weight decay 10−2 . An 80%/20% split selects the epoch by validation loss,
+after which the model is refitted to all 48,000 pairs for that many epochs. EI is enumerated exactly for all 63 non-empty source
+subsets under uniform input q(x) = 1/64, retaining the complete six-spin future state as the common target.
+Sample-based baselines use complete initial–future node blocks from the same endpoint pairs. In the two paired 48,000-pair
+confirmation datasets, both MLP-based SPT and Ward recovered the planted modules, whereas MIC and dCor-HAC did not.
+
+
+                                                                                                                           12/33
+The displayed example is the first of these paired datasets. The earlier 4,800-pair control used a generic 41-parameter heat-bath
+fit containing six fields, all 15 pairwise terms and all 20 triple terms, with L2 coefficient 10 and parameter bounds [−4, 4].
+Across ten random-initial-state datasets, that fit and Ward each recovered the root partition in 10/10 cases, compared with 0/10
+for sample MIC and 1/10 for MIC evaluated on the shared fitted channel. Ten equilibrium-sampled datasets also yielded 10/10
+recovery for sample MIC.
+
+Nested Kuramoto dynamics with weak bridges.         Example III uses the same higher-order Kuramoto coupling family15, 16 ,
+with nested three- and four-body interactions and weak pairwise bridges:
+                                                    
+                                                   !
+      dθi = ωi + ∑ κe sin      ∑ θ j − (|e| − 1)θi  dt + σ dWi ,                                                 (S66)
+                                                    
+                    e∈E          j∈e\{i}
+                     i∈e
+
+
+      E = {{1, 2, 3}, {1, 2, 3, 4}, {5, 6}, {1, 5}, {4, 6}}.                                                               (S67)
+
+For Example III, the within-group couplings were κ123 = κ56 = 0.57 and κ1234 = 1.13, with fixed bridge weights κ15 =
+κ46 = 0.02. We used ω = (−0.4, 0, 0.4, −0.4, 0, 0.4)T , σ = 0.08, prediction horizon τ = 0.20, time step 0.01 and independent
+uniform initial phases on (−π, π)6 . All methods used the same 32,768 simulated pairs: 24,576 for training, 4,096 for validation
+and 4,096 for testing. The MLP used a common dictionary of candidate two-, three- and four-body Fourier features across
+nodes. Every source subset retained the complete unwrapped future phase vector as its target. Example I instead used the
+wrapped phase increment.
+Each baseline is evaluated on phase increments and on initial-state-plus-increment node blocks. Main-text Figure 1 reports the
+view with higher module F1 for that baseline. MIC, MI-HAC and dCor-HAC select the latter view, whereas AbsCorr-HAC and
+Ward select increments. This choice favours the baselines. MI-HAC, dCor-HAC and AbsCorr-HAC use average-linkage trees.
+Ward uses its native Euclidean variance criterion. MIC recomputes group mutual information after each merge.
+
+Module scoring and tree display.     Planted module sets are MI = MII = {123, 456} and MIII = {123, 1234, 56}. For each
+predicted tree, Mc contains its nontrivial clades after excluding the common six-source root, singleton leaves and strict
+refinements within primitive planted modules. A primitive module contains no smaller planted module. Such internal binary
+refinements have no unique planted truth; all other unsupported clades count as false positives. The score is
+             2|Mc∩ M |
+      F1 =               .                                                                                                 (S68)
+             |Mc| + |M |
+SPT enumerates every admissible bipartition at each six-source node and recurses to singleton leaves. Node percentages use the
+local Syn divided by the sum of all internal-node Syn values in the same tree. The sum closes to the root Ξ. All trees show
+their actual binary topology, with optional left–right child swaps only. Topology colours identify modules, whereas tree-border
+colours encode scoring status and teal fill encodes Syn share.
+
+
+S7 Comparison Methods
+This section describes the information and hierarchical-clustering baselines used in the controlled benchmarks and model
+applications.
+
+Common-driver comparison protocol.           For each common-driver strength β , WMS, MMI-PID and SURD use the naturally
+sampled, temporally aligned variables X = xt , Y = yt and Z = zt+1 from the same simulated trajectory. MLP+SHAP evaluates
+the same fitted four-input transition predictor as MLP+PEID, using an empirical background distribution. Curves average four
+paired data realizations. Information quantities are reported in nats, whereas MLP+SHAP retains its prediction-output scale on
+the lower axis. Thus, the comparison concerns responses to confounding rather than equality of absolute score magnitudes.
+
+S7.1 Whole-minus-sum information (WMS)
+Whole-Minus-Sum (WMS) information compares the information supplied jointly by two sources with the sum of their separate
+contributions8, 17 :
+      WMS(X,Y ; Z) = I(X,Y ; Z) − I(X; Z) − I(Y ; Z).                                                                      (S69)
+
+
+                                                                                                                          13/33
+         Recovered module         Unsupported merge                Unscored
+
+
+
+
+                                                  SPT                                   MIC                                         MI-HAC                                   dCor-HAC                                 AbsCorr-HAC                                            Ward
+
+
+   I Kuramoto
+
+                                                 123456                                 123456                                                123456                                  123456                                    123456                                  123456
+                                                  0.0%
+
+     1                    6                                                                                                          12346
+                                           123              456                   123                     456                                                                123                    456                   123                 456                                     2356
+                                          17.2%            42.4%
+             3    4                                                                                                             123
+                                     12                         56           12                      46                                                                 12                     46                    12                  46                    14                25                36
+    2                      5       27.2%                      13.3%
+                                                                                                                           12                     46
+
+                                   1      2       3    4      5    6     1        2     3        4        6        5   1        2        3    4        6        5   1        2        3    4        6        5   1        2     3    4        6        5   1        4        2        5        3        6
+
+
+
+   II Glauber
+
+                                                 123456                                              123456                                  123456                                            123456                               123456                                   123456
+                                                  5.4%
+                                                                                            12356                                                                                         12356
+     1                    6                                                                                                          1235                                                                                     1235
+                                           123              456                                                                                                                                                                                                     123                        456
+                                          4.8%             23.0%                      1235                                                                                        1235
+             3    4                                                                                                             123                                                                                       123
+                                     12                         56                123                                                                                        123
+    2                      5       65.0%                       1.9%                                                                                                                                                                                            12                         46
+                                                                                                                           12                              46                                                        12                           46
+                                                                             12                                                                                         12
+
+                                   1      2       3    4      5    6     1        2     3        5        6        4   1        2        3    5        4        6   1        2        3    5        6        4   1        2     3    5        4        6   1        2        3        4        6        5
+
+
+
+   III Kuramoto · nested
+                                                      123456                                                                                 123456                                       123456
+                                                       4.1%                                 123456                                                                                                                            123456                                      123456
+
+     1                    6                    1234                                                                                 1234                                         1234
+                                              41.4%
+                                                                                  1234                                                                                                                                    134            256                   125                             346
+             3    4                        123                                                                             134                                          134
+                                          30.8%
+    2                      5                                                 12             34                56                                                                                                     13                           56                    25                34
+                                     12                         56                                                                  34                     56                    34                     56
+                                   14.9%                       8.7%
+
+                                   1      2       3    4      5    6     1        2     3        4        5        6   1        3        4    2        5        6   1        3        4    2        5        6   1        3     4    2        5        6   1        2        5        3        4        6
+
+
+                                                                                                                                                                                                                                                   0                     50                             100
+   Branch height encodes topology only.                                                                                                                                      SPT fill: local Syn / total Ξ (%)
+
+
+
+
+Figure 2. Complete hierarchical comparison for the three six-node benchmarks. Generating topologies, SPTs and
+complete MIC, MI-HAC, dCor-HAC, AbsCorr-HAC and Ward hierarchies for examples I–III in main-text Fig. 1d,e. Blue solid
+borders mark recovered planted modules, orange dashed borders mark unsupported merges and grey borders mark unscored
+roots or refinements. SPT labels and fills show local Syn as a percentage of total integrated effective information Ξ, using one
+common 0–100% scale. All SPTs are constructed from fitted MLP channels. Baseline representations and the module-F1
+scoring exclusions are specified in Supplementary Sections S6 and S7.6.
+
+
+We estimate the three mutual informations with degree-three polynomial triangular transport-map density models. Positive and
+negative WMS values indicate the net dominance of synergy and redundancy, respectively. Its implementation in the brain
+experiment are described in Supplementary Section S10.2.1.
+
+S7.2 Minimum-mutual-information partial information decomposition (MMI-PID)
+Minimum-mutual-information partial information decomposition (MMI-PID) specifies redundancy as the smaller single-source
+mutual information18 :
+
+         RMMI = min{I(X; Z), I(Y ; Z)},                                      SMMI = I(X,Y ; Z) − max{I(X; Z), I(Y ; Z)}.                                                                                                                                                                             (S70)
+
+The unique contribution of each source is its mutual information minus RMMI . Main-text Fig. 1c reports SMMI , computed from
+exactly the same three transport-map mutual-information estimates as WMS.
+MMI-PID and the MMI-based formulation of revised integrated information ΦR used by Luppi, Rosas and colleagues share the
+same minimum-mutual-information principle for redundancy18–20 . Their key structural distinction concerns the decomposition:
+MMI-PID resolves information across sources while treating the target as a single block, whereas integrated information
+decomposition (ΦID), the framework underlying ΦR , resolves information across both source and target variables. The scalar
+
+
+                                                                                                                                                                                                                                                                                                    14/33
+ΦR combines selected atoms of this two-sided decomposition (Supplementary Section S7.3).
+
+S7.3 Pairwise revised integrated information
+For the observational comparisons, we use the pairwise Gaussian-MMI formulation of revised integrated information ΦR20 . For
+source blocks xi , x j and their corresponding future blocks yi , y j ,
+
+      ΦWMS
+       ij  = I(x{i, j} ; y{i, j} ) − I(xi ; yi ) − I(x j ; y j ),                                                               (S71)
+          ΦRij = ΦWMS
+                  ij  +         min I(xa ; yb ).                                                                                (S72)
+                              a,b∈{i, j}
+
+The minimum term is the MMI double-redundancy correction. All mutual informations are estimated from a common regularized
+Gaussian joint model. Source and target representations, pair selection and averaging are specified in the corresponding
+experimental protocols.
+
+S7.4 Synergistic–unique–redundant decomposition (SURD)
+Synergistic–Unique–Redundant Decomposition (SURD) separates contributions at each target realization before averaging
+over the target distribution21 . For a source subset A ∈ {X,Y, XY }, its specific information is iA (z) = DKL [p(A | z)∥p(A)]. The
+bivariate decomposition is
+
+        R(z) = min{iX (z), iY (z)}, UX (z) = iX (z) − R(z),
+                                                                                                                                (S73)
+      UY (z) = iY (z) − R(z),                  S(z) = iXY (z) − max{iX (z), iY (z)}.
+
+The displayed synergy is EZ [S(Z)]. Our continuous-data implementation uses degree-three triangular transport maps, 128 target
+values sampled from the observed trajectory and 64 conditional source samples per target value and source subset.
+
+S7.5 MLP-based SHAP interaction (MLP+SHAP)
+MLP+SHAP quantifies non-additivity in the fitted transition predictor using Shapley interaction attribution22, 23 . Let f predict
+zt+1 from the four inputs indexed by F = {w, x, y, z}, with M = 4. For a foreground input x and a retained feature subset S, we
+average f (xS , bF \S ) over empirical background rows b to obtain vx (S). Background coordinates are taken together from the
+same row, preserving their dependence within the replaced subset. The total pair interaction is
+
+                                 |S|!(M − |S| − 2)!
+        Ji j (x) =      ∑                           ∆i j vx (S),
+                     S⊆F \{i, j}
+                                      (M − 1)!                                                                                  (S74)
+      ∆i j v(S) = v(S ∪ {i, j}) − v(S ∪ {i}) − v(S ∪ { j}) + v(S).
+
+This convention sums the two symmetric off-diagonal SHAP interaction entries, so it is twice a single off-diagonal entry. We
+enumerate every feature subset, use 64 observed foreground rows and 64 observed background rows, and report the foreground
+mean of |Jxy |. The score depends on the fitted predictor, its output scale and the empirical background. It is an interaction
+attribution in output units rather than an information quantity.
+
+S7.6 Hierarchical comparison methods
+Each of the five hierarchical baselines starts from six singleton nodes and produces a complete binary tree. Node observations
+are standardized coordinate by coordinate across samples before computing continuous-data dependence or Euclidean distances.
+In Example I, the node observation is the wrapped phase increment, using all 4,800 simulated transitions. In Example II,
+each node retains its initial and future spin, using empirical frequencies from all 48,000 endpoint pairs. In Example III, the
+baselines use the 24,576 training transitions and two predefined representations: the unwrapped increment ∆θi , or the block
+(sin θi (t), cos θi (t), ∆θi ). For each baseline in Example III, the displayed tree is the representation with higher module F1 . MIC,
+MI-HAC and dCor-HAC select the latter representation. AbsCorr-HAC and Ward select increments. This post hoc choice
+explicitly favours the baselines. In all three examples, the baselines use the same simulated transition datasets used to fit the
+MLPs from which the SPTs are constructed. In Example II, the MLP is trained with a 64-class cross-entropy loss to predict the
+complete future spin configuration.
+
+
+
+                                                                                                                                15/33
+Mutual-information estimation. For the continuous observations in I and III, we use the first Kraskov–Stögbauer–Grassberger
+(KSG) estimator with k = 5, Chebyshev distances and strict marginal-neighbour counts24 . A single fixed Gaussian jitter of
+standard deviation 10−10 is added to the standardized coordinates and reused across all pair and group queries to break distance
+ties. Signed finite-sample KSG estimates are retained. KSG is used here to implement the nonparametric MI-clustering
+baselines. For II, entropies and mutual informations are evaluated directly from the empirical categorical distribution of the
+initial–future spin blocks, without continuous jitter or binning.
+
+MIC.    MIC merges the two current groups with the largest normalized mutual information and recomputes group dependence
+after each merger25 . Let uA concatenate the observation coordinates of nodes in group A. In I and III, the merge score is
+I(uA ; uB )/(dA + dB ), where dA and dB are their coordinate dimensions. In II, the discrete score is I(uA ; uB )/H(uA , uB ), set to
+zero if the denominator is zero. Ties are broken lexicographically by ordered node labels. Thus, MIC evaluates concatenated
+groups directly rather than update their similarity by averaging a fixed pairwise matrix.
+
+MI-HAC.       We compute mi j = I(u b i ; u j ) for every node pair using the estimators specified above24 . The off-diagonal dissimilari-
+ties are di j = 1 − mi j /c, with c = max{10−12 , max p<q |m pq |} and dii = 0. Negative KSG estimates therefore give dissimilarities
+greater than one without truncation. The resulting fixed matrix is clustered by average linkage26 .
+
+dCor-HAC.      dCor-HAC uses distance correlation to measure dependence through Euclidean distances between observations
+of each node block27 . We use the biased sample estimator: each node’s sample-distance matrix is double-centred, the mean
+product of two centred matrices gives their squared distance covariance, and normalization by the corresponding distance
+                                                                d i j , is converted to di j = 1 − dCor
+variances gives squared distance correlation. Its square root, dCor                                 d i j and clustered by average
+linkage. In II, the same calculation uses empirical endpoint frequencies, equivalently accounting for repeated observations
+exactly.
+
+AbsCorr-HAC.       We concatenate each node’s standardized observation coordinates across samples into a profile pi and calculate
+its Pearson correlation ri j with every other node profile28 . Average-linkage clustering uses di j = 1 − |ri j |. For a multicoordinate
+node block, this is correlation between aligned flattened profiles, not the maximum or canonical correlation between coordinates.
+Empirical frequencies weight the profiles in II.
+
+Ward.    Ward uses Euclidean distances between the same standardized node profiles and merges the groups producing the
+smallest increase in within-cluster squared error29 :
+
+                     |A||B|
+        ∆(A, B) =            ∥p − pB ∥22 .                                                                                         (S75)
+                    |A| + |B| A
+
+Here pA is the mean node profile in group A. In II, profiles are weighted by square roots of empirical endpoint frequencies,
+preserving the Euclidean geometry of repeated samples up to a common scale. Ward uses its variance criterion directly rather
+than the average-linkage rule.
+
+Linkage, scoring and display. For the three fixed-matrix baselines, average linkage merges the groups minimizing D(A, B) =
+(|A||B|)−1 ∑i∈A, j∈B di j . We use SciPy’s average-linkage and Ward implementations with their default tie handling26, 30 . Optimal
+leaf ordering changes only left–right presentation, not the tree’s clades. All five baseline trees are scored against the same
+planted module sets and exclusions as SPT (Supplementary Section S6).
+
+
+S8 Integrated-effective-information detection of the Kuramoto synchronization transition
+Model and critical reference.    To test whether integrated effective information identifies a collective transition rather than
+merely increasing with coupling, we used the classical globally coupled Kuramoto model
+
+                         K N
+        θ̇i (t) = ωi +     ∑ sin[θ j (t) − θi (t)] ,
+                         N j=1
+                                                       i = 1, . . . , N.                                                           (S76)
+
+
+We set N = 64. For each of two seeds, the natural frequencies were drawn from a zero-mean Gaussian distribution and
+then recentered and rescaled to unit standard deviation. For a Gaussian frequency density g(ω), the infinite-population
+
+
+
+                                                                                                                                   16/33
+Figure 3. Effective information identifies the synchronization transition in the N = 64 Kuramoto model. a, Oracle whole-state
+EI (blue) and the sum of the 64 singleton EIs (orange) across coupling. b, Their difference, Ξ (green, left axis), compared with
+the finite-size-corrected global order parameter (gray, right axis). Curves show means over two independent frequency
+realizations; uncertainty bands, where visible, denote the standard error of the mean. The coupling axis uses a symmetric-log
+scale to resolve both weak coupling and the transition region.
+
+
+synchronization threshold is
+                      √
+              2      2 2π
+      Kc =         =         ≃ 1.60.                                                                                              (S77)
+           πg(0)       π
+
+We scanned 19 coupling values over K ∈ [0, 4], with a denser grid around Kc , so that the information-theoretic curve could be
+compared with both the theoretical threshold and the finite-size synchronization crossover.
+
+Interventional EI protocol.     At each coupling and seed, 220 initial phase configurations were sampled independently from
+the maximum-entropy intervention θi (t) ∼ Unif(0, 2π). Equation (S76) was integrated for τ = 4 with time step ∆t = 0.04.
+                                                                        (i)
+Each oscillator was represented by the periodic source vector xt = (cos θi (t), sin θi (t)), and the target was the complete future
+phase state yt+τ = (cos θ1 (t + τ), sin θ1 (t + τ), . . . , cos θN (t + τ), sin θN (t + τ)) ∈ R128 . Using the known transition equations
+(the Oracle setting), we estimated the joint and singleton EIs with the same degree-one triangular transport-map estimator and
+defined
+                                      N             
+                 (1)          (N)              (i)
+      Ξ(K) = EI xt , . . . , xt ; yt+τ − ∑ EI xt ; yt+τ .                                                                         (S78)
+                                            i=1
+
+The two terms in Eq. (S78) were evaluated under the same factorized intervention ensemble, so their difference isolates the
+future-state constraint that requires the oscillators jointly.
+
+Synchronization audit.   Separately from the intervention ensemble, 360 independent natural initial conditions were propagated
+at each coupling and seed. We computed the standard global order parameter r = N −1 ∑i eiθi and removed its finite-N
+                              √       √
+random-phase baseline r0 = π/(2 N) using rcorr = max{0, (r − r0 )/(1 − r0 )}. This corrected order parameter is only a
+synchronization reference; it is not used in the EI estimator.
+
+Results and interpretation.     Figure 3a shows that both the whole-system EI and the singleton-EI sum decrease as coupling
+compresses the accessible future phase space. The critical signal is therefore not a maximum of total predictability. Instead,
+their difference develops a pronounced interior peak (Fig. 3b): Ξ rises from zero at K = 0 to 193.82 nats at K = 1.7, only 0.10
+above the theoretical threshold in Eq. (S77). The maximum slope of the finite-size, finite-time corrected order curve occurs
+later, at K = 2.2.
+These results establish a three-part evidence chain. First, the order parameter locates the synchronization crossover. Second,
+Ξ peaks at its leading edge, where the joint phase configuration constrains the future substantially more than the sum of
+
+
+                                                                                                                                  17/33
+isolated oscillators does. Third, after phase locking, the future becomes increasingly redundant across oscillators and the
+joint-only advantage collapses even though macroscopic order continues to increase. Thus, effective information detects the
+transition through a redistribution from individually accessible to genuinely collective predictive constraints, rather than through
+a monotonic increase in EI.
+This experiment is an Oracle validation with complete state access and independent maximum-entropy interventions. It
+demonstrates that the EI decomposition can localize the known Kuramoto transition, but it does not by itself constitute an
+observational early-warning method. Moreover, for finite N the transition is a crossover around the thermodynamic-limit value
+Kc .
+
+
+S9 Supplementary results
+
+S9.1 Forecast-scale reorganization in global sea-level pressure
+SLP variability reflects interactions among multiple atmospheric modes, yet how their joint predictive contributions change
+with forecast horizon remains unclear(Supplementary Section S10.1.1). To characterize this horizon dependence, we learned a
+transition model from observed weekly SLP modes and applied PEID under factorized interventions to quantify two-source
+synergistic contributions to each target mode. We represent each source-pair–target relation as a synergistic hyperedge, weighted
+by its corresponding synergistic causality, and examine how the dominant source combinations, their target coverage, and
+individual synergistic relations change across forecast horizons (Fig. 4a–g).
+The leading synergistic relations reorganize markedly with forecast horizon (Fig. 4a–c). At H = 1, strong hyperedges span
+diverse source combinations, with the strongest linking a Maritime Continent–Indo-Pacific warm-pool mode (No. 0) and an
+Arctic-related mode (No. 3) to a western North Pacific target (No. 37). By H = 10, a Maritime Continent mode (No. 0) and an
+equatorial-Pacific ENSO-related mode (No. 1) emerge repeatedly among the leading relations. This concentration becomes
+more pronounced by H = 60, when the strongest hyperedges are dominated by this source pair and extend to widely separated
+targets. The prominence of this tropical pairing is physically notable given the established coupling between Maritime Continent
+and equatorial-Pacific variability through ENSO teleconnections31 . This progression reveals an increasing concentration of
+synergistic predictability around a recurrent tropical source combination at longer forecast horizons.
+To test whether the concentration seen among the strongest hyperedges reflects a broader pattern, we examined the synergistic
+relations across different ranking thresholds (Fig. 4d,e). Among the top 200 hyperedges, the number of distinct source pairs
+decreases from 173 at H = 1 to 44 at H = 60, while the share of positive synergy contributed by the No. 0–No. 1 pair increases
+from 0.6% to 25.3%, confirming that synergistic predictability becomes concentrated around fewer source combinations at
+longer horizons. This increasing source concentration is accompanied by a broader geographical reach (Fig. 4f): for the
+No. 0–No. 1 pair, the maximum target span approaches 20,000 km by H = 15 and then stabilizes, whereas the number of
+reached targets continues to increase from 3 at H = 5 to 27 at H = 60. The dominant pair therefore establishes a broad spatial
+reach before progressively connecting to more targets within that range. At the level of individual hyperedges (Fig. 4g), however,
+different relations follow distinct trajectories with forecast horizon: the No. 0 + No. 3 → No. 37 relation weakens from its
+maximum at H = 1, whereas others peak at intermediate horizons, plateau, or continue to strengthen. The emerging large-scale
+pattern therefore reflects a redistribution among individual synergistic relations rather than a uniform change in their strengths.
+The predictive structure of SLP thus exhibits a scale-dependent synergistic organization, with increasingly concentrated tropical
+source combinations supporting joint predictive contributions across geographically distant targets.
+
+S9.2 Task engagement reconfigures whole-brain synergy
+We applied PEID to resting-state and seven task fMRI conditions from the HCP S1200 release, with 1,015–1,054 eligible
+participants per state (Supplementary Fig. 5a). Mean system-level Ξ was 4.95 nats in REST and 3.24–4.25 nats across tasks.
+Comparisons used the participants available in both REST and each task, and all seven paired contrasts survived false-discovery-
+rate correction. These full-run differences depend partly on sequence length: after matching REST duration to each task, the
+REST advantage persisted for six tasks but reversed for SOCIAL (Supplementary Section S10.2.2).
+Across all eight states, the mean SPT contribution was largest at nodes containing six source networks (Supplementary Fig. 5b),
+while the seven-network root contribution was larger in REST than in any task in the full-run analysis. Functional-network
+attribution also changed with state (Supplementary Fig. 5c). The Limbic network received the smallest mean share throughout,
+whereas the Control share increased from 12.50% in REST to 14.54–17.92% across tasks and peaked during LANGUAGE.
+Thus, state differences involved both the overall information budget and its distribution across network combinations and
+
+
+                                                                                                                              18/33
+functional subsystems.
+The broader distribution of Ξ across participants during REST may partly reflect heterogeneity in ongoing cognition without a
+shared task. Individuals differ in the content and form of spontaneous thought, including memories, future-oriented thinking,
+inner speech and imagery. Experience-sampling and neuroimaging studies document this diversity and associate characteristics
+of self-generated thought with intrinsic brain activity32, 33 . Shared task demands may constrain this source of heterogeneity by
+directing attention toward common stimuli and goals, offering one possible explanation for the narrower distributions observed
+here. Variation in vigilance may also contribute34 . These explanations remain provisional because thought content and vigilance
+were not measured in this analysis, and recording duration and preprocessing also differ across conditions.
+
+S9.3 Low-order ROI attribution below 50 ROI blocks
+Supplementary Fig. 6 complements the high-order maps in main-text Fig. 2g,i,j. Low-order contributions arise below 50
+ROI blocks along the fixed SPT, including local E/I information. Each ROI is treated as one source group containing its E/I
+variables. Results use the mean connectome at G = 0, 1.3 and 10, averaged across three repetitions. Component-specific
+Shapley attribution is described in Supplementary Section S10.2.1.
+At G = 0, all retained information is low order because cross-ROI Syn is zero. At G = 1.3, low-order allocation is weighted
+toward right somatomotor and salience/ventral-attention parcels, with 69.08% in the right hemisphere and a maximum of
+3.46% in RH SomMot 2. The high-order component instead favors left visual parcels. At G = 10, low-order shares span
+3.20 × 10−3 –2.13% per ROI, whereas high-order shares are more uniform (0.61–1.35%). Thus, relative spatial allocation
+differs across order bands even as both absolute budgets decline at extreme coupling.
+
+S9.4 High-order synergistic causal interactions versus structural rankings
+We compared three- and four-ROI groups identified by SPT across 93 participants with groups selected from structural
+connectivity alone, matching the number selected for each participant. Each ROI’s E/I variables formed one source block.
+We ranked each method’s groups by its own participant selection count to compare the regional combinations shared across
+individuals.
+
+SPT identification across participants.  Individual scans covered G = 0–4 in steps of 0.1, with three repetitions per condition,
+2,048 independent uniform E/I inputs on [0.30, 0.70] and the full 200-dimensional state 300 ms later as target. Feedback
+inhibition was fixed after mean-connectome calibration at G = 1. We used the earlier component-corrected affine-TM models,
+with a moment-matched diagonal Gaussian source prior, Gaussian residuals and ridge 10−6 . SPTs used exhaustive splits for at
+most ten ROI blocks and spectral, average-linkage and original-order candidates otherwise, without Yeo-network constraints.
+Local node Syn measures the split between two children, rather than a pure three- or four-source PID atom.
+For each participant, extending the maximal-slope interval of mean excitatory firing rate by 0.2 in G on each side gave six
+transition-window points. A group qualified at a point if its exact ROI set appeared as an SPT node in at least two repetitions
+and exceeded the same-size local-Syn threshold. Thresholds were the 95th percentiles of per-tree maxima from 100 uncoupled
+simulations, using the 88 trees containing triplets and 95 containing quartets. A participant selected a group if it qualified at
+four or more of the six window points. Each participant counted once per selected group, and groups were ranked by their
+participant counts within each size class.
+
+                        For each participant, we ranked all 100                         100
+                                                                
+Structural rankings.                                         3 = 161,700 triplets and 4 = 3,921,225 quartets in the native
+structural matrix C by mean internal weight, weighted clique intensity35 and single-group modularity contribution at resolution
+one36 :
+                 −1
+                  k
+       W (A) =             ∑ Ci j ,
+                  2    i< j, i, j∈A
+                                 !1/(k)
+                                     2
+
+        I(A) =             C            ,                                                                                 (S79)
+                    ∏           ij
+                 i< j, i, j∈A
+                1             si s j 
+      Q(A) =             C   −          ,   si = ∑ Ci j ,   2m = ∑ si .
+               2m i,∑
+                          ij
+                    j∈A        2m                 j               i
+
+
+Here k = |A|. Scores used the native symmetric, non-negative matrices without edge thresholds, edge filling or spatial/network
+
+
+                                                                                                                           19/33
+restrictions. A zero internal edge gives I(A) = 0; Q(A) scores one group without optimizing a complete partition. For each
+participant and size class, each structural method selected its highest-scoring groups in exactly the same number as that
+participant’s qualifying SPT groups. Participants with no qualifying SPT groups selected none under any method. Each method
+then ranked groups by its own participant selection counts. Exact ties were resolved by a fixed, method-independent hash
+ordering based on ROI membership and, for individual selection, participant identity.
+
+Comparison of identified groups.         Supplementary Fig. 7 shows the three most frequently selected groups for each method
+and size. The SPT top three shared no identical ROI set with the top three from any structural method. The leading SPT triplet,
+{10, 11, 12}, was selected in 55 participants, whereas mean internal weight and modularity contribution both favored {3, 6, 49},
+also selected in 55 participants. For quartets, SPT favored {62, 63, 64, 68} (31 participants), whereas mean internal weight
+favored {3, 6, 9, 49} (33 participants). Thus, frequently shared groups occurred under both approaches, but their memberships
+differed. These structural scores did not reproduce the SPT rankings, which additionally incorporate transition dynamics.
+
+
+S10 Real-world datasets and preprocessing
+This section organizes the real-world analyses by domain. The Earth-system part describes the observational sea-level-
+pressure record and the pretrained UniCM transition model; the brain part describes the paired HCP functional data, cortical
+representation, dynamical modeling, and behavioral screening.
+
+S10.1 Earth-system datasets and models
+S10.1.1 Global sea-level pressure
+We use daily mean sea-level pressure (SLP) from the NCEP–NCAR Reanalysis 1 product distributed by the NOAA Physical
+Sciences Laboratory. The field is reported in pascals on a global 2.5◦ × 2.5◦ grid with 73 latitude points and 144 longitude
+points (10,512 grid cells). The downloaded record spans 1 January 1948–17 March 2026. After removing 20 leap days, it
+contains 28,546 daily fields.We first remove 29 February and adopt a common 365-day calendar. At each grid cell and calendar
+day, we compute the climatological mean and standard deviation over the full record and standardize the daily anomalies.
+Invalid or zero standard deviations are replaced by one, and any remaining missing standardized anomalies are set to zero. A
+grid-cell-specific linear trend is then estimated
+                                             √ and removed along the complete daily time axis.To obtain a compact spatial
+representation, we weight each latitude by cos φ , where φ denotes latitude, and average the standardized, detrended fields
+within each calendar month. To match the retained dimensionality of the earlier SLP analysis by Runge et al.37 , we fit a
+60-component full-SVD principal-component model to the monthly fields, apply an orthogonal Varimax rotation to the spatial
+loadings, and order the rotated components by explained variance. The resulting basis is projected onto the complete daily
+anomaly record, after which each component score is centered and scaled to unit sample standard deviation. Consecutive
+non-overlapping 7-day means yield 4,078 weekly 60-dimensional states, ending on 11 March 2026, which serve as inputs
+to the SLP transition-model experiments. For the intervention analysis, the fitted multistep MLP was evaluated with 4,096
+maximum-entropy inputs at each forecast horizon, and all 102,660 two-source–one-target candidates were scored using a
+third-order TM estimator.
+
+Node-level causal effects and higher-order information contributions.       We compared source and target importance using
+average causal effect (ACE) and average causal susceptibility (ACS), following Runge et al.37 , and EI-based scores combining
+first- and second-order contributions. For the linear model with PC-stable parent selection, Ci→ j (τ) is the standardized total
+effect from component i to component j at lag τ, including indirect paths. With N = 60,
+       max
+      Ci→ j = max Ci→ j (τ) .
+              1≤τ≤4
+
+The average causal effect (ACE) and average causal susceptibility (ACS) are
+                 1        max                   1         max
+      ACEi =             Ci→ j,     ACS j =              Ci→ j.                                                           (S80)
+               N −1 ∑
+                    j̸=i                      N − 1 i̸∑
+                                                      =j
+
+
+                                                                                                  (2)
+For the EI-based source and target scores (HACE and HACS), let ei→k denote first-order EI and ∆i j→k the signed second-order
+Möbius increment. The sets Hi out and Hkin contain selected two-source terms involving source i or predicting target k,
+
+
+                                                                                                                          20/33
+respectively. The scores are
+                                                                     (2)
+                1                    1                 |∆i j→k |
+      HACEi =       ∑    |ei→k | +    out       ∑                ,                                                           (S81)
+              N − 1 k̸=i           |Hi | (i, j)→k∈H out 2
+                                                            i
+                   1                    1                         (2)
+      HACSk =          ∑    |ei→k | +                ∑          |∆i j→k |.                                                   (S82)
+                 N − 1 i̸=k           |Hkin |   (i, j)→k∈Hkin
+
+All first-order sums exclude self effects. The factor 1/2 shares each two-source increment equally between its sources; the
+second-order terms are averaged over each node’s selected terms, with empty sets contributing zero.
+The analysis used weekly SLP from 1948–2026, 60 Varimax components, four input lags, one-step prediction and 4,096
+maximum-entropy interventions. The leading 14 sources and their leading 10 targets generated 1,638 second-order candidates.
+A 26-week circular-block surrogate procedure with 20 repetitions retained 287 terms at |z| ≥ 2.
+Across the 60 components, source rankings agreed more closely than target rankings (Spearman ρ = 0.77 for ACE versus
+HACE and ρ = 0.34 for ACS versus HACS; Fig. 8). The five leading HACE components were No. 0, 1, 3, 16 and 9, sharing
+three components with the leading ACE group (No. 1, 0, 16, 8 and 26). The Arctic component No. 3 ranked third in HACE,
+compared with 15th in ACE, highlighting its source-side information contribution. Its HACS rank was 51st, so the analysis
+does not identify it as a prominent information receiver. No. 3 also ranked third using first-order EI alone. Its source importance
+therefore cannot be attributed specifically to the added second-order terms: ACE and HACE differ in both their underlying
+models and the quantities they aggregate.
+
+S10.1.2 Pretrained UniCM transition model
+UniCM is a dual-view spatiotemporal Transformer for joint prediction of global climate modes and gridded ocean–atmosphere
+fields38 . Its Globalformer branch evolves five physical fields, whereas its Modeformer branch evolves a compact set of
+climate-mode indices. Mode-to-patch guidance transfers the Modeformer representation to the spatial tokens of Globalformer,
+thereby coupling the two predictive views. Both branches use encoder–decoder Transformers with separated temporal and
+spatial (or mode-wise) attention.
+The original model was trained on 165 years of curated CMIP6 simulations comprising four runs from CESM2 and EC-Earth3.
+Samples were formed with a 12-month history, a 24-month forecast target, and a one-month sliding stride. Training used
+AdamW with an initial learning rate of 5 × 10−4 , weight decay 10−6 , batch size 32, gradient-norm clipping at 1.0, and dropout
+0.2. A three-epoch linear warm-up was followed by cosine learning-rate decay; training continued for 200 epochs and the
+checkpoint with the lowest validation loss was retained38 . We used the released pretrained weights and did not repeat this
+optimization or fine-tune the model.
+The checkpoint-compatible implementation analyzed here uses five physical channels: sea-surface temperature, zonal and
+meridional surface wind stress, upper-ocean heat content over 0–300 m, and the depth of the 20 ◦ C isotherm. The fields are
+represented on a 5◦ × 5◦ grid of 12 × 72 cells and partitioned into 2 × 2 patches, yielding 216 physical tokens per month.
+Whereas the published formulation reports seven primary climate modes, the released checkpoint variant used here exposes 11
+Modeformer channels: ENSO, NPMM, SPMM, IOB, IOD, SIOD, TNA, Niño 1+2, Niño 3, Niño 4, and a warm-water-volume
+proxy derived from the 20 ◦ C isotherm depth. This distinction is recorded explicitly because the PEID intervention dimension
+is determined by the checkpoint interface rather than by the shorter list in the model overview.
+For PEID, each checkpoint was loaded strictly, placed in evaluation mode, and kept frozen. We queried only the Modeformer
+transition from the full 12-month, 11-mode history to the 24-month autoregressive forecast. The same maximum-entropy
+intervention ensemble was used for all three checkpoints, so between-seed variation reflects pretrained-model variability rather
+than different intervention samples. Actual ORAS5 fit-period trajectories supplied the observational comparison priors and
+calibration data; later observations supplied validation and testing.
+For forecast calibration, monthly ORAS5 trajectories spanning 1980–2018 were transformed into 12-month histories and 24-
+month prediction targets through the 11-mode checkpoint interface. To prevent temporal leakage, calendar-month climatologies
+and field-wide anomaly scales were fitted only on raw months from January 1980 through December 2003, which cover the
+253 calibration-fit issue dates through December 2001 and all of their 24-month targets, and were then frozen for all later
+months. Hyperparameters were selected on 36 issue dates from January 2004 through December 2006, and the untouched test
+set contained 96 issue dates from January 2009 through December 2016, with targets extending through December 2018. The
+intervening 24-month gaps prevent target-month overlap across fit, validation, and test partitions; neither validation nor test
+
+
+                                                                                                                            21/33
+             Table 2. Architecture and analysis settings of the pretrained UniCM checkpoints used in this study.
+
+   Setting                                             Value
+   Architecture                                        Coupled Globalformer and Modeformer encoder–decoder Transformers
+   History and forecast length                         12 and 24 monthly steps, respectively
+   Physical-field input                                Five channels on a 12 × 72 grid
+   Spatial patching                                    2 × 2 cells; 216 tokens per month
+   Modeformer input                                    11 climate-mode channels
+   Latent dimension                                    256
+   Attention heads                                     4
+   Feed-forward dimension                              512
+   Depth per branch                                    4 encoder and 4 decoder layers
+   Seasonal encoding                                   Learned embedding of the 12 calendar months
+   Released checkpoints analyzed                       Three independently trained models
+   Parameters per checkpoint                           14,901,525
+   PEID intervention ensemble                          16,384 independent histories in [−4, 4]12×11
+   Forecast output analyzed                            24-month autoregressive Modeformer trajectory
+   EI estimator                                        First-order affine triangular transport map
+
+
+observations contributed to upstream normalization, fit-only feature standardization, target scaling, coefficient estimation, or
+hyperparameter selection.
+For each scalar target j and lead ℓ, we quantify the information supplied jointly by a subset S of climate modes as v j,ℓ (S) =
+EI(hS → Y j,ℓ ) − ∑m∈S EI(hm → Y j,ℓ ), where hm is a mode’s complete 12-month history. We evaluate all 211 = 2,048 source
+subsets using 16,384 independent uniform histories in [−4, 4]132 for each frozen checkpoint at fixed January phase, then average
+exact Shapley attributions across checkpoints. The 44-feature calibrator combines ensemble forecasts with each source mode’s
+final-history value, mean and trend. Attribution c j,ℓ,m determines the penalty w j,ℓ,m ∝ (c j,ℓ,m + 0.05c̄ j,ℓ )−γ , normalized to mean
+one across sources and applied to all four coefficients of that source.
+Main-text Figure 3i,j retains α = 30,000, γ = 3 and floor fraction 0.05 from the eleven-output validation analysis. Final
+forecast scoring selects the seven primary modes M7 = {ENSO, NPMM, SPMM, IOB, IOD, SIOD, TNA}. For each mode
+and lead, RMSE over the 96 test issue dates is divided by that mode’s fit-period target standard deviation; the reported
+nRMSE is the equal-weight mean over 7 × 24 = 168 mode–lead cells. Thus, evaluation covers 96 × 7 × 24 = 16,128 forecast–
+observation pairs, whose overlapping target windows do not constitute independent samples. The displayed reduction is
+100(1 − nRMSEm /nRMSEFrozen ), computed from these aggregate scores. Uncertainty reuses the original 4,000 paired circular
+12-month block-bootstrap weights, rescoring both methods on the same seven modes in each replicate.
+
+Intervention estimation and observational comparison priors.       The affine TM readout estimates information from Gaussian
+log-determinants of explained and residual covariances. Panels a–h use the known independent input covariance (16/3)I132 ;
+calibration queries use standardized variables and unit source covariance. Both use residual ridge 10−6 .
+The five observational priors use only the same 253 actual fit-period history–future pairs, retaining cross-mode correlations
+and temporal dependence. A joint Gaussian density is fitted after fit-only standardization, with covariance ridge 10−6 ; no
+frozen-model predictions, intervention histories, validation targets or test targets enter these information estimates. For each of
+the 55 mode pairs, we computed ΦWMS and ΦR using the definitions in Supplementary Section S7.3. Forward ΦSI sums the
+two conditional entropies of each future mode given its own history and subtracts the joint future entropy given both histories.
+Pair scores are divided equally between their two sources and broadcast to all prediction targets. Outgoing causal density sums
+I(hm ;Y j,ℓ | h−m ) over j ̸= m and is also broadcast across targets.
+
+Direct grouped SHAP control. Each climate mode’s 12-month history is treated as one source group for SHAP attribution.
+We sample 16 foreground and four nonoverlapping background histories from the fit set. Omitted source groups are replaced
+jointly from one background record, and frozen outputs are averaged over the four backgrounds at fixed January phase. Two
+random source-group orderings and their reverses give four attribution sequences. We average signed marginal contributions
+before taking their absolute values, then average over foreground histories and checkpoints to obtain source weights.
+In the fixed-parameter comparison of main-text Fig. 3j, seven-mode test nRMSE was 1.12 for Ξ-Shapley, 1.25 for Frozen, 1.15
+for grouped SHAP, 1.14 for Univariate and 1.27 for same-parameter Uniform ridge. The observational ΦR , ΦWMS , forward
+
+
+                                                                                                                                 22/33
+ΦSI , outgoing causal-density and full-order Gaussian SURD priors yielded 1.26, 1.20, 1.26, 1.27 and 1.21, respectively. Their
+reductions relative to Frozen were −0.34%, 3.98%, −0.40%, −1.47% and 3.12%, compared with 10.65% for Ξ, 8.62% for
+SHAP and 9.02% for Univariate. The Ξ gains over Uniform and Gaussian SURD were 0.16 (95% paired block-bootstrap
+interval [0.09, 0.21]) and 0.09 ([0.05, 0.14]). SHAP improved over Uniform by 0.13 ([0.08, 0.17]). Panel i compares the original
+prior with 200 source-label permutations using the same fixed calibration parameters. Every permuted prior gave higher test
+nRMSE (P = 1/201 = 4.98 × 10−3 ).
+
+S10.2 Brain data and preprocessing
+S10.2.1 Schaefer-100 structural connectome and dynamic mean-field model
+
+Structural-connectivity data.      The structural input comprised 93 participant-specific diffusion-MRI connectomes from
+healthy-control participants in the UCLA Consortium for Neuropsychiatric Phenomics LA5c dataset39 . Each connectome was
+represented as a non-negative, symmetric 100 × 100 matrix in the Schaefer-100 cortical parcellation40 , with self-connections
+set to zero. We constructed the group matrix by the element-wise arithmetic mean
+
+            1 93 (m)
+       C=      ∑C ,                                                                                                           (S83)
+            93 m=1
+
+without thresholding, binarization, row normalization, or spectral rescaling. Parcel labels followed the Schaefer-100 seven-
+network ordering used for the regional and Yeo-network attribution analyses.
+The resulting group-mean matrix is shown in Supplementary Fig. 9. It is symmetric and dense at the group level (96.18%
+nonzero off-diagonal entries), with a zero diagonal, spectral radius 0.70, mean weighted degree 0.38, and maximum edge
+weight 0.32.
+
+Dynamic mean-field equations.      Each parcel i contained coupled excitatory and inhibitory synaptic-gating variables, SiE and
+Si . Following the reduced whole-brain dynamic mean-field model with feedback inhibitory control (FIC)41 , their input currents
+ I
+
+were
+
+       IiE = WE I0 + w+ JNMDA SiE + GJNMDA ∑ Ci j SEj − JiFIC SiI ,                                                           (S84)
+                                                j
+
+       IiI = WI I0 + JNMDA SiE − SiI .                                                                                        (S85)
+
+The population firing rates were obtained from
+
+      p         p            g p Iip − Ithr
+                                          p 
+     ri = H p Ii =                              p  ,      p ∈ {E, I},                                                       (S86)
+                       1 − exp −d p g p Iip − Ithr
+                              
+
+and the stochastic gating dynamics obeyed
+              E                   
+                 Si
+      dSi = − + γE 1 − Si ri dt + σ dWiE ,
+         E                    E E
+                               
+                                                                                                                              (S87)
+                 τE
+              I         
+                 S
+          I
+       dSi = − + ri dt + σ dWiI ,
+                  i    I
+                                                                                                                              (S88)
+                 τI
+
+where the Wiener processes were independent across populations and parcels. We used WE = 1, WI = 0.7, I0 = 3.82 × 10−1 nA,
+w+ = 1.4, JNMDA = 0.15 nA, (gE , gI ) = (310, 615) nC−1 , (Ithr  E , I I ) = (4.03 × 10−1 , 2.88 × 10−1 ) nA, (d , d ) = (0.16, 8.7 ×
+                                                                      thr                                       E I
+10−2 ) s, (τE , τI ) = (0.10, 0.01) s, γE = 6.41 × 10−1 , and σ = 0.01. The parcel-specific JiFIC values were calibrated at G = 1.0
+to maintain an excitatory rate near 3 Hz and were then held fixed, so that global coupling was the only model parameter varied
+across the scan.
+
+Coupling scan and interventional states.       For main-text Fig. 2a–e, we scanned G = 0, 0.1, . . . , 4.0 separately for all 93
+native connectomes and the independently simulated mean-connectome reference, using three independent repetitions. No
+participant-specific spectral rescaling was applied. FIC values calibrated on the mean connectome at G = 1.0 were shared
+across connectomes and held fixed. FIC calibration and the natural-trajectory firing-rate scan used Euler–Maruyama integration
+with ∆t = 10−4 s, a 1.5-s trajectory and a minimum 0.3-s burn-in. The organization examples in main-text Fig. 2f–j use the
+
+
+                                                                                                                              23/33
+mean connectome at G = 0, 1.3 and 10. The last condition extends beyond the identification scan and is an extreme model
+control.
+                                                                                ind
+Each seed–G condition for Ξ used 2,048 independent full-state inputs, SE , SI ∼ U (0.30, 0.70)100 , propagated for 300 Euler–
+Maruyama steps at ∆t = 10−3 s. The source and common future target were the complete 200-dimensional E/I state. All
+source-subset queries were marginals of one fitted affine-TM Gaussian joint model, with a diagonal source prior matched to the
+intervention moments and a 10−6 numerical ridge.
+The participant curves in main-text Fig. 2b use one regularized family at every G, including zero. Cross-ROI predictors
+are scaled by G in the mean and modified-Cholesky residual regressions, with fixed penalties 0.1 and 10 on their unscaled
+coefficients. Within-ROI regressions remain unpenalized, and an SC connected-component mask is fixed across G. Penalties
+were selected on mean-SC pilot validation samples and frozen for all participants.
+
+Natural-state comparison and transition windows.        The observational baselines used 2,048 full E/I source states drawn with
+replacement from the tail of each natural trajectory and propagated for 300 ms. Sampling retained natural source correlations
+and could repeat states, with as few as 100 distinct source indices in some conditions. We computed pairwise Gaussian-MMI
+ΦR as defined in Supplementary Section S7.3, averaging equally across all 200
+                                                                                 
+                                                                               2   =  19,900 scalar pairs and then across three
+repetitions. Source WMS (Supplementary Section S7.1) used the complete 200-dimensional future target and retained its
+conditional-covariance regularization and pseudoinverse approximation. Thus, these baselines differ from Ξ in sampling
+distribution, with ΦR additionally using pairwise future targets.
+For each participant, the maximal positive finite-difference slope of the independent mean E-rate curve identified a grid interval
+[L,U] of width 0.1 in G. The frozen post hoc window was [L − 0.2,U + 0.2], giving width 0.5 without endpoint truncation. We
+used the first global maximum for Ξ and ΦR , and the first global minimum for WMS. Window endpoints counted as hits; flat
+curves and boundary extrema counted as misses. Classification used unsmoothed three-seed means at the original 0.1 grid
+spacing, without amplitude normalization or peak alignment. The denominator was all 93 participants, excluding the separately
+simulated mean SC. The continuous-G Ξ estimator yielded 71/93 hits, compared with 29/93 for natural pairwise ΦR and 28/93
+for WMS.
+
+Paired transition-window comparison.     We compared participant-level transition-window hits using two-sided exact Mc-
+Nemar tests. The ΦR comparison included 29 joint hits, 42 Ξ-only hits and 22 joint misses; the corresponding WMS counts
+were 28, 43 and 22, with no baseline-only hits in either comparison. Holm correction across the two tests gave adjusted
+P = 4.55 × 10−13 for both.
+
+ROI hierarchies and cortical attribution.        The hierarchies in main-text Fig. 2f,i,j retain every ROI’s E/I pair as one leaf
+block and hold the complete future target fixed. At G = 0, the corrected independent-ROI model gives a representative-tree
+root of 1.41 nats, entirely retained in local E/I leaf contributions; zero cross-ROI joins are merged beneath one displayed root.
+Positive-G trees retain the selected conditional-Gaussian topology, without Yeo constraints. Search is exhaustive for at most
+eight ROI blocks and uses the spectral, average-linkage and original-order candidates stated in Supplementary Section S4 for
+larger sets. At G = 1.3, condensing runs of at least two successive single-ROI exits retains all eight multi-ROI forks and reduces
+display depth from 79 to 15. Diamond color is the maximum original binary Syn in a condensed segment divided by its root Ξ,
+rather than an additive multiway quantity. At G = 10, all 99 binary forks are condensed into one displayed level; their positive
+contributions remain in the original tree. Endpoint leaves share the native ROI order. Heights and branch lengths are schematic.
+The cortical and network maps use the same nine component-corrected affine-TM models (three G values and three repetitions),
+distinct from the continuous-G curve models. At G = 0, these models factorize across ROIs, retaining local E/I information. At
+positive G, the cached SPT topology is frozen and all required node and source-subset values are reevaluated in the attribution
+model, without optimizing the topology again.
+
+Fixed-SPT order bands and within-band ROI attribution.          Here order counts ROI blocks, each containing its E/I variables.
+Let F50 contain the maximal disjoint subtrees with fewer than 50 ROIs in the fixed SPT. For an ROI subset S, let v(S) denote its
+integrated effective information about the complete future state, subtracting the individual scalar-source EIs as above. We define
+
+
+      v<50 (S) =    ∑ v(S ∩ F),       v≥50 (S) = v(S) − v<50 (S).
+                   F∈F50
+
+
+For the complete ROI set, the high-order total equals the sum of reevaluated binary Syn over original SPT nodes containing at
+
+
+                                                                                                                            24/33
+least 50 ROI blocks. The low-order total includes local E/I contributions. We attribute each information component using the
+same 512 random source-group orderings and their reverses. Shapley linearity gives φi,<50 + φi,≥50 = φi , and allocations within
+each component sum to its total. The separation depends on the selected SPT and is not a decomposition into pure-order PID
+atoms.
+Within each order band b, ROI allocations are normalized by the corresponding repetition’s total Vb,s and then averaged as
+⟨100φi,b,s /Vb,s ⟩s . Maps with nonzero totals sum to 100% and share a 0–3.80% color scale; zero-total components are shown in
+gray as N/A. Cortical labels follow the inferred Schaefer ordering of the unlabeled SC archive. The low-order maps and their
+comparison with the high-order component are presented separately in Supplementary Section S9.3.
+
+Within-network and between-network attribution.       For main-text Fig. 2h,i,j, each Yeo network’s within-network contribution
+is Ξ evaluated on its complete E/I source set. Subtracting the sum of these terms from overall Ξ gives the between-network
+residual, which we allocate by exact Shapley attribution over all 27 = 128 network subsets. Both components are normalized
+by the same repetition’s overall Ξ before averaging, so the seven stacked bars jointly sum to 100%. Error bars show the
+three-repetition SDs of within-network and combined contributions, retaining covariance between components. Within/between
+shares are 100.0/0.0%, 33.8/66.2% and 14.7/85.3% at the three couplings.
+
+S10.2.2 HCP Schaefer-1000 functional data and state comparisons
+
+Participants and cortical representation.        We used all eligible standard-length LR runs from the HCP S1200 release,
+comprising 1,071 participants with at least one eligible state. State-wise sample sizes were 1,054 for REST, 1,017 for
+EMOTION, 1,053 for GAMBLING, 1,023 for LANGUAGE, 1,049 for MOTOR, 1,015 for RELATIONAL, 1,025 for SOCIAL
+and 1,054 for WM. A missing or ineligible run excluded only that participant–state combination. REST–task comparisons used
+the paired intersection for each task, with 1,001–1,038 participants. All series used the Schaefer-1000 parcellation and seven
+Yeo networks, without global signal regression. Within each network, one principal component was fitted on the first 75% of
+the run. For tasks, PCA used the task-related component reconstructed from the temporal design by ordinary least squares, and
+its loadings were applied to the retained signal; REST PCA used the resting-state signal directly. This yielded seven network
+scores per time point.
+
+Transition model and information queries.       Each participant–state series was fitted independently with a third-order linear
+∆-Ridge model (α = 1), using the first 75% of samples. The remaining samples provided prediction diagnostics. The source
+contained three lags of each network score (21 scalar coordinates), and every source subset retained the same seven-dimensional
+next-state target. Interventions were independent standard Gaussian inputs in the standardized source coordinates. All EI
+queries used analytic log-determinant calculations from one affine-Gaussian transport-map channel, marginalizing omitted
+sources under that intervention. Because the task-design reconstruction and original temporal preprocessing used the complete
+run, the final segment is a dynamics diagnostic rather than a fully independent prospective test.
+
+SPT contributions and network attribution.      The three lags of each network formed one source block. SPT construction
+exhaustively evaluated candidate binary splits and continued to singleton networks. For Supplementary Fig. 5b, local split
+contributions were summed by the number of networks in their parent node, then averaged across participants. Their sum
+is the between-network component; within-network contributions remain in the leaf blocks. For panel c, each network’s
+within-network Ξ was added to its exact Shapley allocation of the between-network residual, evaluated over all 27 = 128
+network subsets. These seven contributions sum to system-level Ξ. Each participant’s allocations were normalized by that
+participant’s own Ξ before averaging.
+
+Paired comparisons and sequence-length sensitivity. REST was contrasted with each task using two-sided paired
+Wilcoxon tests, followed by Benjamini–Hochberg correction across the seven contrasts at a false-discovery rate of 0.0542 . The
+participant was the pairing unit. For the duration control, each REST run supplied 12 evenly spaced windows matching that
+participant’s task length. PCA and dynamics were refitted within each window, and the 12 estimates were averaged before
+participant-level comparison. The REST advantage remained significant for six tasks but reversed for SOCIAL. Control-network
+share increases persisted across all seven tasks in this duration control.
+
+S10.3 Urban mobility data and preprocessing
+Trip records and spatial aggregation. We used the publicly downloadable 2023 New York City Taxi and Limousine
+Commission Yellow Taxi Trip Records. Starting from 38,310,226 raw trips, we retained trips whose pickup and drop-off
+
+
+                                                                                                                          25/33
+locations were both among 66 active Manhattan taxi zones and differed from one another. The three inactive Manhattan zone
+identifiers 103–105 were excluded. Trips were aggregated into 8,760 consecutive hourly observations. For each zone and hour,
+inflow was defined as the number of retained trips ending in that zone at the drop-off hour, and outflow as the number beginning
+in that zone at the pickup hour.
+
+Temporal split and model inputs.          Samples were divided chronologically into 70% training, 20% validation, and 10%
+test sets; all standardization statistics were estimated from training target times only. We reproduced the multi-granularity
+spatio-temporal network (MGSTN)43 , which predicts next-hour inflow and outflow for all 66 zones from three non-overlapping
+temporal branches. The recent branch used the preceding 7 consecutive hours, the daily branch used the same hour from the
+preceding 5 days, and the weekly branch used the same hour from the preceding 7 weeks. Calendar and weather attributes
+were supplied to the corresponding temporal inputs. Three independently trained model checkpoints were frozen before the
+information analysis.
+
+Representative traffic states.   State-conditioned analyses used three representative timestamps selected within the validation
+period. Weekday peak was the highest-total-flow observation among weekdays at 08:00–09:00, weekend midday was the
+highest-total-flow observation among weekends at 12:00–14:00, and rainy high demand was the highest-total-flow observation
+among hours with positive precipitation. These timestamps define controlled model states for comparing the estimated
+information quantities.
+
+Temporal source groups and regional synergy.              For zone i, the recent, daily and weekly histories were denoted by ri ,
+d i and wi , respectively, and yi was the next-hour inflow–outflow target. The regional analysis compared recent history with
+                                                                                                               space
+the combined periodic history, mi = (d i , wi ), using Sitime = I(ri ; mi | yi ). The spatial comparison used Si     = I(hi ; h−i | yi ),
+where hi contained all three histories for zone i, and h−i contained the histories of the other zones. Figure 4c reports
+                            space
+∑i Sitime /(∑i Sitime + ∑i Si ), averaged across checkpoints. This quantity compares two binary partitions; it does not isolate a
+contribution requiring all three temporal scales.
+
+Finite-amplitude interventions and estimation.         The two source blocks in each regional comparison were independently
+bootstrapped from training-period empirical windows. Within the periodic block, daily and weekly histories came from the
+same sampled window, preserving their empirical dependence. For temporal interventions, the other zones remained at the
+representative state. For spatial interventions, the complete history of the target zone was sampled independently of the other
+zones’ histories. Calendar and weather inputs remained fixed at the representative state. Each frozen MGSTN checkpoint
+generated the intervention response, to which noise estimated from that checkpoint’s validation residuals was added. Each zone,
+traffic state and checkpoint used 4,096 interventions. Inputs were encoded by positive-occurrence indicators and log(1 + x)
+magnitudes, then reduced to two principal components per block. PCA and second-order autoregressive triangular transport
+maps were fitted on 70% of the intervention samples; conditional mutual information was evaluated on the remaining 30%.
+
+Citywide temporal hierarchy.     The SPT analysis retained recent, daily and weekly histories separately for every zone, giving
+66 × 3 = 198 source blocks. Each block was bootstrapped independently from training-period windows and represented by
+two standardized principal components of the same indicator–magnitude encoding. All blocks shared 4,096 interventions,
+with preprocessing and density estimation fitted on the same 70% subset. The target was the joint 132-dimensional next-hour
+inflow–outflow vector for all zones, with validation-residual noise added. To evaluate the many high-dimensional subset queries,
+EI values were computed from a common affine/Gaussian channel fitted to these source components and target responses. The
+unconstrained SPT selected splits by maximizing the sum of child Ξ, searching all binary splits for nodes of at most eight
+source blocks and spectral candidates for larger nodes, and continued to singleton blocks. A separate time-block-constrained
+analysis compared all three ways to isolate one complete temporal scale at the root, then split the remaining pair into its two
+scales before searching within-scale spatial structure. Neither tree premerged daily and weekly histories.
+
+
+References
+ 1. Hoel, E. P., Albantakis, L. & Tononi, G. Quantifying causal emergence shows that macro can beat micro. Proc. Natl. Acad.
+    Sci. 110, 19790 – 19795 (2013).
+ 2. Hoel, E. P. When the map is better than the territory. Entropy 19, 188, DOI: 10.3390/e19050188 (2017).
+ 3. Baptista, R., Marzouk, Y. & Zahm, O. On the representation and learning of monotone triangular transport maps.
+    Foundations Comput. Math. 24, 2063–2108 (2024).
+
+
+                                                                                                                                  26/33
+ 4. Williams, P. L. & Beer, R. D. Nonnegative decomposition of multivariate information. ArXiv abs/1004.2515 (2010).
+ 5. Bertschinger, N., Rauh, J., Olbrich, E. & Jost, J. Shared information—new insights and problems in decomposing
+    information in complex systems. In Proceedings of the European Conference on Complex Systems 2012, Springer
+    Proceedings in Complexity, 251–269, DOI: 10.1007/978-3-319-00395-5_35 (Springer, Dordrecht, 2013).
+ 6. Harder, M., Salge, C. & Polani, D. Bivariate measure of redundant information. Phys. Rev. E 87, 012130, DOI:
+    10.1103/PhysRevE.87.012130 (2013).
+ 7. Rauh, J., Banerjee, P. K., Olbrich, E., Jost, J. & Bertschinger, N. On extractable shared information. Entropy 19, 328, DOI:
+    10.3390/e19070328 (2017).
+ 8. Oizumi, M., Amari, S.-i., Yanagawa, T., Fujii, N. & Tsuchiya, N. Measuring integrated information from the decoding
+    perspective. PLOS Comput. Biol. 12, e1004654, DOI: 10.1371/journal.pcbi.1004654 (2016).
+ 9. Chirikov, B. V. A universal instability of many-dimensional oscillator systems. Phys. Reports 52, 263–379, DOI:
+    10.1016/0370-1573(79)90023-1 (1979).
+10. Wilson, H. R. & Cowan, J. D. Excitatory and inhibitory interactions in localized populations of model neurons. Biophys. J.
+    12, 1–24, DOI: 10.1016/S0006-3495(72)86068-5 (1972).
+11. Shinomoto, S. & Kuramoto, Y. Phase transitions in active rotator systems. Prog. Theor. Phys. 75, 1105–1110, DOI:
+    10.1143/PTP.75.1105 (1986).
+12. Hénon, M. A two-dimensional mapping with a strange attractor. Commun. Math. Phys. 50, 69–77, DOI: 10.1007/
+    BF01608556 (1976).
+13. Ikeda, K. Multiple-valued stationary state and its instability of the transmitted light by a ring cavity system. Opt. Commun.
+    30, 257–261, DOI: 10.1016/0030-4018(79)90090-7 (1979).
+14. Nicholson, A. J. & Bailey, V. A. The balance of animal populations—part i. Proc. Zool. Soc. Lond. 105, 551–598, DOI:
+    10.1111/j.1096-3642.1935.tb01680.x (1935).
+15. Lucas, M., Cencetti, G. & Battiston, F. Multiorder Laplacian for synchronization in higher-order networks. Phys. Rev. Res.
+    2, 033410, DOI: 10.1103/PhysRevResearch.2.033410 (2020).
+16. Tang, Y., Shi, D. & Lü, L. Optimizing higher-order network topology for synchronization of coupled phase oscillators.
+    Commun. Phys. 5, 96, DOI: 10.1038/s42005-022-00870-x (2022).
+17. Mediano, P. A. M., Seth, A. K. & Barrett, A. B. Measuring integrated information: Comparison of candidate measures in
+    theory and simulation. Entropy 21, 17, DOI: 10.3390/e21010017 (2019).
+18. Barrett, A. B. Exploration of synergistic and redundant information sharing in static and dynamical gaussian systems.
+    Phys. Rev. E 91, 052802, DOI: 10.1103/PhysRevE.91.052802 (2015).
+19. Luppi, A. I. et al. A synergistic workspace for human consciousness revealed by integrated information decomposition.
+    eLife 12, RP88173, DOI: 10.7554/eLife.88173 (2024).
+20. Mediano, P. A. M. et al. Toward a unified taxonomy of information dynamics via integrated information decomposition.
+    Proc. Natl. Acad. Sci. United States Am. 122 (2025).
+21. Martínez-Sánchez, Á., Arranz, G. & Lozano-Dur’an, A. Decomposing causality into its synergistic, unique, and redundant
+    components. Nat. Commun. 15 (2024).
+22. Lundberg, S. M. & Lee, S.-I. A unified approach to interpreting model predictions. In Advances in Neural Information
+    Processing Systems, vol. 30 (Curran Associates, Inc., 2017).
+23. Lundberg, S. M. et al. From local explanations to global understanding with explainable AI for trees. Nat. Mach. Intell. 2,
+    56–67, DOI: 10.1038/s42256-019-0138-9 (2020).
+24. Kraskov, A., Stögbauer, H. & Grassberger, P. Estimating mutual information. Phys. Rev. E 69, 066138, DOI: 10.1103/
+    PhysRevE.69.066138 (2004).
+25. Kraskov, A., Stögbauer, H., Andrzejak, R. G. & Grassberger, P. Hierarchical clustering using mutual information. Europhys.
+    Lett. 70, 278–284, DOI: 10.1209/epl/i2004-10483-y (2005).
+26. Müllner, D. Modern hierarchical, agglomerative clustering algorithms. arXiv preprint arXiv:1109.2378 DOI: 10.48550/
+    arXiv.1109.2378 (2011).
+27. Székely, G. J., Rizzo, M. L. & Bakirov, N. K. Measuring and testing dependence by correlation of distances. The Annals
+    Stat. 35, 2769–2794, DOI: 10.1214/009053607000000505 (2007).
+
+
+                                                                                                                          27/33
+28. de Hoon, M. J. L., Imoto, S., Nolan, J. & Miyano, S. Open source clustering software. Bioinformatics 20, 1453–1454,
+    DOI: 10.1093/bioinformatics/bth078 (2004).
+29. Ward, J. H., Jr. Hierarchical grouping to optimize an objective function. J. Am. Stat. Assoc. 58, 236–244, DOI:
+    10.1080/01621459.1963.10500845 (1963).
+30. Virtanen, P. et al. SciPy 1.0: fundamental algorithms for scientific computing in Python. Nat. Methods 17, 261–272, DOI:
+    10.1038/s41592-019-0686-2 (2020).
+31. Chen, C. et al. Enso–rainfall teleconnection over the maritime continent enhances and shifts eastward under warming. J.
+    Clim. 36, 4635–4663, DOI: 10.1175/JCLI-D-23-0036.1 (2023).
+32. Gorgolewski, K. J. et al. A correspondence between individual differences in the brain’s intrinsic functional architecture
+    and the content and form of self-generated thoughts. PLOS ONE 9, e97176, DOI: 10.1371/journal.pone.0097176 (2014).
+33. Hurlburt, R. T., Alderson-Day, B., Fernyhough, C. & Kühn, S. What goes on in the resting-state? a qualitative glimpse into
+    resting-state experience in the scanner. Front. Psychol. 6, 1535, DOI: 10.3389/fpsyg.2015.01535 (2015).
+34. Tagliazucchi, E. & Laufs, H. Decoding wakefulness levels from typical fMRI resting-state data reveals reliable drifts
+    between wakefulness and sleep. Neuron 82, 695–708, DOI: 10.1016/j.neuron.2014.03.020 (2014).
+35. Onnela, J.-P., Saramäki, J., Kertész, J. & Kaski, K. Intensity and coherence of motifs in weighted complex networks. Phys.
+    Rev. E 71, 065103, DOI: 10.1103/PhysRevE.71.065103 (2005).
+36. Newman, M. E. J. Analysis of weighted networks. Phys. Rev. E 70, 056131, DOI: 10.1103/PhysRevE.70.056131 (2004).
+37. Runge, J. et al. Identifying causal gateways and mediators in complex spatio-temporal systems. Nat. Commun. 6, 8502,
+    DOI: 10.1038/ncomms9502 (2015).
+38. Yuan, Y., Ding, J., Qiu, Z., Fan, J. & Li, Y. Learning the coupled dynamics of global climate modes. Nat. Mach. Intell. 8,
+    930–941, DOI: 10.1038/s42256-026-01245-5 (2026).
+39. Poldrack, R. A. et al. A phenome-wide examination of neural and cognitive function. Sci. Data 3, 160110, DOI:
+    10.1038/sdata.2016.110 (2016).
+40. Schaefer, A. et al. Local–global parcellation of the human cerebral cortex from intrinsic functional connectivity MRI.
+    Cereb. Cortex 28, 3095–3114, DOI: 10.1093/cercor/bhx179 (2018).
+41. Deco, G. et al. How local excitation–inhibition ratio impacts the whole brain dynamics. J. Neurosci. 34, 7886–7898, DOI:
+    10.1523/JNEUROSCI.5068-13.2014 (2014).
+42. Benjamini, Y. & Hochberg, Y. Controlling the false discovery rate: A practical and powerful approach to multiple testing.
+    J. Royal Stat. Soc. Ser. B (Methodological) 57, 289–300, DOI: 10.1111/j.2517-6161.1995.tb02031.x (1995).
+43. Shi, X. et al. MGSTN: A multi-granularity spatio-temporal network for citywide traffic forecasting. Appl. Soft Comput.
+    202, 115896, DOI: 10.1016/j.asoc.2026.115896 (2026).
+
+
+
+
+                                                                                                                        28/33
+Figure 4. Forecast-scale reorganization of two-source synergistic relations in global sea-level pressure. a–c, The ten
+highest-ranked two-source synergistic relations at forecast horizons H = 1, 10, and 60; each source-pair–target relation is
+displayed as a hyperedge. Blue nodes denote source components, green nodes denote components appearing only as targets,
+and purple junctions and arrows show where the two source modes are combined and linked to the target; line width scales with
+SynEID
+     H (L, R) for the displayed target. d, Number of distinct source pairs represented by at least one positive-synergy relation
+among the global top-K rankings for K = 50, 100, 200, and 500. Inclusion in a top-K set is a ranking criterion rather than a
+statistical-significance test. e, Source-pair composition of the total positive synergy mass among the top 200 relations,
+highlighting the increasing contribution of the Maritime Continent–equatorial Pacific source pair (No. 0 + No. 1); gray denotes
+all remaining source pairs. f, Maximum great-circle span (km) and number of distinct targets reached by the Maritime
+Continent–equatorial Pacific source pair (No. 0 + No. 1) within the top 200 relations. g, Horizon-dependent SynEIDH profiles for
+five representative relations.
+
+
+
+
+                                                                                                                          29/33
+Figure 5. Task-dependent synergistic organization in the expanded HCP cohort. a, System-level Ξ in REST and seven
+task states, using all eligible participants in each state. Points denote participants; boxes show medians and interquartile ranges,
+whiskers extend to the most extreme observations within 1.5 interquartile ranges, and diamonds denote means. Labels give
+state-wise sample sizes and the REST–task paired intersections. All seven two-sided paired Wilcoxon contrasts survive
+Benjamini–Hochberg correction (q < 10−4 ). b, Mean local SPT contribution summed by parent-node size, measured as the
+number of source networks. These contributions resolve the between-network information component. c, Conserved network
+attribution, combining within-network information and Shapley allocation of the between-network component. Contributions
+are divided by each participant’s system-level Ξ before averaging; each column sums to 100%. Vis, Visual; SM, Somatomotor;
+DAN, Dorsal Attention; VAN, Salience/Ventral Attention; Lim, Limbic; Cont, Control; DMN, Default Mode. Methods and
+sequence-length sensitivity are described in Supplementary Section S10.2.2.
+
+
+
+
+                                                                                                                             30/33
+  Low order: < 50 ROI · within-band % · mean across 3 seeds
+
+                     G=0                                      G = 1.3                             G = 10
+
+
+             Total: 1.354 ± 0.060 nats                 Total: 9.693 ± 0.172 nats           Total: 0.198 ± 0.005 nats
+
+                                                                                                                         3.80
+
+
+
+
+                                                                                                                                ROI share within low order (%)
+                                                                                                                         2.85
+
+
+                                                                                                                         1.90
+
+
+                                                                                                                         0.95
+
+
+                                                                                                                         0.00
+
+
+
+
+Figure 6. Low-order ROI allocation complements the high-order maps in main-text Fig. 2g,i,j. Columns show G = 0,
+1.3 and 10; lateral views are above medial views, with left and right hemispheres in each row. Each seed’s low-order allocation
+is divided by its own low-order total before averaging across three repetitions. Every column sums to 100%, and the common
+0–3.80% scale matches the main high-order maps. Titles give low-order totals: 1.35 ± 0.06, 9.69 ± 0.17 and
+0.20 ± 5.00 × 10−3 nats (mean ± seed SD). Low order includes within-ROI E/I information and contributions below 50 ROI
+blocks along the fixed SPT path. Medial walls are gray.
+
+
+
+
+Figure 7. SPT and structural connectivity select different groups under matched participant-level selection counts. a,
+Three-ROI groups. b, Four-ROI groups. Each method shows its three groups with the highest participant selection counts
+among 93 participants. For each participant and group size, each structural method selects the same number of groups as SPT,
+using mean internal weight W (A), weighted clique intensity I(A) or modularity contribution Q(A) (Eq. S79). Each bar reports
+that method’s own selection count; braces give complete, one-based ROI memberships. Colours distinguish methods. A dagger
+marks a group tied at the third-place frequency, resolved by the common fixed ordering.
+
+
+                                                                                                                         31/33
+Figure 8. Source and target importance from linear causal effects and EI-based contributions. a, ACE and ACS from the linear
+model with PC-stable parent selection. b, HACE and HACS combining first-order EI and surrogate-screened second-order
+increments. First-order self effects are excluded in both panels. Outer rings show source scores (ACE or HACE), and inner
+discs show target scores (ACS or HACS). The arrow-ended scale indicates HACE values above the upper colour limit.
+
+
+
+
+                                                                                                                      32/33
+Figure 9. Group-mean structural connectivity used in the Schaefer-100 DMF experiment. Each entry is the element-wise
+mean across 93 participant matrices. ROIs retain the model input order (left hemisphere followed by right hemisphere), with
+Yeo seven-network blocks separated by white lines. The matrix used by the model was not thresholded or rescaled; logarithmic
+color normalization is used only for visualization, and zero entries are shown in white. SC weights are reported in arbitrary
+units because the source archive did not document their physical unit.
+
+
+
+
+                                                                                                                       33/33
+

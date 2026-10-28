@@ -1,0 +1,225 @@
+S2 PID axiomatic background
+This appendix briefly reviews the axiomatic language of partial information decomposition (PID), which will be used to justify the correspondence between PEID and PID in the three-variable case.
+For two source variables X1, X2 and one target variable Y , the joint mutual information is decomposed as
+I(X1, X2;Y ) = Red(X1, X2;Y ) +Un(X1;Y | X2) +Un(X2;Y | X1) + Syn(X1, X2;Y ). (S20)
+Here Red(·) denotes the redundancy term, while the unique and synergistic terms are induced by the redundancy function. In this paper, we only use the following standard axioms.
+Symmetry (S). The redundancy is invariant under any permutation π of the source indices {1, . . . , k}:
+Red(A1, . . . , Ak; S) = Red(Aπ(1), . . . , Aπ(k); S). (S21)
+Self-redundancy (I). For a single source, redundancy reduces to ordinary mutual information:
+Red(A; S) = I(A; S). (S22)
+Monotonicity (M). Redundancy cannot increase when more sources are included:
+Red(A1, . . . , Ak; S) ≤ Red(A1, . . . , Ak−1; S). (S23)
+Identity (Id). When the target is the union of the two sources,
+Red(A1, A2; A1 ∪ A2) = I(A1; A2). (S24)
+Left chain rule (LC). For two target variables S and S′ and source variables A1, . . . , Ak, the redundancy associated with the joint target (S, S′) satisfies
+Red(A1, . . . , Ak; S, S′) = Red(A1, . . . , Ak; S) + Red(A1, . . . , Ak; S′ | S). (S25)
+5/34
+
+
+Here the conditional redundancy term is defined by averaging the redundancy under the conditional distributions:
+Red(A1, . . . , Ak; S′ | S) := s∑
+p(s) Redp(·|s)(A1, . . . , Ak; S′). (S26)
+This axiom can be understood as a redundancy-level analogue of the chain rule for mutual information. It specifies how shared information about a composite target can be decomposed into shared information about the first target component and additional shared information about the second target component conditioned on the first.
+Under these axioms, the unique term is determined by
+Un(X1;Y | X2) = I(X1;Y ) − Red(X1, X2;Y ), (S27)
+while the synergy term is then fixed by Eq. (S20).
+S3 Proofs of the PEID properties
+This section establishes the principal theoretical properties of PEID used in the main text. We first prove that, for two independently intervened source variables, the PID redundancy vanishes and integrated effective information reduces to two-source synergy. We then prove the non-negativity and upper bound of integrated effective information for an arbitrary non-empty source set. Finally, we establish its hierarchical additivity under recursive binary partitioning. Unless stated otherwise, A, B ⊆ V denote non-empty source and target index sets, and all information quantities are evaluated under the common intervention-induced distribution ql(xt , xt+l).
+S3.1 Proof of the two-source PEID–PID correspondence
+Proof of Proposition 1. Consider two source variables X(i)
+t and X ( j)
+t , and an arbitrary non-empty target subset xB
+t+l = (X (k)
+t+l)k∈B.
+The factorized maximum-entropy intervention implies
+X (i)
+t ⊥ X( j)
+t . (S28)
+Apply the target chain rule for redundancy to the augmented target (X(i)
+t , X( j)
+t , xB
+t+l). Decomposing this target in two different orders gives
+Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t , xB
+t+l
+= Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t + Redql X (i)
+t , X( j)
+t ; xB
+t+l | X (i)
+t , X( j)
+t , (S29)
+and
+Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t , xB
+t+l
+= Redql X (i)
+t , X( j)
+t ; xB
+t+l + Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t | xB
+t+l . (S30)
+By the identity axiom and Eq. (S28),
+Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t = Iql X (i)
+t ; X( j)
+t = 0. (S31)
+Moreover, monotonicity and non-negativity imply
+0 ≤ Redql X (i)
+t , X( j)
+t ; xB
+t+l | X (i)
+t , X( j)
+t
+≤ Iql X (i)
+t , X( j)
+t ; xB
+t+l | X (i)
+t , X( j)
+t = 0. (S32)
+The conditional redundancy in Eq. (S32) is therefore zero. Equating Eqs. (S29) and (S30) consequently gives
+0 = Redql X (i)
+t , X( j)
+t ; xB
+t+l
++ Redql X (i)
+t , X( j)
+t ; X (i)
+t , X( j)
+t | xB
+t+l . (S33)
+6/34
+
+
+Both terms on the right-hand side are non-negative, and hence
+Redql X (i)
+t , X( j)
+t ; xB
+t+l = 0. (S34)
+The two unique-information terms therefore reduce to
+Unql X (i)
+t ; xB
+t+l | X ( j)
+t = EIl({i} → B),
+Unql X ( j)
+t ; xB
+t+l | X (i)
+t = EIl({ j} → B). (S35)
+Substitution into the two-source PID identity yields
+Synql X (i)
+t , X( j)
+t ; xB
+t+l
+= EIl({i, j} → B) − EIl({i} → B) − EIl({ j} → B). (S36)
+Thus, under the factorized intervention, two-source PEID synergy coincides with the corresponding PID synergy.
+S3.2 Proof of the non-negativity of integrated effective information
+Proof of Theorem 1. The proof strategy parallels the information-theoretic argument used by Oizumi et al. to establish the lower and upper bounds of integrated information4. Let A, B ⊆ V be arbitrary non-empty source and target index sets. By definition,
+Ξl(A → B) = EIl(A → B) − i∈∑A
+EIl({i} → B). (S37)
+Expanding the mutual information terms in entropy form gives
+Ξl(A → B) = Hql xA
+t − Hql xA
+t | xB
+t+l
+− i∈∑A
+Hql X (i)
+t + i∈∑A
+Hql X (i)
+t | xB
+t+l . (S38)
+The factorized maximum-entropy intervention implies
+qmax xA
+t = i∈∏A
+qmax
+i X (i)
+t , (S39)
+and hence
+Hql xA
+t = i∈∑A
+Hql X (i)
+t . (S40)
+The unconditional entropy terms in Eq. (S38) therefore cancel, yielding
+Ξl(A → B) = i∈∑A
+Hql X (i)
+t | xB
+t+l − Hql xA
+t | xB
+t+l
+= TCql {X (i)
+t }i∈A | xB
+t+l . (S41)
+The conditional total correlation admits the Kullback–Leibler representation
+Ξl(A → B) = Eql(xB
+t +l )
+"
+DKL ql xA
+t | xB
+t+l i∈∏A
+ql X (i)
+t | xB
+t+l
+!#
+≥ 0. (S42)
+This establishes the lower bound. The upper bound follows directly from Eq. (S37), because every singleton effective information is non-negative:
+Ξl(A → B) ≤ EIl(A → B). (S43)
+7/34
+
+
+It remains to identify the two-source special case. If A = {i, j}, Eq. (S41) reduces to
+Ξl({i, j} → B) = Iql X (i)
+t ; X( j)
+t | xB
+t+l
+= EIl({i, j} → B) − EIl({i} → B) − EIl({ j} → B). (S44)
+By Proposition 1, the final expression is exactly the two-source PID synergy. Therefore,
+Ξl({i, j} → B) = Synql X (i)
+t , X( j)
+t ; xB
+t+l ≥ 0. (S45)
+Thus, integrated effective information is non-negative for an arbitrary number of source variables and reduces to non-negative synergy when the source set contains exactly two variables.
+S3.3 Proof of hierarchical additivity
+Proof of Theorem 2. Let P be a partition of A, and let M⋆ ∈ P be refined by another partition R = {R1, . . . , Rk}. Define P′ = (P \ {M⋆}) ∪ R.
+Because P′ replaces M⋆ with the blocks in R,
+Ξl(A → B) − ∑
+M ∈P ′
+Ξl(M → B) = Ξl(A → B) − ∑
+M∈P \{M⋆ }
+Ξl(M → B)
+−∑
+R∈R
+Ξl(R → B). (S46)
+Adding and subtracting Ξl(M⋆ → B) gives
+Ξl(A → B) − ∑
+M ∈P ′
+Ξl(M → B) =
+"
+Ξl(A → B) − ∑
+M∈P
+Ξl(M → B)
+#
++
+"
+Ξl(M⋆ → B) − ∑
+R∈R
+Ξl(R → B)
+#
+. (S47)
+This proves hierarchical additivity under partition refinement.
+As a special case, if A = L  ̇∪ R, refinement to the finest partitions within L and R yields
+Ξl(A → B) = Ξl(L → B) + Ξl(R → B) + SynEID
+l (L, R → B). (S48)

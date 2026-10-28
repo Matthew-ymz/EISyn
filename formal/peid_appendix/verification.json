@@ -1,0 +1,218 @@
+{
+  "checked_date": "2026-10-27",
+  "lean_version": "Lean (version 4.29.0, arm64-apple-darwin24.6.0, commit 98dc76e3c0a9b856c9b98726b713fb04fab16740, Release)",
+  "theorem_count_including_helpers": 41,
+  "errors": 0,
+  "warnings": 0,
+  "modules": {
+    "Appendix.lean": {
+      "source_sha256": "baf90f7b7e822727c2e1738837b1dec7a8f15688cbaa7cd2c030211efff86c3d",
+      "theorem_count_including_helpers": 35,
+      "axiom_audit": {
+        "sumOn_append": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "sumOn_sub": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "sumOn_add": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "sumOn_congr": [
+          "propext"
+        ],
+        "sumOn_scale": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "sumOn_flatten": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "xi_singleton": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "ei_budget": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "binary_xi_residual": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "hierarchical_refinement": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "binary_hierarchy": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "tree_budget": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "marginal_telescope": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "marginal_linearity": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "averaged_marginal_efficiency": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "entropy_cancellation": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "two_source_information_identity": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "independent_two_source_identity": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "determinism_degeneracy": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "normalized_determinism": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "sumOn_nonnegative": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "xi_upper_bound": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "xi_nonnegative_from_entropy": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "score_residual_order": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "redundancy_zero": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "pid_correspondence": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "minTwo_bounds": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "minTwo_lower": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "minTwo_symmetry": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "minTwo_monotone": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "witness_pid_nonnegative": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "witness_symmetry": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "witness_target_processing": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "witness_identity": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "witness_source_inclusion": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ]
+      }
+    },
+    "Counterexamples.lean": {
+      "source_sha256": "acd4f51605229a493de3006345a647ec955914ceb10f4353ade983587c6ebedc",
+      "theorem_count_including_helpers": 6,
+      "axiom_audit": {
+        "different_unordered_candidate_sets": [
+          "Quot.sound",
+          "propext"
+        ],
+        "affinity_degrees": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "tied_laplacian_eigenvector": [
+          "Classical.choice",
+          "Quot.sound",
+          "propext"
+        ],
+        "tied_direction_nonconstant": [
+          "Quot.sound",
+          "propext"
+        ],
+        "full_pool_sign_change": [
+          "Quot.sound",
+          "propext"
+        ],
+        "stable_orders": []
+      }
+    }
+  },
+  "scope": "Algebraic identities and conditional information-theoretic inference steps; not a complete probability/entropy formalization."
+}

@@ -1,0 +1,854 @@
+\section{Effective information: definition and evaluation}
+\label{app:effective_information}
+Effective information quantifies how strongly a transition mechanism constrains future states under a specified maximum-entropy intervention. This section gives the common definition and then specializes its evaluation to discrete and continuous variables.\subsection{Discrete variables and exact evaluation}
+\label{app:discrete_ei}
+
+For a finite discrete system, effective information has an explicit transition-matrix representation. 
+It is useful
+for systems whose intervention-induced transition probabilities can be
+enumerated exactly, and establishes the discrete form of the general
+mutual-information definition in Eq.~\eqref{eq:ei_definition}.
+
+Let \(A\subseteq\mathcal{V}\) be a non-empty source index set. Suppose that
+\(\boldsymbol{x}_{t}^{A}\) has \(M_A\) possible states,
+\(\Omega_A=\{\boldsymbol{x}_1^{A},\ldots,\boldsymbol{x}_{M_A}^{A}\}\), and
+that the complete future state \(\boldsymbol{x}_{t+\ell}\) has \(L\) possible
+values,
+\(\Omega_{t+\ell}
+=\{\boldsymbol{x}_1^{+},\ldots,\boldsymbol{x}_{L}^{+}\}\).
+We define the corresponding transition-probability matrix as
+\begin{equation}
+    \mathbf{P}_{A,\ell}
+    =
+    \left[
+        p_{ab}^{A,\ell}
+    \right]_{M_A\times L},
+    \qquad
+    p_{ab}^{A,\ell}
+    \equiv
+    q_{\ell}
+    \left(
+        \boldsymbol{x}_{t+\ell}=\boldsymbol{x}_b^{+}
+        \mid
+        \boldsymbol{x}_{t}^{A}=\boldsymbol{x}_a^{A}
+    \right).
+    \label{eq:app_transition_matrix}
+\end{equation}
+When \(A\) is a strict subset of \(\mathcal{V}\), the variables outside \(A\)
+are marginalized under the same factorized maximum-entropy intervention used
+for all other source subsets. Thus, every matrix \(\mathbf{P}_{A,\ell}\) is
+derived from the common intervention-induced distribution
+\(q_{\ell}(\boldsymbol{x}_{t},\boldsymbol{x}_{t+\ell})\).
+
+Under a uniform intervention on the \(M_A\) source states,
+\(q^{\max}(\boldsymbol{x}_{t}^{A}=\boldsymbol{x}_a^{A})=1/M_A\).
+The intervention-induced joint and future-state marginal probabilities are
+therefore
+\begin{equation}
+    q_{\ell}
+    \left(
+        \boldsymbol{x}_{t}^{A}=\boldsymbol{x}_a^{A},
+        \boldsymbol{x}_{t+\ell}=\boldsymbol{x}_b^{+}
+    \right)
+    =
+    \frac{1}{M_A}p_{ab}^{A,\ell},
+    \qquad
+    q_{\ell}
+    \left(
+        \boldsymbol{x}_{t+\ell}=\boldsymbol{x}_b^{+}
+    \right)
+    =
+    \frac{1}{M_A}
+    \sum_{c=1}^{M_A}p_{cb}^{A,\ell}.
+    \label{eq:app_discrete_probabilities}
+\end{equation}
+
+Substituting Eq.~\eqref{eq:app_discrete_probabilities} into the mutual
+information in Eq.~\eqref{eq:ei_definition} gives
+\begin{align}
+    EI_{\ell}(A)
+    &=
+    \sum_{a=1}^{M_A}
+    \sum_{b=1}^{L}
+    q_{\ell}
+    \left(
+        \boldsymbol{x}_a^{A},
+        \boldsymbol{x}_b^{+}
+    \right)
+    \log
+    \frac{
+        q_{\ell}
+        \left(
+            \boldsymbol{x}_a^{A},
+            \boldsymbol{x}_b^{+}
+        \right)
+    }{
+        q^{\max}(\boldsymbol{x}_a^{A})
+        q_{\ell}(\boldsymbol{x}_b^{+})
+    }
+    \nonumber\\
+    &=
+    \frac{1}{M_A}
+    \sum_{a=1}^{M_A}
+    \sum_{b=1}^{L}
+    p_{ab}^{A,\ell}
+    \log
+    \left(
+        \frac{
+            M_Ap_{ab}^{A,\ell}
+        }{
+            \sum_{c=1}^{M_A}p_{cb}^{A,\ell}
+        }
+    \right).
+    \label{eq:app_discrete_ei}
+\end{align}
+
+
+\paragraph{Determinism and non-degeneracy decomposition.}
+The same effective information can be resolved into two complementary
+properties of the intervention-induced mechanism
+\cite{Hoel2013QuantifyingCE,Hoel2017WhenTM}.  Let
+\(H_0=\log L\) be the maximum entropy of the registered discrete target
+repertoire, using the same logarithm base as in
+Eq.~\eqref{eq:app_discrete_ei}.  For \(L>1\), define the normalized
+determinism and non-degeneracy as
+\begin{align}
+    \mathcal{D}_{\ell}(A)
+    &=
+    1-
+    \frac{
+        H_{q_{\ell}}
+        \!\left(
+            \boldsymbol{x}_{t+\ell}
+            \mid
+            \boldsymbol{x}_{t}^{A}
+        \right)
+    }{
+        H_0
+    },
+    \qquad
+    \mathcal{N}_{\ell}(A)
+    =
+    \frac{
+        H_{q_{\ell}}
+        \!\left(
+            \boldsymbol{x}_{t+\ell}
+        \right)
+    }{
+        H_0
+    }.
+    \label{eq:app_determinism_nondegeneracy}
+\end{align}
+Here \(\mathcal{D}_{\ell}(A)\) is large when each intervened source state
+selects a narrow distribution of future states, whereas
+\(\mathcal{N}_{\ell}(A)\) is large when the intervention-induced output
+uses the available target repertoire broadly rather than collapsing many
+source states onto the same outcomes.  The entropy identity
+\(EI_{\ell}(A)=
+H_{q_{\ell}}(\boldsymbol{x}_{t+\ell})
+-
+H_{q_{\ell}}(\boldsymbol{x}_{t+\ell}\mid\boldsymbol{x}_{t}^{A})\)
+then gives
+\begin{equation}
+    EI_{\ell}(A)
+    =
+    H_0
+    \left[
+        \mathcal{D}_{\ell}(A)
+        +
+        \mathcal{N}_{\ell}(A)
+        -
+        1
+    \right].
+    \label{eq:app_ei_determinism_nondegeneracy}
+\end{equation}
+Equivalently, in unnormalized information units,
+\begin{equation}
+    \operatorname{Det}_{\ell}(A)
+    =
+    H_0
+    -
+    H_{q_{\ell}}
+    \!\left(
+        \boldsymbol{x}_{t+\ell}
+        \mid
+        \boldsymbol{x}_{t}^{A}
+    \right),
+    \qquad
+    \operatorname{Deg}_{\ell}(A)
+    =
+    H_0
+    -
+    H_{q_{\ell}}
+    \!\left(
+        \boldsymbol{x}_{t+\ell}
+    \right),
+    \qquad
+    EI_{\ell}(A)
+    =
+    \operatorname{Det}_{\ell}(A)
+    -
+    \operatorname{Deg}_{\ell}(A),
+    \label{eq:app_ei_determinism_degeneracy}
+\end{equation}
+with
+\(\mathcal{N}_{\ell}(A)
+=1-\operatorname{Deg}_{\ell}(A)/H_0\).
+Thus, high determinism alone does not guarantee high EI: a mechanism can map
+each source state reliably while remaining degenerate because many source
+states converge to the same future state.  When \(L=1\), the normalized
+quantities are undefined, but the unnormalized identity remains valid and
+\(EI_{\ell}(A)=0\).
+
+Equation~\eqref{eq:app_discrete_ei} depends only on the transition mechanism
+and the registered intervention domain, rather than on the empirical
+frequency with which the source states are naturally visited. Terms with
+\(p_{ab}^{A,\ell}=0\) are defined by continuity as
+\(0\log 0=0\). Base-2 logarithms express effective information in bits,
+whereas natural logarithms express it in nats.
+
+\subsection{Continuous variables and transport-map estimation}
+\label{app:continuous_estimation}
+
+\paragraph{Continuous interventions and effective information.}
+The definitions of effective information (EI) and integrated effective
+information extend to continuous variables once the intervention
+distribution is specified explicitly.  Let \(A\) and \(B\) denote source and
+target index sets, respectively, and let
+\(\boldsymbol{x}_{t}^{A}=(X_t^{(i)})_{i\in A}\) be the source state.  A
+maximum-entropy intervention on an unbounded domain is not defined without
+additional constraints.  We therefore specify either a bounded intervention
+support or a set of moment constraints.  Under the latter choice, the
+factorized maximum-entropy intervention is
+\begin{equation}
+q_A^{\max}(\boldsymbol{x}_{t}^{A})
+=
+\prod_{i\in A}q_i^{\max}\!\left(X_t^{(i)}\right),
+\qquad
+q_i^{\max}
+=
+\arg\max_{q_i}
+\left\{
+-\int q_i(x)\log q_i(x)\,dx
+\right\},
+\label{eq:continuous-maxent}
+\end{equation}
+subject to normalization and the prescribed moments.  With fixed mean and
+variance, \(q_i^{\max}\) is Gaussian; on a bounded interval, the
+maximum-entropy density is uniform.  These choices are not interchangeable:
+they define different interventions and therefore different EI values.  The
+factorization in Eq.~\eqref{eq:continuous-maxent} is also the condition used
+for the source-side nonnegativity result in
+Theorem~\ref{thm:integrated_ei_nonnegativity}.
+
+Let \(q_\ell\) denote the joint distribution induced by the chosen
+intervention and the lag-\(\ell\) transition mechanism.  The continuous EI
+from source set \(A\) to target set \(B\) is
+\begin{equation}
+EI_\ell(A\!\to\!B)
+=
+I_{q_\ell}
+\!\left(
+\boldsymbol{x}_{t}^{A};
+\boldsymbol{x}_{t+\ell}^{B}
+\right)
+=
+\int
+q_\ell(\boldsymbol{x},\boldsymbol{y})
+\log
+\frac{
+q_\ell(\boldsymbol{x},\boldsymbol{y})
+}{
+q_A^{\max}(\boldsymbol{x})\,
+q_\ell(\boldsymbol{y})
+}
+\,d\boldsymbol{x}\,d\boldsymbol{y}.
+\label{eq:continuous-ei}
+\end{equation}
+Here \(\boldsymbol{x}\) and \(\boldsymbol{y}\) denote realizations of the
+source and target vectors.  Equation~\eqref{eq:continuous-ei} is the
+continuous counterpart of the discrete mutual-information definition. In the expressions below and throughout all continuous-variable experiments, natural logarithms are used and information is reported in nats.
+
+
+For continuous variables, the unnormalized decomposition in
+Eq.~\eqref{eq:app_ei_determinism_degeneracy} remains an exact algebraic
+identity after replacing Shannon entropies by differential entropies and
+using one fixed, finite reference entropy \(H_0\) for the target.  In
+contrast to the discrete choice \(H_0=\log L\), this reference is not
+intrinsic on an unbounded domain and must be specified by the same target
+support or moment constraints throughout the comparison.
+
+Within a given decomposition, source subsets share the intervention support or moment constraints, prediction horizon, transition mechanism and sample ensemble. These choices define a common interventional estimand. The density approximation and numerical checks are specified for each experiment; matching samples and estimator families alone does not guarantee exact marginal consistency or non-negativity of the estimated difference.
+
+\paragraph{Density evaluation with a triangular transport map.}
+To evaluate the densities in Eq.~\eqref{eq:continuous-ei}, let
+\(\pi\) be an unknown \(d\)-dimensional distribution and let
+\(\eta=\mathcal{N}(\boldsymbol{0},\mathbf{I}_d)\) be a standard Gaussian
+reference distribution.  A monotone triangular transport map
+\(\boldsymbol{t}:\mathbb{R}^{d}\to\mathbb{R}^{d}\) has the form
+\begin{equation}
+\boldsymbol{t}(\boldsymbol{z})
+=
+\begin{bmatrix}
+t_1(z_1)\\
+t_2(z_1,z_2)\\
+\vdots\\
+t_d(z_1,\ldots,z_d)
+\end{bmatrix},
+\qquad
+\frac{\partial t_k}{\partial z_k}>0
+\quad (k=1,\ldots,d).
+\label{eq:transport-map-triangular}
+\end{equation}
+Thus, the \(k\)th output depends only on the first \(k\) inputs, and the
+positive diagonal derivatives make the map monotone and invertible.  The map
+is chosen so that
+\(\boldsymbol{t}_{\#}\pi=\eta\), meaning that
+\(\boldsymbol{t}(\boldsymbol{z})\sim\eta\) whenever
+\(\boldsymbol{z}\sim\pi\).  This is the monotone triangular construction
+commonly known as the Knothe--Rosenblatt transport
+\cite{baptista2024representation}.
+
+Let \(\mathbf{J}_{\boldsymbol{t}}(\boldsymbol{z})\) be the Jacobian matrix of
+\(\boldsymbol{t}\).  The change-of-variables formula gives
+\begin{equation}
+\log p_{\pi}(\boldsymbol{z})
+=
+\log p_{\eta}\!\left(\boldsymbol{t}(\boldsymbol{z})\right)
++
+\log
+\left|
+\det \mathbf{J}_{\boldsymbol{t}}(\boldsymbol{z})
+\right|
+=
+-\frac{d}{2}\log(2\pi)
+-\frac{1}{2}
+\left\|
+\boldsymbol{t}(\boldsymbol{z})
+\right\|_2^2
++
+\sum_{k=1}^{d}
+\log
+\frac{\partial t_k}{\partial z_k}.
+\label{eq:transport-map-change-of-variables}
+\end{equation}
+The final equality follows because a triangular Jacobian has determinant
+equal to the product of its diagonal entries.
+
+{\color{red}
+\paragraph{Affine transport maps.}
+An affine triangular map provides a Gaussian density approximation in the coordinates being fitted:
+\begin{equation}
+\widehat{\boldsymbol{t}}_{\mathrm{aff}}(\boldsymbol{z})
+=\widehat{\mathbf{L}}^{-1}(\boldsymbol{z}-\widehat{\boldsymbol{\mu}}),
+\qquad
+\log\widehat p_{\mathrm{aff}}(\boldsymbol{z})
+=-\frac12\left[d\log(2\pi)+\|\widehat{\boldsymbol{t}}_{\mathrm{aff}}(\boldsymbol{z})\|_2^2\right]
+-\log|\det\widehat{\mathbf{L}}|.
+\label{eq:affine-transport-density}
+\end{equation}
+Here \(\widehat{\boldsymbol{\mu}}\) is the empirical mean and \(\widehat{\mathbf{L}}\) is the Cholesky factor of the regularized covariance matrix. This is a computational approximation rather than an exact model of arbitrary non-Gaussian dependence. The affine/Gaussian approximations used in the brain, UniCM and urban-mobility analyses are specified in Supplementary Sections~\ref{app:dmf_schaefer100}, \ref{app:unicm_model} and~\ref{app:nyc_taxi_data}. The low-dimensional polynomial maps and conditional neural maps are described below and in Supplementary Section~\ref{app:six_node_hierarchy_comparison}, respectively.
+
+\paragraph{Polynomial triangular maps for low-dimensional queries.}
+For the common-driver comparison in main-text Fig.~\ref{fig:synergy_overview}c, we fit densities on the original source and target coordinates. A singleton query uses \((Y,X_i)\), and a joint-source query uses \((Y,X_1,X_2)\), with the target placed first. The map is parameterized by polynomial conditional means:
+\begin{equation}
+\widehat t_k(\boldsymbol{z}_{\leq k})
+=\frac{z_k-\widehat m_k(\boldsymbol{z}_{<k})}{\widehat s_k},
+\qquad
+\widehat m_k(\boldsymbol{z}_{<k})
+=\sum_{|\boldsymbol{\alpha}|\leq 3}
+\widehat\beta_{k,\boldsymbol{\alpha}}\,
+\widetilde{\boldsymbol{z}}_{<k}^{\boldsymbol{\alpha}},
+\quad \widehat s_k>0.
+\label{eq:polynomial-transport-map}
+\end{equation}
+The standardized preceding coordinates are denoted by \(\widetilde{\boldsymbol{z}}_{<k}\), and \(\boldsymbol{\alpha}\) is a multi-index. All monomials of total degree at most three are included. Conditional means are fitted by ridge regression with penalty \(10^{-6}\) on non-intercept coefficients; the intercept is unpenalized. The scale \(\widehat s_k\) is the fitted residual standard deviation, with a floor of \(10^{-8}\); the first coordinate has an intercept-only conditional mean. Thus the model has Gaussian conditional residuals and nonlinear conditional means. There is no separate source-feature lift of the form \((x,x^2,x^3)\) for singletons or an asymmetric five-feature lift for source pairs in this comparison. Other benchmarks retain their experiment-specific map configurations in Supplementary Sections~\ref{app:comparison_methods} and~\ref{app:six_node_hierarchy_comparison}.
+
+\paragraph{Mutual-information and synergy estimates.}
+For paired source and target blocks \(\boldsymbol{u},\boldsymbol{v}\), the polynomial-TM estimate is
+\begin{equation}
+\widehat I_{\mathrm{TM}}(\boldsymbol{u};\boldsymbol{v})
+=\frac1M\sum_{m=1}^{M}
+\left[
+\log\widehat p_{UV}(\boldsymbol{u}^{(m)},\boldsymbol{v}^{(m)})
+-\log\widehat p_U(\boldsymbol{u}^{(m)})
+-\log\widehat p_V(\boldsymbol{v}^{(m)})
+\right].
+\label{eq:transport-map-mi-estimator}
+\end{equation}
+The joint density, fitted in target-first order, and the two block densities are fitted separately on the same samples with the same polynomial degree. This implementation does not apply the Gaussian log-determinant bias correction.
+
+For each source set \(A\), the implementation uses \(\widetilde I_{\mathrm{TM}}(A;Y)=\max\{0,\widehat I_{\mathrm{TM}}(\boldsymbol{x}^{A};Y)\}\) before computing the two-source difference
+\begin{equation}
+\widehat{\operatorname{Syn}}^{\mathrm{EID}}_{\mathrm{TM}}(X_1,X_2;Y)
+=\widetilde I_{\mathrm{TM}}(\{1,2\};Y)
+-\widetilde I_{\mathrm{TM}}(\{1\};Y)
+-\widetilde I_{\mathrm{TM}}(\{2\};Y).
+\label{eq:transport-map-two-source-synergy}
+\end{equation}
+All three terms use the same intervention samples, target outputs and map family, although separately fitted densities need not be exact marginals of a common joint model. The estimate is therefore subject to approximation error, and Syn itself is not clipped. The number and construction of interventions are given in Supplementary Section~\ref{app:comparison_methods}.
+}
+
+
+\subsection{Exact Shapley attribution of grouped synergy}
+\label{app:exact_shapley_attribution}
+
+
+The Earth-system and brain analyses use the same Shapley attribution framework for groups of source variables. For a subset \(S\) of the \(M\) groups, integrated effective information between groups is computed as
+\begin{equation}
+\Xi_{\ell}(S)
+=
+\operatorname{EI}(\boldsymbol{x}_{t}^{S}\to\boldsymbol{x}_{t+\ell})
+-
+\sum_{j\in S}
+\operatorname{EI}(\boldsymbol{x}_{t}^{\{j\}}\to\boldsymbol{x}_{t+\ell}).
+\label{eq:shapley_value_function}
+\end{equation}
+Thus \(\Xi_{\ell}(S)\) is the EI provided jointly by the groups in \(S\) beyond the sum of their individual EIs, with \(\Xi_{\ell}(\varnothing)=\Xi_{\ell}(\{j\})=0\). The exact attribution to group \(i\) is
+\begin{equation}
+\operatorname{Shapley}_{i,\ell}(\Xi)
+=
+\sum_{S\subseteq\mathcal{N}\setminus\{i\}}
+\frac{|S|!\,(M-|S|-1)!}{M!}
+\left[
+\Xi_{\ell}(S\cup\{i\})-\Xi_{\ell}(S)
+\right],
+\qquad \mathcal{N}=\{1,\ldots,M\}.
+\label{eq:shapley_exact}
+\end{equation}
+
+The weighted sum averages the additional information contributed by group \(i\) over all possible orderings of the source groups. This increment can depend on which groups are already included. Groups with identical marginal contributions across corresponding source subsets receive equal attributions. The attributions sum to the information of the complete source set:
+\begin{equation}
+\sum_{i=1}^{M}\operatorname{Shapley}_{i,\ell}(\Xi)
+=
+\Xi_{\ell}(\mathcal{N}).
+\label{eq:shapley_reporting}
+\end{equation}
+Percentage panels report each Shapley attribution divided by \(\Xi_{\ell}(\mathcal{N})\) and multiplied by \(100\).
+
+For UniCM, the 11 climate modes form the source groups, each represented by its 12-month history, with the joint 11-mode forecast as the target. We evaluate all \(2^{11}=2{,}048\) source subsets for every checkpoint and forecast lead. Main-text Figure~\ref{fig:unicm_hierarchical_ei}h shows attributions normalized within each checkpoint and lead, then averaged across the three checkpoints. This joint-target analysis differs from the calibration prior, which evaluates source subsets separately for each of the 11 scalar targets and 24 leads (Supplementary Section~\ref{app:unicm_model}).
+
+For the DMF analysis, the 100 ROIs form the source groups, each containing its excitatory and inhibitory state variables. For an ROI subset $S$, the information to be attributed is $\Xi(S)=\mathrm{EI}(\boldsymbol{x}_{A(S)}\to\boldsymbol{y})-\sum_{a\in A(S)}\mathrm{EI}(x_a\to\boldsymbol{y})$, where $A(S)$ contains the scalar indices of the selected ROIs and $\boldsymbol{y}$ is the complete 200-dimensional future state. Because the subtraction uses individual scalar-source EIs, a single ROI can retain information arising jointly from its E/I variables. We approximate each ROI's attribution by averaging its marginal information increment over 512 random source-group orderings and their reverses. Attribution of overall $\Xi$ is independent of the selected SPT. For the high-order maps in main-text Fig.~\ref{fig:dmf_schaefer100_summary}g,i,j and the supplementary low-order maps, we instead attribute the two components of the selected SPT separately and normalize by their respective totals (Supplementary Section~\ref{app:dmf_order_bands}).
+
+For the HCP functional analysis, we evaluate all $2^7=128$ subsets of the seven Yeo networks. Each network's total attribution combines its within-network information with its Shapley share of the information spanning network boundaries:
+\begin{equation}
+\operatorname{Attribution}_{i}
+=
+\Xi_i^{\mathrm{within}}
++
+\operatorname{Shapley}_{i}^{\mathrm{cross}}(\Xi),
+\qquad
+\sum_{i=1}^{7}\operatorname{Attribution}_{i}=\Xi.
+\label{eq:brain_total_shapley_attribution}
+\end{equation}
+
+\section{Two-source PID properties}
+\label{app:pid-axioms}
+
+This section specifies the redundancy properties used for the two-source PEID--PID correspondence. We state the axioms and their consistency construction for finite-alphabet variables. For two sources $X_1,X_2$ and a target $Y$, write
+\begin{equation}
+I(X_1,X_2;Y)=Red(X_1,X_2;Y)+Un(X_1;Y\mid X_2)
++Un(X_2;Y\mid X_1)+Syn(X_1,X_2;Y).
+\label{eq:pid_decomp_app}
+\end{equation}
+The single-source identities determine the unique contributions:
+\begin{equation}
+Un(X_1;Y\mid X_2)=I(X_1;Y)-Red(X_1,X_2;Y),
+\label{eq:pid_unique_app}
+\end{equation}
+with the analogous expression for $Un(X_2;Y\mid X_1)$. We consider non-negative bivariate decompositions satisfying the following properties. Symmetry, self-redundancy and source monotonicity follow the Williams--Beer framework \cite{Williams2010NonnegativeDO,Bertschinger2013SharedInformation}; Identity and probabilistic left monotonicity specify the class used here.
+
+\paragraph{Non-negativity (N).}
+The redundancy, both unique contributions and the synergy in Eq.~\eqref{eq:pid_decomp_app} are non-negative. In particular, $Red(X_1,X_2;Y)\geq0$.
+
+\paragraph{Symmetry (S).}
+Interchanging the two sources leaves redundancy unchanged:
+\begin{equation}
+Red(X_1,X_2;Y)=Red(X_2,X_1;Y).
+\label{eq:pid_symmetry}
+\end{equation}
+
+\paragraph{Self-redundancy (I).}
+For a single source,
+\begin{equation}
+Red(X_1;Y)=I(X_1;Y).
+\label{eq:pid_self_redundancy}
+\end{equation}
+
+\paragraph{Source monotonicity (M).}
+Adding a source cannot increase redundancy:
+\begin{equation}
+Red(X_1,X_2;Y)\leq\min\{I(X_1;Y),I(X_2;Y)\}.
+\label{eq:pid_monotonicity}
+\end{equation}
+If $X_1$ is a deterministic function of $X_2$, equality holds with $I(X_1;Y)$; the corresponding statement holds after interchanging the sources. This includes the usual source-inclusion equality.
+
+\paragraph{Identity (Id).}
+For a target that copies the joint source, we adopt the Identity property of Harder et al. \cite{Harder2013BivariateRedundancy}:
+\begin{equation}
+Red(X_1,X_2;(X_1,X_2))=I(X_1;X_2).
+\label{eq:pid_identity}
+\end{equation}
+
+\paragraph{Probabilistic left monotonicity (PLM).}
+Processing the target through a stochastic channel cannot increase redundancy. For a Markov chain $(X_1,X_2)\rightarrow T\rightarrow Z$, equivalently $Z\perp(X_1,X_2)\mid T$, we require
+\begin{equation}
+Red(X_1,X_2;Z)\leq Red(X_1,X_2;T).
+\label{eq:pid_target_dpi}
+\end{equation}
+This is the probabilistic left monotonicity introduced by Rauh et al. (Section III, following Eq.~(7)) \cite{Rauh2017ExtractableSharedInformation}. It extends deterministic left monotonicity \cite{Bertschinger2013SharedInformation} to stochastic target channels, as needed for noisy transition models. We adopt PLM as an additional redundancy property; no target chain rule for redundancy is assumed.
+
+\paragraph{Consistency of the bivariate assumptions.}
+An explicit witness shows that these properties are compatible. Define
+\begin{equation}
+R_*(X_1,X_2;Y)=\min\{I(X_1;X_2),I(X_1;Y),I(X_2;Y)\},
+\qquad R_*(X_1;Y)=I(X_1;Y).
+\label{eq:pid_consistency_witness}
+\end{equation}
+Symmetry, self-redundancy and the monotonicity bound follow immediately. If $X_1=f(X_2)$, then $I(X_1;X_2)=H(X_1)$ and $I(X_1;Y)\leq I(X_2;Y)$, giving the required equality. For the copied target, $I(X_i;Y)=H(X_i)$ for $i=1,2$. The minimum is therefore $I(X_1;X_2)$, proving Identity.
+
+Under $(X_1,X_2)\rightarrow T\rightarrow Z$, the ordinary mutual-information data processing inequality gives $I(X_i;Z)\leq I(X_i;T)$ for $i=1,2$, while $I(X_1;X_2)$ is unchanged. Hence $R_*$ satisfies PLM.
+
+To check the induced PID components, put $a=I(X_1;Y)$, $b=I(X_2;Y)$, $c=I(X_1,X_2;Y)$ and $d=I(X_1;X_2)$. The unique terms are non-negative because $R_*\leq a,b$. Moreover,
+\begin{equation}
+a+b-c=d-I(X_1;X_2\mid Y)\leq d,
+\qquad a+b-c\leq a,b,
+\label{eq:pid_witness_lower_bound}
+\end{equation}
+where the last two inequalities use $c\geq a,b$. Thus $a+b-c\leq\min\{d,a,b\}=R_*$, and the induced synergy $c-a-b+R_*$ is non-negative. This construction establishes consistency for two sources. It serves only as a witness: the independent-source result below holds for every redundancy functional in the specified class, without selecting $R_*$ as an estimator.
+
+
+\section{Proofs of the PEID properties}
+\label{app:theoretical_proofs}
+
+We first establish the two-source information identity and its PID correspondence under the properties in Supplementary Section~\ref{app:pid-axioms}. We then prove non-negativity and the upper bound of integrated effective information for arbitrary non-empty source sets, followed by hierarchical additivity. The latter two results follow directly from mutual-information identities and the common factorized intervention. Unless stated otherwise, $A,B\subseteq\mathcal{V}$ are non-empty source and target index sets, and information quantities are evaluated under the same intervention-induced distribution $q_\ell(\boldsymbol{x}_t,\boldsymbol{x}_{t+\ell})$. Information differences are used where the participating terms are finite. The zero-redundancy bound also applies beyond finite alphabets whenever a redundancy functional satisfying N, Id and PLM is defined on the relevant variables and copied target.
+
+\subsection{Proof of the two-source PEID--PID correspondence}
+\label{app:proof_two_source_pid}
+\begin{proof}[Proof of Proposition~\ref{prop:two_source_pid}]
+Let $U=X_t^{(i)}$, $V=X_t^{(j)}$ and $\boldsymbol{y}=\boldsymbol{x}_{t+\ell}^{B}$, with all quantities evaluated under $q_\ell$. The factorized intervention gives
+\begin{equation}
+U\perp V,\qquad I_{q_\ell}(U;V)=0.
+\label{eq:supp_source_independence}
+\end{equation}
+The mutual-information chain rule, independently of any PID axioms, yields
+\begin{align}
+I_{q_\ell}(U,V;\boldsymbol{y})-I_{q_\ell}(U;\boldsymbol{y})-I_{q_\ell}(V;\boldsymbol{y})
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})-I_{q_\ell}(U;V)\nonumber\\
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})\geq0.
+\label{eq:supp_two_source_cmi_identity}
+\end{align}
+
+For the PID correspondence, regard the copied source pair $\boldsymbol{t}=(U,V)$ as an intermediate target. The conditional distribution $q_\ell(\boldsymbol{y}\mid U,V)$ defines a channel from $\boldsymbol{t}$ to $\boldsymbol{y}$, so $(U,V)\rightarrow\boldsymbol{t}\rightarrow\boldsymbol{y}$ is a Markov chain. Non-negativity, PLM and Identity give
+\begin{equation}
+0\leq Red_{q_\ell}(U,V;\boldsymbol{y})
+\leq Red_{q_\ell}(U,V;(U,V))
+=I_{q_\ell}(U;V)=0.
+\label{eq:supp_redundancy_zero}
+\end{equation}
+Consequently, the redundancy vanishes for both deterministic and stochastic transition channels. The unique contributions are
+\begin{equation}
+Un_{q_\ell}(U;\boldsymbol{y}\mid V)=EI_\ell(\{i\}\rightarrow B),
+\qquad
+Un_{q_\ell}(V;\boldsymbol{y}\mid U)=EI_\ell(\{j\}\rightarrow B).
+\label{eq:supp_unique_information}
+\end{equation}
+Substituting into Eq.~\eqref{eq:pid_decomp_app} gives
+\begin{align}
+Syn_{q_\ell}(U,V;\boldsymbol{y})
+&=EI_\ell(\{i,j\}\rightarrow B)-EI_\ell(\{i\}\rightarrow B)-EI_\ell(\{j\}\rightarrow B)\nonumber\\
+&=I_{q_\ell}(U;V\mid\boldsymbol{y})
+=\operatorname{Syn}^{\mathrm{EID}}_\ell(U,V;\boldsymbol{y})\geq0.
+\label{eq:supp_two_source_synergy}
+\end{align}
+Thus two-source PEID equals PID synergy throughout the class specified in Supplementary Section~\ref{app:pid-axioms}.
+\end{proof}
+
+
+\subsection{Proof of the non-negativity of integrated effective information}
+\label{app:proof_integrated_ei_nonnegativity}
+
+\begin{proof}[Proof of Theorem~\ref{thm:integrated_ei_nonnegativity}]
+
+The proof strategy parallels the information-theoretic argument used by
+Oizumi \emph{et al.} to establish the lower and upper bounds of integrated
+information \cite{Oizumi2016MeasuringII}. Let \(A,B\subseteq\mathcal{V}\) be arbitrary non-empty source and target index
+sets. By definition,
+\begin{equation}
+    \Xi_{\ell}(A\rightarrow B)
+    =
+    EI_{\ell}(A\rightarrow B)
+    -
+    \sum_{i\in A}
+    EI_{\ell}(\{i\}\rightarrow B).
+    \label{eq:supp_xi_definition}
+\end{equation}
+Expanding the mutual information terms in entropy form gives
+\begin{align}
+    \Xi_{\ell}(A\rightarrow B)
+    &=
+    H_{q_{\ell}}
+    \left(
+        \boldsymbol{x}_{t}^{A}
+    \right)
+    -
+    H_{q_{\ell}}
+    \left(
+        \boldsymbol{x}_{t}^{A}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    \nonumber\\
+    &\quad-
+    \sum_{i\in A}
+    H_{q_{\ell}}
+    \left(
+        X_t^{(i)}
+    \right)
+    +
+    \sum_{i\in A}
+    H_{q_{\ell}}
+    \left(
+        X_t^{(i)}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right).
+    \label{eq:supp_xi_entropy_expansion}
+\end{align}
+
+The factorized maximum-entropy intervention implies
+\begin{equation}
+    q^{\max}
+    \left(
+        \boldsymbol{x}_{t}^{A}
+    \right)
+    =
+    \prod_{i\in A}
+    q_i^{\max}
+    \left(
+        X_t^{(i)}
+    \right),
+    \label{eq:supp_factorized_intervention}
+\end{equation}
+and hence
+\begin{equation}
+    H_{q_{\ell}}
+    \left(
+        \boldsymbol{x}_{t}^{A}
+    \right)
+    =
+    \sum_{i\in A}
+    H_{q_{\ell}}
+    \left(
+        X_t^{(i)}
+    \right).
+    \label{eq:supp_factorized_entropy}
+\end{equation}
+The unconditional entropy terms in
+Eq.~\eqref{eq:supp_xi_entropy_expansion} therefore cancel, yielding
+\begin{align}
+    \Xi_{\ell}(A\rightarrow B)
+    &=
+    \sum_{i\in A}
+    H_{q_{\ell}}
+    \left(
+        X_t^{(i)}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    -
+    H_{q_{\ell}}
+    \left(
+        \boldsymbol{x}_{t}^{A}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    \nonumber\\
+    &=
+    TC_{q_{\ell}}
+    \left(
+        \{X_t^{(i)}\}_{i\in A}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right).
+    \label{eq:supp_xi_conditional_tc}
+\end{align}
+
+The conditional total correlation admits the Kullback--Leibler
+representation
+\begin{align}
+    \Xi_{\ell}(A\rightarrow B)
+    &=
+    \mathbb{E}_{
+        q_{\ell}(\boldsymbol{x}_{t+\ell}^{B})
+    }
+    \left[
+        D_{\mathrm{KL}}
+        \left(
+            q_{\ell}
+            \left(
+                \boldsymbol{x}_{t}^{A}
+                \mid
+                \boldsymbol{x}_{t+\ell}^{B}
+            \right)
+            \,\middle\|\,
+            \prod_{i\in A}
+            q_{\ell}
+            \left(
+                X_t^{(i)}
+                \mid
+                \boldsymbol{x}_{t+\ell}^{B}
+            \right)
+        \right)
+    \right]
+    \geq0.
+    \label{eq:supp_xi_kl}
+\end{align}
+This establishes the lower bound. The upper bound follows directly from
+Eq.~\eqref{eq:supp_xi_definition}, because every singleton effective
+information is non-negative:
+\begin{equation}
+    \Xi_{\ell}(A\rightarrow B)
+    \leq
+    EI_{\ell}(A\rightarrow B).
+    \label{eq:supp_xi_upper_bound}
+\end{equation}
+
+It remains to identify the two-source special case. If
+\(A=\{i,j\}\), Eq.~\eqref{eq:supp_xi_conditional_tc} reduces to
+\begin{align}
+    \Xi_{\ell}(\{i,j\}\rightarrow B)
+    &=
+    I_{q_{\ell}}
+    \left(
+        X_t^{(i)};
+        X_t^{(j)}
+        \mid
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    \nonumber\\
+    &=
+    EI_{\ell}(\{i,j\}\rightarrow B)
+    -
+    EI_{\ell}(\{i\}\rightarrow B)
+    -
+    EI_{\ell}(\{j\}\rightarrow B).
+    \label{eq:supp_two_source_xi}
+\end{align}
+Within the bivariate class specified in Supplementary Section~\ref{app:pid-axioms}, Proposition~\ref{prop:two_source_pid} identifies this expression with PID synergy. Therefore,
+\begin{equation}
+    \Xi_{\ell}(\{i,j\}\rightarrow B)
+    =
+    \operatorname{Syn}_{q_{\ell}}
+    \left(
+        X_t^{(i)},X_t^{(j)};
+        \boldsymbol{x}_{t+\ell}^{B}
+    \right)
+    \geq0.
+    \label{eq:supp_xi_equals_synergy}
+\end{equation}
+Thus, integrated effective information is non-negative for arbitrary source sets. For two sources it equals conditional mutual information and, under the stated bivariate properties, the PID synergy.
+\end{proof}
+
+\subsection{Proof of hierarchical additivity}
+\label{app:proof_hierarchical_additivity}
+\begin{proof}[Proof of Theorem~\ref{thm:hierarchical_additivity}]
+Let \(\mathcal{P}\) be a partition of \(A\), and let
+\(M^{\star}\in\mathcal{P}\) be refined by another partition
+\(\mathcal{R}=\{R_1,\ldots,R_k\}\). Define
+\(\mathcal{P}'
+=(\mathcal{P}\setminus\{M^{\star}\})\cup\mathcal{R}\).
+
+\par Because \(\mathcal{P}'\) replaces \(M^{\star}\) with the blocks in \(\mathcal{R}\),
+\begin{align}
+    \Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}'}\Xi_{\ell}(M\rightarrow B)
+    &=\Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}\setminus\{M^{\star}\}}\Xi_{\ell}(M\rightarrow B)
+    \nonumber\\
+    &\quad-\sum_{R\in\mathcal{R}}\Xi_{\ell}(R\rightarrow B).
+    \label{eq:supp_refined_synergy}\end{align}
+
+Adding and subtracting \(\Xi_{\ell}(M^{\star}\rightarrow B)\) gives
+\begin{align}
+    \Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}'}\Xi_{\ell}(M\rightarrow B)
+    &=\left[\Xi_{\ell}(A\rightarrow B)-\sum_{M\in\mathcal{P}}\Xi_{\ell}(M\rightarrow B)\right]
+    \nonumber\\
+    &\quad+\left[\Xi_{\ell}(M^{\star}\rightarrow B)-\sum_{R\in\mathcal{R}}\Xi_{\ell}(R\rightarrow B)\right].
+    \label{eq:supp_hierarchical_additivity}
+\end{align}This proves hierarchical additivity under partition refinement.
+\end{proof}
+
+As a special case, if \(A=L\mathbin{\dot{\cup}}R\), refinement to the finest
+partitions within \(L\) and \(R\) yields
+\begin{equation}
+    \Xi_{\ell}(A\rightarrow B)
+    =
+    \Xi_{\ell}(L\rightarrow B)
+    +
+    \Xi_{\ell}(R\rightarrow B)
+    +
+    \operatorname{Syn}^{\mathrm{EID}}_{\ell}
+    (L,R\rightarrow B).
+    \label{eq:supp_binary_hierarchy}
+\end{equation}
+
+\section{Synergy Partition Tree implementation and split optimization} 
+\label{app:spt_implementation}
+SPT is a recursive sequence of finite bipartition problems; it uses neither gradient descent nor a continuous optimizer. The horizon \(\ell\), target \(B\), intervention distribution, and EI estimator are fixed before tree construction. 
+
+\subsection{Node optimization and exact search}
+
+At a non-singleton node \(A\), each candidate is an unordered, non-trivial bipartition \(A=L\mathbin{\dot{\cup}}R\). Define 
+\begin{align} S_A(L,R)&=\Xi_{\ell}(L\rightarrow B)+\Xi_{\ell}(R\rightarrow B),\\ r_A(L,R)&=\Xi_{\ell}(A\rightarrow B)-S_A(L,R). 
+\label{eq:supp_spt_score} 
+\end{align} 
+Standard SPT maximizes \(S_A\), equivalently minimizes the raw residual \(r_A\), which is stored without clipping as the node synergy. Candidates are ranked deterministically by decreasing \(S_A\), increasing \(r_A\), and then lexicographically by their source-index tuples. The latter fields settle only numerical or exact ties.
+
+For \(m=|A|\leq m_{\mathrm{exact}}\), the optimizer enumerates all \(2^{m-1}-1\) unordered bipartitions: the first source is fixed in one child, all subsets of the other \(m-1\) sources are enumerated, and the full set is excluded. The selected split is therefore globally optimal among admissible splits at that node. Recursive selection remains greedy over the space of complete binary trees.\par 
+
+
+\subsection{Spectral candidates for large source sets}
+For larger nodes, a pairwise-synergy affinity matrix is computed once per experimental condition and its principal submatrix is reused: 
+\begin{equation} W_{ij}=\Xi_{\ell}(\{i,j\}\rightarrow B),\quad W_{ii}=0,\qquad \mathbf{L}_A=\mathbf{I}-\mathbf{D}_A^{-1/2} \mathbf{W}_A\mathbf{D}_A^{-1/2},\quad \mathbf{D}_A=\operatorname{diag}(\mathbf{W}_A\mathbf{1}). 
+\label{eq:supp_spt_spectral} 
+\end{equation} 
+The inverse square root is set to zero for isolated vertices. A symmetric \texttt{eigh} decomposition of the normalized Laplacian is used. Sources are stably sorted by each of the first four non-constant eigenvectors (or all available ones if fewer exist), yielding the Fiedler ordering and up to three additional low-frequency orderings. Eigenvector sign does not affect the unordered candidate set because reversing an order exchanges every prefix with its complement.
+
+Two further orderings are included. Average-linkage clustering is applied to \(d_{ij}=1-W_{ij}/\max_{p,q}W_{pq}\), with zero diagonal and optimal leaf ordering; the original source order is retained as a deterministic fallback. For every ordering \(\pi\), all \(m-1\) prefix cuts \(\{\pi_1,\ldots,\pi_k\}\mid A\setminus\{\pi_1,\ldots,\pi_k\}\) are formed and duplicate unordered splits are removed. Hence the present spectral route evaluates at most \(6(m-1)\) candidates before deduplication, rather than all \(2^{m-1}-1\), and does not supplement every possible singleton split. The chosen split is exact only within this candidate set.\par Domain-constrained SPT changes only the candidate generator. For example, an intact three-block root evaluates its three legal one-versus-two-block splits; a fixed split supplies one candidate. All legal candidates use the same score and deterministic ranking above. An optional sensitivity analysis instead ranks \(r_A/[(2^{|L|}-1)(2^{|R|}-1)]\).
+
+\begin{center} \fbox{ \begin{minipage}{0.94\linewidth} \textbf{Algorithm S1. Synergy Partition Tree.}\par \iffalse [Previous wording -- preserved for review] \textbf{Input:} ordered sources \(\mathcal{V}\); fixed \((\ell,B)\); cached \(\Xi\) oracle; \(m_{\mathrm{exact}}\); tolerance \(\tau\); candidate policy.\par\fi \textbf{Input:} ordered sources \(\mathcal{V}\); fixed \((\ell,B)\); cached \(\Xi\) oracle; \(m_{\mathrm{exact}}\); candidate policy.\par \textbf{Build\((A,d)\):} \begin{enumerate} \setlength{\itemsep}{0pt} \item Query \(x_A\leftarrow\Xi_{\ell}(A\rightarrow B)\); if \(|A|=1\), return a leaf. \item Generate all unordered splits when \(|A|\leq m_{\mathrm{exact}}\), otherwise the spectral, average-linkage, and original-order prefix cuts; for a constrained tree, use only legal splits. \iffalse [Previous wording -- preserved for review] \item For each \((L,R)\), query \(x_L,x_R\), compute and audit \(r=x_A-x_L-x_R\), then select the deterministic maximizer of \(x_L+x_R\).\fi \item For each \((L,R)\), query \(x_L,x_R\), compute \(r=x_A-x_L-x_R\), and select the deterministic maximizer of \(x_L+x_R\). \item Return \((A,x_A,r,d,\mathrm{Build}(L,d+1),\mathrm{Build}(R,d+1))\). \end{enumerate} \iffalse [Previous wording -- preserved for review] \textbf{Output:} \(\mathrm{Build}(\mathcal{V},0)\), audit statistics, and \(\varepsilon_{\mathrm{close}}\).\fi \textbf{Output:} \(\mathrm{Build}(\mathcal{V},0)\). \end{minipage}} \end{center}\par 
+
+\subsection{Representation size of PEID and full PID}
+\label{app:peid_pid_representation}
+
+For a fixed target set \(B\) and \(N\) source variables, PEID can report one single-source EI quantity for each source and one finest-partition synergy quantity \(\Xi_{\ell}(A\rightarrow B)\) for each source subset \(A\) with \(|A|\geq 2\). The resulting number of quantities is
+\[
+N+\sum_{k=2}^{N}\binom{N}{k}=2^{N}-1.
+\]
+A full \(N\)-source PID instead assigns atom labels to the non-trivial antichains of source subsets~\cite{Williams2010NonnegativeDO}. If \(M(N)\) is the Dedekind number, its atom-label count is \(M(N)-2\), excluding the empty antichain and the antichain containing only the empty set.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r r r r r}
+\hline
+\shortstack{Number of\\sources \(N\)} &
+\shortstack{Single-source\\EI quantities} &
+\shortstack{Source-subset\\synergy quantities} &
+\shortstack{Total PEID\\quantities} &
+\shortstack{Full PID\\atom labels \(M(N)-2\)} \\
+\hline
+2 & 2 & 1 & 3 & 4 \\
+3 & 3 & 4 & 7 & 18 \\
+4 & 4 & 11 & 15 & 166 \\
+5 & 5 & 26 & 31 & 7,579 \\
+6 & 6 & 57 & 63 & 7,828,352 \\
+7 & 7 & 120 & 127 & 2,414,682,040,996 \\
+\hline
+\end{tabular}
+\caption{Representation size of source-side PEID and full PID for a fixed target. The PEID count includes one quantity per non-empty source subset; the full PID count refers to atom labels in the redundancy lattice. Dedekind numbers are from OEIS A000372 (\url{https://oeis.org/A000372}).}
+\label{tab:peid_pid_representation}
+\end{table}
+
+The PEID quantities for different source subsets can overlap and are not mutually exclusive PID atoms. Table~\ref{tab:peid_pid_representation} compares representation size, not runtime or equal descriptive resolution. SPT selects a hierarchy of bipartitions from PEID quantities; its tree nodes and evaluated split candidates have separate counts.
+

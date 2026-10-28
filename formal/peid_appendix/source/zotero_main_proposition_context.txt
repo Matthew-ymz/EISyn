@@ -1,0 +1,81 @@
+les outside B at time t + l are marginalized from the resulting future-state distribution. Thus, all choices of A and B remain comparable under a single intervention protocol. The quantity EIl(A → B) measures how much information about the intervened state of source subset A is retained by target subset B after l transition steps. The complete-future-state case used in the system-level analysis is recovered by setting B = V . For finite discrete systems, Eq. (5) admits an explicit transition-matrix representation, derived in Appendix S1.1.
+Synergistic causality and integrated effective information
+The connection between PEID and partial information decomposition (PID)18 is most transparent for two source variables X(i)
+t
+and X ( j)
+t . The factorized intervention implies X(i)
+t ⊥ X( j)
+t.
+Proposition 1 (Two-source PEID). Under the PID axioms (Appendix S2) and the factorized maximum-entropy intervention, the PID redundancy between two source variables vanishes, and their PEID synergy coincides with the corresponding PID synergy:
+SynEID
+l X (i)
+t , X( j)
+t ; xB
+t+l = EIl({i, j} → B) − EIl({i} → B) − EIl({ j} → B). (6)
+A complete proof is provided in Supplementary Note S3.1. This result isolates a key consequence of the intervention design. Under these axioms (Appendix S2), the factorized maximum-entropy intervention removes source–source dependence and forces the two-source redundancy term to zero. Joint effective information therefore separates directly into the two singlesource EI contributions and a non-negative synergistic remainder, without requiring a separately chosen redundancy function.
+14/19
+
+
+Motivated by Proposition 1, we extend the same construction to an arbitrary non-empty source set A while keeping the target set B fixed. For the finest source partition Pfine(A) = {{i} : i ∈ A}, we define the integrated effective information as
+Ξl(A → B) ≡ EIl(A → B) − i∈∑A
+EIl({i} → B). (7)
+Integrated effective information quantifies the effective information that is available from the source variables jointly but cannot be attributed to their individual effective-information contributions. When |A| = 2, Eq. (7) reduces exactly to the two-source synergy in Eq. (6).
+Theorem 1 (Non-negativity of integrated effective information). Under the factorized maximum-entropy intervention, every pair of non-empty source and target index sets A, B ⊆ V satisfies
+0 ≤ Ξl(A → B) ≤ EIl(A → B). (8)
+When the source set contains exactly two variables, A = {i, j}, integrated effective information reduces to the corresponding
+two-source synergy, Ξl({i, j} → B) = Synql X(i)
+t , X( j)
+t ; xB
+t+l ≥ 0.
+A complete proof is provided in Supplementary Note S3.2. Thus, non-negativity is a general property of integrated effective information, irrespective of the number of source variables. The notation Syn is reserved for the special two-source case, in which the general quantity Ξl coincides exactly with PID synergy. For source sets with more than two variables, we retain the notation Ξl and interpret it as integrated effective information rather than as a single higher-order PID synergy atom.
+Theorem 2 (Hierarchical additivity). Let P be a partition of A, and suppose that M⋆ ∈ P is refined by a partition R. For P′ = (P \ {M⋆}) ∪ R,
+Ξl(A → B) − ∑
+M ∈P ′
+Ξl(M → B) = Ξl(A → B) − ∑
+M∈P
+Ξl(M → B)
++ Ξl(M⋆ → B) − ∑
+R∈R
+Ξl(R → B). (9)
+A proof is provided in Supplementary Note S3.3. For any partition P of A, non-negativity of Ξl(M → B) gives Ξl(A → B) − ∑M∈P Ξl(M → B) ≤ Ξl(A → B), with equality for the finest singleton partition. For a bipartition A = L  ̇∪ R, Theorem 2
+reduces to Ξl(A) = Ξl(L) + Ξl(R) + SynEID
+l (L, R). This identity separates the joint increment of a parent source set into the increments retained within its children and the residual information that still requires the two children jointly.
+Synergy Partition Tree (SPT)
+The Synergy Partition Tree (SPT) constructs an interpretable hierarchy without enumerating the full multivariate PID lattice. It recursively decomposes integrated effective information through binary partitions of the source set, while holding the target set B and prediction horizon l fixed throughout. Let B(A) denote the set of unordered, non-trivial bipartitions (L, R) satisfying L  ̇∪ R = A. At each non-singleton source set A, we select
+(L⋆
+A, R⋆
+A) ∈ arg max
+(L,R)∈B(A)
+[Ξl(L → B) + Ξl(R → B)] . (10)
+This criterion selects the bipartition that retains the largest integrated effective information within the two child source sets. Because Ξl(A → B) is fixed at the current node, the same criterion is equivalent to minimizing the residual synergy between the selected children. The residual synergy retained at node A is written directly as
+SynEID
+l (L⋆
+A, R⋆
+A → B)
+= Ξl(A → B) − Ξl(L⋆
+A → B) − Ξl(R⋆
+A → B)
+= EIl(A → B) − EIl(L⋆
+A → B) − EIl(R⋆
+A → B). (11)
+The second equality follows because L⋆
+A  ̇∪ R⋆
+A = A, so the singleton effective-information terms in the three occurrences of Ξl cancel exactly. No additional node-level quantity is therefore required: each internal node is represented directly by its corresponding SynEID
+l.
+15/19
+
+
+The same procedure is applied recursively to L⋆
+A and R⋆
+A. A branch terminates when it reaches a singleton source set, for which integrated effective information vanishes identically. Because the selected tree depends on both the prediction horizon and the target set, let Il,B denote the set of its internal source nodes. Summing Eq. (11) over all internal nodes yields the closure relation
+Ξl(V → B) = ∑
+A∈Il,B
+SynEID
+l (L⋆
+A, R⋆
+A → B) . (12)
+Indeed, every non-root integrated effective-information term appears once with a positive sign as a parent and once with a negative sign as a child, whereas all singleton terms are zero. The order of the SPT synergy associated with node A is defined as |A|. A second-order term describes synergy between two microscopic sources, whereas a term with |A| > 2 describes information that remains jointly encoded across the corresponding source set along the selected decomposition path. These terms are path-dependent hierarchical synergies, not Möbius-inverted pure-order PID atoms. Different admissible binary trees may therefore distribute synergy differently across source sets while preserving the total integrated effective information in Eq. (12).
+Acknowledgements
+This work was supported by grants from National Natural Science Foundation of China (Grant No.62503038,42450183), the Fundamental Research Funds for the Central Universities and the National Key Research and Development Program of China (2024YFB3108400);
+Author contributions statement
+M.Y. developed the theoretical framework, performed the mathematical derivations and numerical experiments, analysed the results, and drafted the manuscript. Z.C. processed th
