@@ -33,6 +33,7 @@ ENV/
 .python-version
 
 # Local agent / workspace tooling
+/AGENTS.md
 .superpowers/
 .skill_staging/
 .worktrees/
