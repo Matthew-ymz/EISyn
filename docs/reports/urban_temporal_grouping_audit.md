@@ -34,3 +34,23 @@ MGSTN 本身始终有 recent、daily、weekly 三个分支；城市 SPT 也没�
 在线正文（18 页）与附录（33 页）均编译为 Errors 0、Warnings 1，保留已有 `Command \showhyphens has changed.` 提示，没有未定义引用或文献警告。已核对正文第 11 页和附录第 26 页，修改标红、公式行内排版正常，后续参考文献恢复黑色。摘要和模型干预的原评论高亮均已重新打开并视觉核对，锚点、消息和未解决状态保留。
 
 [正文核验截图](../../output/urban_temporal_consistency/main_page11.jpg)；[附录核验截图](../../output/urban_temporal_consistency/overleaf_urban_methods.jpg)。
+
+## 2026-10-27：针对 Fig. 4c 指标一致性意见的再次核查
+
+本轮重新读取在线正文、图注与附录，未修改稿件。当前有效正文以 “Because citywide forecasting also involves information from different locations” 开始的段落明确比较同一地区下一小时目标下的 temporal 与 spatial synergy，分母为两者之和；图 4c 的有效图注也已同步为这一含义。旧的“三个时间尺度联合交互占比”文字仅保留在源文件注释中，不属于当前有效正文或图注。
+
+附录 S10.3 的 “Temporal source groups and regional synergy” 段已分别给出 recent versus combined daily–weekly、own-zone complete history versus other-zone histories 两种来源二分及比例公式；后续段落给出经验窗口抽样、环境条件、验证残差噪声、4,096 次干预、两维 PCA、二阶 TM 和 70%/30% 拟合／评估划分。城市 SPT 则另行说明 198 个来源块与共同全城目标。
+
+这次从汇总文件保留的 594 条 zone–state–checkpoint 原始估计记录重新聚合，按每个检查点先求跨区域 temporal、spatial 总和，计算 temporal/(temporal+spatial)，再平均三个检查点：
+
+| 状态 | 重新汇总的比例 | 当前正文／图中四舍五入值 |
+|---|---:|---:|
+| Weekday peak | 83.8948082197% | 83.9% |
+| Weekend midday | 82.3496454428% | 82.3% |
+| Rainy high demand | 77.7961957831% | 77.8% |
+
+与保存汇总值的最大差为 1.11×10⁻¹⁶。聚合前按缓存已声明的 0.05 bit 容差检查 1,188 个 hurdle Syn 估计：最小原始值 −0.0146553434 bit，容差内负值 110 个，显著违规 0 个；按同一已声明规则处理数值零，未对显著负值投影或隐去。绘图代码 Fig. 4c 确实调用读取这些 temporal_share 汇总值的函数。
+
+本轮重新计算的是已有每区信息估计的汇总比例，没有重新训练模型、生成干预响应或拟合 TM。因原始计算定义本来就是 temporal–spatial comparison，本项不依赖把另一种统计量改名为新指标。
+
+重新查询的 Zotero 父项和附件仍为上文的 `R68U4QXB`、`GRX5IJJQ`、`UTEBTIWV`，无明确稿件日期／版本；附件内容仍含旧的三尺度占比解释和未扩充的方法段。因此，本轮“已解决”的判断针对实时读取的 Overleaf 有效内容，而非尚未同步这些修订的 Zotero PDF。
