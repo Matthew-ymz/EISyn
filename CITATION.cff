@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: >-
+  If you use EISyn, please cite this software and identify the commit or
+  release used. Version-specific DOI metadata will be added when a release
+  is archived.
+type: software
+title: "EISyn: Partial Effective Information Decomposition and Synergy Partition Trees"
+authors:
+  - name: EISyn contributors
+repository-code: "https://github.com/Matthew-ymz/EISyn"
+url: "https://github.com/Matthew-ymz/EISyn"
+license: MIT
+keywords:
+  - effective information
+  - partial effective information decomposition
+  - synergistic causality
+  - synergy partition tree

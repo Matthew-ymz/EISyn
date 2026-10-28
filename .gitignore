@@ -34,9 +34,18 @@ ENV/
 
 # Local agent / workspace tooling
 /AGENTS.md
+.workbuddy/
 .superpowers/
 .skill_staging/
 .worktrees/
+.npm-cache/
+/.zprofile
+
+# Local manuscript review and revision artifacts
+/docs/reports/ncs-*.html
+/docs/reports/manuscript_revision_recheck_20261028.md
+/paper_assets/two_source_pid_revision/
+/paper_assets/figure1_review_preview/
 
 # Experiment caches and heavyweight artifacts
 tmp/
@@ -117,3 +126,17 @@ formalization/.lake/
 *.olean
 *.ilean
 *.trace
+
+# Local Chinese manuscript reports
+/docs/reports/Method.md
+/docs/reports/Part1.md
+/docs/reports/brain.md
+/docs/reports/earth.md
+/docs/reports/nyc_taxi.md
+/docs/reports/appendix_lean_verification_20261027.md
+/docs/reports/continuous_tm_estimator_audit.md
+/docs/reports/dmf_large_coalition_recurrence.md
+/docs/reports/dmf_roi_highlights.md
+/docs/reports/dmf_sc_spt_participant_frequency.md
+/docs/reports/spt_node_size_interpretation.md
+/docs/reports/urban_temporal_grouping_audit.md

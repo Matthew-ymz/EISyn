@@ -1,0 +1,16 @@
+# Reference direct dependencies for Python 3.11.
+# Install from the repository root: python -m pip install -r requirements.txt
+# These pins are not a complete lock of transitive dependencies.
+numpy==1.26.4
+scipy==1.11.4
+pandas==2.1.4
+matplotlib==3.11.1
+scikit-learn==1.9.0
+networkx==3.6.1
+Pillow==12.3.0
+threadpoolctl==3.6.0
+tqdm==4.68.4
+
+# Neural transition models and climate data.
+torch==2.4.1
+xarray==2024.1.1

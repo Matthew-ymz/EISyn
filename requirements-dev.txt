@@ -1,0 +1,8 @@
+# Tests, notebooks and metadata inspection.
+-r requirements.txt
+pytest==9.1.1
+jupyterlab>=4.2,<5
+ipykernel>=6.29,<8
+nbformat>=5.10,<6
+nbconvert>=7.16,<8
+PyYAML>=6.0,<7

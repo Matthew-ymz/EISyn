@@ -1,0 +1,19 @@
+# Additional dependencies for data preparation, brain surfaces and comparisons.
+# This profile is optional; external datasets and model code are separate.
+-r requirements.txt
+
+# NYC Taxi parquet inputs; climate and brain data formats.
+pyarrow==25.0.0
+netCDF4>=1.6.5,<2
+h5py>=3.10,<4
+nibabel>=5.2,<6
+nilearn>=0.10.4,<0.13
+templateflow>=24.2,<27
+
+# Comparison methods and exploratory analyses.
+shap==0.46.0
+tigramite>=5.2,<6
+nflows==0.14
+statsmodels>=0.14.2,<0.15
+seaborn>=0.13.2,<0.14
+openpyxl>=3.1.2,<4

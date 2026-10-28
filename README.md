@@ -1,222 +1,90 @@
 # EISyn
 
-EISyn 是一个围绕 **Partial Effective Information Decomposition (PEID)**、effective information (EI) 与协同因果的研究仓库。仓库同时包含理论文档、可复现实验 notebook、命令行脚本、结果图表和 pytest 测试，用于研究离散系统、连续非线性动力学、气候时空网关、空气质量网络、脑网络与公司面板数据中的高阶因果结构。
+Research code for **Revealing hierarchies of synergistic causal interactions in
+complex systems**. The repository supports Partial Effective Information
+Decomposition (PEID), integrated effective information and Synergy Partition
+Trees (SPT), with controlled dynamical benchmarks and applications to brain
+models, climate prediction and urban mobility.
 
-## 研究主线
+## Installation
 
-当前仓库围绕以下问题组织：
-
-- PEID / EI 在离散布尔系统、马尔可夫系统与 IIT 2.0 main complex 对照中的定义、分解与可视化。
-- 线性高斯、Mediano 风格 benchmark、Runge 时空 causal gateway / mediator 中的 EI 与协同因果读出。
-- transport-map mutual information 在连续非线性动力学中的干预式 EI 估计，包括 Lorenz-96、已知动力学、密度估计和 L 敏感性实验。
-- 真实数据应用，包括长三角 / 京津冀空气质量网络、NCEP/NCAR SLP Runge 分量、Lausanne 脑网络、microbiome network revival 与 Compustat 公司面板 PEID 超图。
-- 高阶 PEID 协同超图、pairwise MLP/GRU/RNN 预测读出、Granger vs PEID 对照，以及与论文写作相关的研究框架文档。
-
-论文级研究框架主要在 [docs/研究框架.md](docs/研究框架.md) 与 [docs/研究框架_附录.md](docs/研究框架_附录.md)。Runge 实验综述在 [docs/runge_experiments.md](docs/runge_experiments.md)。Lorenz-96 TM-EI 实验说明在 [exp/TM/lorzen/README.md](exp/TM/lorzen/README.md)。
-
-## 仓库结构
-
-```text
-EISyn/
-├── README.md              # 仓库入口说明
-├── AGENTS.md              # 协作、绘图、长实验缓存和最新论文与代码一致性规则
-├── utils.py               # 离散 EI/PID、TPM、benchmark、绘图等通用工具
-├── density_benchmark.py   # density / transport-map benchmark 支持代码
-├── yrd/                   # 长三角空气质量实验 Python 包
-├── scripts/               # CLI 入口、复现实验、批处理与文档导出脚本
-├── exp/                   # notebook、实验模块与实验子项目
-├── docs/                  # 研究框架、实验报告、调参日志与参考材料
-├── fig/                   # 直接可查看的实验图表
-├── results/               # 结构化结果产物，通常被 .gitignore 排除
-├── data/                  # 本地数据集，通常被 .gitignore 排除
-└── tests/                 # pytest 测试与 notebook smoke 测试
-```
-
-`.gitignore` 默认排除缓存、模型权重、大体量数据和多数结果目录，包括 `exp/cache/`、`results/`、`data/*.nc`、`data/*.csv`、`*.pt`、`*.pth`、`*.ckpt`、`*.onnx` 等。实验图优先以可直接查看的 PNG 作为文档引用资产。
-
-## 主要代码模块
-
-### `utils.py`
-
-仓库的主工具库，包含：
-
-- 离散状态空间、TPM 构造与布尔机制枚举。
-- EI、PID、协同分解、main-complex / benchmark 相关工具。
-- Marshall Example 1、Mediano benchmark、因果图与超图渲染。
-- headless matplotlib 设置，便于在 CI / 远程环境中稳定出图。
-
-### `yrd/`
-
-长三角空气质量实验的核心包，当前代码集中在 `yrd/__init__.py`，保留原模块分段注释。主要职责包括：
-
-- 数据读取、站点筛选、滑窗样本与 train/validation/test 切分。
-- 多站点联合预测模型、训练循环、checkpoint 管理。
-- Jacobian / NIS / transport-map MI 协同估计。
-- 上海、杭州与多城市 air-search notebook 的轻量封装。
-- 因果图、协同摘要、Markdown / JSON 报告和横向对比图生成。
-
-### `exp/TM/`
-
-transport-map EI 与连续动力学实验，包括：
-
-- `tm_nonlinear.ipynb`：已知非线性动力学下的 TM-MI / EI 验证。
-- `tm_ei_l_baseline.ipynb`：不同 intervention support `L` 与 baseline 的 EI 对照。
-- `transport_map_density.py`、`transport_map_density_demo.ipynb`：TM density estimation demo。
-- `lorzen_tm_ei.py`、`lorzen_synergy.py`、`lorzen/README.md`：Lorenz-96 TM-EI 因果恢复、lag sweep、MLP intervention 与二源协同验证。
-
-## 实验入口
-
-### 离散系统与因果涌现
-
-- [exp/main_complex.ipynb](exp/main_complex.ipynb)：5 节点布尔系统中 IIT 2.0 `Phi` 与 `Phi^EID` 对照。
-- [exp/boolean_motif_causal_graphs.ipynb](exp/boolean_motif_causal_graphs.ipynb)：COPY / AND / XOR 机制的因果图与协同超边。
-- [exp/marshall_example1_macro_search.ipynb](exp/marshall_example1_macro_search.ipynb)：Marshall et al. Example 1 粗粒化搜索。
-- [exp/discrete_benchmark.ipynb](exp/discrete_benchmark.ipynb)：六个八节点 Mediano 风格 benchmark。
-- [exp/rq3_manual_case.ipynb](exp/rq3_manual_case.ipynb) 与 [exp/rq3_boolean_causal_emergence.ipynb](exp/rq3_boolean_causal_emergence.ipynb)：RQ3 因果涌现实验。
-- [docs/ref/phi_eid_greedy_5d_example.md](docs/ref/phi_eid_greedy_5d_example.md) 与 [scripts/validate_greedy_hierarchy_known_dynamics.py](scripts/validate_greedy_hierarchy_known_dynamics.py)：五源双 XOR 已知动力学的闭式 EI、有限样本估计与 Greedy 层级恢复正对照。
-- [docs/ref/kuramoto_greedy_hierarchy_known_dynamics.md](docs/ref/kuramoto_greedy_hierarchy_known_dynamics.md) 与 [scripts/validate_greedy_hierarchy_kuramoto.py](scripts/validate_greedy_hierarchy_kuramoto.py)：模块化六振子 Kuramoto 连续动力学、degree-2 TM-EI 与 Greedy 层级恢复主正对照。
-
-### 连续动力学与 TM-EI
-
-- [docs/ref/kuramoto_synchronization_reproduction.md](docs/ref/kuramoto_synchronization_reproduction.md)：全局耦合 `N=64` Kuramoto 同步转变图的代码定位、完整运行命令和预期数值；显式固定截图所用的 19 个耦合值与两个种子。
-- [exp/linear_gaussian_benchmark.ipynb](exp/linear_gaussian_benchmark.ipynb)：线性高斯 benchmark 与 Mediano 指标族比较。
-- [exp/TM/tm_nonlinear.ipynb](exp/TM/tm_nonlinear.ipynb)：非线性动力学下 TM-MI 协同估计。
-- [exp/TM/tm_ei_l_baseline.ipynb](exp/TM/tm_ei_l_baseline.ipynb)：EI 的 `L` 敏感性与 baseline 支持集对照。
-- [exp/TM/lorzen/README.md](exp/TM/lorzen/README.md)：Lorenz-96 因果恢复实验，当前推荐 lag=3 观测路径、delta surrogate intervention 与 MLP intervention。
-
-### Runge / 气候网关
-
-- [docs/runge_experiments.md](docs/runge_experiments.md)：Runge 线性复现、MLP-TM-EI path-effect 与 PEID 二阶超图的汇总说明。
-- [scripts/reproduce_runge2015_gateways.py](scripts/reproduce_runge2015_gateways.py)：Runge 2015 causal gateway / mediator 线性复现。
-- [scripts/run_runge_pairwise_mlp_ei.py](scripts/run_runge_pairwise_mlp_ei.py)：pairwise MLP-EI 读出。
-- [scripts/run_runge_peid_hypergraph.py](scripts/run_runge_peid_hypergraph.py)：Runge 分量上的 PEID 高阶协同超图。
-- [scripts/run_runge_rnn_forecast_comparison.py](scripts/run_runge_rnn_forecast_comparison.py)：RNN / GRU history sweep 与预测对照。
-- [exp/runge_slp_60d_visualization/](exp/runge_slp_60d_visualization/)：60 个 SLP Varimax 分量可视化与 synthetic GRU 支持代码。
-
-### 空气质量与真实数据
-
-- [yrd/yrd_hangzhou_tm_graph.ipynb](yrd/yrd_hangzhou_tm_graph.ipynb)：杭州站点 TM 因果图实验。
-- [exp/o3_h1_tm_peid_results.ipynb](exp/o3_h1_tm_peid_results.ipynb)：O3 horizon-1 TM / PEID 结果整理。
-- [exp/bthsa_pm25_deweather_shap.ipynb](exp/bthsa_pm25_deweather_shap.ipynb)：PM2.5 deweathering 与 SHAP 分析。
-- [scripts/run_yrd_experiment.py](scripts/run_yrd_experiment.py)：长三角实验 smoke CLI。
-- [scripts/run_air_search.py](scripts/run_air_search.py)：多城市 air-search 的 coarse / refine / report 调度。
-
-### 其他应用
-
-- [exp/company_ce/](exp/company_ce/) 与 [scripts/company_ce/](scripts/company_ce/)：Compustat 公司面板 QTPM 与 PEID 因果超图。
-- [exp/network_revival/](exp/network_revival/)：network revival、microbiome、multistable attractor 与协同 ignition 实验。
-- [exp/brain/](exp/brain/)：DMF Fig.6、Lausanne 脑网络与 downward causation notebook。
-- [exp/granger_peid_mlp_comparison.ipynb](exp/granger_peid_mlp_comparison.ipynb)：Granger 与 PEID / MLP 因果读出对照。
-- [scripts/classic_network_dynamics_benchmark.py](scripts/classic_network_dynamics_benchmark.py)：Kuramoto、耦合 Rössler、SIS 与 Wilson–Cowan 向量场上的 Granger / SHAP / SURD / PEID 对照。
-- [scripts/lorenz3d_multihorizon_peid.py](scripts/lorenz3d_multihorizon_peid.py)：三维 Lorenz 自然轨迹直接多步 MLP、Oracle/MLP PEID 与参数扫描。
-- [scripts/coupled_standard_map_peid.py](scripts/coupled_standard_map_peid.py)：双转子耦合 standard map 的周期 MLP、Oracle/MLP PEID 与条件 Mixed-MLP 实验。
-- [scripts/compare_coupled_standard_map_methods.py](scripts/compare_coupled_standard_map_methods.py)：沿耦合强度扫描比较 WMS、MLP+SHAP、SURD、PCMCI-CMIknn、Neural Granger 与 MLP+PEID。
-- [exp/mediated_peid_known_dynamics.ipynb](exp/mediated_peid_known_dynamics.ipynb)：已知动力学中的 mediated PEID 验证。
-
-当前论文配套报告集中在 [docs/reports](docs/reports/README.md)：[Method](docs/reports/Method.md)、[Part1](docs/reports/Part1.md)、[Brain](docs/reports/brain.md)、[Earth](docs/reports/earth.md) 和 [NYC Taxi](docs/reports/nyc_taxi.md)。实验细节、数值限制和复现索引并入各主文档。
-
-## 常用命令
-
-运行测试：
+Use **Python 3.11** and run commands from the repository root:
 
 ```bash
-pytest tests/
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-复现已知动力学的 Greedy 层级恢复：
+A Conda alternative is available through
+[environment.yml](environment.yml). Install [requirements-dev.txt](requirements-dev.txt)
+for tests and notebooks, and [requirements-experiments.txt](requirements-experiments.txt)
+for additional application dependencies.
+
+See the [installation guide](docs/INSTALL.md) for platform instructions, import
+checks and external data/model requirements. Installing dependencies does not
+download datasets, pretrained weights or cached results.
+
+## Manuscript experiments
+
+| Analysis | Entry points and documentation |
+|---|---|
+| Controlled dynamics and hierarchy recovery | [Figure 1 composition](scripts/compose_part1_figure1.py), [three-example comparison](scripts/compose_spt_three_examples.py), [reproduction index](docs/reports/README.md#controlled-dynamics) |
+| Brain dynamics and information organization | [Brain figure composition](scripts/compose_dmf_brain_main_figure.py), [ROI attribution](scripts/plot_dmf_roi_order_attribution.py), [reproduction index](docs/reports/README.md#brain) |
+| Climate prediction with UniCM | [UniCM analysis](scripts/unicm_peid_syn_analysis.py), [coalition attribution](scripts/analyze_unicm_11mode_shapley.py), [reproduction index](docs/reports/README.md#climate) |
+| NYC Taxi prediction and temporal hierarchy | [Data preparation](scripts/prepare_nyc_taxi_mgstn.py), [MGSTN training](scripts/train_nyc_taxi_mgstn.py), [SPT analysis](scripts/analyze_nyc_taxi_mgstn_spt.py), [reproduction index](docs/reports/README.md#urban-mobility) |
+| Supplementary analyses | Nonlinear-system comparisons, Kuramoto synchronization, HCP recordings, SLP climate modes and structural-connectivity comparisons; see the [report index](docs/reports/README.md) |
+
+The reproduction index identifies existing computation and figure sources. Figure-composition scripts use their upstream results; running a
+composition script alone does not recompute an experiment. Some linked data and
+results are local and still need publication archives for a complete paper
+release.
+
+## Shared code
+
+- [utils.py](utils.py): discrete information measures, transition matrices and
+  benchmark utilities.
+- [exp/TM/transport_map_density.py](exp/TM/transport_map_density.py): transport-map
+  density and mutual-information estimators.
+- [scripts/spt.py](scripts/spt.py): tree construction, split selection,
+  nonnegativity auditing and closure checks.
+- [density_benchmark.py](density_benchmark.py): density-estimation comparisons.
+- [formal/peid_appendix/](formal/peid_appendix/README.md): scoped Lean verification
+  of appendix identities and conditional arguments.
+
+Use the manuscript Methods and Supplementary Information for intervention
+settings, estimator approximations, units and numerical validity limits. The
+[reproduction index](docs/reports/README.md) maps analyses to code. Preserve each
+analysis's stated Syn tolerance and failure behavior.
+
+## Checks
+
+After installing the development dependencies:
 
 ```bash
-python scripts/validate_greedy_hierarchy_known_dynamics.py --seeds 12
+python -m pytest -q tests/test_spt_core.py tests/test_greedy_hierarchy_known_dynamics.py
 ```
 
-复现模块化 Kuramoto 的层级恢复与跨模块耦合扫描：
+These small checks cover the common tree contract and a known discrete system.
+They do not replace the full application-specific validation. See the
+[installation guide](docs/INSTALL.md#check-the-installation) for import checks.
 
-```bash
-python scripts/validate_greedy_hierarchy_kuramoto.py --mode full --seeds 3
-```
+## Data and outputs
 
-运行长三角 smoke pipeline：
+`data/` holds local input data and upstream model resources; `results/` and
+`exp/cache/` hold experiment results and reusable caches. `fig/`,
+`docs/reports/assets/` and `paper_assets/` hold figure exports. Many of these
+paths are excluded from Git, so a clone does not include every local artifact.
+Use the [reproduction index](docs/reports/README.md) and the selected scripts
+for resource locations and required inputs.
 
-```bash
-python -m scripts.run_yrd_experiment --smoke
-```
+## License and citation
 
-运行多城市 air-search：
+Repository-authored code is available under the [MIT License](LICENSE).
+Third-party software, pretrained weights and datasets retain their original
+licenses and access conditions.
 
-```bash
-python scripts/run_air_search.py coarse
-python scripts/run_air_search.py refine
-python scripts/run_air_search.py report
-```
-
-复现 Lorenz-96 推荐的 lag=3 TM-EI：
-
-```bash
-python -m exp.TM.lorzen_tm_ei exp/TM/lorzen/input \
-  --output-dir exp/TM/lorzen/results_lag3 \
-  --top-k 4 \
-  --target-mode next \
-  --estimator-mode observed \
-  --lag 3
-```
-
-运行 Lorenz-96 MLP intervention：
-
-```bash
-python -m exp.TM.lorzen_tm_ei \
-  --simulate-lorenz96-mlp \
-  --output-dir exp/TM/lorzen/results_mlp \
-  --top-k 4 \
-  --lag 15 \
-  --box-width 8.0 \
-  --sample-count 3000 \
-  --steps 8000 \
-  --burn-in 1000 \
-  --train-sample-count 5000 \
-  --hidden-layer-sizes 128,64 \
-  --max-iter 1000 \
-  --seed 4
-```
-
-导出研究框架 PDF：
-
-```bash
-python scripts/export_research_framework_pdf.py
-```
-
-## 结果与图表
-
-主要图表目录：
-
-- `fig/runge/`：Runge gateway / mediator、pairwise MLP-EI、MLP-TM-EI、PEID hypergraph、RNN history sweep 与 SLP 分量可视化。
-- `fig/transport_map_mutual_information/`：TM density、非线性协同、`L` sensitivity 与 baseline 对照。
-- `fig/yrd_shanghai/`、`fig/yrd_air_search/`：上海 / 杭州空气质量因果图与 TM 稳定性结果。
-- `fig/company_ce/`：公司面板 QTPM 与 PEID 鲁棒性扫描图。
-- `fig/network_revival_microbiome/`、`exp/network_revival/figures/`：network revival 与 microbiome 结果图。
-- `fig/dmf_fig6_brodmann82/`、`exp/brain/result_lausanne_fig6/`：脑网络复现实验产物。
-
-结构化结果通常写入 `results/` 或实验子目录下的 `results_*`，长实验缓存写入 `exp/cache/` 或 notebook-adjacent cache。大体量结果默认不进入版本控制。
-
-## 文档
-
-- [docs/研究框架.md](docs/研究框架.md)：PEID 论文正文草稿。
-- [docs/研究框架_附录.md](docs/研究框架_附录.md)：证明、连续情形推导与复杂度估算。
-- [docs/runge_experiments.md](docs/runge_experiments.md)：Runge 线性复现、非线性 EI 与 PEID 超图实验报告。
-- [docs/谱间隙与协同源凝聚.md](docs/谱间隙与协同源凝聚.md)：谱间隙驱动多步低秩化与协同源凝聚的理论、反例和解析 toy examples。
-- [docs/granger_peid_mlp_comparison.md](docs/granger_peid_mlp_comparison.md)：Granger / PEID / MLP 对照结果。
-- [docs/iid_fig6_phi_eid_comparison.md](docs/iid_fig6_phi_eid_comparison.md)：IIT / `Phi^EID` 对照说明。
-- [docs/高阶PEID协同定义.md](docs/高阶PEID协同定义.md)：高阶协同定义草稿。
-- [docs/log/](docs/log/) 与 [docs/superpowers/](docs/superpowers/)：调参日志、设计文档与执行计划。
-
-## 协作约定
-
-见 [AGENTS.md](AGENTS.md)。关键规则包括：
-
-- 实验图例不要遮挡线、点、柱或置信区间；密集图优先把 legend 放在轴外右侧。
-- 实验结果默认先产出可直接查看的 PNG；除非文档构建或用户明确要求，不默认导出 PDF / SVG / TIFF 伴随文件。
-- 长实验仅在重算成本高或用户要求时持久化机器可读缓存。
-- PEID、EI/Syn、SPT 相关任务应先通过 Zotero 阅读《Revealing hierarchies of synergistic causal interactions in complex systems》的最新相关稿件，并核对论文方法与代码行为的一致性；文献或全文不可用时需明确说明。
-
-## 数据说明
-
-`data/` 中的数据文件通常是本地大文件，不随仓库提交。当前实验涉及的数据包括空气质量 / 气象 / 排放 NetCDF 与站点元数据、Compustat 年度面板、NCEP/NCAR SLP 相关派生产物等。需要复现实验时，应先确认对应 notebook 或脚本引用的数据路径是否存在。
+Use [CITATION.cff](CITATION.cff) for software citation metadata and identify the
+commit or release used. Version-specific DOI metadata will be added when the
+paper code is archived.
